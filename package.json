@@ -37,5 +37,5 @@
     "vitest": "^3.0.8",
     "zod": "^3.24.2"
   },
-  "packageManager": "pnpm@10.15.0"
+  "packageManager": "pnpm@11.22.0"
 }
