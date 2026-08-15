@@ -244,7 +244,15 @@ export type {
 } from './route'
 export { createStore } from './store'
 export type { Store } from './store'
-export { RouterCore, createRouter, trailingSlashOptions, getLocationChangeInfo } from './router'
+export {
+  RouterCore,
+  createRouter,
+  trailingSlashOptions,
+  getLocationChangeInfo,
+  runRouteLifecycle,
+  SearchParamError as RouterSearchParamError,
+  PathParamError as RouterPathParamError,
+} from './router'
 export type {
   ViewTransitionOptions,
   TrailingSlashOption,
@@ -483,5 +491,5 @@ export {
   LazyRouteClass,
   FileRouteLoader,
 } from './file-route'
-export { lazyFn, SearchParamError } from './misc'
+export { lazyFn, SearchParamError, PathParamError } from './misc'
 export { rewriteBasepath, executeRewriteInput, executeRewriteOutput } from './rewrite'
