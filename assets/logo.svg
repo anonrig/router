@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="@anonrig/router">
+  <style>
+    .mark { fill: #111111 }
+    .accent { fill: #f59e0b }
+    @media (prefers-color-scheme: dark) {
+      .mark { fill: #f4f4f5 }
+    }
+  </style>
+  <path class="mark" d="M10 14h8l18 18-18 18h-8l18-18z"/>
+  <path class="accent" d="M28 14h8l18 18-18 18h-8l18-18z"/>
+</svg>

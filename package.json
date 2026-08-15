@@ -2,7 +2,7 @@
   "name": "@anonrig/router",
   "version": "0.0.0",
   "private": true,
-  "description": "A faster React router with the TanStack Router API",
+  "description": "The TanStack Router API. Rebuilt for the hot path.",
   "license": "MIT",
   "type": "module",
   "scripts": {

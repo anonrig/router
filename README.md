@@ -1,54 +1,37 @@
+<div align="center">
+
+<img src="assets/logo.svg" width="72" height="72" alt="@anonrig/router" />
+
 # @anonrig/router
 
-A React 19.2 router with the [TanStack Router](https://github.com/TanStack/router) API, written to be faster on the hot path.
+**The TanStack Router API. Rebuilt for the hot path.**
 
-Requires **React 19.2** and **React DOM 19.2**. React 18 and other 19.x lines are not supported.
+A from-scratch React 19.2 router. Same public names. Faster navigations. Faster SSR.
 
-This is a from-scratch implementation. Public names match `@tanstack/react-router` so existing apps and TanStack's own test suite can run against it.
+[![CI](https://github.com/anonrig/router/actions/workflows/ci.yml/badge.svg)](https://github.com/anonrig/router/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React-19.2-149ECA?logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
-## Why it is faster
+<br />
 
-The compatibility surface is the TanStack Router API. The internals are not a fork.
+|                        |                            |                          |
+| :--------------------: | :------------------------: | :----------------------: |
+|       **3.57×**        |         **1.79×**          |        **61,681**        |
+| faster warm `navigate` | faster SSR request handler | cold `router.load` / sec |
 
-Head-to-head numbers against published TanStack Router are in [Benchmarks](#benchmarks). The wins that show up there are on the full request path, not every micro-primitive:
+<sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
 
-- **Navigation and SSR load** skip work TanStack still does per request (store setup, match-object construction, search parsing). Warm `navigate` and cold `router.load` / `createRequestHandler` are the operations that matter for req/s.
-- **`cleanPath`** walks character codes instead of allocating with regex replace.
-- **Query-string and trie matching** are still custom scanners in this repo. On Node 22 they lose to TanStack's native `URLSearchParams` helpers and published matcher; they are kept because they avoid jsdom/`URLSearchParams` costs in the browser test environment and keep the hot path allocation-light. That tradeoff is deliberate and visible in the table.
-
-## Deliberate differences from TanStack Router
-
-- **No `isbot`.** TanStack's `renderRouterToStream` inspects `User-Agent` with the `isbot` package and, for crawlers, waits for React's `allReady` / `onAllReady` so the first byte is a complete document. This router never does that. Every SSR stream starts on `onShellReady` and flushes incrementally, including requests that look like bots. That keeps the dependency out of the hot SSR path and avoids a User-Agent parse on every request. If you need crawlers to receive fully buffered HTML, wait for `stream.allReady` in your own render handler.
-
-## Packages
-
-| Package                 | Role                                             |
-| ----------------------- | ------------------------------------------------ |
-| `@anonrig/history`      | Browser, hash, and memory history                |
-| `@anonrig/router-core`  | Matcher, navigation, loaders, search params      |
-| `@anonrig/react-router` | React bindings (`RouterProvider`, `Link`, hooks) |
-
-## Install (workspace)
-
-```bash
-pnpm install
-pnpm test
-pnpm test:tanstack
-pnpm bench
-pnpm bench:rps
-pnpm bench:all
-```
-
-## Drop-in usage
+</div>
 
 ```tsx
 import {
+  Link,
+  Outlet,
   RouterProvider,
   createRootRoute,
   createRoute,
   createRouter,
-  Link,
-  Outlet,
 } from '@anonrig/react-router'
 
 const rootRoute = createRootRoute({
@@ -75,82 +58,137 @@ export function App() {
 }
 ```
 
-Alias `@tanstack/react-router` to `@anonrig/react-router` if you want to keep existing imports.
+Keep your existing `@tanstack/react-router` imports. Point the alias at `@anonrig/react-router`.
 
-## Tests
+## Why this exists
 
-- `pnpm test` runs this repo's unit tests (path, query string, matcher, React navigation).
-- `pnpm test:tanstack` runs the vendored TanStack Router runtime tests against this implementation.
-- `pnpm bench` runs first-party plus copied TanStack router-core benches.
-- `pnpm bench:compare` / `pnpm bench:rps` times the same operations on this router and on published TanStack Router.
-- `pnpm bench:all` also runs the copied TanStack Link and closing-tag detection benches.
+TanStack Router is the right API: typed routes, loaders, search params, nested layouts. The internals were not written for the cost of every navigation and every SSR request.
 
-Current status:
+This repo is not a fork. The compatibility surface is the TanStack Router API. The hot path is new: less store setup, less match-object construction, less work before the first byte.
 
-- Local unit tests: passing
-- Vendored TanStack history tests: passing
-- Vendored TanStack core runtime tests: the isolated path/qss/utils/search/match files pass; load/preload/SSR lifecycle files are vendored and still fail
-- Vendored TanStack type tests (`pnpm test:types`): passing
-- Vendored TanStack React runtime tests: a handful of files pass; remaining work is pending/preload/SSR/hydration
-- `pnpm lint` and `pnpm fmt:check` are the CI gates for first-party code
+If you already know TanStack Router, you already know this router.
 
-## Benchmarks
+## Features
 
-Measured on a 4-core Intel Xeon (Linux, Node 22). Same process, same timed loops, in-memory, no HTTP server. Re-run with `pnpm bench:compare`.
+- **Same API.** `createRouter`, `Link`, `Outlet`, loaders, search params, nested routes. Public names match `@tanstack/react-router` so existing apps and TanStack's own tests can run against it.
+- **Faster where it counts.** Warm client navigations and cold SSR `load` / `createRequestHandler` beat published TanStack Router on the same machine. Those are the operations that show up as req/s.
+- **Streaming SSR.** Every stream starts on `onShellReady` and flushes incrementally. No `isbot`, no User-Agent parse, no waiting for a complete document because a crawler might be watching.
+- **React 19.2 only.** Peers are pinned to `react` and `react-dom` `~19.2.0`. No compatibility tax for React 18.
+- **Typed the same way.** Vendored TanStack type tests pass. Route trees, params, and search stay on the TanStack type surface.
+- **Measured in the open.** Head-to-head benches live in the repo. Re-run them. The wins and the losses are both in the table.
 
-TanStack side is the published packages, not this repo's `@tanstack/*` test aliases:
+## Quick start
 
+React 19.2 and React DOM 19.2 are required. Clone the workspace and import the packages:
+
+```bash
+pnpm install
+pnpm test
+pnpm bench:compare
+```
+
+| Package                                          | What you import                               |
+| ------------------------------------------------ | --------------------------------------------- |
+| [`@anonrig/react-router`](packages/react-router) | `RouterProvider`, `Link`, hooks, SSR bindings |
+| [`@anonrig/router-core`](packages/router-core)   | Matcher, navigation, loaders, search params   |
+| [`@anonrig/history`](packages/history)           | Browser, hash, and memory history             |
+
+## Performance
+
+Routing cost is not a microbenchmark. It is every click and every request.
+
+On a 4-core Intel Xeon, Linux, Node 22, single process, in memory, no HTTP server:
+
+<div align="center">
+
+|                        |    @anonrig | TanStack |           |
+| ---------------------- | ----------: | -------: | --------: |
+| Warm `navigate`        | **166,275** |   46,583 | **3.57×** |
+| `createRequestHandler` |  **27,541** |   15,422 | **1.79×** |
+| SSR cold `router.load` |  **61,681** |   38,842 | **1.59×** |
+
+</div>
+
+`createRequestHandler` is the full server entry: normalize the URL, attach SSR utils, load, dehydrate. Cold `router.load` is match + loaders only. Warm `navigate` reuses one router.
+
+TanStack side is the published packages, not this repo's test aliases:
+
+- `@tanstack/react-router@1.170.29`
 - `@tanstack/router-core@1.171.24`
 - `@tanstack/history@1.162.1`
-- `@tanstack/react-router@1.170.29`
 
-**req/s** is one `router.load()` (or one `createRequestHandler`) per request on a fresh router. Warm navigate/load reuse one router. `vs` is `@anonrig` ops/s ÷ TanStack ops/s.
+```bash
+pnpm bench:compare
+```
 
-| Operation                        |   @anonrig |   TanStack | vs TanStack |
-| -------------------------------- | ---------: | ---------: | ----------: |
-| Query-string encode              |    892,070 |  2,921,693 |       0.31× |
-| Query-string decode              |  1,099,244 |  1,420,655 |       0.77× |
-| `defaultStringifySearch` (×1000) |      910.2 |      3,049 |       0.30× |
-| `parseHref`                      |  1,525,611 |  2,980,266 |       0.51× |
-| `cleanPath`                      |  7,945,612 |  6,289,894 |       1.26× |
-| `resolvePath`                    |  3,362,085 |  4,024,584 |       0.84× |
-| `interpolatePath`                |  1,490,983 |  2,130,015 |       0.70× |
-| Route match (large tree)         |  1,934,010 | 20,633,624 |       0.09× |
-| Encode 100 typical SSR match IDs |     28,489 |     29,981 |       0.95× |
-| History `push`                   |  1,105,272 |  1,189,807 |       0.93× |
-| Warm `navigate`                  |    166,275 |     46,583 |       3.57× |
-| Warm `router.load`               |    186,323 |    171,826 |       1.08× |
-| **SSR cold `router.load` req/s** | **61,681** | **38,842** |   **1.59×** |
-| **`createRequestHandler` req/s** | **27,541** | **15,422** |   **1.79×** |
+### Full comparison
 
-`createRequestHandler` is the full server entry (normalize URL, attach SSR utils, load, dehydrate). Cold `router.load` is the match + loader path only.
+| Operation                        |    @anonrig |   TanStack | vs TanStack |
+| -------------------------------- | ----------: | ---------: | ----------: |
+| Query-string encode              |     892,070 |  2,921,693 |       0.31× |
+| Query-string decode              |   1,099,244 |  1,420,655 |       0.77× |
+| `defaultStringifySearch` (×1000) |       910.2 |      3,049 |       0.30× |
+| `parseHref`                      |   1,525,611 |  2,980,266 |       0.51× |
+| `cleanPath`                      |   7,945,612 |  6,289,894 |       1.26× |
+| `resolvePath`                    |   3,362,085 |  4,024,584 |       0.84× |
+| `interpolatePath`                |   1,490,983 |  2,130,015 |       0.70× |
+| Route match (large tree)         |   1,934,010 | 20,633,624 |       0.09× |
+| Encode 100 typical SSR match IDs |      28,489 |     29,981 |       0.95× |
+| History `push`                   |   1,105,272 |  1,189,807 |       0.93× |
+| Warm `navigate`                  | **166,275** |     46,583 |   **3.57×** |
+| Warm `router.load`               |     186,323 |    171,826 |       1.08× |
+| SSR cold `router.load` req/s     |  **61,681** |     38,842 |   **1.59×** |
+| `createRequestHandler` req/s     |  **27,541** |     15,422 |   **1.79×** |
 
-TanStack's query-string helpers use Node's native `URLSearchParams`, which wins the microbenches here. Earlier “17× `URLSearchParams`” numbers were against jsdom's polyfill in `pnpm bench`, not against TanStack on Node. The trie matcher in published `@tanstack/router-core` is also faster on a large static tree. This router is ahead on the full navigation and SSR request path: warm `navigate`, cold `load`, and `createRequestHandler`.
+TanStack's query-string helpers use Node's native `URLSearchParams`, which wins those microbenches. The published trie matcher is faster on a large static tree. This router is ahead on the full navigation and SSR request path.
 
-### Copied TanStack benches
+jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
-Every **router-core** and **react-router** unit bench from TanStack Router is in `benches/tanstack/`:
+Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 
-- `search-params.bench.ts` — `defaultStringifySearch` batches (1,000 encodes/iteration)
-- `ssr-match-id.bench.ts` — dehydrate/hydrate 100 match IDs
-- `closing-tag-detection.bench.ts` — HTML injection boundary scanners
-- `link.bench.tsx` — 5,000 links on small (1 route) and medium (1,000 route) trees
+## Streaming, on purpose
 
-TanStack's Nx Start apps (SSR/client-nav/memory/bundle-size for React/Vue/Solid) are not copied. They need `@tanstack/react-start`, generated route trees, and a built server bundle.
+TanStack's `renderRouterToStream` inspects `User-Agent` with `isbot` and, for crawlers, waits for React's `allReady` / `onAllReady` so the first byte is a complete document.
 
-`defaultStringifySearch` and SSR match-ID encode are in the comparison table above (those copied files still alias `@tanstack/*` to this repo). Closing-tag and Link numbers below are this implementation only; they are algorithm / React-render benches, not a second TanStack package run.
+This router never does that.
 
-| Bench                                       |         hz |
-| ------------------------------------------- | ---------: |
-| Closing-tag scan, 13KB chunk (`charCodeAt`) | 12,823,515 |
-| Same chunk, regex                           |     59,388 |
-| Link, small router, hardcoded `<a href>`    |       12.8 |
-| Link, small router, `<Link to>`             |        4.2 |
-| Link, medium router, hardcoded `<a href>`   |       10.9 |
-| Link, medium router, `<Link to>`            |        4.2 |
+Every SSR stream starts on `onShellReady` and flushes incrementally, including requests that look like bots. That keeps a dependency out of the hot path and avoids a User-Agent parse on every request.
 
-The stream HTML scanner already uses a `charCodeAt` / `lastIndexOf('</')` walk, which is ~200× faster than regex on large chunks in that bench.
+If you need crawlers to receive fully buffered HTML, wait for `stream.allReady` in your own render handler.
+
+## Compatibility
+
+The goal is a drop-in for apps written against `@tanstack/react-router`. In this workspace, alias the TanStack names to the local packages:
+
+```ts
+// vitest / vite
+resolve: {
+  alias: {
+    '@tanstack/react-router': '@anonrig/react-router',
+    '@tanstack/router-core': '@anonrig/router-core',
+    '@tanstack/history': '@anonrig/history',
+  },
+}
+```
+
+| Suite                                                 | Status                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------------- |
+| First-party unit tests                                | Passing                                                             |
+| Vendored TanStack history tests                       | Passing                                                             |
+| Vendored TanStack type tests                          | Passing                                                             |
+| Vendored TanStack core path / qss / search / match    | Passing                                                             |
+| Vendored TanStack core load / preload / SSR lifecycle | Vendored, still failing                                             |
+| Vendored TanStack React runtime                       | A handful of files pass; pending / preload / SSR / hydration remain |
+
+```bash
+pnpm test                 # first-party
+pnpm test:tanstack        # vendored TanStack runtime
+pnpm test:types           # vendored TanStack types
+pnpm bench                # vitest benches
+pnpm bench:compare        # head-to-head vs published TanStack
+pnpm lint && pnpm fmt:check
+```
 
 ## License
 
-MIT. TanStack Router is also MIT; its tests and benches are vendored for compatibility and its copyright remains with Tanner Linsley.
+MIT. TanStack Router is also MIT. Its tests and benches are vendored for compatibility; copyright remains with Tanner Linsley.
