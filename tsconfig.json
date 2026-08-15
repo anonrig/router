@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "paths": {
+      "@anonrig/history": ["./packages/history/src/index.ts"],
+      "@anonrig/router-core": ["./packages/router-core/src/index.ts"],
+      "@anonrig/react-router": ["./packages/react-router/src/index.ts"],
+      "@tanstack/history": ["./packages/history/src/index.ts"],
+      "@tanstack/router-core": ["./packages/router-core/src/index.ts"],
+      "@tanstack/react-router": ["./packages/react-router/src/index.ts"]
+    }
+  },
+  "include": ["packages", "benches", "tests"]
+}

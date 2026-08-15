@@ -1,0 +1,7 @@
+This repository includes compatibility tests copied from TanStack Router
+(https://github.com/TanStack/router), which is licensed under the MIT License.
+
+Copyright (c) 2021-present Tanner Linsley
+
+The runtime implementation in packages/ is original work and is licensed
+under the MIT License (see LICENSE).

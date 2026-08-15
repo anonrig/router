@@ -1,0 +1,32 @@
+{
+  "name": "@anonrig/router",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A faster React router with the TanStack Router API",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:tanstack": "vitest run --config vitest.tanstack.config.ts",
+    "bench": "vitest bench --run benches",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@types/node": "^22.13.10",
+    "@types/react": "~19.2.0",
+    "@types/react-dom": "~19.2.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "react": "~19.2.0",
+    "react-dom": "~19.2.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.8",
+    "zod": "^3.24.2"
+  }
+}

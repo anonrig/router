@@ -1,0 +1,251 @@
+export {
+  defer,
+  isMatch,
+  joinPaths,
+  cleanPath,
+  trimPathLeft,
+  trimPathRight,
+  trimPath,
+  resolvePath,
+  interpolatePath,
+  rootRouteId,
+  defaultParseSearch,
+  defaultStringifySearch,
+  parseSearchWith,
+  stringifySearchWith,
+  functionalUpdate,
+  replaceEqualDeep,
+  isPlainObject,
+  isPlainArray,
+  deepEqual,
+  createControlledPromise,
+  retainSearchParams,
+  stripSearchParams,
+  createSerializationAdapter,
+  redirect,
+  isRedirect,
+  createRouterConfig,
+  DEFAULT_PROTOCOL_ALLOWLIST,
+  lazyFn,
+  SearchParamError,
+  notFound,
+  isNotFound,
+  composeRewrites,
+} from '@anonrig/router-core'
+
+export type {
+  AnyRoute,
+  DeferredPromiseState,
+  DeferredPromise,
+  ParsedLocation,
+  RemoveTrailingSlashes,
+  RemoveLeadingSlashes,
+  ActiveOptions,
+  ResolveRelativePath,
+  RootRouteId,
+  AnyPathParams,
+  ResolveParams,
+  ResolveOptionalParams,
+  ResolveRequiredParams,
+  SearchSchemaInput,
+  AnyContext,
+  RouteContext,
+  PreloadableObj,
+  RoutePathOptions,
+  StaticDataRouteOption,
+  RoutePathOptionsIntersection,
+  UpdatableStaticRouteOption,
+  MetaDescriptor,
+  RouteLinkEntry,
+  ParseParamsFn,
+  SearchFilter,
+  ResolveId,
+  InferFullSearchSchema,
+  InferFullSearchSchemaInput,
+  ErrorRouteProps,
+  ErrorComponentProps,
+  NotFoundRouteProps,
+  TrimPath,
+  TrimPathLeft,
+  TrimPathRight,
+  StringifyParamsFn,
+  ParamsOptions,
+  InferAllParams,
+  InferAllContext,
+  LooseReturnType,
+  LooseAsyncReturnType,
+  ContextReturnType,
+  ContextAsyncReturnType,
+  ResolveLoaderData,
+  ResolveRouteContext,
+  SearchSerializer,
+  SearchParser,
+  SearchMiddleware,
+  TrailingSlashOption,
+  Manifest,
+  RouterManagedTag,
+  ControlledPromise,
+  Constrain,
+  Expand,
+  MergeAll,
+  Assign,
+  IntersectAssign,
+  ResolveValidatorInput,
+  ResolveValidatorOutput,
+  Register,
+  AnyValidator,
+  DefaultValidator,
+  ValidatorFn,
+  AnySchema,
+  AnyValidatorAdapter,
+  AnyValidatorFn,
+  AnyValidatorObj,
+  ResolveValidatorInputFn,
+  ResolveValidatorOutputFn,
+  ResolveSearchValidatorInput,
+  ResolveSearchValidatorInputFn,
+  Validator,
+  ValidatorAdapter,
+  ValidatorObj,
+  FileRoutesByPath,
+  RouteById,
+  RootRouteOptions,
+  CreateFileRoute,
+  SerializationAdapter,
+  AnySerializationAdapter,
+  SerializableExtensions,
+  NotFoundError,
+  LocationRewrite,
+  LocationRewriteFunction,
+  ValidateFromPath,
+  ValidateToPath,
+  ValidateSearch,
+  ValidateParams,
+  InferFrom,
+  InferTo,
+  InferMaskTo,
+  InferMaskFrom,
+  ValidateNavigateOptions,
+  ValidateNavigateOptionsArray,
+  ValidateRedirectOptions,
+  ValidateRedirectOptionsArray,
+  ValidateId,
+  InferStrict,
+  InferShouldThrow,
+  InferSelected,
+  ValidateUseSearchResult,
+  ValidateUseParamsResult,
+  SerializerExtensions,
+  RegisteredSerializableInput,
+  Serializable,
+} from '@anonrig/router-core'
+
+export {
+  createHistory,
+  createBrowserHistory,
+  createHashHistory,
+  createMemoryHistory,
+} from './history'
+
+export type {
+  BlockerFn,
+  HistoryLocation,
+  RouterHistory,
+  ParsedPath,
+  HistoryState,
+} from './history'
+
+export { useAwaited, Await } from './awaited'
+export type { AwaitOptions } from './awaited'
+
+export { CatchBoundary, ErrorComponent } from './CatchBoundary'
+export { ClientOnly, useHydrated } from './ClientOnly'
+export { reactUse, useLayoutEffect } from './utils'
+
+export {
+  FileRoute,
+  createFileRoute,
+  FileRouteLoader,
+  LazyRoute,
+  createLazyRoute,
+  createLazyFileRoute,
+} from './fileRoute'
+
+export { lazyRouteComponent } from './lazyRouteComponent'
+
+export { useLinkProps, createLink, Link, linkOptions } from './link'
+export type {
+  UseLinkPropsOptions,
+  ActiveLinkOptions,
+  LinkProps,
+  LinkComponent,
+  LinkComponentProps,
+  CreateLinkProps,
+} from './link'
+
+export {
+  Matches,
+  useMatchRoute,
+  MatchRoute,
+  useMatches,
+  useParentMatches,
+  useChildMatches,
+} from './Matches'
+export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './Matches'
+
+export { Match, Outlet } from './Match'
+
+export { useMatch } from './useMatch'
+export { useLoaderDeps } from './useLoaderDeps'
+export { useLoaderData } from './useLoaderData'
+
+export {
+  RouteApi,
+  getRouteApi,
+  Route,
+  createRoute,
+  RootRoute,
+  rootRouteWithContext,
+  createRootRoute,
+  createRootRouteWithContext,
+  createRouteMask,
+  NotFoundRoute,
+} from './route'
+export type {
+  AnyRootRoute,
+  AsyncRouteComponent,
+  RouteComponent,
+  ErrorRouteComponent,
+  NotFoundRouteComponent,
+  DefaultRouteTypes,
+  RouteTypes,
+} from './route'
+
+export { createRouter, Router } from './router'
+
+export { RouterProvider, RouterContextProvider } from './RouterProvider'
+export type { RouterProps } from './RouterProvider'
+
+export { useElementScrollRestoration, ScrollRestoration } from './scroll-restoration'
+
+export type { UseBlockerOpts, ShouldBlockFn } from './useBlocker'
+export { useBlocker, Block } from './useBlocker'
+
+export { useNavigate, Navigate } from './useNavigate'
+export { useParams } from './useParams'
+export { useSearch } from './useSearch'
+export { useRouteContext } from './useRouteContext'
+export { useRouter } from './useRouter'
+export { useRouterState } from './useRouterState'
+export { useLocation } from './useLocation'
+export { useCanGoBack } from './useCanGoBack'
+
+export { CatchNotFound, DefaultGlobalNotFound } from './not-found'
+
+export { ScriptOnce } from './HeadContent'
+export { Asset } from './HeadContent'
+export { HeadContent } from './HeadContent'
+export { useTags } from './HeadContent'
+export { Scripts } from './HeadContent'
+
+export type * from './ssr/serializer'
