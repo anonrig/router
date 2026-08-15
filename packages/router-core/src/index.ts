@@ -103,7 +103,16 @@ export {
   resolveManifestCssLink,
 } from './manifest'
 export { isMatch } from './Matches'
-export { _getAssetMatches, _getRenderedMatches, hydrate } from './load-client'
+export {
+  _getAssetMatches,
+  _getRenderedMatches,
+  hydrate,
+  loadRouteChunk,
+  loadClientRoute,
+  preloadClientRoute,
+  refreshClientRoute,
+  replaceRouteChunk,
+} from './load-client'
 export type {
   AnyMatchAndValue,
   FindValueByIndex,
@@ -446,7 +455,10 @@ export type {
   TsrSerializable,
   SerializationError,
 } from './ssr/serializer/transformer-types'
-export { createSerializationAdapter as createTypedSerializationAdapter } from './ssr/serializer/transformer-types'
+export {
+  createSerializationAdapter,
+  createSerializationAdapter as createTypedSerializationAdapter,
+} from './ssr/serializer/transformer-types'
 
 export {
   processRouteTree,
@@ -472,4 +484,4 @@ export {
   FileRouteLoader,
 } from './fileRoute'
 export { lazyFn, SearchParamError } from './misc'
-export { createSerializationAdapter } from './misc'
+export { rewriteBasepath, executeRewriteInput, executeRewriteOutput } from './rewrite'

@@ -5,7 +5,13 @@ import {
   type RouterHistory,
   type HistoryLocation,
 } from '@anonrig/history'
-import { findRouteMatch, processRouteTree, type ProcessedTree } from './match'
+import {
+  findFlatMatch,
+  findRouteMatch,
+  processRouteMasks,
+  processRouteTree,
+  type ProcessedTree,
+} from './match'
 import { isNotFound, notFound, type NotFoundError } from './not-found'
 import {
   cleanPath,
@@ -163,6 +169,8 @@ export interface RouterOptions<
   getScrollRestorationKey?: (location: any) => string
   serializer?: any
   serializationAdapters?: any[]
+  routeMasks?: any[]
+  hydrate?: (data: any) => any
 }
 
 export type ParsedLocation<TSearch = any> = HistoryLocation & {
@@ -332,6 +340,9 @@ export class RouterCore<
   ssr: any = undefined
   serverSsr: any = undefined
   stores = this.createStores()
+  _rendered: any[] | undefined
+  _cache = new Map<string, { data: any; updatedAt: number }>()
+  _forcePending = false
 
   private createStores() {
     const state = createStore<RouterState>(null as any)
@@ -341,13 +352,30 @@ export class RouterCore<
       __store: state,
       matches: {
         get: () => state.get()?.matches ?? [],
+        set: (matches: any[]) => {
+          const current = state.get()
+          if (current) state.set({ ...current, matches })
+        },
         subscribe: (listener: (value: any[]) => void) =>
           state.subscribe((s) => listener(s.matches as any)),
       },
       location: {
         get: () => state.get()?.location,
+        set: (location: ParsedLocation) => {
+          const current = state.get()
+          if (current) state.set({ ...current, location })
+        },
         subscribe: (listener: (value: ParsedLocation) => void) =>
           state.subscribe((s) => listener(s.location)),
+      },
+      resolvedLocation: {
+        get: () => state.get()?.resolvedLocation,
+        set: (location: ParsedLocation) => {
+          const current = state.get()
+          if (current) state.set({ ...current, resolvedLocation: location })
+        },
+        subscribe: (listener: (value: ParsedLocation) => void) =>
+          state.subscribe((s) => listener(s.resolvedLocation)),
       },
       getMatchStore: (routeId: string) => ({
         get: () => {
@@ -368,7 +396,7 @@ export class RouterCore<
     }
   }
   subscribers = new Set<ListenerFn>()
-  startTransition: (fn: () => void) => any = (fn) => {
+  startTransition: (fn: () => void, _expected?: any) => any = (fn) => {
     fn()
     return false
   }
@@ -463,6 +491,9 @@ export class RouterCore<
       this.routesById = this.processedTree.routesById as any
       this.routesByPath = this.processedTree.routesByPath as any
     }
+    if (this.options.routeMasks && this.processedTree) {
+      processRouteMasks(this.options.routeMasks as any, this.processedTree)
+    }
 
     if (this.history) {
       this.latestLocation = this.parseLocation(this.history.location, this.latestLocation)
@@ -514,7 +545,10 @@ export class RouterCore<
     if (typeof to !== 'string') to = current?.pathname ?? '/'
 
     const currentParams = last(this.state?.matches ?? [])?.params ?? {}
-    const nextParams = dest.params ? functionalUpdate(dest.params, currentParams) : currentParams
+    const nextParams =
+      dest.params === true || dest.params === undefined
+        ? currentParams
+        : functionalUpdate(dest.params, currentParams)
 
     let interpolated = to
     if (to.includes('$')) {
@@ -543,26 +577,35 @@ export class RouterCore<
     })
 
     const currentSearch = current?.search ?? {}
-    const nextSearch = dest.search
-      ? functionalUpdate(dest.search, currentSearch)
-      : dest.to
-        ? {}
-        : currentSearch
+    const nextSearch =
+      dest.search === true
+        ? currentSearch
+        : dest.search
+          ? functionalUpdate(dest.search, currentSearch)
+          : dest.to
+            ? {}
+            : currentSearch
 
     const searchStr = (this.options.stringifySearch ?? defaultStringifySearch)(nextSearch ?? {})
-    const hash = dest.hash
-      ? typeof dest.hash === 'function'
-        ? dest.hash(current?.hash ?? '')
-        : dest.hash.startsWith('#')
-          ? dest.hash
-          : `#${dest.hash}`
-      : dest.to
-        ? ''
-        : (current?.hash ?? '')
+    const hash =
+      dest.hash === true
+        ? (current?.hash ?? '')
+        : dest.hash
+          ? typeof dest.hash === 'function'
+            ? dest.hash(current?.hash ?? '')
+            : typeof dest.hash === 'string'
+              ? dest.hash.startsWith('#')
+                ? dest.hash
+                : `#${dest.hash}`
+              : String(dest.hash)
+          : dest.to
+            ? ''
+            : (current?.hash ?? '')
 
     const href = `${resolved}${searchStr}${hash}`
-    const parsed = parseHref(href, dest.state ?? current?.state)
-    return {
+    const nextState = dest.state === true ? current?.state : (dest.state ?? current?.state)
+    const parsed = parseHref(href, nextState)
+    const location: ParsedLocation = {
       href: parsed.href,
       pathname: parsed.pathname,
       search: nextSearch ?? {},
@@ -571,6 +614,22 @@ export class RouterCore<
       state: parsed.state,
       publicHref: encodePathLikeUrl(href),
     }
+    if (dest.mask) {
+      location.maskedLocation = this.buildLocation({
+        from: dest.from,
+        ...dest.mask,
+      })
+    } else if (this.options.routeMasks && this.processedTree) {
+      const mask = findFlatMatch(this.processedTree, location.pathname)
+      if (mask && (mask as any).from) {
+        location.maskedLocation = this.buildLocation({
+          from: dest.from,
+          ...(mask as any),
+          params: dest.params ?? (mask as any).params,
+        })
+      }
+    }
+    return location
   }) as import('./RouterProvider').BuildLocationFn
 
   commitLocation = async (location: ParsedLocation, opts: CommitLocationOptions = {}) => {
@@ -626,13 +685,27 @@ export class RouterCore<
   invalidate: InvalidateFn<this> = async (opts) => {
     const matches = this.state.matches
     for (const match of matches) {
-      if (!opts?.filter || opts.filter(match)) match.invalid = true
+      if (!opts?.filter || opts.filter(match)) {
+        match.invalid = true
+        if (opts?.forcePending) match._forcePending = true
+      }
     }
+    if (opts?.forcePending) this._forcePending = true
     await this.load()
+    this._forcePending = false
   }
 
-  clearCache: ClearCacheFn<this> = (_opts) => {
-    /* no-op cache for now */
+  clearCache: ClearCacheFn<this> = (opts) => {
+    if (!opts?.filter) {
+      this._cache.clear()
+      return
+    }
+    for (const [id, _entry] of this._cache) {
+      const match =
+        this.state.matches.find((m) => m.id === id) ??
+        this.state.pendingMatches?.find((m) => m.id === id)
+      if (!match || opts.filter(match)) this._cache.delete(id)
+    }
   }
 
   load = async (): Promise<void> => {
@@ -684,6 +757,7 @@ export class RouterCore<
           search: location.search,
           cause: 'stay' as const,
           abortController: new AbortController(),
+          _forcePending: prev._forcePending || this._forcePending,
         }
       }
       const route = result.route as AnyRoute
@@ -702,6 +776,7 @@ export class RouterCore<
         abortController: new AbortController(),
         cause: prev ? ('stay' as const) : ('enter' as const),
         invalid: false,
+        _forcePending: this._forcePending || prev?._forcePending,
         meta:
           route.options.head?.({
             matches: [],
@@ -798,9 +873,11 @@ export class RouterCore<
           if (isRedirect(data)) throw data
           if (isNotFound(data)) throw data
           match.loaderData = data
+          this._cache.set(match.id, { data, updatedAt: Date.now() })
         }
 
         match.status = 'success'
+        match._forcePending = false
         match.isFetching = false
         match.updatedAt = Date.now()
 
@@ -874,12 +951,16 @@ export class RouterCore<
     })
 
     this.redirectHops = 0
-    this.emit({ type: 'onLoad', fromLocation: this.state.resolvedLocation, toLocation: location })
-    this.emit({
-      type: 'onResolved',
-      fromLocation: this.state.resolvedLocation,
-      toLocation: location,
-    })
+    const change = getLocationChangeInfo(location, this.state.resolvedLocation)
+    this.emit({ type: 'onLoad', ...change })
+    this.emit({ type: 'onResolved', ...change })
+    this.emit({ type: 'onRendered', ...change })
+    const rendered = this._rendered
+    if (rendered?.[1]) {
+      const settle = rendered[1]
+      rendered.length = 0
+      settle(true)
+    }
   }
 
   matchRoute = (opts: NavigateOptions & MatchRouteOptions = {}): any => {
@@ -956,7 +1037,38 @@ export class RouterCore<
   hasNotFoundMatch = () =>
     this.state.matches.some((m) => m.status === 'notFound' || m.globalNotFound)
 
-  shouldViewTransition = () => false
+  shouldViewTransition = (opts?: { viewTransition?: boolean | { types?: string[] } }) =>
+    !!(opts?.viewTransition ?? this.options.defaultViewTransition)
+
+  updateLatestLocation = () => {
+    if (!this.history) return
+    this.latestLocation = this.parseLocation(this.history.location, this.latestLocation)
+  }
+
+  matchRoutes = (location: ParsedLocation, _opts?: any) => {
+    const found = findRouteMatch(
+      this.processedTree,
+      location.pathname,
+      this.options.caseSensitive ?? false,
+    )
+    if (!found) return []
+    return found.map((result) => ({
+      id: nextMatchId(result.route.id, location.pathname),
+      routeId: result.route.id,
+      route: result.route,
+      pathname: location.pathname,
+      params: result.params,
+      rawParams: result.rawParams,
+      status: 'pending' as const,
+      isFetching: true,
+      context: { ...(this.options.context ?? {}) },
+      search: location.search,
+      updatedAt: Date.now(),
+      abortController: new AbortController(),
+      cause: 'enter' as const,
+      invalid: false,
+    }))
+  }
 
   cancelMatch = (matchId: string) => {
     const match = this.state.matches.find((m) => m.id === matchId)

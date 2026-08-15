@@ -164,6 +164,7 @@ export type ProcessedTree = {
   routesById: Record<string, AnyRouteLike>
   routesByPath: Record<string, AnyRouteLike>
   flatRoutes: AnyRouteLike[]
+  masks?: Array<{ from: string; [key: string]: any }>
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -626,6 +627,8 @@ function decodeSeg(value: string) {
 }
 
 export function findFlatMatch(tree: ProcessedTree, from: string): AnyRouteLike | undefined {
+  const mask = tree.masks?.find((item) => item.from === from)
+  if (mask) return mask as unknown as AnyRouteLike
   return tree.routesById[from] ?? tree.routesByPath[from]
 }
 
@@ -639,8 +642,12 @@ export function buildRouteBranch(route: AnyRouteLike): AnyRouteLike[] {
   return branch
 }
 
-export function processRouteMasks() {
-  return []
+export function processRouteMasks(
+  routeList: Array<{ from: string; [key: string]: any }> = [],
+  processedTree?: ProcessedTree,
+) {
+  if (processedTree) processedTree.masks = routeList
+  return routeList
 }
 
 export function trimPathRight(path: string) {

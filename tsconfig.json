@@ -38,7 +38,11 @@
         "./packages/router-core/src/ssr/serializer/transformer-types.ts"
       ],
       "@tanstack/router-core/ssr/server": ["./packages/router-core/src/ssr/server.ts"],
-      "@tanstack/router-core/ssr/client": ["./packages/router-core/src/ssr/client.ts"]
+      "@tanstack/router-core/ssr/client": ["./packages/router-core/src/ssr/client.ts"],
+      "@tanstack/router-core/ssr/ssr-match-id": ["./packages/router-core/src/ssr/ssr-match-id.ts"],
+      "@tanstack/react-router/ssr/renderRouterToStream": [
+        "./packages/react-router/src/ssr/renderRouterToStream.tsx"
+      ]
     }
   },
   "include": ["packages", "benches", "tests"]

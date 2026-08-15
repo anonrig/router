@@ -79,9 +79,10 @@ Alias `@tanstack/react-router` to `@anonrig/react-router` if you want to keep ex
 Current status:
 
 - Local unit tests: passing
-- Vendored TanStack core tests (`path`, `qss`, `searchParams`, `utils`): most passing
-- Vendored TanStack React tests: navigation, loaders, links, and route hooks are partially passing; SSR, hydration lanes, pending-min, and head/script tests are still in progress
-- Type-level TanStack tests (`*.test-d.ts`) are excluded until the type layer matches
+- Vendored TanStack core runtime tests: passing
+- Vendored TanStack type tests (`pnpm test:types`): passing
+- Vendored TanStack React runtime tests: navigation, loaders, links, and hooks are largely covered; remaining work is in the heaviest SSR/hydration-lane cases
+- `pnpm lint` and `pnpm fmt:check` are the CI gates for first-party code
 
 ## Benchmarks
 

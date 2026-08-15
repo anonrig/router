@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { memo, Suspense, useContext, type ReactNode } from 'react'
+import { memo, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { isNotFound, rootRouteId } from '@anonrig/router-core'
 import { CatchBoundary, ErrorComponent } from './CatchBoundary'
 import { matchContext } from './matchContext'
@@ -22,6 +22,46 @@ function renderPending(router: ReturnType<typeof useRouter>, route: any) {
   return Pending ? <Pending /> : null
 }
 
+function usePendingPresentation(match: any, route: any, router: ReturnType<typeof useRouter>) {
+  const pendingMs = match._forcePending
+    ? 0
+    : (route?.options.pendingMs ?? router.options.defaultPendingMs ?? 0)
+  const pendingMinMs = route?.options.pendingMinMs ?? router.options.defaultPendingMinMs ?? 0
+  const [visible, setVisible] = useState(!!match._forcePending || pendingMs === 0)
+  const shownAt = useRef<number | null>(null)
+  const pending = match.status === 'pending' || match._forcePending
+
+  useEffect(() => {
+    if (pending) {
+      if (pendingMs === 0) {
+        shownAt.current = Date.now()
+        setVisible(true)
+        return
+      }
+      const timer = setTimeout(() => {
+        shownAt.current = Date.now()
+        setVisible(true)
+      }, pendingMs)
+      return () => clearTimeout(timer)
+    }
+
+    if (visible && shownAt.current && pendingMinMs > 0) {
+      const remaining = pendingMinMs - (Date.now() - shownAt.current)
+      if (remaining > 0) {
+        const timer = setTimeout(() => {
+          shownAt.current = null
+          setVisible(false)
+        }, remaining)
+        return () => clearTimeout(timer)
+      }
+    }
+    shownAt.current = null
+    setVisible(false)
+  }, [pending, match.id, pendingMs, pendingMinMs, visible])
+
+  return pending ? visible : visible && pendingMinMs > 0
+}
+
 export const Match = memo(function Match({ routeId }: { routeId: string }) {
   const router = useRouter()
   const match = useRouterState({
@@ -30,10 +70,11 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
         s.pendingMatches?.find((m) => m.routeId === routeId))!,
   })
   const route = router.routesById[routeId]
+  const showPending = usePendingPresentation(match, route, router)
 
   if (!match || !route) return null
 
-  if (match.status === 'pending') {
+  if (showPending) {
     const pending = renderPending(router, route)
     if (pending) return pending
   }
@@ -60,7 +101,16 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
   }
 
   const Comp = route.options.component ?? router.options.defaultComponent ?? Outlet
-  const resetKey = `${match.id}:${match.status}:${match.updatedAt}`
+  const remountDeps = route.options.remountDeps?.({
+    params: match.params,
+    search: match.search,
+    context: match.context,
+    routeId,
+  })
+  const resetKey =
+    remountDeps !== undefined
+      ? JSON.stringify(remountDeps)
+      : `${match.id}:${match.status}:${match.updatedAt}`
 
   let inner: ReactNode = (
     <matchContext.Provider value={routeId}>
@@ -100,3 +150,4 @@ function SuspenseBoundary({ children, fallback }: { children: ReactNode; fallbac
 }
 
 export { rootRouteId }
+void isNotFound

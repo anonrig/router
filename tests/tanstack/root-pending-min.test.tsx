@@ -3,7 +3,7 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import { afterEach, expect, test, vi } from 'vitest'
-import { dehydrateSsrMatchId } from '../../router-core/src/ssr/ssr-match-id'
+import { dehydrateSsrMatchId } from '@tanstack/router-core/ssr/ssr-match-id'
 import { hydrate } from '@tanstack/react-router/ssr/client'
 import {
   RouterProvider,

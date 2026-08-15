@@ -42,6 +42,14 @@ export default defineConfig({
         replacement: resolve(root, 'packages/router-core/src/ssr/client.ts'),
       },
       {
+        find: '@tanstack/router-core/ssr/ssr-match-id',
+        replacement: resolve(root, 'packages/router-core/src/ssr/ssr-match-id.ts'),
+      },
+      {
+        find: '@tanstack/react-router/ssr/renderRouterToStream',
+        replacement: resolve(root, 'packages/react-router/src/ssr/renderRouterToStream.tsx'),
+      },
+      {
         find: '@anonrig/router-core/ssr/server',
         replacement: resolve(root, 'packages/router-core/src/ssr/server.ts'),
       },

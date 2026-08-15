@@ -12,7 +12,7 @@ vi.mock('react-dom/server', () => ({
   ...reactDomServerMocks,
 }))
 
-const { renderRouterToStream } = await import('../src/ssr/renderRouterToStream')
+const { renderRouterToStream } = await import('@tanstack/react-router/ssr/renderRouterToStream')
 
 afterEach(() => {
   reactDomServerMocks.renderToReadableStream = undefined

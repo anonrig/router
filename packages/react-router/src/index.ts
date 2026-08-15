@@ -31,6 +31,12 @@ export {
   notFound,
   isNotFound,
   composeRewrites,
+  rewriteBasepath,
+  executeRewriteInput,
+  executeRewriteOutput,
+  hydrate,
+  _getAssetMatches,
+  _getRenderedMatches,
 } from '@anonrig/router-core'
 
 export type {

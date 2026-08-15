@@ -4,7 +4,16 @@
   "options": {
     "typeAware": true
   },
-  "ignorePatterns": ["node_modules", "dist", "coverage"],
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "tests/tanstack",
+    "tests/tanstack-core",
+    "tests/tanstack-types",
+    "tests/tanstack-core-types",
+    "benches"
+  ],
   "rules": {
     "typescript/await-thenable": "error",
     "typescript/consistent-return": "error",

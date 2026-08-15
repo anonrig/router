@@ -15,6 +15,7 @@ import {
 } from '@anonrig/router-core'
 import { CatchBoundary } from './CatchBoundary'
 import { Match } from './Match'
+import { Transitioner } from './Transitioner'
 import { useRouter } from './useRouter'
 import { useRouterState } from './useRouterState'
 import { useMatch } from './useMatch'
@@ -37,9 +38,19 @@ export function Matches() {
 
   if (!ready) {
     const Pending = router.options.defaultPendingComponent
-    return Pending ? <Pending /> : null
+    return (
+      <>
+        <Transitioner />
+        {Pending ? <Pending /> : null}
+      </>
+    )
   }
-  const inner = <Match routeId={rootRouteId} />
+  const inner = (
+    <>
+      <Transitioner />
+      <Match routeId={rootRouteId} />
+    </>
+  )
   const wrapped = router.options.disableGlobalCatchBoundary ? (
     inner
   ) : (

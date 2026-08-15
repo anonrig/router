@@ -24,13 +24,6 @@ export function stripSearchParams(keys: string[] | true | Record<string, any>) {
   }
 }
 
-export function createSerializationAdapter(_opts?: any) {
-  return {
-    serialize: (v: any) => v,
-    deserialize: (v: any) => v,
-  }
-}
-
 export function createRouterConfig(opts: any = {}) {
   return opts
 }

@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:tanstack": "vitest run --config vitest.tanstack.config.ts",
+    "test:tanstack-core": "vitest run --config vitest.tanstack.config.ts tests/tanstack-core",
     "bench": "vitest bench --run benches",
     "typecheck": "tsc -b --pretty false",
     "test:types": "tsc -p tsconfig.types.json --pretty false && tsc -p tsconfig.types.core.json --pretty false",

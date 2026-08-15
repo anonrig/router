@@ -10,6 +10,7 @@
     "./isServer": "./src/isServer.ts",
     "./ssr/server": "./src/ssr/server.ts",
     "./ssr/client": "./src/ssr/client.ts",
+    "./ssr/ssr-match-id": "./src/ssr/ssr-match-id.ts",
     "./ssr/serializer/transformer": "./src/ssr/serializer/transformer-types.ts",
     "./utils": "./src/utils.ts"
   },
@@ -17,6 +18,8 @@
     "build": "echo 'source package'"
   },
   "dependencies": {
-    "@anonrig/history": "workspace:*"
+    "@anonrig/history": "workspace:*",
+    "seroval": "^1.6.2",
+    "seroval-plugins": "^1.6.2"
   }
 }

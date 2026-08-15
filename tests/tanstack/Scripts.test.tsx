@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { createPortal } from 'react-dom'
 import ReactDOMServer from 'react-dom/server'
 import { hydrate } from '@tanstack/router-core/ssr/client'
-import { dehydrateSsrMatchId } from '../../router-core/src/ssr/ssr-match-id'
+import { dehydrateSsrMatchId } from '@tanstack/router-core/ssr/ssr-match-id'
 
 import {
   HeadContent,

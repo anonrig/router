@@ -2,12 +2,17 @@ import {
   createElement,
   forwardRef,
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   type AnchorHTMLAttributes,
+  type FocusEvent,
   type MouseEvent,
   type ReactNode,
+  type TouchEvent,
 } from 'react'
-import { exactPathTest, functionalUpdate } from '@anonrig/router-core'
+import { exactPathTest, functionalUpdate, preloadWarning } from '@anonrig/router-core'
+import { useIntersectionObserver } from './utils'
 import { useRouter } from './useRouter'
 import { useRouterState } from './useRouterState'
 import type { ActiveOptions, NavigateOptions } from '@anonrig/router-core'
@@ -23,14 +28,22 @@ export type LinkProps = NavigateOptions &
     activeOptions?: ActiveOptions
     preload?: false | 'intent' | 'viewport' | 'render'
     preloadDelay?: number
+    preloadIntentProximity?: number
     disabled?: boolean
     target?: string
     children?: ReactNode | ((state: { isActive: boolean }) => ReactNode)
   }
 
-export function useLinkProps(props: LinkProps): AnchorHTMLAttributes<HTMLAnchorElement> {
+export function useLinkProps(
+  props: LinkProps,
+  forwardedRef?: { current: HTMLAnchorElement | null },
+): AnchorHTMLAttributes<HTMLAnchorElement> {
   const router = useRouter()
   const location = useRouterState({ select: (s) => s.location })
+  const innerRef = useRef<HTMLAnchorElement | null>(null)
+  const ref = forwardedRef ?? innerRef
+  const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const didRenderPreload = useRef(false)
 
   const next = useMemo(
     () => router.buildLocation(props),
@@ -39,8 +52,65 @@ export function useLinkProps(props: LinkProps): AnchorHTMLAttributes<HTMLAnchorE
   )
 
   const href = router.history.createHref(`${next.pathname}${next.searchStr}${next.hash}`)
-
   const isActive = exactPathTest(location.pathname, next.pathname, router.basepath)
+  const preload =
+    props.reloadDocument || props.disabled
+      ? false
+      : (props.preload ?? router.options.defaultPreload)
+  const preloadDelay = props.preloadDelay ?? router.options.defaultPreloadDelay ?? 0
+
+  const doPreload = useCallback(() => {
+    void router.preloadRoute(props).catch((err) => {
+      console.warn(err)
+      console.warn(preloadWarning)
+    })
+  }, [router, props])
+
+  const cancelPreload = useCallback(() => {
+    if (preloadTimer.current) {
+      clearTimeout(preloadTimer.current)
+      preloadTimer.current = undefined
+    }
+  }, [])
+
+  const enqueuePreload = useCallback(
+    (event?: MouseEvent | FocusEvent | IntersectionObserverEntry) => {
+      if (!event) {
+        cancelPreload()
+        return
+      }
+      if ('isIntersecting' in event) {
+        if (!event.isIntersecting) {
+          cancelPreload()
+          return
+        }
+      } else if (preload !== 'intent') {
+        return
+      }
+      if (!preloadDelay) {
+        doPreload()
+        return
+      }
+      if (preloadTimer.current) return
+      preloadTimer.current = setTimeout(() => {
+        preloadTimer.current = undefined
+        doPreload()
+      }, preloadDelay)
+    },
+    [cancelPreload, doPreload, preload, preloadDelay],
+  )
+
+  useIntersectionObserver(ref, enqueuePreload, preload !== 'viewport')
+
+  useEffect(() => {
+    if (didRenderPreload.current) return
+    if (preload === 'render') {
+      doPreload()
+      didRenderPreload.current = true
+    }
+  }, [doPreload, preload])
+
+  useEffect(() => cancelPreload, [cancelPreload])
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     props.onClick?.(e)
@@ -60,25 +130,25 @@ export function useLinkProps(props: LinkProps): AnchorHTMLAttributes<HTMLAnchorE
     void router.navigate(props)
   }
 
-  let preloadTimer: ReturnType<typeof setTimeout> | undefined
-  const preload = () => {
-    const strategy = props.preload ?? router.options.defaultPreload
-    if (!strategy) return
-    void router.preloadRoute(props)
-  }
-
   const onMouseEnter = (e: MouseEvent<HTMLAnchorElement>) => {
     props.onMouseEnter?.(e)
-    const strategy = props.preload ?? router.options.defaultPreload
-    if (strategy === 'intent') {
-      const delay = props.preloadDelay ?? router.options.defaultPreloadDelay ?? 50
-      preloadTimer = setTimeout(preload, delay)
-    }
+    if (preload === 'intent') enqueuePreload(e)
   }
-
   const onMouseLeave = (e: MouseEvent<HTMLAnchorElement>) => {
     props.onMouseLeave?.(e)
-    if (preloadTimer) clearTimeout(preloadTimer)
+    if (preload === 'intent') cancelPreload()
+  }
+  const onFocus = (e: FocusEvent<HTMLAnchorElement>) => {
+    props.onFocus?.(e)
+    if (preload === 'intent') enqueuePreload(e)
+  }
+  const onBlur = (e: FocusEvent<HTMLAnchorElement>) => {
+    props.onBlur?.(e)
+    if (preload === 'intent') cancelPreload()
+  }
+  const onTouchStart = (e: TouchEvent<HTMLAnchorElement>) => {
+    props.onTouchStart?.(e)
+    if (preload === 'intent') doPreload()
   }
 
   const activeProps = isActive
@@ -92,9 +162,13 @@ export function useLinkProps(props: LinkProps): AnchorHTMLAttributes<HTMLAnchorE
   return {
     ...activeProps,
     href,
+    ref,
     onClick: handleClick,
     onMouseEnter,
     onMouseLeave,
+    onFocus,
+    onBlur,
+    onTouchStart,
     'data-status': isActive ? 'active' : undefined,
   } as AnchorHTMLAttributes<HTMLAnchorElement>
 }
@@ -106,6 +180,7 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(p
     activeOptions,
     preload,
     preloadDelay,
+    preloadIntentProximity,
     children,
     disabled,
     to,
@@ -122,12 +197,15 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(p
     href: _href,
     ...rest
   } = props
-  const linkProps = useLinkProps(props)
+  const innerRef = useRef<HTMLAnchorElement | null>(null)
+  const linkProps = useLinkProps(props, innerRef)
+  if (typeof ref === 'function') ref(innerRef.current)
+  else if (ref) (ref as { current: HTMLAnchorElement | null }).current = innerRef.current
   const resolvedChildren =
     typeof children === 'function'
       ? children({ isActive: (linkProps as any)['data-status'] === 'active' })
       : children
-  return createElement('a', { ...rest, ...linkProps, ref, children: resolvedChildren })
+  return createElement('a', { ...rest, ...linkProps, ref: innerRef, children: resolvedChildren })
 }) as unknown as import('./link-types').LinkComponent<'a'>
 
 export const createLink = ((Comp: any) => {
