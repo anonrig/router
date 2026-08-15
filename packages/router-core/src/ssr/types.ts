@@ -1,5 +1,5 @@
 import type { Manifest } from '../manifest'
-import type { MakeRouteMatch } from '../Matches'
+import type { MakeRouteMatch } from '../matches'
 
 export interface DehydratedMatch {
   i: MakeRouteMatch['id']

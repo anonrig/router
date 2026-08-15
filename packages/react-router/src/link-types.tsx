@@ -12,12 +12,12 @@ import {
   preloadWarning,
   removeTrailingSlash,
 } from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/isServer'
-import { useRouter } from './useRouter'
+import { isServer } from '@anonrig/router-core/is-server'
+import { useRouter } from './use-router'
 
 import { useForwardedRef, useIntersectionObserver } from './utils'
 
-import { useHydrated } from './ClientOnly'
+import { useHydrated } from './client-only'
 import type {
   ActiveOptions,
   AnyRouter,
@@ -28,7 +28,7 @@ import type {
   RoutePaths,
 } from '@anonrig/router-core'
 import type { ReactNode } from 'react'
-import type { ValidateLinkOptions, ValidateLinkOptionsArray } from './typePrimitives'
+import type { ValidateLinkOptions, ValidateLinkOptionsArray } from './type-primitives'
 
 type LinkState = [href: string | undefined, externalLink: string | undefined, isActive: boolean]
 

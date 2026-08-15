@@ -9,7 +9,7 @@ import { decodePath } from '../utils'
 import { createLRUCache } from '../lru-cache'
 import { rootRouteId } from '../root'
 import { _getRenderedMatches } from '../load-client'
-import minifiedTsrBootStrapScript from './tsrScript?script-string'
+import minifiedTsrBootStrapScript from './tsr-script?script-string'
 import { GLOBAL_TSR, TSR_SCRIPT_BARRIER_ID } from './constants'
 import { dehydrateSsrMatchId } from './ssr-match-id'
 import { defaultSerovalPlugins } from './serializer/seroval-plugins'
@@ -18,7 +18,7 @@ import type { LRUCache } from '../lru-cache'
 import type { DehydratedMatch, DehydratedRouter } from './types'
 import type { AnySerializationAdapter } from './serializer/transformer'
 import type { AnyRouter, ServerSsr } from '../router'
-import type { AnyRouteMatch } from '../Matches'
+import type { AnyRouteMatch } from '../matches'
 import type {
   Manifest,
   ManifestRoute,

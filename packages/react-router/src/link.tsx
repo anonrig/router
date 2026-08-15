@@ -13,8 +13,8 @@ import {
 } from 'react'
 import { exactPathTest, functionalUpdate, preloadWarning } from '@anonrig/router-core'
 import { useIntersectionObserver } from './utils'
-import { useRouter } from './useRouter'
-import { useRouterState } from './useRouterState'
+import { useRouter } from './use-router'
+import { useRouterState } from './use-router-state'
 import type { ActiveOptions, NavigateOptions } from '@anonrig/router-core'
 
 export type LinkProps = NavigateOptions &

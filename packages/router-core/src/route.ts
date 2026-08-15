@@ -4,7 +4,7 @@ import { joinPaths, trimPathLeft, trimPathRight } from './path'
 import { notFound } from './not-found'
 import { redirect } from './redirect'
 import { rootRouteId } from './root'
-import type { LazyRoute } from './fileRoute'
+import type { LazyRoute } from './file-route'
 import type { NotFoundError } from './not-found'
 import type { RedirectFnRoute } from './redirect'
 import type { NavigateOptions, ParsePathParams } from './link'
@@ -15,11 +15,11 @@ import type {
   MakeRouteMatchFromRoute,
   MakeRouteMatchUnion,
   RouteMatch,
-} from './Matches'
+} from './matches'
 import type { RootRouteId } from './root'
-import type { ParseRoute, RouteById, RouteIds, RoutePaths } from './routeInfo'
+import type { ParseRoute, RouteById, RouteIds, RoutePaths } from './route-info'
 import type { AnyRouter, Register, RegisteredRouter, SSROption } from './router'
-import type { BuildLocationFn, NavigateFn } from './RouterProvider'
+import type { BuildLocationFn, NavigateFn } from './router-provider'
 import type {
   Assign,
   Awaitable,

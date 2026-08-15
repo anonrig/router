@@ -11,7 +11,7 @@ import type {
   RoutePaths,
   RouteToPath,
   ToPath,
-} from './routeInfo'
+} from './route-info'
 import type { AnyRouter, RegisteredRouter, ViewTransitionOptions } from './router'
 import type {
   ConstrainLiteral,

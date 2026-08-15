@@ -1,5 +1,5 @@
-import { isServer } from './isServer'
-import type { RouteIds } from './routeInfo'
+import { isServer } from './is-server'
+import type { RouteIds } from './route-info'
 import type { AnyRouter } from './router'
 
 export type Awaitable<T> = T | Promise<T>

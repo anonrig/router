@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { useRouter } from './useRouter'
-import { useRouterState } from './useRouterState'
+import { useRouter } from './use-router'
+import { useRouterState } from './use-router-state'
 
 export function ScrollRestoration(_props?: any) {
   const router = useRouter()

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { decode, encode } from '../src/qss'
-import { defaultParseSearch, defaultStringifySearch } from '../src/searchParams'
+import { defaultParseSearch, defaultStringifySearch } from '../src/search-params'
 
 describe('qss', () => {
   it('encodes and decodes primitives', () => {

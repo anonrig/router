@@ -4,7 +4,7 @@ import type { Plugin, PluginInfo, SerovalNode } from 'seroval'
 import type { RegisteredConfigType, RegisteredSsr, SSROption } from '../../router'
 import type { LooseReturnType } from '../../utils'
 import type { AnyRoute, ResolveAllSSR } from '../../route'
-import type { RawStream } from './RawStream'
+import type { RawStream } from './raw-stream'
 
 declare const TSR_SERIALIZABLE: unique symbol
 export type TSR_SERIALIZABLE = typeof TSR_SERIALIZABLE

@@ -158,8 +158,8 @@ export type { BlockerFn, HistoryLocation, RouterHistory, ParsedPath, HistoryStat
 export { useAwaited, Await } from './awaited'
 export type { AwaitOptions } from './awaited'
 
-export { CatchBoundary, ErrorComponent } from './CatchBoundary'
-export { ClientOnly, useHydrated } from './ClientOnly'
+export { CatchBoundary, ErrorComponent } from './catch-boundary'
+export { ClientOnly, useHydrated } from './client-only'
 export { reactUse, useLayoutEffect } from './utils'
 
 export {
@@ -169,9 +169,9 @@ export {
   LazyRoute,
   createLazyRoute,
   createLazyFileRoute,
-} from './fileRoute'
+} from './file-route'
 
-export { lazyRouteComponent } from './lazyRouteComponent'
+export { lazyRouteComponent } from './lazy-route-component'
 
 export { useLinkProps, createLink, Link, linkOptions } from './link'
 export type {
@@ -264,14 +264,14 @@ export {
   useMatches,
   useParentMatches,
   useChildMatches,
-} from './Matches'
-export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './Matches'
+} from './matches'
+export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './matches'
 
-export { Match, Outlet } from './Match'
+export { Match, Outlet } from './match'
 
-export { useMatch } from './useMatch'
-export { useLoaderDeps } from './useLoaderDeps'
-export { useLoaderData } from './useLoaderData'
+export { useMatch } from './use-match'
+export { useLoaderDeps } from './use-loader-deps'
+export { useLoaderData } from './use-loader-data'
 
 export {
   RouteApi,
@@ -297,22 +297,22 @@ export type {
 
 export { createRouter, Router } from './router'
 
-export { RouterProvider, RouterContextProvider } from './RouterProvider'
-export type { RouterProps } from './RouterProvider'
+export { RouterProvider, RouterContextProvider } from './router-provider'
+export type { RouterProps } from './router-provider'
 
 export { useElementScrollRestoration, ScrollRestoration } from './scroll-restoration'
 
-export type { UseBlockerOpts, ShouldBlockFn } from './useBlocker'
-export { useBlocker, Block } from './useBlocker'
+export type { UseBlockerOpts, ShouldBlockFn } from './use-blocker'
+export { useBlocker, Block } from './use-blocker'
 
-export { useNavigate, Navigate } from './useNavigate'
-export { useParams } from './useParams'
-export { useSearch } from './useSearch'
-export { useRouteContext } from './useRouteContext'
-export { useRouter } from './useRouter'
-export { useRouterState } from './useRouterState'
-export { useLocation } from './useLocation'
-export { useCanGoBack } from './useCanGoBack'
+export { useNavigate, Navigate } from './use-navigate'
+export { useParams } from './use-params'
+export { useSearch } from './use-search'
+export { useRouteContext } from './use-route-context'
+export { useRouter } from './use-router'
+export { useRouterState } from './use-router-state'
+export { useLocation } from './use-location'
+export { useCanGoBack } from './use-can-go-back'
 
 export { CatchNotFound, DefaultGlobalNotFound } from './not-found'
 
@@ -322,11 +322,11 @@ export type {
   ValidateUseSearchOptions,
   ValidateUseParamsOptions,
   ValidateLinkOptionsArray,
-} from './typePrimitives'
+} from './type-primitives'
 
-export { ScriptOnce } from './ScriptOnce'
-export { Asset } from './Asset'
-export { HeadContent } from './HeadContent'
-export { useTags } from './headContentUtils'
-export { Scripts } from './Scripts'
+export { ScriptOnce } from './script-once'
+export { Asset } from './asset'
+export { HeadContent } from './head-content'
+export { useTags } from './head-content-utils'
+export { Scripts } from './scripts'
 export type * from './ssr/serializer'

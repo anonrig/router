@@ -326,7 +326,7 @@
       }
     },
     {
-      "files": ["packages/react-router/src/fileRoute.ts", "packages/react-router/src/route.tsx"],
+      "files": ["packages/react-router/src/file-route.ts", "packages/react-router/src/route.tsx"],
       "rules": {
         "react/rules-of-hooks": "off",
         "react/react-compiler": "off"
@@ -335,9 +335,9 @@
     {
       "files": [
         "packages/react-router/src/link-types.tsx",
-        "packages/react-router/src/headContentUtils.tsx",
-        "packages/react-router/src/Scripts.tsx",
-        "packages/react-router/src/Transitioner.tsx",
+        "packages/react-router/src/head-content-utils.tsx",
+        "packages/react-router/src/scripts.tsx",
+        "packages/react-router/src/transitioner.tsx",
         "packages/react-router/src/link.tsx"
       ],
       "rules": {
@@ -346,11 +346,11 @@
     },
     {
       "files": [
-        "packages/react-router/src/Asset.tsx",
-        "packages/react-router/src/ScriptOnce.tsx",
-        "packages/react-router/src/Scripts.tsx",
-        "packages/react-router/src/HeadContent.tsx",
-        "packages/react-router/src/headContentUtils.tsx"
+        "packages/react-router/src/asset.tsx",
+        "packages/react-router/src/script-once.tsx",
+        "packages/react-router/src/scripts.tsx",
+        "packages/react-router/src/head-content.tsx",
+        "packages/react-router/src/head-content-utils.tsx"
       ],
       "rules": {
         "react/no-danger": "off"
@@ -361,7 +361,7 @@
         "packages/router-core/src/path.ts",
         "packages/router-core/src/qss.ts",
         "packages/router-core/src/match.ts",
-        "packages/router-core/src/searchParams.ts",
+        "packages/router-core/src/search-params.ts",
         "packages/router-core/src/store.ts"
       ],
       "rules": {

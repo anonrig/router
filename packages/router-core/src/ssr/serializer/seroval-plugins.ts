@@ -1,7 +1,7 @@
 import { ReadableStreamPlugin } from 'seroval-plugins/web'
-import { ShallowErrorPlugin } from './ShallowErrorPlugin'
-import { RawStreamSSRPlugin } from './RawStream'
-import type { RawStream } from './RawStream'
+import { ShallowErrorPlugin } from './shallow-error-plugin'
+import { RawStreamSSRPlugin } from './raw-stream'
+import type { RawStream } from './raw-stream'
 import type { Plugin } from 'seroval'
 
 export const defaultSerovalPlugins = [

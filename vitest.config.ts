@@ -31,7 +31,7 @@ export default defineConfig({
       },
       {
         find: '@tanstack/router-core/isServer',
-        replacement: resolve(root, 'packages/router-core/src/isServer.ts'),
+        replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
       },
       {
         find: '@tanstack/router-core/ssr/server',
@@ -58,8 +58,8 @@ export default defineConfig({
         replacement: resolve(root, 'packages/router-core/src/qss.ts'),
       },
       {
-        find: '@anonrig/router-core/isServer',
-        replacement: resolve(root, 'packages/router-core/src/isServer.ts'),
+        find: '@anonrig/router-core/is-server',
+        replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
       },
       { find: '@anonrig/history', replacement: resolve(root, 'packages/history/src/index.ts') },
       {
@@ -87,7 +87,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./tests/setupTests.ts'],
+    setupFiles: ['./tests/setup-tests.ts'],
     include: ['packages/*/tests/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['tests/tanstack/**', 'tests/tanstack-core/**', 'node_modules/**'],
     benchmark: {

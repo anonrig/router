@@ -2,7 +2,7 @@ import { hydrateSsrMatchId } from './ssr/ssr-match-id'
 import type { GLOBAL_TSR } from './ssr/constants'
 import type { AnySerializationAdapter } from './ssr/serializer/transformer-types'
 import type { DehydratedMatch, TsrSsrGlobal } from './ssr/types'
-import type { AnyRouteMatch } from './Matches'
+import type { AnyRouteMatch } from './matches'
 import type { AnyRoute } from './route'
 
 type RouteComponentType = 'component' | 'pendingComponent' | 'errorComponent' | 'notFoundComponent'

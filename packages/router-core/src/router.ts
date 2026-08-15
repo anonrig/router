@@ -17,7 +17,7 @@ import { compileDecodeCharMap, interpolatePath, resolvePath } from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
 import { rootRouteId } from './root'
 import type { AnyContext, AnyRoute } from './route'
-import { defaultParseSearch, defaultStringifySearch } from './searchParams'
+import { defaultParseSearch, defaultStringifySearch } from './search-params'
 import { createStore } from './store'
 import {
   createControlledPromise,
@@ -89,13 +89,13 @@ export type RouterContextOptions<TRouteTree extends AnyRoute> =
       }
 
 export type InvalidateFn<TRouter extends AnyRouter> = (opts?: {
-  filter?: (d: import('./Matches').MakeRouteMatchUnion<TRouter>) => boolean
+  filter?: (d: import('./matches').MakeRouteMatchUnion<TRouter>) => boolean
   sync?: boolean
   forcePending?: boolean
 }) => Promise<void>
 
 export type ClearCacheFn<TRouter extends AnyRouter> = (opts?: {
-  filter?: (d: import('./Matches').MakeRouteMatchUnion<TRouter>) => boolean
+  filter?: (d: import('./matches').MakeRouteMatchUnion<TRouter>) => boolean
 }) => void
 
 export type RouterConstructorOptions<
@@ -213,16 +213,16 @@ export type RouteMatch = {
 
 export interface RouterState<
   in out TRouteTree extends AnyRoute = AnyRoute,
-  in out TRouteMatch = import('./Matches').MakeRouteMatchUnion,
+  in out TRouteMatch = import('./matches').MakeRouteMatchUnion,
 > {
   status: 'pending' | 'idle'
   isLoading: boolean
   isTransitioning: boolean
   matches: Array<TRouteMatch>
   pendingMatches?: Array<TRouteMatch>
-  location: import('./location').ParsedLocation<import('./routeInfo').FullSearchSchema<TRouteTree>>
+  location: import('./location').ParsedLocation<import('./route-info').FullSearchSchema<TRouteTree>>
   resolvedLocation: import('./location').ParsedLocation<
-    import('./routeInfo').FullSearchSchema<TRouteTree>
+    import('./route-info').FullSearchSchema<TRouteTree>
   >
   statusCode: number
   redirect?: AnyRedirect
@@ -256,7 +256,7 @@ export type MatchRouteOptions = {
 
 export type BuildNextOptions = NavigateOptions & { from?: string }
 export type CommitLocationOptions = { replace?: boolean; ignoreBlocker?: boolean }
-export type { NavigateFn, BuildLocationFn } from './RouterProvider'
+export type { NavigateFn, BuildLocationFn } from './router-provider'
 
 export type RouterEvent = { type: string; [key: string]: any }
 export type RouterEvents = Record<string, RouterEvent>
@@ -619,7 +619,7 @@ export class RouterCore<
       }
     }
     return location
-  }) as import('./RouterProvider').BuildLocationFn
+  }) as import('./router-provider').BuildLocationFn
 
   commitLocation = async (location: ParsedLocation, opts: CommitLocationOptions = {}) => {
     const href = `${location.pathname}${location.searchStr}${location.hash}`
@@ -640,7 +640,7 @@ export class RouterCore<
 
   private redirectHops = 0
 
-  navigate: import('./RouterProvider').NavigateFn = async (opts: any = {}) => {
+  navigate: import('./router-provider').NavigateFn = async (opts: any = {}) => {
     if (opts.reloadDocument && opts.href) {
       if (typeof document !== 'undefined') window.location.assign(opts.href)
       return

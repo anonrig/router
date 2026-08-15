@@ -1,2 +1,2 @@
-export { RouterClient } from './RouterClient'
+export { RouterClient } from './router-client'
 export * from '@anonrig/router-core/ssr/client'

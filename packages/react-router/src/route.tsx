@@ -1,13 +1,13 @@
 import { BaseRootRoute, BaseRoute, BaseRouteApi, notFound } from '@anonrig/router-core'
 import React from 'react'
-import { useLoaderData } from './useLoaderData'
-import { useLoaderDeps } from './useLoaderDeps'
-import { useParams } from './useParams'
-import { useSearch } from './useSearch'
-import { useNavigate } from './useNavigate'
-import { useMatch } from './useMatch'
-import { useRouteContext } from './useRouteContext'
-import { useRouter } from './useRouter'
+import { useLoaderData } from './use-loader-data'
+import { useLoaderDeps } from './use-loader-deps'
+import { useParams } from './use-params'
+import { useSearch } from './use-search'
+import { useNavigate } from './use-navigate'
+import { useMatch } from './use-match'
+import { useRouteContext } from './use-route-context'
+import { useRouter } from './use-router'
 import { Link } from './link'
 import type {
   AnyContext,
@@ -35,12 +35,12 @@ import type {
   ToMaskOptions,
   UseNavigateResult,
 } from '@anonrig/router-core'
-import type { UseLoaderDataRoute } from './useLoaderData'
-import type { UseMatchRoute } from './useMatch'
-import type { UseLoaderDepsRoute } from './useLoaderDeps'
-import type { UseParamsRoute } from './useParams'
-import type { UseSearchRoute } from './useSearch'
-import type { UseRouteContextRoute } from './useRouteContext'
+import type { UseLoaderDataRoute } from './use-loader-data'
+import type { UseMatchRoute } from './use-match'
+import type { UseLoaderDepsRoute } from './use-loader-deps'
+import type { UseParamsRoute } from './use-params'
+import type { UseSearchRoute } from './use-search'
+import type { UseRouteContextRoute } from './use-route-context'
 import type { LinkComponentRoute } from './link'
 
 declare module '@anonrig/router-core' {

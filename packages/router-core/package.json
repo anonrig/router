@@ -7,7 +7,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./isServer": "./src/isServer.ts",
+    "./is-server": "./src/is-server.ts",
     "./ssr/server": "./src/ssr/server.ts",
     "./ssr/client": "./src/ssr/client.ts",
     "./ssr/ssr-match-id": "./src/ssr/ssr-match-id.ts",

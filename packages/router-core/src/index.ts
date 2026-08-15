@@ -55,7 +55,7 @@ export type {
   RoutesByPath,
   AllLoaderData,
   RouteByPath,
-} from './routeInfo'
+} from './route-info'
 
 export type {
   InferFileRouteTypes,
@@ -65,7 +65,7 @@ export type {
   LazyRoute,
   LazyRouteOptions,
   CreateLazyFileRoute,
-} from './fileRoute'
+} from './file-route'
 
 export type { ParsedLocation } from './location'
 export type {
@@ -102,7 +102,7 @@ export {
   resolveManifestAssetLink,
   resolveManifestCssLink,
 } from './manifest'
-export { isMatch } from './Matches'
+export { isMatch } from './matches'
 export {
   _getAssetMatches,
   _getRenderedMatches,
@@ -130,7 +130,7 @@ export type {
   AnyRouteMatch,
   MakeRouteMatchFromRoute,
   MatchRouteOptions,
-} from './Matches'
+} from './matches'
 export {
   joinPaths,
   cleanPath,
@@ -280,19 +280,19 @@ export type {
   CommitLocationOptions,
   NavigateFn,
   BuildLocationFn,
-} from './RouterProvider'
+} from './router-provider'
 
-export { retainSearchParams, stripSearchParams } from './searchMiddleware'
+export { retainSearchParams, stripSearchParams } from './search-middleware'
 
 export {
   defaultParseSearch,
   defaultStringifySearch,
   parseSearchWith,
   stringifySearchWith,
-} from './searchParams'
-export type { SearchSerializer, SearchParser } from './searchParams'
+} from './search-params'
+export type { SearchSerializer, SearchParser } from './search-params'
 
-export type { OptionalStructuralSharing } from './structuralSharing'
+export type { OptionalStructuralSharing } from './structural-sharing'
 
 export {
   functionalUpdate,
@@ -384,17 +384,17 @@ export type {
   UseRouteContextBaseOptions,
   UseRouteContextOptions,
   UseRouteContextResult,
-} from './useRouteContext'
+} from './use-route-context'
 
-export type { UseSearchResult, ResolveUseSearch } from './useSearch'
+export type { UseSearchResult, ResolveUseSearch } from './use-search'
 
-export type { UseParamsResult, ResolveUseParams } from './useParams'
+export type { UseParamsResult, ResolveUseParams } from './use-params'
 
-export type { UseNavigateResult } from './useNavigate'
+export type { UseNavigateResult } from './use-navigate'
 
-export type { UseLoaderDepsResult, ResolveUseLoaderDeps } from './useLoaderDeps'
+export type { UseLoaderDepsResult, ResolveUseLoaderDeps } from './use-loader-deps'
 
-export type { UseLoaderDataResult, ResolveUseLoaderData } from './useLoaderData'
+export type { UseLoaderDataResult, ResolveUseLoaderData } from './use-loader-data'
 
 export type {
   Redirect,
@@ -438,7 +438,7 @@ export type {
   InferSelected,
   ValidateUseSearchResult,
   ValidateUseParamsResult,
-} from './typePrimitives'
+} from './type-primitives'
 
 export { composeRewrites } from './rewrite'
 export type { LocationRewrite, LocationRewriteFunction } from './router'
@@ -474,7 +474,7 @@ export {
   SEGMENT_TYPE_OPTIONAL_PARAM,
 } from './match'
 export type { ProcessedTree, RouteMatchResult, SegmentKind } from './match'
-export { isServer } from './isServer'
+export { isServer } from './is-server'
 export {
   createFileRoute,
   createLazyFileRoute,
@@ -482,6 +482,6 @@ export {
   FileRoute,
   LazyRouteClass,
   FileRouteLoader,
-} from './fileRoute'
+} from './file-route'
 export { lazyFn, SearchParamError } from './misc'
 export { rewriteBasepath, executeRewriteInput, executeRewriteOutput } from './rewrite'
