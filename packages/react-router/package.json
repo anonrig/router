@@ -21,8 +21,7 @@
   },
   "dependencies": {
     "@anonrig/history": "workspace:*",
-    "@anonrig/router-core": "workspace:*",
-    "isbot": "^5.2.1"
+    "@anonrig/router-core": "workspace:*"
   },
   "peerDependencies": {
     "react": "~19.2.0",

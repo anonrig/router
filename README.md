@@ -15,6 +15,10 @@ The compatibility surface is the TanStack Router API. The internals are not a fo
 - **Route matching** compiles the route tree into a segment trie once. Matching is O(segments), not O(routes).
 - **Path interpolation** reuses a `Uint16Array` segment parser and avoids regex for `$param`, `{$param}`, `{-$optional}`, and `$` splat segments.
 
+## Deliberate differences from TanStack Router
+
+- **No `isbot`.** TanStack's `renderRouterToStream` inspects `User-Agent` with the `isbot` package and, for crawlers, waits for React's `allReady` / `onAllReady` so the first byte is a complete document. This router never does that. Every SSR stream starts on `onShellReady` and flushes incrementally, including requests that look like bots. That keeps the dependency out of the hot SSR path and avoids a User-Agent parse on every request. If you need crawlers to receive fully buffered HTML, wait for `stream.allReady` in your own render handler.
+
 ## Packages
 
 | Package                 | Role                                             |

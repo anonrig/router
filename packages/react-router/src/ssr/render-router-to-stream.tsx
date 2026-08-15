@@ -1,6 +1,5 @@
 import { PassThrough } from 'node:stream'
 import ReactDOMServer from 'react-dom/server'
-import { isbot } from 'isbot'
 import {
   createSsrStreamResponse,
   transformPipeableStreamWithRouter,
@@ -9,28 +8,6 @@ import {
 import type { AnyRouter } from '@anonrig/router-core'
 import type { ReadableStream } from 'node:stream/web'
 import type { ReactNode } from 'react'
-
-const noop = () => {}
-
-// Bot responses wait for `allReady` so crawlers receive complete HTML.
-// If the request disconnects during that wait, React may not settle quickly;
-// unblock the wait so the response pipeline can abort and clean up.
-async function waitForReadyOrAbort(ready: Promise<unknown>, signal: AbortSignal) {
-  let cleanup = noop
-  try {
-    await Promise.race([
-      ready,
-      new Promise<void>((resolve) => {
-        const onAbort = () => resolve()
-        cleanup = () => signal.removeEventListener('abort', onAbort)
-        signal.addEventListener('abort', onAbort, { once: true })
-        if (signal.aborted) resolve()
-      }),
-    ])
-  } finally {
-    cleanup()
-  }
-}
 
 // A client disconnecting mid-stream is normal operation, not a render
 // failure; don't let React's onError log it as one.
@@ -60,10 +37,6 @@ export const renderRouterToStream = async ({
         }
       },
     })
-
-    if (isbot(request.headers.get('User-Agent'))) {
-      await waitForReadyOrAbort(stream.allReady, request.signal)
-    }
 
     const responseStream = transformReadableStreamWithRouter(
       router,
@@ -137,17 +110,9 @@ export const renderRouterToStream = async ({
       pipeable = ReactDOMServer.renderToPipeableStream(children, {
         nonce: router.options.ssr?.nonce,
         progressiveChunkSize: Number.POSITIVE_INFINITY,
-        ...(isbot(request.headers.get('User-Agent'))
-          ? {
-              onAllReady() {
-                pipeable!.pipe(reactAppPassthrough)
-              },
-            }
-          : {
-              onShellReady() {
-                pipeable!.pipe(reactAppPassthrough)
-              },
-            }),
+        onShellReady() {
+          pipeable!.pipe(reactAppPassthrough)
+        },
         onError: (error, info) => {
           if (!isAbortError(request, error)) {
             console.error('Error in renderToPipeableStream:', error, info)
