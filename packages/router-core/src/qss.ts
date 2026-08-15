@@ -6,8 +6,28 @@
  * a pre-sized string join.
  */
 
+function isUnreserved(str: string) {
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i)
+    if (
+      (c >= 48 && c <= 57) ||
+      (c >= 65 && c <= 90) ||
+      (c >= 97 && c <= 122) ||
+      c === 45 ||
+      c === 46 ||
+      c === 95 ||
+      c === 126
+    ) {
+      continue
+    }
+    return false
+  }
+  return true
+}
+
 function encodeComponent(str: string): string {
   if (typeof str !== 'string') str = String(str)
+  if (isUnreserved(str)) return str
   // encodeURIComponent plus always-encode `()` so alien values like `()`
   // re-serialize differently from the raw query string.
   const encoded = encodeURIComponent(str)

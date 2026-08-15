@@ -107,6 +107,16 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
     if (cached) return cached
   }
 
+  if (isAbsolute && trailingSlash === 'never' && !hasDotSegment(to)) {
+    const result = cleanPath(to) || '/'
+    const trimmed =
+      result.length > 1 && result.charCodeAt(result.length - 1) === 47
+        ? result.slice(0, -1)
+        : result
+    if (key && cache) cache.set(key, trimmed)
+    return trimmed
+  }
+
   let baseSegments: Array<string>
   if (isBase) {
     baseSegments = splitPath(base)
@@ -144,6 +154,18 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
   const result = cleanPath(baseSegments.join('/')) || '/'
   if (key && cache) cache.set(key, result)
   return result
+}
+
+function hasDotSegment(path: string) {
+  let start = 0
+  for (let i = 0; i <= path.length; i++) {
+    if (i !== path.length && path.charCodeAt(i) !== 47) continue
+    const len = i - start
+    if (len === 1 && path.charCodeAt(start) === 46) return true
+    if (len === 2 && path.charCodeAt(start) === 46 && path.charCodeAt(start + 1) === 46) return true
+    start = i + 1
+  }
+  return false
 }
 
 function splitPath(path: string): string[] {

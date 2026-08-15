@@ -1,3 +1,5 @@
+import { createLRUCache } from './lru-cache'
+
 export const SEGMENT_TYPE_PATHNAME = 0
 export const SEGMENT_TYPE_PARAM = 1
 export const SEGMENT_TYPE_WILDCARD = 2
@@ -164,6 +166,7 @@ export type ProcessedTree = {
   routesById: Record<string, AnyRouteLike>
   routesByPath: Record<string, AnyRouteLike>
   flatRoutes: AnyRouteLike[]
+  matchCache: ReturnType<typeof createLRUCache<string, RouteMatchResult[] | null>>
   masks?: Array<{ from: string; [key: string]: any }>
 }
 
@@ -267,7 +270,13 @@ export function processRouteTree<T extends AnyRouteLike>(
   const kids = childrenOf(routeTree)
   for (let i = 0; i < kids.length; i++) insertRoute(root, kids[i]!, caseSensitive)
 
-  const processedTree = { root, routesById, routesByPath, flatRoutes }
+  const processedTree = {
+    root,
+    routesById,
+    routesByPath,
+    flatRoutes,
+    matchCache: createLRUCache<string, RouteMatchResult[] | null>(1000),
+  }
   return { ...processedTree, processedTree }
 }
 
@@ -275,6 +284,95 @@ export type RouteMatchResult = {
   route: AnyRouteLike
   params: Record<string, string>
   rawParams: Record<string, string>
+}
+
+const EMPTY_PARAMS: Record<string, string> = Object.freeze(Object.create(null))
+
+function decodeSegment(raw: string) {
+  if (raw.indexOf('%') === -1) return raw
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+function toMatchResults(chain: AnyRouteLike[], params: Record<string, string>): RouteMatchResult[] {
+  const matches: RouteMatchResult[] = []
+  for (let i = 0; i < chain.length; i++) {
+    const route = chain[i]!
+    let seen = false
+    for (let j = 0; j < matches.length; j++) {
+      if (matches[j]!.route.id === route.id) {
+        seen = true
+        break
+      }
+    }
+    if (seen) continue
+    matches.push({ route, params, rawParams: params })
+  }
+  return matches
+}
+
+function finishStaticMatch(
+  tree: ProcessedTree,
+  node: SegmentNode,
+  chain: AnyRouteLike[],
+): RouteMatchResult[] {
+  if (node.indexRoute) chain.push(node.indexRoute)
+  else if (node.route && node.route !== tree.root.route) {
+    if (chain[chain.length - 1] !== node.route) chain.push(node.route)
+  }
+  return toMatchResults(chain, EMPTY_PARAMS)
+}
+
+function findStaticMatch(
+  tree: ProcessedTree,
+  pathname: string,
+  caseSensitive: boolean,
+): RouteMatchResult[] | null | undefined {
+  let node = tree.root
+  if (node.paramChild || node.optionalChild || node.wildcardChild) return undefined
+
+  const chain: AnyRouteLike[] = []
+  if (node.route) chain.push(node.route)
+  if (node.pathless) {
+    for (let i = 0; i < node.pathless.length; i++) chain.push(node.pathless[i]!)
+  }
+
+  if (pathname === '/' || pathname === '') return finishStaticMatch(tree, node, chain)
+
+  let i = pathname.charCodeAt(0) === 47 ? 1 : 0
+  while (i < pathname.length) {
+    if (node.paramChild || node.optionalChild || node.wildcardChild) return undefined
+    let end = i
+    while (end < pathname.length && pathname.charCodeAt(end) !== 47) end++
+    if (end > i) {
+      let key = decodeSegment(pathname.slice(i, end))
+      if (!caseSensitive) {
+        let lower = false
+        for (let k = 0; k < key.length; k++) {
+          const c = key.charCodeAt(k)
+          if (c >= 65 && c <= 90) {
+            lower = true
+            break
+          }
+        }
+        if (lower) key = key.toLowerCase()
+      }
+      const child = node.staticChildren?.get(key)
+      if (!child) return null
+      if (child.route) chain.push(child.route)
+      if (child.pathless) {
+        for (let p = 0; p < child.pathless.length; p++) chain.push(child.pathless[p]!)
+      }
+      node = child
+    }
+    i = end + 1
+  }
+
+  if (node.optionalChild) return undefined
+  return finishStaticMatch(tree, node, chain)
 }
 
 function splitSegments(pathname: string): string[] {
@@ -301,14 +399,30 @@ export function findRouteMatch(
   pathname: string,
   caseSensitive = false,
 ): RouteMatchResult[] | null {
+  const cacheKey = caseSensitive ? `1:${pathname}` : pathname
+  const cached = tree.matchCache.get(cacheKey)
+  if (cached !== undefined) return cached
+
+  const staticHit = findStaticMatch(tree, pathname, caseSensitive)
+  if (staticHit !== undefined) {
+    tree.matchCache.set(cacheKey, staticHit)
+    return staticHit
+  }
+
+  const result = findRouteMatchDynamic(tree, pathname, caseSensitive)
+  tree.matchCache.set(cacheKey, result)
+  return result
+}
+
+function findRouteMatchDynamic(
+  tree: ProcessedTree,
+  pathname: string,
+  caseSensitive: boolean,
+): RouteMatchResult[] | null {
   const segments = splitSegments(pathname === '/' ? '' : pathname)
   const decoded: string[] = new Array(segments.length)
   for (let i = 0; i < segments.length; i++) {
-    try {
-      decoded[i] = decodeURIComponent(segments[i]!)
-    } catch {
-      decoded[i] = segments[i]!
-    }
+    decoded[i] = decodeSegment(segments[i]!)
   }
 
   const applyPathless = (node: SegmentNode, chain: AnyRouteLike[]) => {
@@ -454,25 +568,7 @@ export function findRouteMatch(
   }
 
   if (!best) return null
-
-  const matches: RouteMatchResult[] = []
-  for (let i = 0; i < best.chain.length; i++) {
-    const route = best.chain[i]!
-    let seen = false
-    for (let j = 0; j < matches.length; j++) {
-      if (matches[j]!.route.id === route.id) {
-        seen = true
-        break
-      }
-    }
-    if (seen) continue
-    matches.push({
-      route,
-      params: best.params,
-      rawParams: best.params,
-    })
-  }
-  return matches
+  return toMatchResults(best.chain, best.params)
 }
 
 type PatternPart = {

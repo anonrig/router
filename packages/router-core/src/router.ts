@@ -265,6 +265,7 @@ export type ListenerFn = RouterListener
 
 let matchSeq = 0
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
+const RESOLVED: Promise<void> = Promise.resolve()
 
 function nextMatchId(routeId: string, pathname: string) {
   return `${routeId}-${pathname}-${++matchSeq}`
@@ -442,6 +443,7 @@ export class RouterCore<
   }
 
   emit = (event: RouterEvent) => {
+    if (this.subscribers.size === 0) return
     this.subscribers.forEach((fn) => fn(event))
   }
 
@@ -828,9 +830,9 @@ export class RouterCore<
       const match = matches[i]!
       const route = this.routesById[match.routeId]!
       const parentPromise = parentPromises[i - 1]
-
-      const finish = createControlledPromise<void>()
-      parentPromises.push(finish)
+      const opts = route.options
+      const needsAsync = (route.lazyFn && !route._lazy) || opts.beforeLoad || opts.loader
+      let finish: ReturnType<typeof createControlledPromise<void>> | undefined
 
       try {
         let search = location.search
@@ -842,6 +844,36 @@ export class RouterCore<
           match.searchError = err
           match.search = location.search
         }
+
+        if (!needsAsync) {
+          match.context = context
+          match.status = 'success'
+          match._forcePending = false
+          match.isFetching = false
+          match.updatedAt = Date.now()
+          const hook = match.cause === 'enter' ? opts.onEnter : opts.onStay
+          if (hook) {
+            hook({
+              abortController: match.abortController,
+              preload: false,
+              params: match.params,
+              rawParams: match.rawParams,
+              cause: match.cause,
+              location,
+              navigate: this.navigate,
+              search: match.search,
+              context,
+              route,
+              matches,
+              parentMatchPromise: parentPromise,
+            })
+          }
+          parentPromises.push(RESOLVED)
+          continue
+        }
+
+        finish = createControlledPromise<void>()
+        parentPromises.push(finish)
 
         const loaderContext = {
           abortController: match.abortController,
@@ -898,7 +930,7 @@ export class RouterCore<
         if (isRedirect(err)) {
           match.status = 'redirected'
           match.isFetching = false
-          finish.resolve()
+          finish?.resolve()
           if (id !== this.loadId) return
           const dest = err.options
           if (dest.href && dest.reloadDocument) {
@@ -921,14 +953,14 @@ export class RouterCore<
           match.status = 'notFound'
           match.notFoundError = err
           match.isFetching = false
-          finish.resolve()
+          finish?.resolve()
           continue
         }
         match.status = 'error'
         match.error = err
         match.isFetching = false
         route.options.onCatch?.(err)
-        finish.resolve()
+        finish?.resolve()
       }
     }
 

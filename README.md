@@ -17,7 +17,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 
 |                        |                            |                          |
 | :--------------------: | :------------------------: | :----------------------: |
-|       **3.48×**        |         **2.08×**          |        **54,794**        |
+|       **5.02×**        |         **2.52×**          |        **57,715**        |
 | faster warm `navigate` | faster SSR request handler | cold `router.load` / sec |
 
 <sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
@@ -103,9 +103,9 @@ On a 4-core Intel Xeon, Linux, Node 22, single process, in memory, no HTTP serve
 
 |                        |    @anonrig | TanStack |           |
 | ---------------------- | ----------: | -------: | --------: |
-| Warm `navigate`        | **193,122** |   55,441 | **3.48×** |
-| `createRequestHandler` |  **24,767** |   11,904 | **2.08×** |
-| SSR cold `router.load` |  **54,794** |   39,368 | **1.39×** |
+| Warm `navigate`        | **279,152** |   55,626 | **5.02×** |
+| `createRequestHandler` |  **27,622** |   10,980 | **2.52×** |
+| SSR cold `router.load` |  **57,715** |   46,542 | **1.24×** |
 
 </div>
 
@@ -125,22 +125,22 @@ pnpm bench:compare
 
 | Operation                        |    @anonrig |   TanStack | vs TanStack |
 | -------------------------------- | ----------: | ---------: | ----------: |
-| Query-string encode              |   1,428,135 |  2,871,250 |       0.50× |
-| Query-string decode              |   1,069,492 |  1,424,518 |       0.75× |
-| `defaultStringifySearch` (×1000) |       1,665 |      3,024 |       0.55× |
-| `parseHref`                      |   3,203,205 |  3,088,733 |       1.04× |
-| `cleanPath`                      |   6,938,548 |  6,322,465 |       1.10× |
-| `resolvePath`                    |   3,800,131 |  4,212,974 |       0.90× |
-| `interpolatePath`                |   1,489,830 |  2,147,659 |       0.69× |
-| Route match (large tree)         |   2,028,406 | 20,669,666 |       0.10× |
-| Encode 100 typical SSR match IDs |      28,473 |     29,220 |       0.97× |
-| History `push`                   |   1,191,437 |  1,192,404 |       1.00× |
-| Warm `navigate`                  | **193,122** |     55,441 |   **3.48×** |
-| Warm `router.load`               |     182,155 |    128,168 |       1.42× |
-| SSR cold `router.load` req/s     |  **54,794** |     39,368 |   **1.39×** |
-| `createRequestHandler` req/s     |  **24,767** |     11,904 |   **2.08×** |
+| Query-string encode              |   2,479,207 |  2,949,161 |       0.84× |
+| Query-string decode              |   1,061,253 |  1,423,831 |       0.75× |
+| `defaultStringifySearch` (×1000) |   **3,969** |      3,068 |   **1.29×** |
+| `parseHref`                      |   3,163,396 |  3,093,072 |       1.02× |
+| `cleanPath`                      |   7,779,109 |  6,275,041 |       1.24× |
+| `resolvePath`                    |   3,534,610 |  4,047,564 |       0.87× |
+| `interpolatePath`                |   1,522,508 |  2,171,279 |       0.70× |
+| Route match (large tree)         |  10,712,295 | 20,608,482 |       0.52× |
+| Encode 100 typical SSR match IDs |      29,158 |     30,335 |       0.96× |
+| History `push`                   |   1,271,173 |  1,103,607 |       1.15× |
+| Warm `navigate`                  | **279,152** |     55,626 |   **5.02×** |
+| Warm `router.load`               | **639,484** |    166,806 |   **3.83×** |
+| SSR cold `router.load` req/s     |      57,715 |     46,542 |       1.24× |
+| `createRequestHandler` req/s     |  **27,622** |     10,980 |   **2.52×** |
 
-TanStack's query-string helpers use Node's native `URLSearchParams`, which wins those microbenches. The published trie matcher is faster on a large static tree. This router is ahead on the full navigation and SSR request path.
+TanStack's query-string decode and path interpolation still win those microbenches. The published trie matcher is faster on a large static tree. This router is ahead on stringify, warm navigation, warm load, and the full SSR request path.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
