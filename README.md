@@ -177,7 +177,7 @@ resolve: {
 | Vendored TanStack history tests                       | Passing                                                             |
 | Vendored TanStack type tests                          | Passing                                                             |
 | Vendored TanStack core path / qss / search / match    | Passing                                                             |
-| Vendored TanStack core load / preload / SSR lifecycle | Vendored, still failing                                             |
+| Vendored TanStack core load / preload / SSR lifecycle | Passing                                                             |
 | Vendored TanStack React runtime                       | A handful of files pass; pending / preload / SSR / hydration remain |
 
 ```bash

@@ -10,21 +10,15 @@ export interface RouterReadableStore<TValue> {
   get: () => TValue
 }
 
-export interface RouterWritableStore<
-  TValue,
-> extends RouterReadableStore<TValue> {
+export interface RouterWritableStore<TValue> extends RouterReadableStore<TValue> {
   set: ((updater: (prev: TValue) => TValue) => void) & ((value: TValue) => void)
 }
 
 export type RouterBatchFn = (fn: () => void) => void
 
-export type MutableStoreFactory = <TValue>(
-  initialValue: TValue,
-) => RouterWritableStore<TValue>
+export type MutableStoreFactory = <TValue>(initialValue: TValue) => RouterWritableStore<TValue>
 
-export type ReadonlyStoreFactory = <TValue>(
-  read: () => TValue,
-) => RouterReadableStore<TValue>
+export type ReadonlyStoreFactory = <TValue>(read: () => TValue) => RouterReadableStore<TValue>
 
 export type GetStoreConfig = (opts: { isServer?: boolean }) => StoreConfig
 
@@ -67,9 +61,7 @@ export function createNonReactiveReadonlyStore<TValue>(
 export interface RouterStores<in out TRouteTree extends AnyRoute> {
   status: RouterWritableStore<RouterState<TRouteTree>['status']>
   location: RouterWritableStore<ParsedLocation<FullSearchSchema<TRouteTree>>>
-  resolvedLocation: RouterWritableStore<
-    ParsedLocation<FullSearchSchema<TRouteTree>> | undefined
-  >
+  resolvedLocation: RouterWritableStore<ParsedLocation<FullSearchSchema<TRouteTree>> | undefined>
   ids: RouterWritableStore<Array<string>>
   matches: ReadableStore<Array<AnyRouteMatch>>
   __store: RouterReadableStore<RouterState<TRouteTree>>
@@ -80,9 +72,7 @@ export interface RouterStores<in out TRouteTree extends AnyRoute> {
    * Get the stable atom for a route's presented match. The atom remains in the
    * pool when the route leaves and contains `undefined` until it re-enters.
    */
-  getMatchStore: (
-    routeId: string,
-  ) => RouterReadableStore<AnyRouteMatch | undefined>
+  getMatchStore: (routeId: string) => RouterReadableStore<AnyRouteMatch | undefined>
 
   setMatches: (nextMatches: Array<AnyRouteMatch>) => void
 }
@@ -99,22 +89,23 @@ export function createRouterStores<TRouteTree extends AnyRoute>(
   // atoms
   const status = createMutableStore<RouterState<TRouteTree>['status']>('idle')
   const location = createMutableStore(initialLocation)
-  const resolvedLocation =
-    createMutableStore<RouterState<TRouteTree>['resolvedLocation']>(undefined)
+  const resolvedLocation = createMutableStore<
+    RouterState<TRouteTree>['resolvedLocation'] | undefined
+  >(undefined)
   const ids = createMutableStore<Array<string>>([])
 
   // 1st order derived stores
-  const matches = createReadonlyStore(() =>
-    ids.get().map((id) => byRoute.get(id)!.get()!),
-  )
+  const matches = createReadonlyStore(() => ids.get().map((id) => byRoute.get(id)!.get()!))
 
   // compatibility "big" state store
   const __store = createReadonlyStore(() => ({
     status: status.get(),
     isLoading: status.get() === 'pending',
+    isTransitioning: status.get() === 'pending',
     matches: matches.get(),
     location: location.get(),
     resolvedLocation: resolvedLocation.get(),
+    statusCode: 200,
   }))
 
   function getMatchStore(routeId: string): MatchStore {

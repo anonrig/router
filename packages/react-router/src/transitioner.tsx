@@ -51,10 +51,11 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
         trimPathRight(location.publicHref ?? location.href) !==
         trimPathRight(nextLocation.publicHref ?? nextLocation.href)
       ) {
-        void router.commitLocation(nextLocation as any, {
+        void router.commitLocation({
+          ...nextLocation,
           replace: true,
           ignoreBlocker: true,
-        })
+        } as any)
       } else {
         const resolvedLocation =
           router.stores.resolvedLocation?.get?.() ?? router.state.resolvedLocation
@@ -75,8 +76,9 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
     }
 
     return () => {
-      router.startTransition = (fn: () => void) => {
+      router.startTransition = async (fn: () => void) => {
         fn()
+        return true
       }
     }
   }, [router, t])

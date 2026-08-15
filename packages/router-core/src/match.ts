@@ -131,6 +131,7 @@ export type SegmentNode = {
   paramChildren: SegmentNode[] | null
   paramName: string
   optionalChild: SegmentNode | null
+  optionalChildren: SegmentNode[] | null
   optionalName: string
   wildcardChild: SegmentNode | null
   pathless: AnyRouteLike[] | null
@@ -138,6 +139,8 @@ export type SegmentNode = {
   indexRoute: AnyRouteLike | null
   parse?: ((params: Record<string, string>) => unknown) | null
   priority?: number
+  prefix?: string
+  suffix?: string
 }
 
 function createNode(): SegmentNode {
@@ -147,6 +150,7 @@ function createNode(): SegmentNode {
     paramChildren: null,
     paramName: '',
     optionalChild: null,
+    optionalChildren: null,
     optionalName: '',
     wildcardChild: null,
     pathless: null,
@@ -165,6 +169,15 @@ function getOrCreateStatic(node: SegmentNode, key: string): SegmentNode {
   return child
 }
 
+export type MaskTreeNode = {
+  static: Map<string, MaskTreeNode>
+  staticInsensitive: Map<string, MaskTreeNode>
+  dynamic: MaskTreeNode[]
+  optional: MaskTreeNode[]
+  wildcard: MaskTreeNode[]
+  route?: { from: string; [key: string]: any }
+}
+
 export type ProcessedTree = {
   root: SegmentNode
   routesById: Record<string, AnyRouteLike>
@@ -172,6 +185,7 @@ export type ProcessedTree = {
   flatRoutes: AnyRouteLike[]
   matchCache: ReturnType<typeof createLRUCache<string, RouteMatchResult[] | null>>
   masks?: Array<{ from: string; [key: string]: any }>
+  masksTree?: MaskTreeNode | null
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -237,6 +251,8 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
       next.parse = parse
       next.priority = priority
       next.paramName = name
+      next.prefix = trimmed.substring(start, segment[1])
+      next.suffix = trimmed.substring(segment[4], end)
       current.paramChildren ??= []
       current.paramChildren.push(next)
       if (!current.paramChild) {
@@ -245,11 +261,21 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
       }
       current = next
     } else if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      if (!current.optionalChild) current.optionalChild = createNode()
-      current.optionalName = trimmed.substring(segment[2], segment[3])
-      current = current.optionalChild
+      const next = createNode()
+      next.optionalName = trimmed.substring(segment[2], segment[3])
+      next.prefix = trimmed.substring(start, segment[1])
+      next.suffix = trimmed.substring(segment[4], end)
+      current.optionalChildren ??= []
+      current.optionalChildren.push(next)
+      if (!current.optionalChild) {
+        current.optionalChild = next
+        current.optionalName = next.optionalName
+      }
+      current = next
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
       if (!current.wildcardChild) current.wildcardChild = createNode()
+      current.wildcardChild.prefix = trimmed.substring(start, segment[1])
+      current.wildcardChild.suffix = trimmed.substring(segment[4], end)
       current = current.wildcardChild
     }
   }
@@ -347,12 +373,7 @@ function findStaticMatch(
   caseSensitive: boolean,
 ): RouteMatchResult[] | null | undefined {
   let node = tree.root
-  if (
-    node.paramChild ||
-    node.paramChildren?.length ||
-    node.optionalChild ||
-    node.wildcardChild
-  ) {
+  if (node.paramChild || node.paramChildren?.length || node.optionalChild || node.wildcardChild) {
     return undefined
   }
 
@@ -366,14 +387,9 @@ function findStaticMatch(
 
   let i = pathname.charCodeAt(0) === 47 ? 1 : 0
   while (i < pathname.length) {
-    if (
-    node.paramChild ||
-    node.paramChildren?.length ||
-    node.optionalChild ||
-    node.wildcardChild
-  ) {
-    return undefined
-  }
+    if (node.paramChild || node.paramChildren?.length || node.optionalChild || node.wildcardChild) {
+      return undefined
+    }
     let end = i
     while (end < pathname.length && pathname.charCodeAt(end) !== 47) end++
     if (end > i) {
@@ -400,11 +416,15 @@ function findStaticMatch(
     i = end + 1
   }
 
-  if (node.optionalChild) return undefined
+  if (node.optionalChild || node.wildcardChild || node.paramChild || node.paramChildren?.length) {
+    return undefined
+  }
+  const terminal = node.indexRoute ?? (node.route !== tree.root.route ? node.route : null)
+  if (terminal?.options?.params?.parse || terminal?.options?.parseParams) return undefined
   return finishStaticMatch(tree, node, chain)
 }
 
-function splitSegments(pathname: string): string[] {
+function splitSegments(pathname: string, keepTrailing = false): string[] {
   const out: string[] = []
   let last = pathname.charCodeAt(0) === 47 ? 1 : 0
   for (let i = last; i <= pathname.length; i++) {
@@ -412,6 +432,9 @@ function splitSegments(pathname: string): string[] {
       if (i > last) out.push(pathname.slice(last, i))
       last = i + 1
     }
+  }
+  if (keepTrailing && pathname.length > 1 && pathname.charCodeAt(pathname.length - 1) === 47) {
+    out.push('')
   }
   return out
 }
@@ -421,6 +444,10 @@ type WalkFrame = {
   index: number
   params: Record<string, string>
   chain: AnyRouteLike[]
+  depth: number
+  parsed: number
+  statics: number
+  affix: number
 }
 
 function applyParamsParse(frame: WalkFrame): boolean {
@@ -448,7 +475,7 @@ export function findRouteMatch(
 ): any {
   if (typeof treeOrPathname === 'string') {
     const tree = pathnameOrTree as ProcessedTree
-    const matches = findRouteMatchOrdered(tree, treeOrPathname, false)
+    const matches = findRouteMatchOrdered(tree, treeOrPathname, false, caseSensitiveOrFuzzy)
     if (!matches) return null
     const last = matches[matches.length - 1]!
     return {
@@ -458,33 +485,62 @@ export function findRouteMatch(
       branch: matches.map((item) => item.route),
     }
   }
-  return findRouteMatchOrdered(treeOrPathname, pathnameOrTree as string, caseSensitiveOrFuzzy)
+  return findRouteMatchOrdered(
+    treeOrPathname,
+    pathnameOrTree as string,
+    caseSensitiveOrFuzzy,
+    false,
+  )
 }
 
 function findRouteMatchOrdered(
   tree: ProcessedTree,
   pathname: string,
   caseSensitive = false,
+  fuzzy = false,
 ): RouteMatchResult[] | null {
-  const cacheKey = caseSensitive ? `1:${pathname}` : pathname
+  const cacheKey = `${caseSensitive ? '1' : '0'}:${fuzzy ? '1' : '0'}:${pathname}`
   const cached = tree.matchCache.get(cacheKey)
   if (cached !== undefined) return cached
 
-  const staticHit = findStaticMatch(tree, pathname, caseSensitive)
-  if (staticHit !== undefined) {
-    tree.matchCache.set(cacheKey, staticHit)
-    return staticHit
+  if (!fuzzy) {
+    const staticHit = findStaticMatch(tree, pathname, caseSensitive)
+    if (staticHit !== undefined) {
+      tree.matchCache.set(cacheKey, staticHit)
+      return staticHit
+    }
   }
 
-  const result = findRouteMatchDynamic(tree, pathname, caseSensitive)
+  const result = findRouteMatchDynamic(tree, pathname, caseSensitive, fuzzy)
   tree.matchCache.set(cacheKey, result)
   return result
+}
+
+function isBetterMatch(best: WalkFrame | null, candidate: WalkFrame): boolean {
+  if (!best) return true
+  if (candidate.statics !== best.statics) return candidate.statics > best.statics
+  if (candidate.affix !== best.affix) return candidate.affix > best.affix
+  if (candidate.chain.length !== best.chain.length)
+    return candidate.chain.length > best.chain.length
+  if (candidate.parsed !== best.parsed) return candidate.parsed > best.parsed
+  if (candidate.depth !== best.depth) return candidate.depth > best.depth
+  return !!(candidate.node.indexRoute && !best.node.indexRoute)
+}
+
+function parsedScore(frame: WalkFrame): number {
+  let score = 0
+  for (let i = 0; i < frame.chain.length; i++) {
+    const route = frame.chain[i]!
+    if (route.options?.params?.parse || route.options?.parseParams) score++
+  }
+  return score
 }
 
 function findRouteMatchDynamic(
   tree: ProcessedTree,
   pathname: string,
   caseSensitive: boolean,
+  fuzzy = false,
 ): RouteMatchResult[] | null {
   const segments = splitSegments(pathname === '/' ? '' : pathname)
   const decoded: string[] = new Array(segments.length)
@@ -502,9 +558,7 @@ function findRouteMatchDynamic(
   const withPathless = (next: WalkFrame): WalkFrame => {
     if (!next.node.pathless) return next
     return {
-      node: next.node,
-      index: next.index,
-      params: next.params,
+      ...next,
       chain: applyPathless(next.node, next.chain),
     }
   }
@@ -515,40 +569,112 @@ function findRouteMatchDynamic(
       index: 0,
       params: Object.create(null),
       chain: applyPathless(tree.root, tree.root.route ? [tree.root.route] : []),
+      depth: 0,
+      parsed: 0,
+      statics: 0,
+      affix: 0,
     },
   ]
 
   let best: WalkFrame | null = null
+  let bestFuzzy: WalkFrame | null = null
+
+  const considerFuzzy = (frame: WalkFrame) => {
+    if (!fuzzy || frame.index >= decoded.length) return
+    if (!frame.node.route || frame.node.route === tree.root.route) return
+    if (isBetterMatch(bestFuzzy, frame)) bestFuzzy = frame
+  }
 
   while (stack.length) {
     const frame = stack.pop()!
     const { node, index } = frame
+    considerFuzzy(frame)
 
     if (index === decoded.length) {
       const terminal = withPathless(frame)
-      if (terminal.node.indexRoute) {
-        terminal.chain.push(terminal.node.indexRoute)
-      } else if (terminal.node.route && terminal.node.route !== tree.root.route) {
-        if (terminal.chain[terminal.chain.length - 1] !== terminal.node.route) {
-          terminal.chain.push(terminal.node.route)
+      const indexRoute = terminal.node.indexRoute
+      if (indexRoute) {
+        const indexed = {
+          ...terminal,
+          chain: terminal.chain.concat(indexRoute),
         }
-      }
-      if (applyParamsParse(terminal)) {
-        if (
-          !best ||
-          terminal.chain.length > best.chain.length ||
-          (terminal.node.indexRoute && !best.node.indexRoute)
+        if (applyParamsParse(indexed)) {
+          indexed.parsed = parsedScore(indexed)
+          if (isBetterMatch(best, indexed)) best = indexed
+        } else if (
+          terminal.node.wildcardChild &&
+          !terminal.node.wildcardChild.prefix &&
+          !terminal.node.wildcardChild.suffix
         ) {
-          best = terminal
+          const params = Object.assign(Object.create(null), terminal.params)
+          params._splat = ''
+          params['*'] = ''
+          const wild = {
+            ...terminal,
+            node: terminal.node.wildcardChild,
+            params,
+            chain: terminal.chain.concat(
+              terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : [],
+            ),
+            depth: terminal.depth + 1,
+          }
+          if (applyParamsParse(wild)) {
+            wild.parsed = parsedScore(wild)
+            if (isBetterMatch(best, wild)) best = wild
+          }
+        }
+      } else {
+        const chainBeforeRoute = terminal.chain.slice()
+        if (terminal.node.route && terminal.node.route !== tree.root.route) {
+          if (terminal.chain[terminal.chain.length - 1] !== terminal.node.route) {
+            terminal.chain.push(terminal.node.route)
+          }
+        }
+        if (applyParamsParse(terminal)) {
+          terminal.parsed = parsedScore(terminal)
+          if (isBetterMatch(best, terminal)) best = terminal
+        }
+        if (
+          !best &&
+          terminal.node.wildcardChild &&
+          !terminal.node.wildcardChild.prefix &&
+          !terminal.node.wildcardChild.suffix
+        ) {
+          const params = Object.assign(Object.create(null), terminal.params)
+          params._splat = ''
+          params['*'] = ''
+          const wild = {
+            ...terminal,
+            node: terminal.node.wildcardChild,
+            params,
+            chain: chainBeforeRoute
+              .filter((route) => route !== terminal.node.route)
+              .concat(terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : []),
+            depth: terminal.depth + 1,
+          }
+          if (applyParamsParse(wild)) {
+            wild.parsed = parsedScore(wild)
+            if (isBetterMatch(best, wild)) best = wild
+          }
         }
       }
-      if (terminal.node.optionalChild) {
+      const optionals = terminal.node.optionalChildren?.length
+        ? terminal.node.optionalChildren
+        : terminal.node.optionalChild
+          ? [terminal.node.optionalChild]
+          : []
+      for (let o = 0; o < optionals.length; o++) {
+        const child = optionals[o]!
         stack.push(
           withPathless({
-            node: terminal.node.optionalChild,
+            node: child,
             index,
             params: terminal.params,
             chain: terminal.chain,
+            depth: terminal.depth + 1,
+            parsed: terminal.parsed,
+            statics: terminal.statics,
+            affix: terminal.affix,
           }),
         )
       }
@@ -560,45 +686,78 @@ function findRouteMatchDynamic(
     const key = caseSensitive ? value : value.toLowerCase()
 
     if (node.wildcardChild) {
-      const params = Object.assign(Object.create(null), frame.params)
-      let splat = ''
-      for (let i = index; i < decoded.length; i++) {
-        if (i !== index) splat += '/'
-        splat += decoded[i]!
+      const prefix = node.wildcardChild.prefix || ''
+      const suffix = node.wildcardChild.suffix || ''
+      const first = decoded[index]!
+      const lastSeg = decoded[decoded.length - 1]!
+      const prefixOk = !prefix || first.startsWith(prefix)
+      const suffixOk = !suffix || lastSeg.endsWith(suffix)
+      if (prefixOk && suffixOk) {
+        const params = Object.assign(Object.create(null), frame.params)
+        const rest = decoded.slice(index)
+        if (prefix) rest[0] = rest[0]!.slice(prefix.length)
+        if (suffix)
+          rest[rest.length - 1] = rest[rest.length - 1]!.slice(
+            0,
+            rest[rest.length - 1]!.length - suffix.length,
+          )
+        const splat = rest.join('/')
+        params._splat = splat
+        params['*'] = splat
+        const chain = frame.chain.slice()
+        if (node.wildcardChild.route) chain.push(node.wildcardChild.route)
+        stack.push(
+          withPathless({
+            node: node.wildcardChild,
+            index: segments.length,
+            params,
+            chain,
+            depth: frame.depth + 1,
+            parsed: frame.parsed,
+            statics: frame.statics,
+            affix: frame.affix + prefix.length + suffix.length,
+          }),
+        )
       }
-      params._splat = splat
-      params['*'] = splat
-      const chain = frame.chain.slice()
-      if (node.wildcardChild.route) chain.push(node.wildcardChild.route)
-      stack.push(
-        withPathless({
-          node: node.wildcardChild,
-          index: segments.length,
-          params,
-          chain,
-        }),
-      )
     }
 
-    if (node.optionalChild) {
-      const params = Object.assign(Object.create(null), frame.params)
-      params[node.optionalName] = value
-      const chain = frame.chain.slice()
-      if (node.optionalChild.route) chain.push(node.optionalChild.route)
+    const optionals = node.optionalChildren?.length
+      ? node.optionalChildren
+      : node.optionalChild
+        ? [node.optionalChild]
+        : []
+    for (let o = 0; o < optionals.length; o++) {
+      const child = optionals[o]!
+      const name = child.optionalName || node.optionalName
+      const inner = extractPrefixed(value, child.prefix || '', child.suffix || '')
+      if (inner !== null) {
+        const params = Object.assign(Object.create(null), frame.params)
+        if (inner) params[name] = inner
+        const chain = frame.chain.slice()
+        if (child.route) chain.push(child.route)
+        stack.push(
+          withPathless({
+            node: child,
+            index: index + 1,
+            params,
+            chain,
+            depth: frame.depth + 1,
+            parsed: frame.parsed,
+            statics: frame.statics,
+            affix: frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
+          }),
+        )
+      }
       stack.push(
         withPathless({
-          node: node.optionalChild,
-          index: index + 1,
-          params,
-          chain,
-        }),
-      )
-      stack.push(
-        withPathless({
-          node: node.optionalChild,
+          node: child,
           index,
           params: frame.params,
           chain: frame.chain.slice(),
+          depth: frame.depth + 1,
+          parsed: frame.parsed,
+          statics: frame.statics,
+          affix: frame.affix,
         }),
       )
     }
@@ -609,13 +768,13 @@ function findRouteMatchDynamic(
         ? [node.paramChild]
         : []
     if (paramKids.length) {
-      const ordered = paramKids
-        .slice()
-        .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+      const ordered = paramKids.slice().sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
       for (let p = ordered.length - 1; p >= 0; p--) {
         const child = ordered[p]!
+        const inner = extractPrefixed(value, child.prefix || '', child.suffix || '')
+        if (inner === null) continue
         const params = Object.assign(Object.create(null), frame.params)
-        params[child.paramName || node.paramName || ''] = value
+        params[child.paramName || node.paramName || ''] = inner
         const chain = frame.chain.slice()
         if (child.route) chain.push(child.route)
         stack.push(
@@ -624,6 +783,10 @@ function findRouteMatchDynamic(
             index: index + 1,
             params,
             chain,
+            depth: frame.depth + 1,
+            parsed: frame.parsed,
+            statics: frame.statics,
+            affix: frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
           }),
         )
       }
@@ -633,7 +796,11 @@ function findRouteMatchDynamic(
       node.staticChildren?.get(key) ??
       (caseSensitive ? undefined : node.staticChildren?.get(raw.toLowerCase()))
     if (staticChild) {
-      const onlyStatic = !node.wildcardChild && !node.optionalChild && !node.paramChild
+      const onlyStatic =
+        !node.wildcardChild &&
+        !node.optionalChild &&
+        !node.optionalChildren?.length &&
+        !node.paramChild
       const chain = onlyStatic ? frame.chain : frame.chain.slice()
       if (staticChild.route) chain.push(staticChild.route)
       stack.push(
@@ -642,13 +809,23 @@ function findRouteMatchDynamic(
           index: index + 1,
           params: frame.params,
           chain,
+          depth: frame.depth + 1,
+          parsed: frame.parsed,
+          statics: frame.statics + 1,
+          affix: frame.affix,
         }),
       )
     }
   }
 
-  if (!best) return null
-  return toMatchResults(best.chain, best.params)
+  if (best) return toMatchResults(best.chain, best.params)
+  if (fuzzy && bestFuzzy !== null) {
+    const leftover = decoded.slice((bestFuzzy as WalkFrame).index).join('/')
+    const params = Object.assign(Object.create(null), (bestFuzzy as WalkFrame).params)
+    params['**'] = leftover
+    return toMatchResults((bestFuzzy as WalkFrame).chain, params)
+  }
+  return null
 }
 
 type PatternPart = {
@@ -687,7 +864,12 @@ function matchPatternParts(
   const norm = (s: string) => (caseSensitive ? s : s.toLowerCase())
 
   if (pi >= parts.length) {
-    if (si === pathSegs.length || fuzzy) return withParams(params)
+    if (si === pathSegs.length) return withParams(params)
+    if (fuzzy) {
+      const leftover = pathSegs.slice(si)
+      const splat = leftover.length === 1 && leftover[0] === '' ? '/' : leftover.join('/')
+      return withParams(params, { '**': splat })
+    }
     return null
   }
 
@@ -736,7 +918,7 @@ function matchPatternParts(
   }
 
   if (si >= pathSegs.length) {
-    return fuzzy ? withParams(params) : null
+    return null
   }
 
   const value = pathSegs[si]!
@@ -778,7 +960,9 @@ export function findSingleMatch(
     return null
   }
   const path = pathname ?? ''
-  const pathSegs = splitSegments(path === '/' ? '' : path)
+  const patternTrail = pattern.length > 1 && pattern.charCodeAt(pattern.length - 1) === 47
+  const pathTrail = path.length > 1 && path.charCodeAt(path.length - 1) === 47
+  const pathSegs = splitSegments(path === '/' ? '' : path, pathTrail && !patternTrail)
   const fullPattern = pattern.charCodeAt(0) === 47 ? pattern.slice(1) : pattern
 
   let cursor = 0
@@ -813,6 +997,11 @@ function decodeSeg(value: string) {
   }
 }
 
+function maskScore(from: string, params: Record<string, string>): number {
+  const splat = params._splat ?? params['*'] ?? params['**'] ?? ''
+  return from.length * 1000 - String(splat).length
+}
+
 export function findFlatMatch(
   treeOrPath: ProcessedTree | string,
   fromOrTree?: string | ProcessedTree,
@@ -820,6 +1009,22 @@ export function findFlatMatch(
   if (typeof treeOrPath === 'string') {
     const tree = fromOrTree as ProcessedTree | undefined
     if (!tree) return undefined
+    const masks = tree.masks
+    if (masks?.length) {
+      let best: { route: any; rawParams: Record<string, string> } | null = null
+      let bestScore = Number.NEGATIVE_INFINITY
+      for (let i = 0; i < masks.length; i++) {
+        const mask = masks[i]!
+        const matched = findSingleMatch(mask.from, false, false, treeOrPath, tree)
+        if (!matched) continue
+        const score = maskScore(mask.from, matched.rawParams)
+        if (score > bestScore) {
+          bestScore = score
+          best = { route: mask, rawParams: matched.rawParams }
+        }
+      }
+      return best
+    }
     const matches = findRouteMatchOrdered(tree, treeOrPath, false)
     if (!matches?.length) return null
     const last = matches[matches.length - 1]!
@@ -841,11 +1046,72 @@ export function buildRouteBranch(route: AnyRouteLike): AnyRouteLike[] {
   return branch
 }
 
+function createMaskNode(): MaskTreeNode {
+  return {
+    static: new Map(),
+    staticInsensitive: new Map(),
+    dynamic: [],
+    optional: [],
+    wildcard: [],
+  }
+}
+
+function insertMaskRoute(
+  root: MaskTreeNode,
+  from: string,
+  mask: { from: string; [key: string]: any },
+) {
+  const trimmed = from.charCodeAt(0) === 47 ? from.slice(1) : from
+  let cursor = 0
+  let node = root
+  let segment: ParsedSegment | undefined
+  while (cursor < trimmed.length) {
+    const start = cursor
+    segment = parseSegment(trimmed, start, segment)
+    const end = segment[5]
+    cursor = end + 1
+    if (start === end) continue
+    const kind = segment[0]
+    const raw = trimmed.substring(start, end)
+    if (kind === SEGMENT_TYPE_PATHNAME) {
+      const key = raw.toLowerCase()
+      let child = node.staticInsensitive.get(key)
+      if (!child) {
+        child = createMaskNode()
+        node.staticInsensitive.set(key, child)
+        node.static.set(raw, child)
+      }
+      node = child
+    } else if (kind === SEGMENT_TYPE_PARAM) {
+      const child = createMaskNode()
+      node.dynamic.push(child)
+      node = child
+    } else if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
+      const child = createMaskNode()
+      node.optional.push(child)
+      node = child
+    } else if (kind === SEGMENT_TYPE_WILDCARD) {
+      const child = createMaskNode()
+      node.wildcard.push(child)
+      node = child
+    }
+  }
+  node.route = mask
+}
+
 export function processRouteMasks(
   routeList: Array<{ from: string; [key: string]: any }> = [],
   processedTree?: ProcessedTree,
 ) {
-  if (processedTree) processedTree.masks = routeList
+  if (processedTree) {
+    processedTree.masks = routeList
+    const masksTree = createMaskNode()
+    for (let i = 0; i < routeList.length; i++) {
+      const mask = routeList[i]!
+      insertMaskRoute(masksTree, mask.from, mask)
+    }
+    processedTree.masksTree = masksTree
+  }
   return routeList
 }
 
