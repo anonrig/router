@@ -2010,6 +2010,39 @@ export async function loadClientRoute(
   router: CoordinatorRouter,
   opts?: { sync?: boolean },
 ): Promise<void> {
+  if (
+    !router._handoff &&
+    !router._tx &&
+    !router._refreshNextLoad &&
+    !router._forcePending &&
+    router.stores?.status?.get() === 'idle'
+  ) {
+    const resolved = router.stores.resolvedLocation.get()
+    const location = router.latestLocation
+    if (resolved && location && resolved.href === location.href) {
+      const matches = router.stores.matches.get()
+      if (matches?.length) {
+        let ready = true
+        for (let i = 0; i < matches.length; i++) {
+          const match = matches[i]!
+          if (match.status !== 'success' || match.invalid || match.isFetching) {
+            ready = false
+            break
+          }
+          const shouldReload = router.routesById[match.routeId]?.options?.shouldReload
+          if (shouldReload === true || typeof shouldReload === 'function') {
+            ready = false
+            break
+          }
+        }
+        if (ready) {
+          router._commitPromise?.resolve()
+          router._commitPromise = undefined
+          return
+        }
+      }
+    }
+  }
   let rematerialize = false
   if (process.env.NODE_ENV !== 'production') {
     router._tx?.[6 /* refresh */]?.[2 /* rollback */]?.()

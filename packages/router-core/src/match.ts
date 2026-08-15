@@ -285,10 +285,21 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
   for (let i = 0; i < kids.length; i++) insertRoute(current, kids[i]!, caseSensitive)
 }
 
+const processedTreeCache = new WeakMap<
+  AnyRouteLike,
+  { caseSensitive: boolean; children: unknown; tree: ProcessedTree & { processedTree: ProcessedTree } }
+>()
+
 export function processRouteTree<T extends AnyRouteLike>(
   routeTree: T,
   caseSensitive = false,
 ): ProcessedTree & { processedTree: ProcessedTree } {
+  const children = routeTree.children
+  const cached = processedTreeCache.get(routeTree)
+  if (cached && cached.caseSensitive === caseSensitive && cached.children === children) {
+    return cached.tree
+  }
+
   const routesById: Record<string, AnyRouteLike> = Object.create(null)
   const routesByPath: Record<string, AnyRouteLike> = Object.create(null)
   const flatRoutes: AnyRouteLike[] = []
@@ -318,7 +329,9 @@ export function processRouteTree<T extends AnyRouteLike>(
     flatRoutes,
     matchCache: createLRUCache<string, RouteMatchResult[] | null>(1000),
   }
-  return { ...processedTree, processedTree }
+  const result = { ...processedTree, processedTree }
+  processedTreeCache.set(routeTree, { caseSensitive, children, tree: result })
+  return result
 }
 
 export type RouteMatchResult = {
@@ -499,7 +512,7 @@ function findRouteMatchOrdered(
   caseSensitive = false,
   fuzzy = false,
 ): RouteMatchResult[] | null {
-  const cacheKey = `${caseSensitive ? '1' : '0'}:${fuzzy ? '1' : '0'}:${pathname}`
+  const cacheKey = caseSensitive || fuzzy ? `${caseSensitive ? '1' : '0'}:${fuzzy ? '1' : '0'}:${pathname}` : pathname
   const cached = tree.matchCache.get(cacheKey)
   if (cached !== undefined) return cached
 

@@ -209,6 +209,36 @@ function encodePathParam(value: string, decoder?: InterpolatePathOptions['decode
   return decoder?.(encoded) ?? encoded
 }
 
+function interpolateSimpleParams(
+  path: string,
+  params: InterpolatePathOptions['params'],
+  decoder: InterpolatePathOptions['decoder'],
+): InterPolatePathResult | null {
+  const usedParams: Record<string, unknown> = Object.create(null)
+  let isMissingParams = false
+  let out = ''
+  let i = 0
+  const len = path.length
+  while (i < len) {
+    const c = path.charCodeAt(i)
+    if (c === 36) {
+      let j = i + 1
+      while (j < len && path.charCodeAt(j) !== 47) j++
+      if (j === i + 1) return null
+      const key = path.slice(i + 1, j)
+      if (!isMissingParams && !(key in params)) isMissingParams = true
+      usedParams[key] = params[key]
+      const value = encodeParam(key, params, decoder) ?? 'undefined'
+      out += value
+      i = j
+      continue
+    }
+    out += path[i]!
+    i++
+  }
+  return { interpolatedPath: out || '/', usedParams, isMissingParams }
+}
+
 function encodeParam(
   key: string,
   params: InterpolatePathOptions['params'],
@@ -260,6 +290,10 @@ export function interpolatePath({
   }
   if (path.indexOf('$') === -1) {
     return { interpolatedPath: path, usedParams, isMissingParams }
+  }
+  if (path.indexOf('{') === -1) {
+    const simple = interpolateSimpleParams(path, params, decoder)
+    if (simple) return simple
   }
 
   const length = path.length

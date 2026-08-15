@@ -790,6 +790,170 @@ type ServerLoadOptions = NonNullable<Parameters<AnyRouter['load']>[0]> & {
   _signal?: AbortSignal
 }
 
+function canUseSimpleServerLane(
+  router: AnyRouter,
+  matches: Array<AnyRouteMatch>,
+  opts?: ServerLoadOptions,
+): boolean {
+  if (opts?._signal) return false
+  if (router.rewrite) return false
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]!
+    if (match._notFound || match.paramsError || match.searchError) return false
+    const route = getRoute(router, match)
+    if (route.lazyFn && route._lazy !== true) return false
+    if (route.options?.ssr === false) return false
+  }
+  return true
+}
+
+async function executeSimpleServerLane(
+  router: AnyRouter,
+  location: ParsedLocation,
+  matches: Array<AnyRouteMatch>,
+): Promise<ServerLoadResult> {
+  const routerContext = router.options.context
+  let context: Record<string, any> = routerContext ? { ...routerContext } : {}
+  let status: 200 | 404 | 500 = 200
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]!
+    const route = getRoute(router, match)
+    match.abortController = match.abortController ?? new AbortController()
+    match.isFetching = false
+    match.__beforeLoadContext = undefined
+
+    if (route.options?.context) {
+      try {
+        const extra = route.options.context({
+          deps: match.loaderDeps,
+          params: match.params,
+          context,
+          location,
+          navigate: router.navigate,
+          buildLocation: router.buildLocation,
+          cause: match.cause,
+          abortController: match.abortController,
+          preload: false,
+          matches,
+          routeId: route.id,
+        })
+        const value = extra && typeof extra.then === 'function' ? await extra : extra
+        if (value && typeof value === 'object') context = { ...context, ...value }
+      } catch (cause) {
+        if (isRedirect(cause)) throw cause
+        if (isNotFound(cause)) {
+          match.status = 'notFound'
+          match.error = cause
+          match.updatedAt = Date.now()
+          status = 404
+          break
+        }
+        match.status = 'error'
+        match.error = cause
+        match.updatedAt = Date.now()
+        status = 500
+        break
+      }
+    }
+    match.context = context
+
+    if (route.options?.beforeLoad) {
+      try {
+        const before = route.options.beforeLoad({
+          search: match.search,
+          abortController: match.abortController,
+          params: match.params,
+          preload: false,
+          context,
+          location,
+          navigate: router.navigate,
+          buildLocation: router.buildLocation,
+          cause: match.cause,
+          matches,
+          routeId: route.id,
+          ...router.options.additionalContext,
+        })
+        const value = before && typeof before.then === 'function' ? await before : before
+        if (isRedirect(value)) throw value
+        if (isNotFound(value)) throw value
+        if (value && typeof value === 'object') {
+          context = { ...context, ...value }
+          match.__beforeLoadContext = value
+        }
+      } catch (cause) {
+        if (isRedirect(cause)) throw cause
+        if (isNotFound(cause)) {
+          match.status = 'notFound'
+          match.error = cause
+          match.updatedAt = Date.now()
+          status = 404
+          break
+        }
+        match.status = 'error'
+        match.error = cause
+        match.updatedAt = Date.now()
+        status = 500
+        break
+      }
+    }
+    match.context = context
+
+    const loader = route.options?.loader
+    const loaderFn = typeof loader === 'function' ? loader : loader?.handler
+    if (loaderFn) {
+      try {
+        const data = loaderFn({
+          params: match.params,
+          deps: match.loaderDeps,
+          preload: false,
+          parentMatchPromise: undefined,
+          abortController: match.abortController,
+          context,
+          location,
+          navigate: router.navigate,
+          cause: match.cause,
+          route,
+          ...router.options.additionalContext,
+        })
+        const value = data && typeof data.then === 'function' ? await data : data
+        if (isRedirect(value)) throw value
+        if (isNotFound(value)) throw value
+        match.loaderData = value
+      } catch (cause) {
+        if (isRedirect(cause)) throw cause
+        if (isNotFound(cause)) {
+          match.status = 'notFound'
+          match.error = cause
+          match.updatedAt = Date.now()
+          status = 404
+          break
+        }
+        match.status = 'error'
+        match.error = cause
+        match.updatedAt = Date.now()
+        status = 500
+        break
+      }
+    }
+
+    match.status = 'success'
+    match.invalid = false
+    match.error = undefined
+    match.updatedAt = Date.now()
+  }
+
+  await projectLane(
+    router,
+    {
+      location,
+      matches,
+    } as ReducedLane,
+    undefined,
+  )
+  return { type: 'render', status, matches }
+}
+
 export async function loadServerRoute(
   router: AnyRouter,
   opts?: ServerLoadOptions,
@@ -799,19 +963,21 @@ export async function loadServerRoute(
   const previous = router._committed
   let result: ServerLoadResult
   try {
-    const canonical = router.buildLocation({
-      to: next.pathname,
-      search: true,
-      params: true,
-      hash: true,
-      state: true,
-      _includeValidateSearch: true,
-    })
-    if (next.publicHref !== canonical.publicHref) {
-      const href = canonical.publicHref || '/'
-      throw canonical.external
-        ? redirect({ href })
-        : redirect({ href, _builtLocation: canonical })
+    if (router._hasSearchWork || router.rewrite) {
+      const canonical = router.buildLocation({
+        to: next.pathname,
+        search: true,
+        params: true,
+        hash: true,
+        state: true,
+        _includeValidateSearch: true,
+      })
+      if (next.publicHref !== canonical.publicHref) {
+        const href = canonical.publicHref || '/'
+        throw canonical.external
+          ? redirect({ href })
+          : redirect({ href, _builtLocation: canonical })
+      }
     }
 
     const fromLocation = router.stores.resolvedLocation.get()
@@ -819,8 +985,11 @@ export async function loadServerRoute(
     router.emit({ type: 'onBeforeNavigate', ...changeInfo })
     router.emit({ type: 'onBeforeLoad', ...changeInfo })
     opts?._signal?.throwIfAborted()
+    const matches = router.matchRoutes(next)
     result = await waitFor(
-      executeServerLane(router, next, router.matchRoutes(next), opts?._signal),
+      canUseSimpleServerLane(router, matches, opts)
+        ? executeSimpleServerLane(router, next, matches)
+        : executeServerLane(router, next, matches, opts?._signal),
       opts?._signal,
     )
     opts?._signal?.throwIfAborted()

@@ -12,6 +12,7 @@ import {
   processRouteMasks,
   processRouteTree,
   type ProcessedTree,
+  type RouteMatchResult,
 } from './match'
 import { isNotFound, notFound, type NotFoundError } from './not-found'
 import { isServer, loadServerRoute } from './is-server'
@@ -433,6 +434,7 @@ export class RouterCore<
     reset?: boolean
   } = { next: true }
   rewrite?: any
+  _hasSearchWork = false
   private getStoreConfig = defaultGetStoreConfig
 
   private createStores(location: ParsedLocation) {
@@ -594,6 +596,16 @@ export class RouterCore<
     }
     if (this.options.routeMasks && this.processedTree) {
       processRouteMasks(this.options.routeMasks as any, this.processedTree)
+    }
+
+    this._hasSearchWork = false
+    const routesById = this.routesById
+    for (const id in routesById) {
+      const options = routesById[id]?.options
+      if (options?.validateSearch || options?.search?.middlewares?.length) {
+        this._hasSearchWork = true
+        break
+      }
     }
 
     const nextBasepath = this.options.basepath ?? '/'
@@ -775,7 +787,7 @@ export class RouterCore<
     const destRoute = this.routesByPath?.[trimPathRight(resolved)] as AnyRoute | undefined
     const destRoutes = destRoute
       ? buildRouteBranch(destRoute)
-      : this.processedTree
+      : this._hasSearchWork && this.processedTree
         ? (this.getMatchedRoutes(resolved)[0] as AnyRoute[])
         : []
     const fromRoutes = this.state?.matches?.length
@@ -979,14 +991,34 @@ export class RouterCore<
   }: any = {}) => {
     let hrefIsUrl = false
     if (href) {
-      try {
-        new URL(`${href}`)
-        hrefIsUrl = true
-      } catch {
-        // relative href
+      const first = href.charCodeAt(0)
+      if (first !== 47 && first !== 46 && first !== 63 && first !== 35) {
+        try {
+          new URL(`${href}`)
+          hrefIsUrl = true
+        } catch {
+          // relative href
+        }
       }
     }
     if (hrefIsUrl && !reloadDocument) reloadDocument = true
+    if (
+      href &&
+      to === undefined &&
+      !reloadDocument &&
+      !publicHref &&
+      !this.rewrite &&
+      !this._hasSearchWork &&
+      !this.options.routeMasks?.length &&
+      rest.search == null &&
+      rest.params == null &&
+      rest.hash == null &&
+      rest.mask == null &&
+      rest.from == null &&
+      !rest._isRedirect
+    ) {
+      return this.navigateHrefFast(href, rest)
+    }
     if (reloadDocument) {
       if (to !== undefined || !href) {
         const location = this.buildLocation({ to, ...rest } as any)
@@ -1103,7 +1135,78 @@ export class RouterCore<
       return loadServerRoute(this, opts)
     }
     this.updateLatestLocation()
+    if (!opts?.action && this.canSkipSettledLoad()) {
+      this._commitPromise?.resolve()
+      this._commitPromise = undefined
+      return
+    }
     await loadClientRoute(this, opts)
+  }
+
+  private canSkipSettledLoad(): boolean {
+    if (this._handoff || this._tx || this._refreshNextLoad || this._forcePending) return false
+    if ((this as any).forceOnLatestPrefetch) return false
+    if (this.stores?.status?.get() !== 'idle') return false
+    const resolved = this.stores.resolvedLocation.get()
+    if (!resolved || resolved.href !== this.latestLocation.href) return false
+    const matches = this.stores.matches.get()
+    if (!matches?.length) return false
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i]!
+      if (match.status !== 'success' || match.invalid || match.isFetching) return false
+      const shouldReload = this.routesById[match.routeId]?.options?.shouldReload
+      if (shouldReload === true || typeof shouldReload === 'function') return false
+    }
+    return true
+  }
+
+  private async navigateHrefFast(href: string, rest: any): Promise<void> {
+    const currentIndex = this.history.location.state?.__TSR_index
+    const parsed = parseHref(href, {
+      __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
+    })
+    const searchStr = parsed.search
+    const search = (this.options.parseSearch ?? defaultParseSearch)(searchStr)
+    const hash = (parsed.hash || '').replace(/^#/, '')
+    const hashStr = hash ? `#${hash}` : ''
+    const location: ParsedLocation = {
+      href: `${parsed.pathname}${searchStr}${hashStr}`,
+      publicHref: `${parsed.pathname}${searchStr}${hashStr}`,
+      pathname: parsed.pathname,
+      search,
+      searchStr,
+      hash,
+      state: parsed.state ?? {},
+      external: false,
+    }
+
+    const prev = this.latestLocation
+    const same =
+      prev &&
+      prev.pathname === location.pathname &&
+      prev.searchStr === location.searchStr &&
+      prev.hash === location.hash
+
+    this.latestLocation = location
+    this._pendingLocation = location
+
+    if (!same) {
+      this._committing = true
+      this.history[rest.replace ? 'replace' : 'push'](location.publicHref, location.state, {
+        ignoreBlocker: rest.ignoreBlocker,
+      })
+      this.history.flush?.()
+      this._committing = false
+    }
+
+    const id = ++this.loadId
+    try {
+      await this.runLoad(location, id)
+    } finally {
+      if (this._pendingLocation === location) this._pendingLocation = undefined
+      this._commitPromise?.resolve()
+      this._commitPromise = undefined
+    }
   }
 
   private async runLoad(location: ParsedLocation, id: number): Promise<void> {
@@ -1392,6 +1495,10 @@ export class RouterCore<
     })
 
     this.redirectHops = 0
+    this._committed = matches
+    for (let i = 0; i < matches.length; i++) {
+      this._cache.set(matches[i]!.id, matches[i]!)
+    }
     const change = getLocationChangeInfo(location, prevResolved)
     this.emit({ type: 'onLoad', ...change })
     this.emit({ type: 'onResolved', ...change })
@@ -1405,7 +1512,19 @@ export class RouterCore<
   }
 
   getMatchedRoutes = (pathname: string) => {
-    const match = findRouteMatch(trimPathRight(pathname || '/'), this.processedTree, true)
+    const path = trimPathRight(pathname || '/')
+    const exact = findRouteMatch(
+      this.processedTree,
+      path,
+      this.options.caseSensitive ?? false,
+    ) as RouteMatchResult[] | null
+    if (exact?.length) {
+      const last = exact[exact.length - 1]!
+      const branch = new Array(exact.length)
+      for (let i = 0; i < exact.length; i++) branch[i] = exact[i]!.route
+      return [branch, last.rawParams, last.route] as const
+    }
+    const match = findRouteMatch(path, this.processedTree, true)
     if (match) {
       return [
         match.branch || [this.routesById[rootRouteId]!],
@@ -1538,36 +1657,46 @@ export class RouterCore<
       const parentSearch = parentMatch?.search ?? next.search
       let preMatchSearch = parentSearch
       let searchError: any
-      try {
-        const strictSearch =
-          validateSearch(route.options?.validateSearch, { ...parentSearch }) ?? undefined
-        preMatchSearch = { ...parentSearch, ...strictSearch }
-      } catch (err: any) {
-        const searchParamError =
-          err instanceof SearchParamError
-            ? err
-            : new SearchParamError(err?.message ?? String(err), { cause: err })
-        if (opts?.throwOnError) throw searchParamError
-        preMatchSearch = parentSearch
-        searchError = searchParamError
+      if (route.options?.validateSearch) {
+        try {
+          const strictSearch =
+            validateSearch(route.options.validateSearch, { ...parentSearch }) ?? undefined
+          preMatchSearch = { ...parentSearch, ...strictSearch }
+        } catch (err: any) {
+          const searchParamError =
+            err instanceof SearchParamError
+              ? err
+              : new SearchParamError(err?.message ?? String(err), { cause: err })
+          if (opts?.throwOnError) throw searchParamError
+          preMatchSearch = parentSearch
+          searchError = searchParamError
+        }
       }
 
       let loaderDeps: any = ''
       let loaderDepsHash = ''
-      try {
-        loaderDeps = route.options?.loaderDeps?.({ search: preMatchSearch }) ?? ''
-        loaderDepsHash = loaderDeps ? JSON.stringify(loaderDeps) || '' : ''
-      } catch (cause) {
-        if (opts?.throwOnError) throw cause
-        searchError ??= cause
+      if (route.options?.loaderDeps) {
+        try {
+          loaderDeps = route.options.loaderDeps({ search: preMatchSearch }) ?? ''
+          loaderDepsHash = loaderDeps ? JSON.stringify(loaderDeps) || '' : ''
+        } catch (cause) {
+          if (opts?.throwOnError) throw cause
+          searchError ??= cause
+        }
       }
 
-      const { interpolatedPath, usedParams } = interpolatePath({
-        path: route.fullPath,
-        params: rawParams,
-        decoder: this.pathParamsDecoder,
-        server: this.isServer,
-      })
+      let interpolatedPath = route.fullPath
+      let usedParams: Record<string, unknown> | undefined
+      if (route.fullPath && route.fullPath.indexOf('$') !== -1) {
+        const interpolated = interpolatePath({
+          path: route.fullPath,
+          params: rawParams,
+          decoder: this.pathParamsDecoder,
+          server: this.isServer,
+        })
+        interpolatedPath = interpolated.interpolatedPath
+        usedParams = interpolated.usedParams
+      }
 
       const matchId = route.id + interpolatedPath + loaderDepsHash
       const previousMatch =
@@ -1674,16 +1803,20 @@ export class RouterCore<
       const parsed = parseHref(href, {
         __TSR_index: replace ? currentIndex : (currentIndex ?? 0) + 1,
       })
-      const hrefUrl = new URL(parsed.pathname, this.origin)
-      const rewrittenUrl = executeRewriteInput(this.rewrite, hrefUrl)
-      rest.to = rewrittenUrl.pathname
+      if (this.rewrite) {
+        const hrefUrl = new URL(parsed.pathname, this.origin)
+        const rewrittenUrl = executeRewriteInput(this.rewrite, hrefUrl)
+        rest.to = rewrittenUrl.pathname
+      } else {
+        rest.to = parsed.pathname
+      }
       rest.search = (this.options.parseSearch ?? defaultParseSearch)(parsed.search)
       rest.hash = (parsed.hash || '').replace(/^#/, '')
     }
 
     const location = this.buildLocation({
       ...(rest as any),
-      _includeValidateSearch: true,
+      _includeValidateSearch: this._hasSearchWork || !!rest._includeValidateSearch,
     }) as ParsedLocation & { _redirects?: number }
     if (_redirects) location._redirects = _redirects
 
