@@ -318,6 +318,16 @@ export function findRouteMatch(
     return next
   }
 
+  const withPathless = (next: WalkFrame): WalkFrame => {
+    if (!next.node.pathless) return next
+    return {
+      node: next.node,
+      index: next.index,
+      params: next.params,
+      chain: applyPathless(next.node, next.chain),
+    }
+  }
+
   const stack: WalkFrame[] = [
     {
       node: tree.root,
@@ -332,10 +342,6 @@ export function findRouteMatch(
   while (stack.length) {
     const frame = stack.pop()!
     const { node, index } = frame
-
-    const withPathless = (next: WalkFrame): WalkFrame => {
-      return { ...next, chain: applyPathless(next.node, next.chain) }
-    }
 
     if (index === decoded.length) {
       const terminal = withPathless(frame)
@@ -372,14 +378,13 @@ export function findRouteMatch(
 
     if (node.wildcardChild) {
       const params = Object.assign(Object.create(null), frame.params)
-      const restRaw: string[] = []
-      const restDec: string[] = []
-      for (let i = index; i < segments.length; i++) {
-        restRaw.push(segments[i]!)
-        restDec.push(decoded[i]!)
+      let splat = ''
+      for (let i = index; i < decoded.length; i++) {
+        if (i !== index) splat += '/'
+        splat += decoded[i]!
       }
-      params._splat = restDec.join('/')
-      params['*'] = params._splat
+      params._splat = splat
+      params['*'] = splat
       const chain = frame.chain.slice()
       if (node.wildcardChild.route) chain.push(node.wildcardChild.route)
       stack.push(
@@ -434,7 +439,8 @@ export function findRouteMatch(
       node.staticChildren?.get(key) ??
       (caseSensitive ? undefined : node.staticChildren?.get(raw.toLowerCase()))
     if (staticChild) {
-      const chain = frame.chain.slice()
+      const onlyStatic = !node.wildcardChild && !node.optionalChild && !node.paramChild
+      const chain = onlyStatic ? frame.chain : frame.chain.slice()
       if (staticChild.route) chain.push(staticChild.route)
       stack.push(
         withPathless({
@@ -449,12 +455,17 @@ export function findRouteMatch(
 
   if (!best) return null
 
-  const seen = new Set<string>()
   const matches: RouteMatchResult[] = []
   for (let i = 0; i < best.chain.length; i++) {
     const route = best.chain[i]!
-    if (seen.has(route.id)) continue
-    seen.add(route.id)
+    let seen = false
+    for (let j = 0; j < matches.length; j++) {
+      if (matches[j]!.route.id === route.id) {
+        seen = true
+        break
+      }
+    }
+    if (seen) continue
     matches.push({
       route,
       params: best.params,

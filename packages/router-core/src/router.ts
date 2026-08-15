@@ -264,9 +264,14 @@ export type RouterListener = (event: RouterEvent) => void
 export type ListenerFn = RouterListener
 
 let matchSeq = 0
+const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 
 function nextMatchId(routeId: string, pathname: string) {
   return `${routeId}-${pathname}-${++matchSeq}`
+}
+
+function lastMatch(matches: RouteMatch[] | undefined) {
+  return matches && matches.length ? matches[matches.length - 1] : undefined
 }
 
 function parseLocationFromHistory(
@@ -524,16 +529,16 @@ export class RouterCore<
       ? (this.routesById[dest.from]?.fullPath ?? dest.from)
       : (current?.pathname ?? '/')
 
+    const currentMatch = lastMatch(this.state?.matches)
     let to = dest.to
     if (to === undefined || to === '.') {
-      const currentMatch = last(this.state?.matches ?? [])
       to = currentMatch?.routeId
         ? (this.routesById[currentMatch.routeId]?.fullPath ?? current?.pathname)
         : current?.pathname
     }
     if (typeof to !== 'string') to = current?.pathname ?? '/'
 
-    const currentParams = last(this.state?.matches ?? [])?.params ?? {}
+    const currentParams = currentMatch?.params ?? EMPTY_OBJ
     const nextParams =
       dest.params === true || dest.params === undefined
         ? currentParams
@@ -543,16 +548,15 @@ export class RouterCore<
     if (to.includes('$')) {
       interpolated = interpolatePath({
         path: to,
-        params: nextParams ?? {},
+        params: nextParams ?? EMPTY_OBJ,
         decoder: this.pathParamsDecoder,
       }).interpolatedPath
     } else if (dest.params && !dest.to) {
-      const currentRoute = last(this.state?.matches ?? [])
-      const template = currentRoute ? this.routesById[currentRoute.routeId]?.fullPath : undefined
+      const template = currentMatch ? this.routesById[currentMatch.routeId]?.fullPath : undefined
       if (template) {
         interpolated = interpolatePath({
           path: template,
-          params: nextParams ?? {},
+          params: nextParams ?? EMPTY_OBJ,
           decoder: this.pathParamsDecoder,
         }).interpolatedPath
       }
@@ -565,17 +569,19 @@ export class RouterCore<
       cache: this.resolvePathCache,
     })
 
-    const currentSearch = current?.search ?? {}
+    const currentSearch = current?.search ?? EMPTY_OBJ
     const nextSearch =
       dest.search === true
         ? currentSearch
         : dest.search
           ? functionalUpdate(dest.search, currentSearch)
           : dest.to
-            ? {}
+            ? EMPTY_OBJ
             : currentSearch
 
-    const searchStr = (this.options.stringifySearch ?? defaultStringifySearch)(nextSearch ?? {})
+    const searchStr = (this.options.stringifySearch ?? defaultStringifySearch)(
+      nextSearch ?? EMPTY_OBJ,
+    )
     const hash =
       dest.hash === true
         ? (current?.hash ?? '')
@@ -593,14 +599,13 @@ export class RouterCore<
 
     const href = `${resolved}${searchStr}${hash}`
     const nextState = dest.state === true ? current?.state : (dest.state ?? current?.state)
-    const parsed = parseHref(href, nextState)
     const location: ParsedLocation = {
-      href: parsed.href,
-      pathname: parsed.pathname,
-      search: nextSearch ?? {},
+      href,
+      pathname: resolved,
+      search: nextSearch ?? EMPTY_OBJ,
       searchStr,
-      hash: parsed.hash,
-      state: parsed.state,
+      hash,
+      state: nextState ?? parseHref(href, undefined).state,
       publicHref: encodePathLikeUrl(href),
     }
     if (dest.mask) {
@@ -623,8 +628,14 @@ export class RouterCore<
 
   commitLocation = async (location: ParsedLocation, opts: CommitLocationOptions = {}) => {
     const href = `${location.pathname}${location.searchStr}${location.hash}`
-    const currentHref = `${this.latestLocation?.pathname ?? ''}${this.latestLocation?.searchStr ?? ''}${this.latestLocation?.hash ?? ''}`
-    if (href === currentHref && !opts.replace) {
+    const prev = this.latestLocation
+    if (
+      prev &&
+      prev.pathname === location.pathname &&
+      prev.searchStr === location.searchStr &&
+      prev.hash === location.hash &&
+      !opts.replace
+    ) {
       this.latestLocation = location
       await this.load()
       return
@@ -734,23 +745,32 @@ export class RouterCore<
     }
 
     const prevMatches = this.state.matches ?? []
-    const prevByRoute = new Map(prevMatches.map((m) => [m.routeId, m]))
+    const prevByRoute = new Map<string, RouteMatch>()
+    for (let i = 0; i < prevMatches.length; i++) {
+      const prev = prevMatches[i]!
+      prevByRoute.set(prev.routeId, prev)
+    }
 
-    const matches: RouteMatch[] = matchResults.map((result) => {
+    const matches: RouteMatch[] = new Array(matchResults.length)
+    for (let i = 0; i < matchResults.length; i++) {
+      const result = matchResults[i]!
       const prev = prevByRoute.get(result.route.id)
       const sameParams = prev && deepEqual(prev.params, result.params)
       const samePath = prev && prev.pathname === location.pathname
       if (prev && sameParams && samePath && !prev.invalid) {
-        return {
-          ...prev,
-          search: location.search,
-          cause: 'stay' as const,
-          abortController: new AbortController(),
-          _forcePending: prev._forcePending || this._forcePending,
+        prev.search = location.search
+        prev.cause = 'stay'
+        if (!prev.abortController || prev.abortController.signal.aborted) {
+          prev.abortController = new AbortController()
         }
+        prev._forcePending = prev._forcePending || this._forcePending
+        prev.publicHref = location.publicHref
+        matches[i] = prev
+        continue
       }
       const route = result.route as AnyRoute
-      return {
+      const routerContext = this.options.context
+      matches[i] = {
         id: nextMatchId(result.route.id, location.pathname),
         routeId: result.route.id,
         route,
@@ -759,7 +779,7 @@ export class RouterCore<
         rawParams: result.rawParams,
         status: 'pending' as const,
         isFetching: true,
-        context: { ...(this.options.context ?? {}) },
+        context: routerContext ? { ...routerContext } : EMPTY_OBJ,
         search: location.search,
         updatedAt: Date.now(),
         abortController: new AbortController(),
@@ -779,7 +799,7 @@ export class RouterCore<
         styles: route.options.styles,
         publicHref: location.publicHref,
       }
-    })
+    }
 
     if (notFoundError) {
       const lastMatch = last(matches)
@@ -799,7 +819,8 @@ export class RouterCore<
       location,
     })
 
-    let context: Record<string, any> = { ...(this.options.context ?? {}) }
+    const routerContext = this.options.context
+    let context: Record<string, any> = routerContext ? { ...routerContext } : EMPTY_OBJ
     const parentPromises: Promise<void>[] = []
 
     for (let i = 0; i < matches.length; i++) {
@@ -815,7 +836,8 @@ export class RouterCore<
         let search = location.search
         try {
           search = applySearchValidator(route, location.search)
-          match.search = { ...location.search, ...search }
+          match.search =
+            search === location.search ? location.search : { ...location.search, ...search }
         } catch (err) {
           match.searchError = err
           match.search = location.search
@@ -854,11 +876,8 @@ export class RouterCore<
         match.context = context
 
         if (route.options.loader) {
-          const data = await route.options.loader({
-            ...loaderContext,
-            context,
-            parentMatchPromise: parentPromise,
-          })
+          loaderContext.context = context
+          const data = await route.options.loader(loaderContext)
           if (isRedirect(data)) throw data
           if (isNotFound(data)) throw data
           match.loaderData = data
@@ -870,8 +889,9 @@ export class RouterCore<
         match.isFetching = false
         match.updatedAt = Date.now()
 
-        if (match.cause === 'enter') route.options.onEnter?.({ ...loaderContext, context })
-        else route.options.onStay?.({ ...loaderContext, context })
+        loaderContext.context = context
+        if (match.cause === 'enter') route.options.onEnter?.(loaderContext)
+        else route.options.onStay?.(loaderContext)
 
         finish.resolve()
       } catch (err) {
@@ -914,8 +934,16 @@ export class RouterCore<
 
     if (id !== this.loadId) return
 
-    const leaving = prevMatches.filter((prev) => !matches.some((m) => m.routeId === prev.routeId))
-    for (const left of leaving) {
+    for (let i = 0; i < prevMatches.length; i++) {
+      const left = prevMatches[i]!
+      let still = false
+      for (let j = 0; j < matches.length; j++) {
+        if (matches[j]!.routeId === left.routeId) {
+          still = true
+          break
+        }
+      }
+      if (still) continue
       this.routesById[left.routeId]?.options.onLeave?.({
         params: left.params,
         search: left.search,
@@ -924,6 +952,16 @@ export class RouterCore<
       })
     }
 
+    let statusCode = 200
+    for (let i = 0; i < matches.length; i++) {
+      const status = matches[i]!.status
+      if (status === 'notFound') {
+        statusCode = 404
+        break
+      }
+      if (status === 'error') statusCode = 500
+    }
+    const prevResolved = this.state.resolvedLocation
     this.stores.state.set({
       status: 'idle',
       isLoading: false,
@@ -932,15 +970,11 @@ export class RouterCore<
       pendingMatches: undefined,
       location,
       resolvedLocation: location,
-      statusCode: matches.some((m) => m.status === 'notFound')
-        ? 404
-        : matches.some((m) => m.status === 'error')
-          ? 500
-          : 200,
+      statusCode,
     })
 
     this.redirectHops = 0
-    const change = getLocationChangeInfo(location, this.state.resolvedLocation)
+    const change = getLocationChangeInfo(location, prevResolved)
     this.emit({ type: 'onLoad', ...change })
     this.emit({ type: 'onResolved', ...change })
     this.emit({ type: 'onRendered', ...change })

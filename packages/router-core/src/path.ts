@@ -23,6 +23,20 @@ export function joinPaths(paths: Array<string | undefined>) {
 }
 
 export function cleanPath(path: string) {
+  let slash = false
+  for (let i = 0; i < path.length; i++) {
+    const c = path.charCodeAt(i)
+    if (c === 47) {
+      if (slash) return collapseSlashes(path)
+      slash = true
+    } else {
+      slash = false
+    }
+  }
+  return path
+}
+
+function collapseSlashes(path: string) {
   let out = ''
   let slash = false
   for (let i = 0; i < path.length; i++) {
@@ -60,15 +74,15 @@ export function trimPath(path: string) {
 }
 
 export function removeTrailingSlash(value: string, basepath: string): string {
-  if (
-    value &&
-    value.charCodeAt(value.length - 1) === 47 &&
-    value !== '/' &&
-    value !== `${basepath}/`
-  ) {
-    return value.slice(0, -1)
+  if (!value || value === '/' || value.charCodeAt(value.length - 1) !== 47) return value
+  if (value.length === basepath.length + 1) {
+    let i = 0
+    for (; i < basepath.length; i++) {
+      if (value.charCodeAt(i) !== basepath.charCodeAt(i)) break
+    }
+    if (i === basepath.length) return value
   }
-  return value
+  return value.slice(0, -1)
 }
 
 export function exactPathTest(pathName1: string, pathName2: string, basepath: string): boolean {

@@ -10,7 +10,16 @@ function encodeComponent(str: string): string {
   if (typeof str !== 'string') str = String(str)
   // encodeURIComponent plus always-encode `()` so alien values like `()`
   // re-serialize differently from the raw query string.
-  return encodeURIComponent(str).replace(/%20/g, '+').replace(/\(/g, '%28').replace(/\)/g, '%29')
+  const encoded = encodeURIComponent(str)
+  const hasSpace = encoded.indexOf('%20') !== -1
+  const hasOpen = encoded.indexOf('(') !== -1
+  const hasClose = encoded.indexOf(')') !== -1
+  if (!hasSpace && !hasOpen && !hasClose) return encoded
+  let out = encoded
+  if (hasSpace) out = out.replace(/%20/g, '+')
+  if (hasOpen) out = out.replace(/\(/g, '%28')
+  if (hasClose) out = out.replace(/\)/g, '%29')
+  return out
 }
 
 function decodeComponent(str: string): string {
@@ -64,12 +73,16 @@ export function decode(str: any): Record<string, unknown> {
       continue
     }
 
-    const pair = str.slice(last, i)
+    let eq = -1
+    for (let j = last; j < i; j++) {
+      if (str.charCodeAt(j) === 61) {
+        eq = j
+        break
+      }
+    }
+    const rawKey = eq === -1 ? str.slice(last, i) : str.slice(last, eq)
+    const rawVal = eq === -1 ? '' : str.slice(eq + 1, i)
     last = i + 1
-
-    const eq = pair.indexOf('=')
-    const rawKey = eq === -1 ? pair : pair.slice(0, eq)
-    const rawVal = eq === -1 ? '' : pair.slice(eq + 1)
     const key = decodeComponent(rawKey)
     const value = toValue(decodeComponent(rawVal))
 

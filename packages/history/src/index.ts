@@ -493,10 +493,21 @@ export function createMemoryHistory(
 }
 
 function sanitizePath(path: string): string {
-  let sanitized = ''
+  let dirty = false
   for (let i = 0; i < path.length; i++) {
     const code = path.charCodeAt(i)
-    if (code > 0x1f && code !== 0x7f) sanitized += path[i]
+    if (code <= 0x1f || code === 0x7f) {
+      dirty = true
+      break
+    }
+  }
+  let sanitized = path
+  if (dirty) {
+    sanitized = ''
+    for (let i = 0; i < path.length; i++) {
+      const code = path.charCodeAt(i)
+      if (code > 0x1f && code !== 0x7f) sanitized += path[i]
+    }
   }
   if (sanitized.charCodeAt(0) === 47 && sanitized.charCodeAt(1) === 47) {
     let i = 0
