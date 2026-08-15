@@ -10,7 +10,11 @@
     "./ssr/server": "./src/ssr/server.ts",
     "./ssr/client": "./src/ssr/client.ts",
     "./ssr/router-client": "./src/ssr/router-client.tsx",
-    "./ssr/render-router-to-stream": "./src/ssr/render-router-to-stream.tsx"
+    "./ssr/RouterClient": "./src/ssr/router-client.tsx",
+    "./ssr/render-router-to-stream": "./src/ssr/render-router-to-stream.tsx",
+    "./ssr/renderRouterToStream": "./src/ssr/render-router-to-stream.tsx",
+    "./ClientOnly": "./src/client-only.tsx",
+    "./Scripts": "./src/scripts.tsx"
   },
   "scripts": {
     "build": "echo 'source package'"

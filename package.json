@@ -11,6 +11,8 @@
     "test:watch": "vitest",
     "test:tanstack": "vitest run --config vitest.tanstack.config.ts",
     "test:tanstack-core": "vitest run --config vitest.tanstack.config.ts tests/tanstack-core",
+    "test:tanstack-core:ci": "vitest run --config vitest.tanstack.config.ts tests/tanstack-core/optional-path-params.test.ts tests/tanstack-core/path.test.ts tests/tanstack-core/utils.test.ts tests/tanstack-core/qss.test.ts tests/tanstack-core/search-params.test.ts",
+    "test:tanstack-history": "vitest run --config vitest.tanstack.config.ts tests/tanstack-history",
     "bench": "vitest bench --run benches",
     "typecheck": "tsc -b --pretty false",
     "test:types": "tsc -p tsconfig.types.json --pretty false && tsc -p tsconfig.types.core.json --pretty false",
@@ -20,12 +22,14 @@
     "fmt:check": "oxfmt --check"
   },
   "devDependencies": {
+    "@tanstack/react-query": "^5.101.4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.13.10",
     "@types/react": "~19.2.0",
     "@types/react-dom": "~19.2.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "combinate": "^1.1.11",
     "jsdom": "^26.0.0",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",

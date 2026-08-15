@@ -55,4 +55,8 @@ jobs:
       - name: TanStack core runtime
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: pnpm exec vitest run --config vitest.tanstack.config.ts tests/tanstack-core
+        run: pnpm test:tanstack-core:ci
+      - name: TanStack history runtime
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm test:tanstack-history

@@ -42,7 +42,14 @@
       "@tanstack/router-core/ssr/ssr-match-id": ["./packages/router-core/src/ssr/ssr-match-id.ts"],
       "@tanstack/react-router/ssr/renderRouterToStream": [
         "./packages/react-router/src/ssr/render-router-to-stream.tsx"
-      ]
+      ],
+      "@tanstack/react-router/ssr/RouterClient": [
+        "./packages/react-router/src/ssr/router-client.tsx"
+      ],
+      "@tanstack/react-router/ssr/server": ["./packages/react-router/src/ssr/server.ts"],
+      "@tanstack/react-router/ssr/client": ["./packages/react-router/src/ssr/client.ts"],
+      "@tanstack/react-router/ClientOnly": ["./packages/react-router/src/client-only.tsx"],
+      "@tanstack/react-router/Scripts": ["./packages/react-router/src/scripts.tsx"]
     }
   },
   "include": ["packages", "benches", "tests"]

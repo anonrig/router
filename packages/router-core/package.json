@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@anonrig/history": "workspace:*",
+    "cookie-es": "^3.0.0",
     "seroval": "^1.6.2",
     "seroval-plugins": "^1.6.2"
   }

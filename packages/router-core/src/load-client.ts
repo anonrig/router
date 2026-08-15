@@ -224,3 +224,16 @@ export async function hydrate(router: any): Promise<void> {
 
   if (needsClientLoad) await router.load?.()
 }
+
+export function waitFor<T>(value: T | PromiseLike<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.race([Promise.reject(signal), value])
+  }
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal)
+    signal.addEventListener('abort', abort, { once: true })
+    Promise.resolve(value)
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener('abort', abort))
+  })
+}
