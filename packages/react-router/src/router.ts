@@ -1,6 +1,6 @@
 import { RouterCore, type CreateRouterFn } from '@anonrig/router-core'
 import type { RouterHistory } from '@anonrig/history'
-import type { AnyRoute, RouterConstructorOptions, TrailingSlashOption } from '@anonrig/router-core'
+import type { AnyRoute, TrailingSlashOption } from '@anonrig/router-core'
 import type { ErrorRouteComponent, NotFoundRouteComponent, RouteComponent } from './route'
 
 declare module '@anonrig/router-core' {
@@ -31,16 +31,4 @@ export class Router<
   TDefaultStructuralSharingOption,
   TRouterHistory,
   TDehydrated
-> {
-  constructor(
-    options: RouterConstructorOptions<
-      TRouteTree,
-      TTrailingSlashOption,
-      TDefaultStructuralSharingOption,
-      TRouterHistory,
-      TDehydrated
-    >,
-  ) {
-    super(options)
-  }
-}
+> {}

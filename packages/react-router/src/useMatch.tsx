@@ -75,7 +75,7 @@ export function useMatch<
     TStructuralSharing
   >,
 ): ThrowOrOptional<UseMatchResult<TRouter, TFrom, TStrict, TSelected>, TThrow> {
-  const router = useRouter<TRouter>()
+  const _router = useRouter<TRouter>()
   const nearest = useContext(opts?.from ? dummyMatchContext : matchContext)
   const from = opts?.from ?? nearest
 

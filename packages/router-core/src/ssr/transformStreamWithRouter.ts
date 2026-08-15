@@ -155,6 +155,7 @@ function safeCancelReader(reader: ReaderOps, reason?: unknown): Promise<void> {
   if (!safeReleaseReader(reader) && cancelPromise) {
     return cancelPromise.then(noop, noop).then(() => {
       safeReleaseReader(reader)
+      return undefined
     })
   }
 
@@ -429,8 +430,8 @@ function makeMainStream(
   // Backpressure: pull() resolves drainResolve to let the read loop advance.
   let drainResolve: (() => void) | null = null
   const waitForDrain = () =>
-    new Promise<void>((r) => {
-      drainResolve = r
+    new Promise<void>((resolve) => {
+      drainResolve = resolve
     })
   const signalDrain = () => {
     if (drainResolve) {
@@ -778,7 +779,9 @@ function makeMainStream(
     safeError(reason)
     cleanup(reason)
   })
-  if (cleanedUp || isDone()) return stream
+  if (cleanedUp || isDone()) {
+    return stream
+  }
 
   // Transform the appStream
   ;(async () => {

@@ -8,7 +8,7 @@ import { useRouter } from './useRouter'
 import { useRouterState } from './useRouterState'
 
 export function Outlet() {
-  const router = useRouter()
+  const _router = useRouter()
   const routeId = useContext(matchContext)
   const matches = useRouterState({ select: (s) => s.matches })
   const index = matches.findIndex((m) => m.routeId === routeId)

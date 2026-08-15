@@ -1,5 +1,5 @@
 import { hydrateSsrMatchId } from './ssr/ssr-match-id'
-import { GLOBAL_TSR } from './ssr/constants'
+import type { GLOBAL_TSR } from './ssr/constants'
 import type { AnySerializationAdapter } from './ssr/serializer/transformer-types'
 import type { DehydratedMatch, TsrSsrGlobal } from './ssr/types'
 import type { AnyRouteMatch } from './Matches'
@@ -28,7 +28,7 @@ function loadComponents(route: AnyRoute, onPendingReady?: () => void): Promise<v
   const pendingReady = onPendingReady && pending ? pending.then(onPendingReady) : pending
   if (onPendingReady && !pending) onPendingReady()
   if (component && pendingReady) {
-    return Promise.all([component, pendingReady]).then(() => {})
+    return Promise.all([component, pendingReady]).then(() => undefined)
   }
   return component ?? pendingReady
 }
@@ -55,6 +55,7 @@ export function loadRouteChunk(
       const { id: _id, ...options } = lazyRoute.options ?? lazyRoute
       Object.assign(route.options, options)
       route._lazy = true
+      return undefined
     },
     (error: unknown) => {
       route._lazy = undefined

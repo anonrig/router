@@ -13,21 +13,12 @@ import {
   type ProcessedTree,
 } from './match'
 import { isNotFound, notFound, type NotFoundError } from './not-found'
-import {
-  cleanPath,
-  compileDecodeCharMap,
-  interpolatePath,
-  joinPaths,
-  resolvePath,
-  trimPath,
-  trimPathRight,
-} from './path'
-import { isRedirect, redirect } from './redirect'
-import type { AnyRedirect } from './redirect'
+import { compileDecodeCharMap, interpolatePath, resolvePath } from './path'
+import { isRedirect, type AnyRedirect } from './redirect'
 import { rootRouteId } from './root'
-import type { AnyContext, AnyRoute, RouteOptions } from './route'
+import type { AnyContext, AnyRoute } from './route'
 import { defaultParseSearch, defaultStringifySearch } from './searchParams'
-import { createStore, type Store } from './store'
+import { createStore } from './store'
 import {
   createControlledPromise,
   createLRUCache,
@@ -35,7 +26,6 @@ import {
   DEFAULT_PROTOCOL_ALLOWLIST,
   encodePathLikeUrl,
   functionalUpdate,
-  hasKeys,
   last,
   replaceEqualDeep,
 } from './utils'
@@ -346,7 +336,6 @@ export class RouterCore<
 
   private createStores() {
     const state = createStore<RouterState>(null as any)
-    const self = this
     return {
       state,
       __store: state,
