@@ -174,29 +174,8 @@ export function useLinkProps(
 }
 
 export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(props, ref) {
-  const {
-    activeProps,
-    inactiveProps,
-    activeOptions,
-    preload,
-    preloadDelay,
-    preloadIntentProximity,
-    children,
-    disabled,
-    to,
-    from,
-    params,
-    search,
-    hash,
-    state,
-    replace,
-    resetScroll,
-    viewTransition,
-    mask,
-    reloadDocument,
-    href: _href,
-    ...rest
-  } = props
+  const { children, href: _href, ...rest } = props
+  void _href
   const innerRef = useRef<HTMLAnchorElement | null>(null)
   const linkProps = useLinkProps(props, innerRef)
   if (typeof ref === 'function') ref(innerRef.current)
