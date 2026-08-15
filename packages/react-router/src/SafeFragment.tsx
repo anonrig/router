@@ -1,5 +1,5 @@
-import * as React from 'react'
+import type { ReactNode } from 'react'
 
-export function SafeFragment(props: any) {
-  return <>{props.children}</>
+export function SafeFragment(props: { children?: ReactNode }) {
+  return props.children ?? null
 }

@@ -35,7 +35,6 @@ function usePendingPresentation(match: any, route: any, router: ReturnType<typeo
     if (pending) {
       if (pendingMs === 0) {
         shownAt.current = Date.now()
-        setVisible(true)
         return
       }
       const timer = setTimeout(() => {
@@ -56,7 +55,10 @@ function usePendingPresentation(match: any, route: any, router: ReturnType<typeo
       }
     }
     shownAt.current = null
-    setVisible(false)
+    if (visible) {
+      const timer = setTimeout(() => setVisible(false), 0)
+      return () => clearTimeout(timer)
+    }
   }, [pending, match.id, pendingMs, pendingMinMs, visible])
 
   return pending ? visible : visible && pendingMinMs > 0

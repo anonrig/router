@@ -17,63 +17,69 @@ export function settleOwner(owner: NonNullable<AnyRouter['_rendered']>, rendered
 
 export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | undefined>> }) {
   const router = useRouter()
-  const acknowledgement = (router._rendered ??= [])
-
-  router.startTransition = (fn: () => void, expected?: any) =>
-    new Promise((resolve, reject) => {
-      settleOwner(acknowledgement, false)
-      acknowledgement.push(expected, resolve)
-      t?.(router)
-      reactStartTransition(() => {
-        try {
-          fn()
-        } catch (cause) {
-          if (acknowledgement[1] === resolve) acknowledgement.length = 0
-          reject(cause)
-        }
-      })
-    })
 
   useLayoutEffect(() => {
+    const acknowledgement = (router._rendered ??= [])
+
+    router.startTransition = (fn: () => void, expected?: any) =>
+      new Promise((resolve, reject) => {
+        settleOwner(acknowledgement, false)
+        acknowledgement.push(expected, resolve)
+        t?.(router)
+        reactStartTransition(() => {
+          try {
+            fn()
+          } catch (cause) {
+            if (acknowledgement[1] === resolve) acknowledgement.length = 0
+            reject(cause)
+          }
+        })
+      })
+
     router.updateLatestLocation?.()
     const location = router.latestLocation
-    if (!location) return
-
-    const nextLocation = router.buildLocation({
-      to: location.pathname,
-      search: true,
-      params: true,
-      hash: true,
-      state: true,
-    })
-
-    if (
-      trimPathRight(location.publicHref ?? location.href) !==
-      trimPathRight(nextLocation.publicHref ?? nextLocation.href)
-    ) {
-      void router.commitLocation(nextLocation as any, {
-        replace: true,
-        ignoreBlocker: true,
+    if (location) {
+      const nextLocation = router.buildLocation({
+        to: location.pathname,
+        search: true,
+        params: true,
+        hash: true,
+        state: true,
       })
-      return
-    }
 
-    const resolvedLocation =
-      router.stores.resolvedLocation?.get?.() ?? router.state.resolvedLocation
-    if (
-      resolvedLocation?.href === location.href &&
-      resolvedLocation.state?.__TSR_key === location.state?.__TSR_key
-    ) {
-      acknowledgement.push(router.stores.matches.get(), (rendered: boolean) => {
-        if (rendered) {
-          router.emit({
-            type: 'onRendered',
-            ...getLocationChangeInfo(resolvedLocation, resolvedLocation),
+      if (
+        trimPathRight(location.publicHref ?? location.href) !==
+        trimPathRight(nextLocation.publicHref ?? nextLocation.href)
+      ) {
+        void router.commitLocation(nextLocation as any, {
+          replace: true,
+          ignoreBlocker: true,
+        })
+      } else {
+        const resolvedLocation =
+          router.stores.resolvedLocation?.get?.() ?? router.state.resolvedLocation
+        if (
+          resolvedLocation?.href === location.href &&
+          resolvedLocation.state?.__TSR_key === location.state?.__TSR_key
+        ) {
+          acknowledgement.push(router.stores.matches.get(), (rendered: boolean) => {
+            if (rendered) {
+              router.emit({
+                type: 'onRendered',
+                ...getLocationChangeInfo(resolvedLocation, resolvedLocation),
+              })
+            }
           })
         }
-      })
+      }
     }
-  }, [router])
+
+    return () => {
+      router.startTransition = (fn: () => void) => {
+        fn()
+      }
+    }
+  }, [router, t])
 
   return null
 }

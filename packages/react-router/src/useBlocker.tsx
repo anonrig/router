@@ -70,10 +70,13 @@ export function useBlocker<
 export function useBlocker(opts?: any): any {
   const router = useRouter()
   const optsRef = useRef(opts)
-  optsRef.current = opts
   const [status, setStatus] = useState<'idle' | 'blocked'>('idle')
   const proceedRef = useRef<(() => void) | undefined>(undefined)
   const resetRef = useRef<(() => void) | undefined>(undefined)
+
+  useEffect(() => {
+    optsRef.current = opts
+  })
 
   useEffect(() => {
     return router.history.block({

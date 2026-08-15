@@ -91,16 +91,11 @@ function InlineCssStyle({
   nonce?: string
 }) {
   const isInlineCssPlaceholder = children === undefined
-  const [hydratedInlineCss] = React.useState(() => {
-    if (!isInlineCssPlaceholder || typeof document === 'undefined') {
-      return undefined
-    }
-
-    return (
-      document.querySelector<HTMLStyleElement>(`style[${INLINE_CSS_HYDRATION_ATTR}]`)
-        ?.textContent ?? undefined
-    )
-  })
+  const hydratedInlineCss =
+    isInlineCssPlaceholder && typeof document !== 'undefined'
+      ? (document.querySelector<HTMLStyleElement>(`style[${INLINE_CSS_HYDRATION_ATTR}]`)
+          ?.textContent ?? undefined)
+      : undefined
   const html = isInlineCssPlaceholder ? (hydratedInlineCss ?? '') : (children ?? '')
 
   return (

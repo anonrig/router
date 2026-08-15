@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "react", "unicorn", "oxc", "import", "promise", "vitest"],
+  "plugins": ["typescript", "react", "react-perf", "unicorn", "oxc", "import", "promise", "vitest"],
   "options": {
     "typeAware": true
   },
@@ -199,24 +199,45 @@
     "unicorn/no-null": "off",
     "unicorn/filename-case": "off",
     "react/react-in-jsx-scope": "off",
+    "react/react-compiler": "error",
     "react/jsx-key": "error",
     "react/jsx-no-duplicate-props": "error",
     "react/jsx-no-undef": "error",
     "react/jsx-no-comment-textnodes": "error",
+    "react/jsx-no-constructed-context-values": "error",
+    "react/jsx-no-useless-fragment": "error",
+    "react/jsx-props-no-spread-multi": "error",
+    "react/jsx-no-script-url": "error",
+    "react/jsx-no-target-blank": "error",
+    "react/button-has-type": "error",
+    "react/checked-requires-onchange-or-readonly": "error",
+    "react/display-name": "error",
+    "react/forward-ref-uses-ref": "error",
+    "react/hook-use-state": "error",
+    "react/iframe-missing-sandbox": "error",
     "react/no-children-prop": "off",
+    "react/no-clone-element": "error",
+    "react/no-danger": "error",
     "react/no-danger-with-children": "error",
+    "react/no-did-mount-set-state": "error",
     "react/no-direct-mutation-state": "error",
     "react/no-find-dom-node": "error",
     "react/no-is-mounted": "error",
+    "react/no-namespace": "error",
+    "react/no-object-type-as-default-prop": "error",
+    "react/no-react-children": "error",
+    "react/no-redundant-should-component-update": "error",
     "react/no-render-return-value": "error",
     "react/no-string-refs": "error",
+    "react/no-this-in-sfc": "error",
     "react/no-unescaped-entities": "error",
     "react/no-unknown-property": "error",
+    "react/no-unsafe": "error",
+    "react/no-will-update-set-state": "error",
     "react/require-render-return": "error",
+    "react/self-closing-comp": "error",
+    "react/style-prop-object": "error",
     "react/void-dom-elements-no-children": "error",
-    "react/iframe-missing-sandbox": "error",
-    "react/jsx-no-script-url": "error",
-    "react/jsx-no-target-blank": "error",
     "react/no-unstable-nested-components": [
       "error",
       {
@@ -224,9 +245,27 @@
       }
     ],
     "react/no-did-update-set-state": "off",
-    "react/no-array-index-key": "off",
+    "react/no-array-index-key": "warn",
     "react/exhaustive-deps": "warn",
     "react/rules-of-hooks": "error",
+    "react/jsx-props-no-spreading": "off",
+    "react/only-export-components": "off",
+    "react/prefer-function-component": "off",
+    "react/no-multi-comp": "off",
+    "react/no-set-state": "off",
+    "react/function-component-definition": "off",
+    "react/jsx-boolean-value": "off",
+    "react/jsx-curly-brace-presence": "off",
+    "react/jsx-filename-extension": "off",
+    "react/jsx-fragments": "off",
+    "react/jsx-handler-names": "off",
+    "react/jsx-max-depth": "off",
+    "react/jsx-no-literals": "off",
+    "react/jsx-pascal-case": "off",
+    "react-perf/jsx-no-new-object-as-prop": "warn",
+    "react-perf/jsx-no-new-array-as-prop": "warn",
+    "react-perf/jsx-no-new-function-as-prop": "warn",
+    "react-perf/jsx-no-jsx-as-prop": "warn",
     "promise/no-new-statics": "error",
     "promise/no-return-wrap": "error",
     "promise/param-names": "error",
@@ -289,7 +328,32 @@
     {
       "files": ["packages/react-router/src/fileRoute.ts", "packages/react-router/src/route.tsx"],
       "rules": {
-        "react/rules-of-hooks": "off"
+        "react/rules-of-hooks": "off",
+        "react/react-compiler": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/react-router/src/link-types.tsx",
+        "packages/react-router/src/headContentUtils.tsx",
+        "packages/react-router/src/Scripts.tsx",
+        "packages/react-router/src/Transitioner.tsx",
+        "packages/react-router/src/link.tsx"
+      ],
+      "rules": {
+        "react/react-compiler": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/react-router/src/Asset.tsx",
+        "packages/react-router/src/ScriptOnce.tsx",
+        "packages/react-router/src/Scripts.tsx",
+        "packages/react-router/src/HeadContent.tsx",
+        "packages/react-router/src/headContentUtils.tsx"
+      ],
+      "rules": {
+        "react/no-danger": "off"
       }
     },
     {

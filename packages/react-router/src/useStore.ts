@@ -1,20 +1,23 @@
-import { useCallback, useRef, useSyncExternalStore } from 'react'
+import { useRef, useSyncExternalStore } from 'react'
 import type { Store } from '@anonrig/router-core'
 
-export function useStore<T, U = T>(
-  store: Store<T>,
-  select: (state: T) => U = (s) => s as unknown as U,
-): U {
-  const selectRef = useRef(select)
-  selectRef.current = select
-  const snapshot = useRef<U>(select(store.get()))
+function defaultSelect<T, U>(state: T): U {
+  return state as unknown as U
+}
 
-  const getSnapshot = useCallback(() => {
-    const next = selectRef.current(store.get())
-    if (Object.is(snapshot.current, next)) return snapshot.current
-    snapshot.current = next
+export function useStore<T, U = T>(store: Store<T>, select: (state: T) => U = defaultSelect): U {
+  const cache = useRef<U | undefined>(undefined)
+  const hasCache = useRef(false)
+
+  const getSnapshot = () => {
+    const next = select(store.get())
+    if (hasCache.current && Object.is(cache.current, next)) {
+      return cache.current as U
+    }
+    cache.current = next
+    hasCache.current = true
     return next
-  }, [store])
+  }
 
   return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot)
 }
