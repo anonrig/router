@@ -37,9 +37,7 @@ describe('issue #6107: failed dynamic import of a lazy route chunk', () => {
     const lazyCallsAfterPreload = lazyRoute.mock.calls.length
 
     await router.navigate({ to: '/posts' })
-    const postsMatch = router.state.matches.find(
-      (match) => match.routeId === postsRoute.id,
-    )
+    const postsMatch = router.state.matches.find((match) => match.routeId === postsRoute.id)
     expect(lazyRoute.mock.calls.length).toBeGreaterThan(lazyCallsAfterPreload)
     expect(postsMatch?.status).toBe('error')
     expect(postsMatch?.error).toBe(chunkError)

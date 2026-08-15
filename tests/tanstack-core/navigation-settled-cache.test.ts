@@ -6,18 +6,14 @@ import { createTestRouter } from './router-test-utils'
 test('a settled loader result survives when its navigation is superseded', async () => {
   const aLoader = vi.fn(() => 'a data')
   let bSignal: AbortSignal | undefined
-  const bLoader = vi.fn(
-    ({ abortController }: { abortController: AbortController }) => {
-      bSignal = abortController.signal
-      return new Promise<never>((_resolve, reject) => {
-        abortController.signal.addEventListener(
-          'abort',
-          () => reject(abortController.signal),
-          { once: true },
-        )
+  const bLoader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+    bSignal = abortController.signal
+    return new Promise<never>((_resolve, reject) => {
+      abortController.signal.addEventListener('abort', () => reject(abortController.signal), {
+        once: true,
       })
-    },
-  )
+    })
+  })
 
   const rootRoute = new BaseRootRoute({})
   const indexRoute = new BaseRoute({

@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  notFound,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, notFound } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 afterEach(() => {
@@ -63,10 +58,7 @@ function setup(reloadGate?: Promise<void>) {
   })
 
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      dashboardRoute.addChildren([settingsRoute]),
-      loginRoute,
-    ]),
+    routeTree: rootRoute.addChildren([dashboardRoute.addChildren([settingsRoute]), loginRoute]),
     history: createMemoryHistory({ initialEntries: ['/dashboard'] }),
   })
 
@@ -166,9 +158,7 @@ describe('stay-match abort scope', () => {
       shouldFail = true
       await router.load()
 
-      const match = router.state.matches.find(
-        (candidate) => candidate.routeId === accountRoute.id,
-      )
+      const match = router.state.matches.find((candidate) => candidate.routeId === accountRoute.id)
       expect(match?.status).toBe('error')
       expect(match?.error).toBe(failure)
       expect(loaderSignal?.aborted).toBe(true)
@@ -204,9 +194,7 @@ describe('stay-match abort scope', () => {
     expect(initialSignal?.aborted).toBe(false)
 
     await router.invalidate()
-    await vi.waitFor(() =>
-      expect(router.state.matches.at(-1)?.status).toBe('notFound'),
-    )
+    await vi.waitFor(() => expect(router.state.matches.at(-1)?.status).toBe('notFound'))
     expect(initialSignal?.aborted).toBe(true)
   })
 

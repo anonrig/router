@@ -54,12 +54,8 @@ describe('#4078 / #2255 existing Core root-boundary attribution', () => {
     }
   }
 
-  const getRootBoundaryProjection = (
-    router: ReturnType<typeof setup>['router'],
-  ) => {
-    const rootMatch = router.state.matches.find(
-      (match) => match.routeId === rootRouteId,
-    )
+  const getRootBoundaryProjection = (router: ReturnType<typeof setup>['router']) => {
+    const rootMatch = router.state.matches.find((match) => match.routeId === rootRouteId)
 
     return {
       routeId: rootMatch?.routeId,
@@ -104,8 +100,6 @@ describe('#4078 / #2255 existing Core root-boundary attribution', () => {
     loaderNotFound.loaderResponse.resolve()
     await navigation
 
-    expect(getRootBoundaryProjection(loaderNotFound.router)).toEqual(
-      unmatchedProjection,
-    )
+    expect(getRootBoundaryProjection(loaderNotFound.router)).toEqual(unmatchedProjection)
   })
 })

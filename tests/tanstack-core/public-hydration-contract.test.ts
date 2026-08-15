@@ -1,20 +1,7 @@
 import { runInNewContext } from 'node:vm'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  onTestFinished,
-  test,
-  vi,
-} from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 import { createBrowserHistory, createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  redirect,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, redirect } from '@tanstack/router-core'
 import { hydrate } from '@tanstack/router-core/ssr/client'
 import { attachRouterServerSsrUtils } from '@tanstack/router-core/ssr/ssr-server'
 import { dehydrateSsrMatchId } from '@tanstack/router-core/ssr/ssr-match-id'
@@ -85,12 +72,8 @@ describe('public hydration contracts', () => {
       await headGate
       throw error
     })
-    const scripts = vi.fn(() => [
-      { children: 'window.hydrationScriptRan = true' },
-    ])
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined)
+    const scripts = vi.fn(() => [{ children: 'window.hydrationScriptRan = true' }])
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     const rootRoute = new BaseRootRoute({})
     const pageRoute = new BaseRoute({
@@ -165,9 +148,7 @@ describe('public hydration contracts', () => {
 
     const routeContext = vi.fn(() => ({ routeContext: true }))
     const beforeLoad = vi.fn(() => ({ clientContext: true }))
-    const loader = vi.fn(
-      ({ context }) => context.clientContext && context.routeContext,
-    )
+    const loader = vi.fn(({ context }) => context.clientContext && context.routeContext)
     const rootRoute = new BaseRootRoute({})
     const clientOnlyRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -183,9 +164,7 @@ describe('public hydration contracts', () => {
       ssr: true,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        clientOnlyRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([clientOnlyRoute.addChildren([childRoute])]),
       history: createMemoryHistory({
         initialEntries: ['/client-only/child'],
       }),
@@ -272,9 +251,7 @@ describe('public hydration contracts', () => {
       path: '/child',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        clientOnlyRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([clientOnlyRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/client-only/child'] }),
       isServer: false,
     })
@@ -334,9 +311,7 @@ describe('public hydration contracts', () => {
     expect(headLanes).toEqual([fullLane])
     expect(router.state.matches.map((match) => match.routeId)).toEqual(fullLane)
     expect(router.state.matches[0]?.context).toMatchObject({ hydrated: true })
-    expect(router.state.matches[0]?.meta).toEqual([
-      { title: 'Shell hydration' },
-    ])
+    expect(router.state.matches[0]?.meta).toEqual([{ title: 'Shell hydration' }])
   })
 
   test('terminal hydration exposes the full structural lane to route context and head hooks', async () => {
@@ -366,9 +341,7 @@ describe('public hydration contracts', () => {
       path: '/child',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        boundaryRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([boundaryRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/app/child'] }),
       isServer: false,
     })
@@ -427,9 +400,7 @@ describe('public hydration contracts', () => {
       path: '/child',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        boundaryRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([boundaryRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/app/child'] }),
       isServer: false,
     })
@@ -502,9 +473,7 @@ describe('public hydration contracts', () => {
       path: '/child',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        boundaryRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([boundaryRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/app/child'] }),
       isServer: false,
     })
@@ -640,9 +609,7 @@ describe('public hydration contracts', () => {
       loader: serverChildLoader,
     })
     const serverRouter = createTestRouter({
-      routeTree: serverRootRoute.addChildren([
-        serverParentRoute.addChildren([serverChildRoute]),
-      ]),
+      routeTree: serverRootRoute.addChildren([serverParentRoute.addChildren([serverChildRoute])]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
       isServer: true,
     })
@@ -813,9 +780,8 @@ describe('public hydration contracts', () => {
     await hydrate(router)
     const hydratedSignal = capturedSignals.at(-1)!
     await router.load()
-    const reloadedSignal = router.state.matches.find(
-      (match) => match.routeId === oldRoute.id,
-    )!.abortController.signal
+    const reloadedSignal = router.state.matches.find((match) => match.routeId === oldRoute.id)!
+      .abortController.signal
     expect(hydratedSignal.aborted).toBe(true)
     expect(reloadedSignal).not.toBe(hydratedSignal)
     expect(reloadedSignal.aborted).toBe(false)
@@ -874,9 +840,7 @@ describe('public hydration contracts', () => {
         status: 'pending',
       })
     })
-    expect(router.state.matches.at(-1)!.abortController.signal.aborted).toBe(
-      false,
-    )
+    expect(router.state.matches.at(-1)!.abortController.signal.aborted).toBe(false)
 
     beforeLoadGate.resolve()
     await supersededLoad
@@ -888,9 +852,7 @@ describe('public hydration contracts', () => {
 
   test('does not hand transported context to a reentrant navigation for another location', async () => {
     const rootBeforeLoad = vi.fn(() => ({ source: 'client' }))
-    const newLoader = vi.fn(
-      ({ context }: { context: { source?: string } }) => context.source,
-    )
+    const newLoader = vi.fn(({ context }: { context: { source?: string } }) => context.source)
     const rootRoute = new BaseRootRoute({ beforeLoad: rootBeforeLoad })
     const oldRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -944,9 +906,7 @@ describe('public hydration contracts', () => {
     const rootBeforeLoad = vi.fn(({ location }: { location: any }) => ({
       auth: location.state.auth,
     }))
-    const pageLoader = vi.fn(
-      ({ context }: { context: { auth?: string } }) => context.auth,
-    )
+    const pageLoader = vi.fn(({ context }: { context: { auth?: string } }) => context.auth)
     const rootRoute = new BaseRootRoute({ beforeLoad: rootBeforeLoad })
     const pageRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -1012,8 +972,7 @@ describe('public hydration contracts', () => {
       publicHref: location.publicHref,
     }))
     const loader = vi.fn(
-      ({ context: routeContext }: { context: { publicHref: string } }) =>
-        routeContext.publicHref,
+      ({ context: routeContext }: { context: { publicHref: string } }) => routeContext.publicHref,
     )
     const rootRoute = new BaseRootRoute({ beforeLoad })
     const internalRoute = new BaseRoute({
@@ -1050,17 +1009,13 @@ describe('public hydration contracts', () => {
     })
 
     await hydrate(router)
-    browserWindow.history.replaceState(
-      browserWindow.history.state,
-      '',
-      '/public-b',
-    )
+    browserWindow.history.replaceState(browserWindow.history.state, '', '/public-b')
 
     await router.load()
 
-    expect(
-      beforeLoad.mock.calls.map(([options]) => options.location.publicHref),
-    ).toEqual(['/public-b'])
+    expect(beforeLoad.mock.calls.map(([options]) => options.location.publicHref)).toEqual([
+      '/public-b',
+    ])
     expect(loader).toHaveBeenCalledTimes(1)
     expect(router.state.matches.at(-1)?.loaderData).toBe('/public-b')
   })
@@ -1068,9 +1023,7 @@ describe('public hydration contracts', () => {
   test('keeps a hydration handoff when a provider initializes an empty context', async () => {
     const rootBeforeLoad = vi.fn(() => ({ source: 'client' }))
     const rootLoader = vi.fn(() => 'client root')
-    const pageLoader = vi.fn(
-      ({ context }: { context: { source?: string } }) => context.source,
-    )
+    const pageLoader = vi.fn(({ context }: { context: { source?: string } }) => context.source)
     const rootRoute = new BaseRootRoute({
       beforeLoad: rootBeforeLoad,
       loader: rootLoader,
@@ -1189,9 +1142,7 @@ describe('public hydration contracts', () => {
     const rootBeforeLoad = vi.fn(({ context }: { context: any }) => ({
       auth: context.auth,
     }))
-    const pageLoader = vi.fn(
-      ({ context }: { context: { auth?: string } }) => context.auth,
-    )
+    const pageLoader = vi.fn(({ context }: { context: { auth?: string } }) => context.auth)
     const rootRoute = new BaseRootRoute({ beforeLoad: rootBeforeLoad })
     const pageRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -1237,9 +1188,7 @@ describe('public hydration contracts', () => {
   test('rejects a hydration handoff when its prefix identity changes before finish', async () => {
     let generation = 'server'
     const rootBeforeLoad = vi.fn(() => ({ source: 'client' }))
-    const pageLoader = vi.fn(
-      ({ context }: { context: { source?: string } }) => context.source,
-    )
+    const pageLoader = vi.fn(({ context }: { context: { source?: string } }) => context.source)
     const rootRoute = new BaseRootRoute({
       loaderDeps: () => ({ generation }),
       beforeLoad: rootBeforeLoad,
@@ -1411,9 +1360,7 @@ describe('public hydration contracts', () => {
 
     const clientContextError = new Error('client context failed')
     const beforeLoad = vi.fn()
-    const loader = vi.fn(
-      ({ context }: { context: { recovered?: boolean } }) => context.recovered,
-    )
+    const loader = vi.fn(({ context }: { context: { recovered?: boolean } }) => context.recovered)
     const onError = vi.fn()
     const clientContext = vi.fn((): { recovered: boolean } => {
       throw clientContextError

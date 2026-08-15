@@ -27,8 +27,7 @@ const root = (children: Array<TestRoute>): TestRoute => ({
 })
 
 const parseWhen = (predicate: (params: Record<string, string>) => boolean) => {
-  return (params: Record<string, string>) =>
-    predicate(params) ? params : false
+  return (params: Record<string, string>) => (predicate(params) ? params : false)
 }
 
 const integerParse = (key: string) =>
@@ -195,9 +194,7 @@ describe('params.parse route selection', () => {
       expect(match.paramsError).toBeInstanceOf(PathParamError)
       expect((match.paramsError as Error).message).toBe('invalid id')
 
-      expect(() =>
-        router.matchRoutes('/boom', {}, { throwOnError: true }),
-      ).toThrow(PathParamError)
+      expect(() => router.matchRoutes('/boom', {}, { throwOnError: true })).toThrow(PathParamError)
     })
 
     it('calls params.parse during matching', () => {
@@ -247,9 +244,7 @@ describe('params.parse route selection', () => {
       )
 
       expect(findRouteMatch('/123', processedTree)?.route.id).toBe('/$id')
-      expect(findRouteMatch('/hello-world', processedTree)?.route.id).toBe(
-        '/$slug',
-      )
+      expect(findRouteMatch('/hello-world', processedTree)?.route.id).toBe('/$slug')
     })
 
     it('static routes still take precedence over params.parse dynamic routes', () => {
@@ -274,9 +269,7 @@ describe('params.parse route selection', () => {
         ]),
       )
 
-      expect(findRouteMatch('/settings', processedTree)?.route.id).toBe(
-        '/settings',
-      )
+      expect(findRouteMatch('/settings', processedTree)?.route.id).toBe('/settings')
     })
 
     it('deep params.parse routes can fall back to a sibling route', () => {
@@ -300,12 +293,8 @@ describe('params.parse route selection', () => {
         ]),
       )
 
-      expect(findRouteMatch('/one/two/three', processedTree)?.route.id).toBe(
-        '/$a/$b/$c',
-      )
-      expect(findRouteMatch('/one/two/wrong', processedTree)?.route.id).toBe(
-        '/$x/$y/$z',
-      )
+      expect(findRouteMatch('/one/two/three', processedTree)?.route.id).toBe('/$a/$b/$c')
+      expect(findRouteMatch('/one/two/wrong', processedTree)?.route.id).toBe('/$x/$y/$z')
     })
 
     it('params.priority breaks ties between params.parse routes', () => {
@@ -344,11 +333,9 @@ describe('params.parse route selection', () => {
       const defaultPriorityParse = vi.fn((params: Record<string, string>) => {
         return params
       })
-      const priorityNegativeOneParse = vi.fn(
-        (params: Record<string, string>) => {
-          return params
-        },
-      )
+      const priorityNegativeOneParse = vi.fn((params: Record<string, string>) => {
+        return params
+      })
 
       const { processedTree } = processRouteTree(
         root([
@@ -463,17 +450,15 @@ describe('params.parse route selection', () => {
           },
         },
       ])
-      expect(
-        findRouteMatch('/123', processRouteTree(routeTree).processedTree)?.route
-          .id,
-      ).toBe('/$a')
+      expect(findRouteMatch('/123', processRouteTree(routeTree).processedTree)?.route.id).toBe(
+        '/$a',
+      )
     })
   })
 
   describe('regex-like match patterns', () => {
     it('matches UUID values before falling back to a slug route', () => {
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       const { processedTree } = processRouteTree(
         root([
           {
@@ -494,13 +479,10 @@ describe('params.parse route selection', () => {
         ]),
       )
 
-      expect(
-        findRouteMatch('/550e8400-e29b-41d4-a716-446655440000', processedTree)
-          ?.route.id,
-      ).toBe('/$uuid')
-      expect(findRouteMatch('/my-blog-post', processedTree)?.route.id).toBe(
-        '/$slug',
+      expect(findRouteMatch('/550e8400-e29b-41d4-a716-446655440000', processedTree)?.route.id).toBe(
+        '/$uuid',
       )
+      expect(findRouteMatch('/my-blog-post', processedTree)?.route.id).toBe('/$slug')
     })
 
     it('matches dates before falling back to a slug route', () => {
@@ -531,9 +513,7 @@ describe('params.parse route selection', () => {
       const dateResult = findRouteMatch('/posts/2024-01-15', processedTree)
       expect(dateResult?.route.id).toBe('/posts/$date')
       expect(dateResult?.rawParams.date).toBe('2024-01-15')
-      expect(
-        findRouteMatch('/posts/my-first-post', processedTree)?.route.id,
-      ).toBe('/posts/$slug')
+      expect(findRouteMatch('/posts/my-first-post', processedTree)?.route.id).toBe('/posts/$slug')
     })
   })
 
@@ -566,12 +546,8 @@ describe('params.parse route selection', () => {
         ]),
       )
 
-      expect(findRouteMatch('/123/settings', processedTree)?.route.id).toBe(
-        '/$orgId/settings',
-      )
-      expect(findRouteMatch('/my-org/about', processedTree)?.route.id).toBe(
-        '/$slug/about',
-      )
+      expect(findRouteMatch('/123/settings', processedTree)?.route.id).toBe('/$orgId/settings')
+      expect(findRouteMatch('/my-org/about', processedTree)?.route.id).toBe('/$slug/about')
       expect(findRouteMatch('/my-org/settings', processedTree)).toBeNull()
     })
 
@@ -652,16 +628,12 @@ describe('params.parse route selection', () => {
         ]),
       )
 
-      expect(findRouteMatch('/123/bar', processedTree)?.route.id).toBe(
-        '/$foo/_layout/bar',
-      )
+      expect(findRouteMatch('/123/bar', processedTree)?.route.id).toBe('/$foo/_layout/bar')
       const indexResult = findRouteMatch('/123', processedTree)
       expect(indexResult?.route.id).toBe('/$foo/_layout/')
       expect(indexResult?.rawParams).toEqual({ foo: '123' })
 
-      expect(findRouteMatch('/abc/hello', processedTree)?.route.id).toBe(
-        '/$foo/hello',
-      )
+      expect(findRouteMatch('/abc/hello', processedTree)?.route.id).toBe('/$foo/hello')
       expect(findRouteMatch('/abc/bar', processedTree)).toBeNull()
     })
   })
@@ -677,9 +649,7 @@ describe('params.parse route selection', () => {
             path: '{-$lang}/home',
             options: {
               params: {
-                parse: parseWhen(
-                  ({ lang }) => !lang || validLangs.includes(lang),
-                ),
+                parse: parseWhen(({ lang }) => !lang || validLangs.includes(lang)),
               },
             },
           },
@@ -691,12 +661,8 @@ describe('params.parse route selection', () => {
         ]),
       )
 
-      expect(findRouteMatch('/en/home', processedTree)?.route.id).toBe(
-        '/{-$lang}/home',
-      )
-      expect(findRouteMatch('/home', processedTree)?.route.id).toBe(
-        '/{-$lang}/home',
-      )
+      expect(findRouteMatch('/en/home', processedTree)?.route.id).toBe('/{-$lang}/home')
+      expect(findRouteMatch('/home', processedTree)?.route.id).toBe('/{-$lang}/home')
       expect(findRouteMatch('/it/home', processedTree)).toBeNull()
     })
 
@@ -710,9 +676,7 @@ describe('params.parse route selection', () => {
             path: '{-$lang}',
             options: {
               params: {
-                parse: parseWhen(
-                  ({ lang }) => !lang || validLangs.includes(lang),
-                ),
+                parse: parseWhen(({ lang }) => !lang || validLangs.includes(lang)),
               },
             },
           },
@@ -747,15 +711,9 @@ describe('params.parse route selection', () => {
         ]),
       )
 
-      expect(
-        findRouteMatch('/files/docs/readme.txt', processedTree)?.route.id,
-      ).toBe('/files/$')
+      expect(findRouteMatch('/files/docs/readme.txt', processedTree)?.route.id).toBe('/files/$')
 
-      const result = findRouteMatch(
-        '/files/../../secret/photo.jpg',
-        processedTree,
-        true,
-      )
+      const result = findRouteMatch('/files/../../secret/photo.jpg', processedTree, true)
       expect(result?.route.id).toBe('/files')
       expect(result?.rawParams['**']).toBe('../../secret/photo.jpg')
     })

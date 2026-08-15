@@ -55,9 +55,6 @@ describe('granular stores', () => {
     await router.navigate({ to: '/about' })
 
     expect(router.state.location.pathname).toBe('/about')
-    expect(router.state.matches.map((match) => match.routeId)).toEqual([
-      '__root__',
-      '/about',
-    ])
+    expect(router.state.matches.map((match) => match.routeId)).toEqual(['__root__', '/about'])
   })
 })

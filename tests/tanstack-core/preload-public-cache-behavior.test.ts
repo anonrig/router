@@ -97,20 +97,18 @@ test('fresh navigation data keeps its gc policy when a preload reuses it', async
   await router.navigate({ to: '/other' })
   await router.navigate({ to: '/reports' })
   expect(loader).toHaveBeenCalledTimes(1)
-  expect(
-    router.state.matches.find((match) => match.routeId === reportsRoute.id)
-      ?.loaderData,
-  ).toBe(1)
+  expect(router.state.matches.find((match) => match.routeId === reportsRoute.id)?.loaderData).toBe(
+    1,
+  )
 
   await router.navigate({ to: '/' })
   vi.setSystemTime(1_000 + 31 * 60_000)
   await router.navigate({ to: '/other' })
   await router.navigate({ to: '/reports' })
   expect(loader).toHaveBeenCalledTimes(2)
-  expect(
-    router.state.matches.find((match) => match.routeId === reportsRoute.id)
-      ?.loaderData,
-  ).toBe(2)
+  expect(router.state.matches.find((match) => match.routeId === reportsRoute.id)?.loaderData).toBe(
+    2,
+  )
 })
 
 // Public contract: clearCache must remain authoritative even if an older
@@ -157,10 +155,9 @@ test('clearCache during an in-flight preload cannot resurrect its borrowed data'
 
   await router.navigate({ to: '/reports' })
   expect(loader).toHaveBeenCalledTimes(2)
-  expect(
-    router.state.matches.find((match) => match.routeId === reportsRoute.id)
-      ?.loaderData,
-  ).toBe(2)
+  expect(router.state.matches.find((match) => match.routeId === reportsRoute.id)?.loaderData).toBe(
+    2,
+  )
 })
 
 test('clearCache cancels a brand-new in-flight preload before it can populate the cache', async () => {
@@ -196,10 +193,9 @@ test('clearCache cancels a brand-new in-flight preload before it can populate th
   await router.navigate({ to: '/reports' })
 
   expect(loader).toHaveBeenCalledTimes(2)
-  expect(
-    router.state.matches.find((match) => match.routeId === reportsRoute.id)
-      ?.loaderData,
-  ).toBe('navigation data')
+  expect(router.state.matches.find((match) => match.routeId === reportsRoute.id)?.loaderData).toBe(
+    'navigation data',
+  )
 })
 
 test('clearCache does not reserve a discarded preload for a navigation in beforeLoad', async () => {
@@ -208,22 +204,20 @@ test('clearCache does not reserve a discarded preload for a navigation in before
   const beforeLoad = vi.fn(({ preload }: { preload: boolean }) =>
     preload ? undefined : navigationBeforeLoad,
   )
-  const loader = vi.fn(
-    ({ abortController }: { abortController: AbortController }) => {
-      const generation = loader.mock.calls.length
-      if (generation !== 1) {
-        return 'fresh navigation data'
-      }
-      preloadSignal = abortController.signal
-      return new Promise<string>((_resolve, reject) => {
-        abortController.signal.addEventListener(
-          'abort',
-          () => reject(abortController.signal.reason),
-          { once: true },
-        )
-      })
-    },
-  )
+  const loader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+    const generation = loader.mock.calls.length
+    if (generation !== 1) {
+      return 'fresh navigation data'
+    }
+    preloadSignal = abortController.signal
+    return new Promise<string>((_resolve, reject) => {
+      abortController.signal.addEventListener(
+        'abort',
+        () => reject(abortController.signal.reason),
+        { once: true },
+      )
+    })
+  })
   const rootRoute = new BaseRootRoute({})
   const homeRoute = new BaseRoute({
     getParentRoute: () => rootRoute,
@@ -262,12 +256,10 @@ test('clearCache does not abort loader work still used by a navigation', async (
   const loaderGate = createControlledPromise<string>()
   let loaderSignal: AbortSignal | undefined
   const beforeLoad = vi.fn()
-  const loader = vi.fn(
-    ({ abortController }: { abortController: AbortController }) => {
-      loaderSignal = abortController.signal
-      return loaderGate
-    },
-  )
+  const loader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+    loaderSignal = abortController.signal
+    return loaderGate
+  })
   const rootRoute = new BaseRootRoute({})
   const homeRoute = new BaseRoute({
     getParentRoute: () => rootRoute,
@@ -356,24 +348,22 @@ test('clearCache leaves cache authority intact when its filter throws', async ()
 test('clearCache installs replacement authorities before abort listeners reenter', async () => {
   let reentrantNavigation: Promise<void> | undefined
   let router: ReturnType<typeof createTestRouter>
-  const loader = vi.fn(
-    ({ abortController }: { abortController: AbortController }) => {
-      const generation = loader.mock.calls.length
-      if (generation !== 2) {
-        return `generation ${generation}`
-      }
-      return new Promise<string>((_resolve, reject) => {
-        abortController.signal.addEventListener(
-          'abort',
-          () => {
-            reentrantNavigation = router.navigate({ to: '/target' })
-            reject(abortController.signal.reason)
-          },
-          { once: true },
-        )
-      })
-    },
-  )
+  const loader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+    const generation = loader.mock.calls.length
+    if (generation !== 2) {
+      return `generation ${generation}`
+    }
+    return new Promise<string>((_resolve, reject) => {
+      abortController.signal.addEventListener(
+        'abort',
+        () => {
+          reentrantNavigation = router.navigate({ to: '/target' })
+          reject(abortController.signal.reason)
+        },
+        { once: true },
+      )
+    })
+  })
   const rootRoute = new BaseRootRoute({})
   const homeRoute = new BaseRoute({
     getParentRoute: () => rootRoute,
@@ -422,21 +412,19 @@ test('clearCache detaches every discarded flight before abort listeners reenter'
         )
       }),
   )
-  const secondLoader = vi.fn(
-    ({ abortController }: { abortController: AbortController }) => {
-      const generation = secondLoader.mock.calls.length
-      if (generation > 1) {
-        return `generation ${generation}`
-      }
-      return new Promise<string>((_resolve, reject) => {
-        abortController.signal.addEventListener(
-          'abort',
-          () => reject(abortController.signal.reason),
-          { once: true },
-        )
-      })
-    },
-  )
+  const secondLoader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+    const generation = secondLoader.mock.calls.length
+    if (generation > 1) {
+      return `generation ${generation}`
+    }
+    return new Promise<string>((_resolve, reject) => {
+      abortController.signal.addEventListener(
+        'abort',
+        () => reject(abortController.signal.reason),
+        { once: true },
+      )
+    })
+  })
   const rootRoute = new BaseRootRoute({})
   const homeRoute = new BaseRoute({
     getParentRoute: () => rootRoute,
@@ -590,9 +578,7 @@ test.each([
     const oldLoaderGate = createControlledPromise<string>()
     let generation = 1
     const loader = vi.fn(() =>
-      loader.mock.calls.length === 1
-        ? oldLoaderGate
-        : `generation ${generation}`,
+      loader.mock.calls.length === 1 ? oldLoaderGate : `generation ${generation}`,
     )
     const rootRoute = new BaseRootRoute({})
     const homeRoute = new BaseRoute({
@@ -619,8 +605,7 @@ test.each([
     await (selected
       ? router.invalidate({
           filter: (match) =>
-            match.routeId ===
-            (selected === 'target' ? targetRoute.id : homeRoute.id),
+            match.routeId === (selected === 'target' ? targetRoute.id : homeRoute.id),
         })
       : router.invalidate())
 
@@ -629,9 +614,7 @@ test.each([
     await router.navigate({ to: '/target' })
 
     expect(loader).toHaveBeenCalledTimes(shouldReload ? 2 : 1)
-    expect(router.state.matches.at(-1)?.loaderData).toBe(
-      `generation ${shouldReload ? 2 : 1}`,
-    )
+    expect(router.state.matches.at(-1)?.loaderData).toBe(`generation ${shouldReload ? 2 : 1}`)
   },
 )
 
@@ -672,8 +655,7 @@ test('filtering only an active preload invalidates seeded same-ID cache data', a
 
   await router.invalidate({
     filter: (match) =>
-      match.routeId === targetRoute.id &&
-      (match.search as { revision?: number }).revision === 2,
+      match.routeId === targetRoute.id && (match.search as { revision?: number }).revision === 2,
   })
   replacementGate.resolve('obsolete generation 2')
   await preload
@@ -777,9 +759,8 @@ test('an unrelated navigation does not cancel an in-flight preload beforeLoad', 
   // Navigating to the target consumes the seeded cache without a new load.
   await router.navigate({ to: '/target' })
   expect(router.state.location.pathname).toBe('/target')
-  expect(
-    router.state.matches.find((match) => match.routeId === targetRoute.id)
-      ?.loaderData,
-  ).toBe('target data')
+  expect(router.state.matches.find((match) => match.routeId === targetRoute.id)?.loaderData).toBe(
+    'target data',
+  )
   expect(loader).toHaveBeenCalledTimes(1)
 })

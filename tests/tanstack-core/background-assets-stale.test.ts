@@ -55,11 +55,8 @@ describe('background decorative asset failure', () => {
     })
 
     await router.navigate({ to: '/foo' })
-    const matchId = router.state.matches.find(
-      (match) => match.routeId === fooRoute.id,
-    )!.id
-    const getMatch = () =>
-      router.state.matches.find((match) => match.id === matchId)
+    const matchId = router.state.matches.find((match) => match.routeId === fooRoute.id)!.id
+    const getMatch = () => router.state.matches.find((match) => match.id === matchId)
 
     expect(getMatch()?.loaderData).toEqual({ title: 'old' })
     expect(getMatch()?.meta).toEqual([{ title: 'old' }])
@@ -69,9 +66,7 @@ describe('background decorative asset failure', () => {
     await vi.waitFor(() => expect(loaderCalls).toBe(2))
 
     resolveStaleReload({ title: 'fresh' })
-    await vi.waitFor(() =>
-      expect(getMatch()?.loaderData).toEqual({ title: 'fresh' }),
-    )
+    await vi.waitFor(() => expect(getMatch()?.loaderData).toEqual({ title: 'fresh' }))
 
     expect(getMatch()?.meta).toEqual([{ title: 'old' }])
     expect(log).toHaveBeenCalledWith(projectionError)

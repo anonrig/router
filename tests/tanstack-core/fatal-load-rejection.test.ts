@@ -1,11 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  redirect,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, redirect } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 /**

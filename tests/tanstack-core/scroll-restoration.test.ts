@@ -31,10 +31,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function getLocation(
-  router: ReturnType<typeof createRouter>,
-  pathname: string,
-) {
+function getLocation(router: ReturnType<typeof createRouter>, pathname: string) {
   return {
     ...router.latestLocation,
     href: pathname,
@@ -71,9 +68,7 @@ describe('setupScrollRestoration', () => {
     expect(router._scroll.restoring).toBe(true)
     expect(router._scroll.restoration).toBe(true)
     expect(window.history.scrollRestoration).toBe('manual')
-    expect(
-      windowAddEventListener.mock.calls.some(([event]) => event === 'pagehide'),
-    ).toBe(true)
+    expect(windowAddEventListener.mock.calls.some(([event]) => event === 'pagehide')).toBe(true)
     expect(
       documentAddEventListener.mock.calls.some(
         ([event, _listener, options]) => event === 'scroll' && options === true,
@@ -118,10 +113,7 @@ describe('setupScrollRestoration', () => {
       getScrollRestorationKey: (location) => location.pathname,
     })
     const source = getLocation(router, '/unit-live-window-snapshot-source')
-    const destination = getLocation(
-      router,
-      '/unit-live-window-snapshot-destination',
-    )
+    const destination = getLocation(router, '/unit-live-window-snapshot-destination')
 
     document.dispatchEvent(new Event('scroll'))
     vi.stubGlobal('scrollY', 120)
@@ -152,23 +144,16 @@ describe('setupScrollRestoration', () => {
 
       window.history.scrollRestoration = 'auto'
 
-      const router = createRouter(
-        scrollRestoration === undefined ? {} : { scrollRestoration },
-      )
+      const router = createRouter(scrollRestoration === undefined ? {} : { scrollRestoration })
 
       expect(router._scroll.restoring).toBeUndefined()
       expect(router._scroll.restoration).toBeUndefined()
       expect(router._scroll.reset).toBe(true)
       expect(window.history.scrollRestoration).toBe('auto')
-      expect(
-        windowAddEventListener.mock.calls.some(
-          ([event]) => event === 'pagehide',
-        ),
-      ).toBe(false)
+      expect(windowAddEventListener.mock.calls.some(([event]) => event === 'pagehide')).toBe(false)
       expect(
         documentAddEventListener.mock.calls.some(
-          ([event, _listener, options]) =>
-            event === 'scroll' && options === true,
+          ([event, _listener, options]) => event === 'scroll' && options === true,
         ),
       ).toBe(false)
 

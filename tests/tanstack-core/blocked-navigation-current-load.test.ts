@@ -61,9 +61,7 @@ describe('blocked navigation does not cancel the current load', () => {
 
       expect(router.state.location.pathname).toBe('/slow')
       expect(router.history.location.pathname).toBe('/slow')
-      expect(
-        router.state.matches.find((m) => m.routeId === slowRoute.id),
-      ).toMatchObject({
+      expect(router.state.matches.find((m) => m.routeId === slowRoute.id)).toMatchObject({
         status: 'success',
         loaderData: 'slow data',
       })

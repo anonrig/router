@@ -9,12 +9,8 @@ describe('waitFor', () => {
     const error = new Error('late failure')
     controller.abort()
 
-    await expect(waitFor(undefined, controller.signal)).rejects.toBe(
-      controller.signal,
-    )
-    await expect(
-      waitFor(Promise.reject(error), controller.signal),
-    ).rejects.toBe(controller.signal)
+    await expect(waitFor(undefined, controller.signal)).rejects.toBe(controller.signal)
+    await expect(waitFor(Promise.reject(error), controller.signal)).rejects.toBe(controller.signal)
 
     await Promise.resolve()
   })
@@ -26,9 +22,7 @@ describe('waitFor', () => {
     const onLate = vi.fn()
     controller.abort(reason)
 
-    await expect(waitForReason(late, controller.signal, onLate)).rejects.toBe(
-      reason,
-    )
+    await expect(waitForReason(late, controller.signal, onLate)).rejects.toBe(reason)
     await vi.waitFor(() => expect(onLate).toHaveBeenCalledWith('late response'))
   })
 })
@@ -134,14 +128,8 @@ describe('waitForRequest', () => {
     const firstController = new AbortController()
     const secondController = new AbortController()
     const firstReason = new Error('first request canceled')
-    const firstAddEventListener = vi.spyOn(
-      firstController.signal,
-      'addEventListener',
-    )
-    const secondAddEventListener = vi.spyOn(
-      secondController.signal,
-      'addEventListener',
-    )
+    const firstAddEventListener = vi.spyOn(firstController.signal, 'addEventListener')
+    const secondAddEventListener = vi.spyOn(secondController.signal, 'addEventListener')
     let resolveFirst!: (value: string) => void
     let resolveSecond!: (value: string) => void
     const first = new Promise<string>((resolve) => {
@@ -172,12 +160,10 @@ describe('waitForRequest', () => {
     const onLate = vi.fn()
     controller.abort(reason)
 
-    await expect(
-      waitForRequest(Promise.resolve('late'), controller.signal, onLate),
-    ).rejects.toBe(reason)
-    await expect(
-      waitForRequest(Promise.reject(lateError), controller.signal),
-    ).rejects.toBe(reason)
+    await expect(waitForRequest(Promise.resolve('late'), controller.signal, onLate)).rejects.toBe(
+      reason,
+    )
+    await expect(waitForRequest(Promise.reject(lateError), controller.signal)).rejects.toBe(reason)
 
     await vi.waitFor(() => expect(onLate).toHaveBeenCalledWith('late'))
   })
@@ -186,9 +172,7 @@ describe('waitForRequest', () => {
     const controller = new AbortController()
     const reason = new Error('request canceled')
     const onLate = vi.fn()
-    const addEventListener = controller.signal.addEventListener.bind(
-      controller.signal,
-    )
+    const addEventListener = controller.signal.addEventListener.bind(controller.signal)
     vi.spyOn(controller.signal, 'addEventListener').mockImplementation(
       (type, listener, options) => {
         addEventListener(type, listener, options)

@@ -1,11 +1,6 @@
 import { createMemoryHistory } from '@tanstack/history'
 import { describe, expect, onTestFinished, test, vi } from 'vitest'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  notFound,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, notFound } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 // https://github.com/TanStack/router/issues/6221
@@ -57,9 +52,7 @@ describe('issue #6221: head does not run before loader data is ready', () => {
 
     try {
       await router.load()
-      const notFoundMatch = router.state.matches.find(
-        (match) => match.routeId === articleRoute.id,
-      )
+      const notFoundMatch = router.state.matches.find((match) => match.routeId === articleRoute.id)
       expect(notFoundMatch?.status).toBe('notFound')
       expect(notFoundMatch?.meta).toEqual([{ title: 'Generic title' }])
 
@@ -81,9 +74,7 @@ describe('issue #6221: head does not run before loader data is ready', () => {
       articleResponse.resolve({ title: 'Article 123' })
       await backLoadFinished
 
-      const articleMatch = router.state.matches.find(
-        (match) => match.routeId === articleRoute.id,
-      )
+      const articleMatch = router.state.matches.find((match) => match.routeId === articleRoute.id)
       expect(articleMatch?.status).toBe('success')
       expect(articleMatch?.loaderData).toEqual({ title: 'Article 123' })
       expect(articleMatch?.meta).toEqual([{ title: 'Article 123' }])

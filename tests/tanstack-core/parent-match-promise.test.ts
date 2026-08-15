@@ -62,10 +62,7 @@ test('client preload=false parentMatchPromise exposes the skipped pending parent
     },
   })
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      indexRoute,
-      parentRoute.addChildren([childRoute]),
-    ]),
+    routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
     isServer: false,
   })

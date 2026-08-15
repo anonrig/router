@@ -38,10 +38,7 @@ describe('serial failure keeps ancestor reloads in the foreground lane', () => {
     })
 
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
     })
 
@@ -52,12 +49,8 @@ describe('serial failure keeps ancestor reloads in the foreground lane', () => {
     shouldFail = true
     await router.navigate({ to: '/parent/child' })
 
-    const parentMatch = router.state.matches.find(
-      (match) => match.routeId === parentRoute.id,
-    )
-    const childMatch = router.state.matches.find(
-      (match) => match.routeId === childRoute.id,
-    )
+    const parentMatch = router.state.matches.find((match) => match.routeId === parentRoute.id)
+    const childMatch = router.state.matches.find((match) => match.routeId === childRoute.id)
 
     // The child committed its serial failure...
     expect(childMatch?.status).toBe('error')

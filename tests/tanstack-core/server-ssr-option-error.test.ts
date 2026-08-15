@@ -47,9 +47,7 @@ describe('server functional ssr() errors', () => {
 
       const response = await loadServerResponse(router, '/reports')
 
-      const reportsMatch = router.state.matches.find(
-        (match) => match.routeId === reportsRoute.id,
-      )
+      const reportsMatch = router.state.matches.find((match) => match.routeId === reportsRoute.id)
       expect(loader).not.toHaveBeenCalled()
       expect(beforeLoad).not.toHaveBeenCalled()
       expect(response.status).toBe(500)

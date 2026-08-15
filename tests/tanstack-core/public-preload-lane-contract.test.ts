@@ -52,10 +52,7 @@ describe('public preload lane contracts', () => {
   })
 
   test('every active preload runs beforeLoad even for an identical location', async () => {
-    const gates = new Map<
-      number,
-      ReturnType<typeof createControlledPromise<void>>
-    >()
+    const gates = new Map<number, ReturnType<typeof createControlledPromise<void>>>()
     const beforeLoad = vi.fn(({ search }: { search: { version: number } }) => {
       let gate = gates.get(search.version)
       if (!gate) {
@@ -145,10 +142,7 @@ describe('public preload lane contracts', () => {
     beforeLoadGate.resolve()
     await Promise.all([preload, navigation])
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(1)
     expect(router.state.matches.at(-1)).toMatchObject({
       context: { source: 'navigation' },
@@ -191,12 +185,7 @@ describe('public preload lane contracts', () => {
       path: '/target',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        hopRoute,
-        sharedRoute,
-        targetRoute,
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, hopRoute, sharedRoute, targetRoute]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -227,13 +216,9 @@ describe('public preload lane contracts', () => {
     redirectGate.resolve()
     await Promise.all([preload, navigation])
 
-    expect(
-      sharedBeforeLoad.mock.calls.map(([context]) => context.preload),
-    ).toEqual([true, false])
+    expect(sharedBeforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(router.state.location.pathname).toBe('/shared')
-    expect(
-      router.state.matches.find((match) => match.status !== 'success'),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.status !== 'success')).toMatchObject({
       routeId: rootRoute.id,
       status: 'error',
       error: expect.objectContaining({ message: 'Too many redirects' }),
@@ -272,12 +257,7 @@ describe('public preload lane contracts', () => {
     },
   ])(
     'navigation reruns beforeLoad for a different explicit mask $difference on the same destination',
-    async ({
-      preloadMask,
-      navigationMask,
-      preloadPathname,
-      navigationPathname,
-    }) => {
+    async ({ preloadMask, navigationMask, preloadPathname, navigationPathname }) => {
       const beforeLoadGate = createControlledPromise<void>()
       const loaderGate = createControlledPromise<string>()
       const beforeLoad = vi.fn(
@@ -312,12 +292,7 @@ describe('public preload lane contracts', () => {
         path: '/mask-b',
       })
       const router = createTestRouter({
-        routeTree: rootRoute.addChildren([
-          indexRoute,
-          targetRoute,
-          maskARoute,
-          maskBRoute,
-        ]),
+        routeTree: rootRoute.addChildren([indexRoute, targetRoute, maskARoute, maskBRoute]),
         ...('search' in preloadMask ? { stringifySearch: () => '' } : {}),
         history: createMemoryHistory({ initialEntries: ['/'] }),
       })
@@ -448,12 +423,7 @@ describe('public preload lane contracts', () => {
     },
   ])(
     'navigation does not adopt beforeLoad from an active preload with different $name',
-    async ({
-      preload: preloadOptions,
-      navigation: navigationOptions,
-      pathname,
-      search,
-    }) => {
+    async ({ preload: preloadOptions, navigation: navigationOptions, pathname, search }) => {
       const beforeLoadGate = createControlledPromise<void>()
       const beforeLoad = vi.fn(async ({ preload }: { preload: boolean }) => {
         await beforeLoadGate
@@ -495,9 +465,7 @@ describe('public preload lane contracts', () => {
       beforeLoadGate.resolve()
       await Promise.all([preload, navigation])
 
-      expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual(
-        [true, false],
-      )
+      expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
       expect(router.state.location.pathname).toBe(pathname)
       expect(router.state.location.search).toEqual(search)
       expect(router.state.matches.at(-1)?.context).toEqual({ preload: false })
@@ -548,15 +516,10 @@ describe('public preload lane contracts', () => {
     loaderGate.resolve('shared parent data')
     await Promise.all([preload, navigation])
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(1)
     expect(router.state.matches.at(-1)?.routeId).toBe(secondRoute.id)
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
       context: { source: 'navigation' },
       loaderData: 'shared parent data',
     })
@@ -613,15 +576,10 @@ describe('public preload lane contracts', () => {
     navigationBeforeLoadGate.resolve()
     await navigation
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(1)
     expect(router.state.matches.at(-1)?.routeId).toBe(secondRoute.id)
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
       context: { source: 'navigation' },
       loaderData: 'reserved parent data',
     })
@@ -631,22 +589,14 @@ describe('public preload lane contracts', () => {
     const refreshGate = createControlledPromise<string>()
     const navigationBeforeLoadGate = createControlledPromise<void>()
     const beforeLoad = vi.fn(
-      async ({
-        preload,
-        search,
-      }: {
-        preload: boolean
-        search: { revision: number }
-      }) => {
+      async ({ preload, search }: { preload: boolean; search: { revision: number } }) => {
         if (!preload && search.revision === 2) {
           await navigationBeforeLoadGate
         }
         return { source: preload ? 'preload' : 'navigation' }
       },
     )
-    const loader = vi.fn(() =>
-      loader.mock.calls.length === 1 ? 'initial data' : refreshGate,
-    )
+    const loader = vi.fn(() => (loader.mock.calls.length === 1 ? 'initial data' : refreshGate))
     const rootRoute = new BaseRootRoute({})
     const parentRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -655,8 +605,7 @@ describe('public preload lane contracts', () => {
         revision: Number(search.revision ?? 0),
       }),
       beforeLoad,
-      shouldReload: ({ location }) =>
-        (location.search as { revision: number }).revision > 0,
+      shouldReload: ({ location }) => (location.search as { revision: number }).revision > 0,
       loader: {
         handler: loader,
         staleReloadMode: 'background',
@@ -671,9 +620,7 @@ describe('public preload lane contracts', () => {
       path: '/second',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        parentRoute.addChildren([firstRoute, secondRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([parentRoute.addChildren([firstRoute, secondRoute])]),
       history: createMemoryHistory({
         initialEntries: ['/parent/first?revision=0'],
       }),
@@ -705,16 +652,10 @@ describe('public preload lane contracts', () => {
     navigationBeforeLoadGate.resolve()
     await navigation
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      false,
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([false, true, false])
     expect(loader).toHaveBeenCalledTimes(2)
     expect(router.state.matches.at(-1)?.routeId).toBe(secondRoute.id)
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
       context: { source: 'navigation' },
       loaderData: 'refreshed data',
       preload: false,
@@ -781,9 +722,7 @@ describe('public preload lane contracts', () => {
     const beforeLoad = vi.fn(({ preload }: { preload: boolean }) => ({
       source: preload ? 'preload' : 'navigation',
     }))
-    const loader = vi.fn(
-      ({ context }: { context: { source: string } }) => context.source,
-    )
+    const loader = vi.fn(({ context }: { context: { source: string } }) => context.source)
     const rootRoute = new BaseRootRoute({})
     const indexRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -806,10 +745,7 @@ describe('public preload lane contracts', () => {
     await router.preloadRoute({ to: '/target' })
     await router.navigate({ to: '/target' })
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(1)
     expect(router.state.matches.at(-1)).toMatchObject({
       context: { source: 'navigation' },
@@ -821,9 +757,7 @@ describe('public preload lane contracts', () => {
     const context = ({ preload }: { preload: boolean }) => ({
       source: preload ? 'preload' : 'navigation',
     })
-    const loader = vi.fn(
-      ({ context: value }: { context: { source: string } }) => value.source,
-    )
+    const loader = vi.fn(({ context: value }: { context: { source: string } }) => value.source)
     const rootRoute = new BaseRootRoute({})
     const indexRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -887,10 +821,7 @@ describe('public preload lane contracts', () => {
     preloadGate.resolve()
     await Promise.all([preload, navigation])
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(1)
     expect(router.state.matches.at(-1)).toMatchObject({
       routeId: targetRoute.id,
@@ -935,10 +866,7 @@ describe('public preload lane contracts', () => {
       loader: childLoader,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -949,25 +877,18 @@ describe('public preload lane contracts', () => {
     childGate.resolve()
     const terminal = await preload
 
-    expect(
-      terminal?.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({
+    expect(terminal?.find((match) => match.routeId === parentRoute.id)).toMatchObject({
       status: 'success',
       loaderData: 'parent data',
     })
-    expect(
-      terminal?.find((match) => match.routeId === childRoute.id),
-    ).toMatchObject({
+    expect(terminal?.find((match) => match.routeId === childRoute.id)).toMatchObject({
       status: 'error',
       error: childFailure,
     })
 
     await router.navigate({ to: '/parent/child' })
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(parentLoader).toHaveBeenCalledTimes(1)
     expect(parentSignal?.aborted).toBe(false)
     expect(childLoader).toHaveBeenCalledTimes(2)
@@ -979,9 +900,7 @@ describe('public preload lane contracts', () => {
   })
 
   test('a terminal preload stays terminal publicly while caching its successful loader generation', async () => {
-    const loader = vi.fn(
-      ({ deps }: { deps: { version: number } }) => deps.version,
-    )
+    const loader = vi.fn(({ deps }: { deps: { version: number } }) => deps.version)
     const rootRoute = new BaseRootRoute({
       validateSearch: (search: Record<string, unknown>) => ({
         version: Number(search.version ?? 0),
@@ -1047,9 +966,7 @@ describe('public preload lane contracts', () => {
 
   test('a terminal preload started during navigation borrows its loader generation', async () => {
     const loaderGate = createControlledPromise<string>()
-    const loader = vi.fn(() =>
-      loader.mock.calls.length === 1 ? 'initial data' : loaderGate,
-    )
+    const loader = vi.fn(() => (loader.mock.calls.length === 1 ? 'initial data' : loaderGate))
     const rootRoute = new BaseRootRoute({
       shouldReload: true,
       loader,
@@ -1102,8 +1019,7 @@ describe('public preload lane contracts', () => {
       validateSearch: (search: Record<string, unknown>) => ({
         revision: Number(search.revision ?? 1),
       }),
-      shouldReload: ({ location }) =>
-        (location.search as { revision: number }).revision === 2,
+      shouldReload: ({ location }) => (location.search as { revision: number }).revision === 2,
       loader,
     })
     const router = createTestRouter({
@@ -1141,8 +1057,7 @@ describe('public preload lane contracts', () => {
       validateSearch: (search: Record<string, unknown>) => ({
         revision: Number(search.revision ?? 1),
       }),
-      shouldReload: ({ location }) =>
-        (location.search as { revision: number }).revision === 2,
+      shouldReload: ({ location }) => (location.search as { revision: number }).revision === 2,
       preloadGcTime: 0,
       gcTime: Infinity,
       loader,
@@ -1179,9 +1094,7 @@ describe('public preload lane contracts', () => {
         revision: Number(search.revision ?? 1),
       }),
       shouldReload: ({ location }) =>
-        (location.search as { revision: number }).revision === 2
-          ? true
-          : undefined,
+        (location.search as { revision: number }).revision === 2 ? true : undefined,
       loader,
     })
     const router = createTestRouter({
@@ -1235,10 +1148,7 @@ describe('public preload lane contracts', () => {
       loader,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 

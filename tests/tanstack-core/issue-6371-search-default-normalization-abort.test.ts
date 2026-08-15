@@ -82,9 +82,7 @@ describe('issue #6371: search default normalization aborts the mount load silent
 
     expect(invocations).toHaveLength(1)
 
-    const aboutMatch = router.state.matches.find(
-      (match) => match.routeId === aboutRoute.id,
-    )!
+    const aboutMatch = router.state.matches.find((match) => match.routeId === aboutRoute.id)!
     expect(aboutMatch.status).toBe('success')
     expect(aboutMatch.error).toBeUndefined()
     expect(aboutMatch.loaderData).toBe('about data')

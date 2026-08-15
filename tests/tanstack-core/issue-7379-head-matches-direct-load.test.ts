@@ -9,9 +9,7 @@ import { createTestRouter } from './router-test-utils'
 // context on every ancestor match so a breadcrumb-style title can be built.
 describe('issue #7379: head({ matches }) has loaderData and context on direct load', () => {
   test('initial load executes head after loaders with populated matches', async () => {
-    const seenMatches: Array<
-      Array<{ routeId: string; loaderData: unknown; context: unknown }>
-    > = []
+    const seenMatches: Array<Array<{ routeId: string; loaderData: unknown; context: unknown }>> = []
 
     const rootRoute = new BaseRootRoute({})
     const nestedRoute = new BaseRoute({
@@ -41,9 +39,7 @@ describe('issue #7379: head({ matches }) has loaderData and context on direct lo
             context: match.context,
           })),
         )
-        const crumbs = matches
-          .map((match) => match.loaderData?.crumb)
-          .filter(Boolean)
+        const crumbs = matches.map((match) => match.loaderData?.crumb).filter(Boolean)
         return {
           meta: [{ title: [...crumbs, 'Company Inc.'].join(' - ') }],
         }
@@ -73,9 +69,7 @@ describe('issue #7379: head({ matches }) has loaderData and context on direct lo
     expect(seenEven?.context).toMatchObject({ section: 'nested-section' })
 
     // The breadcrumb title is complete on the committed match.
-    const evenMatch = router.state.matches.find(
-      (match) => match.routeId === evenRoute.id,
-    )
+    const evenMatch = router.state.matches.find((match) => match.routeId === evenRoute.id)
     expect(evenMatch?.meta).toEqual([{ title: 'Nested - Even - Company Inc.' }])
   })
 })

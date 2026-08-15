@@ -56,9 +56,7 @@ describe('server route chunk failure lifecycle', () => {
 
     const response = await loadServerResponse(router, '/chunked')
 
-    const match = router.state.matches.find(
-      (item) => item.routeId === chunkedRoute.id,
-    )
+    const match = router.state.matches.find((item) => item.routeId === chunkedRoute.id)
     expect(capturedErrors).toEqual([chunkError])
     expect(match?.status).toBe('error')
     expect(match?.error).toBe(chunkError)
@@ -91,9 +89,7 @@ describe('server route chunk failure lifecycle', () => {
 
     const response = await loadServerResponse(router, '/chunked')
 
-    const match = router.state.matches.find(
-      (item) => item.routeId === chunkedRoute.id,
-    )
+    const match = router.state.matches.find((item) => item.routeId === chunkedRoute.id)
     expect(response.status).toBe(404)
     expect(match?.status).toBe('notFound')
     expect(match?.error).toEqual(expect.objectContaining({ isNotFound: true }))
@@ -187,11 +183,7 @@ describe('server route chunk failure lifecycle', () => {
       process.off('unhandledRejection', onUnhandled)
     })
 
-    const responsePromise = loadServerResponse(
-      router,
-      '/child',
-      controller.signal,
-    )
+    const responsePromise = loadServerResponse(router, '/child', controller.signal)
     await Promise.all([rootChunkStarted, childChunkStarted])
 
     rootChunkGate.reject(rootError)
@@ -221,9 +213,7 @@ describe('server route chunk failure lifecycle', () => {
       notFoundComponent: () => null,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        ancestorRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([ancestorRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/ancestor/child'] }),
       isServer: true,
     })
@@ -231,8 +221,9 @@ describe('server route chunk failure lifecycle', () => {
     const response = await loadServerResponse(router, '/ancestor/child')
 
     expect(response.status).toBe(500)
-    expect(
-      router.state.matches.find((match) => match.routeId === ancestorRoute.id),
-    ).toMatchObject({ status: 'error', error: chunkError })
+    expect(router.state.matches.find((match) => match.routeId === ancestorRoute.id)).toMatchObject({
+      status: 'error',
+      error: chunkError,
+    })
   })
 })

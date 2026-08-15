@@ -143,11 +143,7 @@ async function readAll(s: ReadableStream<Uint8Array>): Promise<string> {
     const { done, value } = await reader.read()
     if (done) break
     // Buffer.from accepts any ArrayBufferView regardless of realm (jsdom env).
-    out += Buffer.from(
-      value.buffer,
-      value.byteOffset,
-      value.byteLength,
-    ).toString('utf8')
+    out += Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString('utf8')
   }
   return out
 }
@@ -224,14 +220,9 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
     await serializationDone
 
     const upstream = makeManualUpstream()
-    const output = transformStreamWithRouter(
-      router as any,
-      upstream.stream as any,
-    )
+    const output = transformStreamWithRouter(router as any, upstream.stream as any)
     upstream.push(
-      `<html><body><main>app</main>${renderManagedScript(
-        barrierScript!,
-      )}</body></html>`,
+      `<html><body><main>app</main>${renderManagedScript(barrierScript!)}</body></html>`,
     )
     upstream.close()
 
@@ -239,9 +230,7 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
 
     expect(html).toContain(`${GLOBAL_TSR}.router=`)
     expect(html).toContain(`${GLOBAL_TSR}.e()`)
-    expect(html.indexOf(`${GLOBAL_TSR}.e()`)).toBeLessThan(
-      html.indexOf('</body>'),
-    )
+    expect(html.indexOf(`${GLOBAL_TSR}.e()`)).toBeLessThan(html.indexOf('</body>'))
   })
 
   test('fuses the final resolver and stream-end scripts', async () => {
@@ -256,14 +245,9 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
     expect(barrierScript).toBeDefined()
 
     const upstream = makeManualUpstream()
-    const output = transformStreamWithRouter(
-      router as any,
-      upstream.stream as any,
-    )
+    const output = transformStreamWithRouter(router as any, upstream.stream as any)
     upstream.push(
-      `<html><body><main>app</main>${renderManagedScript(
-        barrierScript!,
-      )}</body></html>`,
+      `<html><body><main>app</main>${renderManagedScript(barrierScript!)}</body></html>`,
     )
 
     const serializationDone = new Promise<void>((resolve) => {
@@ -298,10 +282,7 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
     await serializationDone
 
     const upstream = makeManualUpstream()
-    const output = transformStreamWithRouter(
-      router as any,
-      upstream.stream as any,
-    )
+    const output = transformStreamWithRouter(router as any, upstream.stream as any)
     upstream.push('<html><body><main>app</main></body></html>')
     upstream.close()
 
@@ -309,9 +290,7 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
 
     expect(html).toContain(`${GLOBAL_TSR}.router=`)
     expect(html).toContain(`${GLOBAL_TSR}.e()`)
-    expect(html.indexOf(`${GLOBAL_TSR}.e()`)).toBeLessThan(
-      html.indexOf('</body>'),
-    )
+    expect(html.indexOf(`${GLOBAL_TSR}.e()`)).toBeLessThan(html.indexOf('</body>'))
   })
 
   test('keeps stream scripts before uppercase body close', async () => {
@@ -324,13 +303,8 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
     const barrierScript = router.serverSsr!.takeBufferedScripts()!
 
     const upstream = makeManualUpstream()
-    const output = transformStreamWithRouter(
-      router as any,
-      upstream.stream as any,
-    )
-    upstream.push(
-      `<html><body>${renderManagedScript(barrierScript)}<main>app</main></BODY></HTML>`,
-    )
+    const output = transformStreamWithRouter(router as any, upstream.stream as any)
+    upstream.push(`<html><body>${renderManagedScript(barrierScript)}<main>app</main></BODY></HTML>`)
 
     const serializationDone = new Promise<void>((resolve) => {
       router.serverSsr!.onSerializationFinished(resolve)
@@ -341,9 +315,7 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
 
     const html = await readAll(output as any)
     expect(html).toContain(`${GLOBAL_TSR}.e()`)
-    expect(html.indexOf(`${GLOBAL_TSR}.e()`)).toBeLessThan(
-      html.indexOf('</BODY>'),
-    )
+    expect(html.indexOf(`${GLOBAL_TSR}.e()`)).toBeLessThan(html.indexOf('</BODY>'))
   })
 
   test('detects a barrier marker split across chunks', async () => {
@@ -354,18 +326,11 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
       },
     })
     const upstream = makeManualUpstream()
-    const output = transformStreamWithRouter(
-      router as any,
-      upstream.stream as any,
-    )
+    const output = transformStreamWithRouter(router as any, upstream.stream as any)
     const splitAt = Math.floor(TSR_SCRIPT_BARRIER_ID.length / 2)
 
-    upstream.push(
-      `<html><body><script id="${TSR_SCRIPT_BARRIER_ID.slice(0, splitAt)}`,
-    )
-    upstream.push(
-      `${TSR_SCRIPT_BARRIER_ID.slice(splitAt)}"></script><main>app</main>`,
-    )
+    upstream.push(`<html><body><script id="${TSR_SCRIPT_BARRIER_ID.slice(0, splitAt)}`)
+    upstream.push(`${TSR_SCRIPT_BARRIER_ID.slice(splitAt)}"></script><main>app</main>`)
     upstream.push('</body></html>')
     upstream.close()
     finishSerialization()
@@ -381,14 +346,9 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
       },
     })
     const upstream = makeManualUpstream()
-    const output = transformStreamWithRouter(
-      router as any,
-      upstream.stream as any,
-    )
+    const output = transformStreamWithRouter(router as any, upstream.stream as any)
 
-    upstream.push(
-      `<html><body><main>app</main><script id="${TSR_SCRIPT_BARRIER_ID}`,
-    )
+    upstream.push(`<html><body><main>app</main><script id="${TSR_SCRIPT_BARRIER_ID}`)
     upstream.push(`">initial()`)
     upstream.push('</script><section>after</section>')
     finishSerialization()
@@ -400,9 +360,7 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
     expect(html.indexOf('<script>streamed()</script>')).toBeGreaterThan(
       html.indexOf('</script><section>after</section>'),
     )
-    expect(html.indexOf('<script>streamed()</script>')).toBeLessThan(
-      html.indexOf('</body>'),
-    )
+    expect(html.indexOf('<script>streamed()</script>')).toBeLessThan(html.indexOf('</body>'))
   })
 
   test('remembers a flushed barrier marker until a later closing-tag boundary', async () => {
@@ -413,15 +371,10 @@ describe('transformStreamWithRouter — real SSR scripts', () => {
       },
     })
     const upstream = makeManualUpstream()
-    const output = transformStreamWithRouter(
-      router as any,
-      upstream.stream as any,
-    )
+    const output = transformStreamWithRouter(router as any, upstream.stream as any)
     const filler = 'x'.repeat(MAX_LEFTOVER_CHARS + 32)
 
-    upstream.push(
-      `<html><body><main>app</main><script id="${TSR_SCRIPT_BARRIER_ID}${filler}`,
-    )
+    upstream.push(`<html><body><main>app</main><script id="${TSR_SCRIPT_BARRIER_ID}${filler}`)
     await flush()
     expect(liftCalls).toBe(0)
 
@@ -450,11 +403,9 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       const upstream = makeManualUpstream()
       const request = new AbortController()
 
-      const responseBody = transformStreamWithRouter(
-        router as any,
-        upstream.stream as any,
-        { signal: request.signal },
-      )
+      const responseBody = transformStreamWithRouter(router as any, upstream.stream as any, {
+        signal: request.signal,
+      })
 
       expect(responseBody.locked).toBe(false)
 
@@ -478,9 +429,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
     const upstream = makeManualUpstream()
 
     const out = transformStreamWithRouter(router as any, upstream.stream as any)
-    const reader = (
-      out as any
-    ).getReader() as ReadableStreamDefaultReader<Uint8Array>
+    const reader = (out as any).getReader() as ReadableStreamDefaultReader<Uint8Array>
 
     // Cancel before any data flows. Should still trigger upstream cancel
     // and exactly one cleanup invocation.
@@ -511,9 +460,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
     })
 
     const out = transformStreamWithRouter(router as any, upstream as any)
-    const reader = (
-      out as any
-    ).getReader() as ReadableStreamDefaultReader<Uint8Array>
+    const reader = (out as any).getReader() as ReadableStreamDefaultReader<Uint8Array>
 
     let cancelSettled = false
     const cancelPromise = reader.cancel('consumer-gone').then(() => {
@@ -578,10 +525,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
     const upstream = makeManualUpstream()
 
     const out = transformStreamWithRouter(router as any, upstream.stream as any)
-    const result = createSsrStreamResponse(
-      router as any,
-      new Response(out as any),
-    )
+    const result = createSsrStreamResponse(router as any, new Response(out as any))
     expect(result.serverSsrCleanup).toBe('stream')
     if (result.serverSsrCleanup !== 'stream') return
 
@@ -641,9 +585,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
 
     const text = await readAll(out as any)
     expect(text).toContain('<script>pending()</script>')
-    expect(text.indexOf('<script>pending()</script>')).toBeLessThan(
-      text.indexOf('</body>'),
-    )
+    expect(text.indexOf('<script>pending()</script>')).toBeLessThan(text.indexOf('</body>'))
     expect(takeBufferedHtmlCalls).toBeGreaterThan(0)
   })
 
@@ -656,15 +598,10 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       })
       const upstream = makeManualUpstream()
 
-      const out = transformStreamWithRouter(
-        router as any,
-        upstream.stream as any,
-      )
+      const out = transformStreamWithRouter(router as any, upstream.stream as any)
       injectHtml('<script>late()</script>')
 
-      await expect(readAll(out as any)).rejects.toThrow(
-        'SSR router HTML injected during fast path',
-      )
+      await expect(readAll(out as any)).rejects.toThrow('SSR router HTML injected during fast path')
       expect(cleanupCalls.count).toBe(1)
     } finally {
       errorSpy.mockRestore()
@@ -680,11 +617,9 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       })
       const upstream = makeManualUpstream()
 
-      const out = transformStreamWithRouter(
-        router as any,
-        upstream.stream as any,
-        { lifetimeMs: 10 },
-      )
+      const out = transformStreamWithRouter(router as any, upstream.stream as any, {
+        lifetimeMs: 10,
+      })
 
       // Do NOT consume. Advance fake time past lifetimeMs deterministically.
       await vi.advanceTimersByTimeAsync(15)
@@ -693,9 +628,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       expect(cleanupCalls.count).toBe(1)
 
       // Drain (read errors silently) so vitest doesn't see an unhandled error.
-      const reader = (
-        out as any
-      ).getReader() as ReadableStreamDefaultReader<Uint8Array>
+      const reader = (out as any).getReader() as ReadableStreamDefaultReader<Uint8Array>
       reader.read().catch(() => {})
       reader.releaseLock()
     } finally {
@@ -726,9 +659,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       })
 
       const out = transformStreamWithRouter(router as any, stream as any)
-      const reader = (
-        out as any
-      ).getReader() as ReadableStreamDefaultReader<Uint8Array>
+      const reader = (out as any).getReader() as ReadableStreamDefaultReader<Uint8Array>
 
       // Consumer goes away → triggers cancelUpstream → upstream cancel throws.
       await reader.cancel('consumer-gone').catch(() => {})
@@ -737,9 +668,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
 
       expect(cleanupCalls.count).toBe(1)
       expect(
-        unhandled.find(
-          (e: any) => e && String(e.message || e).includes('boom-cancel'),
-        ),
+        unhandled.find((e: any) => e && String(e.message || e).includes('boom-cancel')),
       ).toBeUndefined()
     } finally {
       process.off('unhandledRejection', onUnhandled)
@@ -756,10 +685,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       })
       const upstream = makeManualUpstream()
 
-      const out = transformStreamWithRouter(
-        router as any,
-        upstream.stream as any,
-      )
+      const out = transformStreamWithRouter(router as any, upstream.stream as any)
       upstream.push('<html><body>done</body></html>')
       upstream.close()
       finishSerialization()
@@ -780,10 +706,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       })
       const upstream = makeManualUpstream()
 
-      const out = transformStreamWithRouter(
-        router as any,
-        upstream.stream as any,
-      )
+      const out = transformStreamWithRouter(router as any, upstream.stream as any)
 
       upstream.push('<html><body><main>app</main>')
       injectHtml('<script>drained()</script>')
@@ -793,9 +716,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
 
       const text = await readAll(out as any)
       expect(text).toContain('<script>drained()</script>')
-      expect(text.indexOf('<script>drained()</script>')).toBeLessThan(
-        text.indexOf('</body>'),
-      )
+      expect(text.indexOf('<script>drained()</script>')).toBeLessThan(text.indexOf('</body>'))
     } finally {
       errorSpy.mockRestore()
     }
@@ -807,17 +728,12 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       const { router, cleanupCalls, finishSerialization } = makeRouter()
       const upstream = makeManualUpstream()
 
-      const out = transformStreamWithRouter(
-        router as any,
-        upstream.stream as any,
-      )
+      const out = transformStreamWithRouter(router as any, upstream.stream as any)
       upstream.push(`<html><body>done</body>${'x'.repeat(64 * 1024 + 1)}`)
       upstream.close()
       finishSerialization()
 
-      await expect(readAll(out as any)).rejects.toThrow(
-        'SSR stream tail exceeded maximum buffer',
-      )
+      await expect(readAll(out as any)).rejects.toThrow('SSR stream tail exceeded maximum buffer')
       expect(cleanupCalls.count).toBe(1)
     } finally {
       errorSpy.mockRestore()
@@ -831,9 +747,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
     const out = transformStreamWithRouter(router as any, upstream.stream as any)
     injectHtml('x'.repeat(MAX_ROUTER_HTML_CHARS + 1))
 
-    await expect(readAll(out as any)).rejects.toThrow(
-      'SSR router HTML exceeded maximum buffer',
-    )
+    await expect(readAll(out as any)).rejects.toThrow('SSR router HTML exceeded maximum buffer')
     expect(cleanupCalls.count).toBe(1)
   })
 
@@ -843,10 +757,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       const { router, cleanupCalls, finishSerialization } = makeRouter()
       const upstream = makeManualUpstream()
 
-      const out = transformStreamWithRouter(
-        router as any,
-        upstream.stream as any,
-      )
+      const out = transformStreamWithRouter(router as any, upstream.stream as any)
       upstream.push(`${'x'.repeat(16 * 1024 * 1024 + 1)}</div>`)
       upstream.close()
       finishSerialization()
@@ -925,9 +836,7 @@ describe('transformStreamWithRouter — cleanup side-effects', () => {
       expect(full).toContain(`<script>S${i}</script>`)
     }
     // All scripts must appear before </body>.
-    expect(full.indexOf('<script>S49</script>')).toBeLessThan(
-      full.indexOf('</body>'),
-    )
+    expect(full.indexOf('<script>S49</script>')).toBeLessThan(full.indexOf('</body>'))
   })
 })
 
@@ -958,12 +867,8 @@ describe('transformStreamWithRouter — injected HTML ordering', () => {
     expect(full).toContain('<div>app</div>')
     expect(full).toContain('<script>X</script>')
     expect(full).toContain('<script>Y</script>')
-    expect(full.indexOf('<div>app</div>')).toBeLessThan(
-      full.indexOf('<script>X</script>'),
-    )
-    expect(full.indexOf('<script>Y</script>')).toBeLessThan(
-      full.indexOf('</body>'),
-    )
+    expect(full.indexOf('<div>app</div>')).toBeLessThan(full.indexOf('<script>X</script>'))
+    expect(full.indexOf('<script>Y</script>')).toBeLessThan(full.indexOf('</body>'))
   })
 
   test('onAbort: fires once when downstream cancels (readable wrapper)', async () => {
@@ -979,11 +884,9 @@ describe('transformStreamWithRouter — injected HTML ordering', () => {
     })
 
     let aborts = 0
-    const out = transformReadableStreamWithRouter(
-      router as any,
-      upstream as any,
-      { onAbort: () => aborts++ },
-    )
+    const out = transformReadableStreamWithRouter(router as any, upstream as any, {
+      onAbort: () => aborts++,
+    })
 
     const reader = (out as any).getReader()
     await reader.read()
@@ -1007,11 +910,9 @@ describe('transformStreamWithRouter — injected HTML ordering', () => {
     })
 
     let aborts = 0
-    const out = transformReadableStreamWithRouter(
-      router as any,
-      upstream as any,
-      { onAbort: () => aborts++ },
-    )
+    const out = transformReadableStreamWithRouter(router as any, upstream as any, {
+      onAbort: () => aborts++,
+    })
 
     // tryFinish gates on serialization-finished; signal it AFTER transform
     // has subscribed to the event.
@@ -1073,11 +974,10 @@ describe('transformStreamWithRouter — injected HTML ordering', () => {
 
       let aborts = 0
 
-      const out = transformReadableStreamWithRouter(
-        router as any,
-        upstream as any,
-        { onAbort: () => aborts++, lifetimeMs: 1000 },
-      )
+      const out = transformReadableStreamWithRouter(router as any, upstream as any, {
+        onAbort: () => aborts++,
+        lifetimeMs: 1000,
+      })
 
       // Start reading (which may reject when stream is errored)
       const reader = (out as any).getReader()
@@ -1108,11 +1008,10 @@ describe('transformStreamWithRouter — injected HTML ordering', () => {
       })
 
       let aborts = 0
-      const out = transformReadableStreamWithRouter(
-        router as any,
-        upstream as any,
-        { onAbort: () => aborts++, timeoutMs: 10 },
-      )
+      const out = transformReadableStreamWithRouter(router as any, upstream as any, {
+        onAbort: () => aborts++,
+        timeoutMs: 10,
+      })
 
       const reader = (out as any).getReader()
       const readP = reader.read().catch(() => undefined)
@@ -1142,11 +1041,9 @@ describe('transformStreamWithRouter — injected HTML ordering', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       let aborts = 0
-      const out = transformReadableStreamWithRouter(
-        router as any,
-        ts.readable as any,
-        { onAbort: () => aborts++ },
-      )
+      const out = transformReadableStreamWithRouter(router as any, ts.readable as any, {
+        onAbort: () => aborts++,
+      })
 
       void ts.writable.abort(new Error('setup-throw')).catch(() => {})
 

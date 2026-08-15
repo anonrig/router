@@ -47,20 +47,15 @@ function setupRouter() {
 
 describe('server serial ssr() notFound', () => {
   test('caps the loader prefix at the boundary and sets 404', async () => {
-    const { router, rootRoute, parentRoute, childRoute, loaderCalls } =
-      setupRouter()
+    const { router, rootRoute, parentRoute, childRoute, loaderCalls } = setupRouter()
 
     const response = await loadServerResponse(router, '/parent/child')
 
-    const parentMatch = router.state.matches.find(
-      (item) => item.routeId === parentRoute.id,
-    )
+    const parentMatch = router.state.matches.find((item) => item.routeId === parentRoute.id)
     expect(loaderCalls).toEqual([])
     expect(response.status).toBe(404)
     expect(parentMatch?.status).toBe('notFound')
-    expect(parentMatch?.error).toEqual(
-      expect.objectContaining({ isNotFound: true }),
-    )
+    expect(parentMatch?.error).toEqual(expect.objectContaining({ isNotFound: true }))
     expect(router.state.matches.map((match) => match.routeId)).toEqual([
       rootRoute.id,
       parentRoute.id,

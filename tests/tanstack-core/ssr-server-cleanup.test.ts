@@ -442,9 +442,7 @@ describe('serverSsr.cleanup', () => {
         }
         return Promise.reject(cleanupError)
       })
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined)
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
       const handler = createRequestHandler({
         createRouter: () => router,
         request: new Request('http://localhost/', {
@@ -540,9 +538,7 @@ describe('serverSsr.cleanup', () => {
         }
         return Promise.reject(cleanupError)
       })
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => undefined)
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
       const requestController = new AbortController()
 
       bindSsrResponseToRequest(
@@ -586,15 +582,9 @@ describe('serverSsr.cleanup', () => {
           controller = c
         },
       })
-      const responseStream = transformStreamWithRouter(
-        requestRouter,
-        appStream as any,
-      )
+      const responseStream = transformStreamWithRouter(requestRouter, appStream as any)
 
-      return createSsrStreamResponse(
-        requestRouter,
-        new Response(responseStream as any),
-      )
+      return createSsrStreamResponse(requestRouter, new Response(responseStream as any))
     })
 
     expect(cleanupCalls).toBe(0)

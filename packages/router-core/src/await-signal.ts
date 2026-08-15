@@ -14,7 +14,7 @@ export function waitForReason<T>(
   return new Promise<T>((resolve, reject) => {
     const abort = () => reject(signal.reason)
     signal.addEventListener('abort', abort, { once: true })
-    promise
+    void promise
       .then((result) => {
         if (signal.aborted) {
           onLate?.(result)

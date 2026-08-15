@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  notFound,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, notFound } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 /**
@@ -175,9 +170,7 @@ describe('route boundary component preloads', () => {
 
     expect(hiddenComponentGate.status).toBe('pending')
     expect(notFoundPreload).toHaveBeenCalledOnce()
-    expect(router.state.matches.find((match) => match._notFound)?.routeId).toBe(
-      layoutRoute.id,
-    )
+    expect(router.state.matches.find((match) => match._notFound)?.routeId).toBe(layoutRoute.id)
   })
 
   test('a late normal component chunk cannot replace a selected not-found boundary', async () => {
@@ -222,9 +215,7 @@ describe('route boundary component preloads', () => {
     notFoundGate.resolve()
     await loading
 
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
       status: 'notFound',
       loaderData: 'ready',
     })
@@ -247,16 +238,15 @@ describe('route boundary component preloads', () => {
       notFoundComponent: () => null,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        ancestorRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([ancestorRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/ancestor/child'] }),
     })
 
     await router.load()
 
-    expect(
-      router.state.matches.find((match) => match.routeId === ancestorRoute.id),
-    ).toMatchObject({ status: 'error', error: chunkError })
+    expect(router.state.matches.find((match) => match.routeId === ancestorRoute.id)).toMatchObject({
+      status: 'error',
+      error: chunkError,
+    })
   })
 })

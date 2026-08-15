@@ -43,11 +43,7 @@ describe('createBrowserHistory', () => {
 
     expect(pushState).not.toHaveBeenCalled()
     expect(replaceState).toHaveBeenCalledTimes(1)
-    expect(replaceState).toHaveBeenCalledWith(
-      expect.objectContaining({ value: 2 }),
-      '',
-      '/second',
-    )
+    expect(replaceState).toHaveBeenCalledWith(expect.objectContaining({ value: 2 }), '', '/second')
     history.destroy()
   })
 
@@ -60,11 +56,7 @@ describe('createBrowserHistory', () => {
 
     expect(replaceState).not.toHaveBeenCalled()
     expect(pushState).toHaveBeenCalledTimes(1)
-    expect(pushState).toHaveBeenCalledWith(
-      expect.objectContaining({ value: 2 }),
-      '',
-      '/second',
-    )
+    expect(pushState).toHaveBeenCalledWith(expect.objectContaining({ value: 2 }), '', '/second')
     history.destroy()
   })
 
@@ -77,11 +69,7 @@ describe('createBrowserHistory', () => {
 
     expect(replaceState).not.toHaveBeenCalled()
     expect(pushState).toHaveBeenCalledTimes(1)
-    expect(pushState).toHaveBeenCalledWith(
-      expect.objectContaining({ value: 2 }),
-      '',
-      '/second',
-    )
+    expect(pushState).toHaveBeenCalledWith(expect.objectContaining({ value: 2 }), '', '/second')
     history.destroy()
   })
 

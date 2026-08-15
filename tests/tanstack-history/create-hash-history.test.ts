@@ -6,11 +6,7 @@ describe('createHashHistory', () => {
   describe('parseLocation', () => {
     describe.each([
       ['/', { pathname: '/', search: '' }, 'neither search params nor hash'],
-      [
-        '/#/hello',
-        { pathname: '/hello', search: '' },
-        'hash present, no search params',
-      ],
+      ['/#/hello', { pathname: '/hello', search: '' }, 'hash present, no search params'],
       [
         '/?search=params',
         { pathname: '/', search: '?search=params' },

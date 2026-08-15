@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
@@ -29,7 +29,10 @@ function resolveUnder(baseDir: string, rest: string) {
 }
 
 const specialSubpaths: Record<string, string> = {
-  '@tanstack/router-core/new-process-route-tree': resolve(root, 'packages/router-core/src/match.ts'),
+  '@tanstack/router-core/new-process-route-tree': resolve(
+    root,
+    'packages/router-core/src/match.ts',
+  ),
   '@tanstack/router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
   '@tanstack/react-router/ssr/renderRouterToStream': resolve(
     root,
@@ -43,27 +46,75 @@ const specialSubpaths: Record<string, string> = {
   '@tanstack/react-router/Scripts': resolve(root, 'packages/react-router/src/scripts.tsx'),
 }
 
+function stripQuery(id: string) {
+  const index = id.indexOf('?')
+  return index === -1
+    ? { bare: id, query: '' }
+    : { bare: id.slice(0, index), query: id.slice(index) }
+}
+
+function resolveTanstackId(id: string) {
+  const special = specialSubpaths[id]
+  if (special) return special
+
+  if (id.startsWith('@tanstack/router-core/')) {
+    return resolveUnder(
+      resolve(root, 'packages/router-core/src'),
+      id.slice('@tanstack/router-core/'.length),
+    )
+  }
+  if (id.startsWith('@anonrig/router-core/')) {
+    return resolveUnder(
+      resolve(root, 'packages/router-core/src'),
+      id.slice('@anonrig/router-core/'.length),
+    )
+  }
+  if (id.startsWith('@tanstack/react-router/')) {
+    return resolveUnder(
+      resolve(root, 'packages/react-router/src'),
+      id.slice('@tanstack/react-router/'.length),
+    )
+  }
+  if (id.startsWith('@anonrig/react-router/')) {
+    return resolveUnder(
+      resolve(root, 'packages/react-router/src'),
+      id.slice('@anonrig/react-router/'.length),
+    )
+  }
+  return undefined
+}
+
+function resolveScriptStringRelative(id: string, importer?: string) {
+  if (importer == null || importer === '' || !(id.startsWith('./') || id.startsWith('../'))) {
+    return undefined
+  }
+  const resolved = resolve(dirname(stripQuery(importer).bare), id)
+  for (const candidate of [resolved, `${resolved}.ts`, `${resolved}.tsx`, `${resolved}.js`]) {
+    if (existsSync(candidate)) return candidate
+  }
+  return undefined
+}
+
 export function tanstackSubpathPlugin(): Plugin {
   return {
     name: 'tanstack-subpath-alias',
     enforce: 'pre',
-    resolveId(id) {
-      const special = specialSubpaths[id]
-      if (special) return special
-
-      if (id.startsWith('@tanstack/router-core/')) {
-        return resolveUnder(resolve(root, 'packages/router-core/src'), id.slice('@tanstack/router-core/'.length))
-      }
-      if (id.startsWith('@anonrig/router-core/')) {
-        return resolveUnder(resolve(root, 'packages/router-core/src'), id.slice('@anonrig/router-core/'.length))
-      }
-      if (id.startsWith('@tanstack/react-router/')) {
-        return resolveUnder(resolve(root, 'packages/react-router/src'), id.slice('@tanstack/react-router/'.length))
-      }
-      if (id.startsWith('@anonrig/react-router/')) {
-        return resolveUnder(resolve(root, 'packages/react-router/src'), id.slice('@anonrig/react-router/'.length))
-      }
-      return undefined
+    resolveId(id, importer) {
+      const { bare, query } = stripQuery(id)
+      const resolved = query.includes('script-string')
+        ? (resolveTanstackId(bare) ?? resolveScriptStringRelative(bare, importer))
+        : resolveTanstackId(bare)
+      if (resolved == null) return undefined
+      return query === '' ? resolved : `${resolved}${query}`
+    },
+    load(id) {
+      if (!id.includes('?script-string')) return undefined
+      const file = stripQuery(id).bare
+      if (!existsSync(file)) return undefined
+      const source = readFileSync(file, 'utf8')
+        .replace(/^export default\s+/m, '')
+        .trim()
+      return `export default ${JSON.stringify(source)}`
     },
   }
 }

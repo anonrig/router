@@ -66,20 +66,15 @@ test('unrelated parent background work does not block a cacheable child preload'
   backgroundResponse.resolve({ revision: 2 })
   await vi.waitFor(() =>
     expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id)
-        ?.loaderData,
+      router.state.matches.find((match) => match.routeId === parentRoute.id)?.loaderData,
     ).toEqual({ revision: 2 }),
   )
   expect(parentLoader).toHaveBeenCalledTimes(2)
 
   await router.navigate({ to: '/parent/child' })
 
-  const parentMatch = router.state.matches.find(
-    (match) => match.routeId === parentRoute.id,
-  )
-  const childMatch = router.state.matches.find(
-    (match) => match.routeId === childRoute.id,
-  )
+  const parentMatch = router.state.matches.find((match) => match.routeId === parentRoute.id)
+  const childMatch = router.state.matches.find((match) => match.routeId === childRoute.id)
 
   expect(parentLoader).toHaveBeenCalledTimes(2)
   expect(childLoader).toHaveBeenCalledTimes(1)

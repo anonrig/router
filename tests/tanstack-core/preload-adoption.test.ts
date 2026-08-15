@@ -90,9 +90,7 @@ describe('preload adoption', () => {
     // loader of its own; correctness only requires publishing fresh data.
     expect(loaderCalls).toBeGreaterThanOrEqual(2)
     expect(
-      router.state.matches.find(
-        (match) => match.routeId === notificationsRoute.id,
-      )?.loaderData,
+      router.state.matches.find((match) => match.routeId === notificationsRoute.id)?.loaderData,
     ).toEqual({ notifications: ['fresh'] })
   })
 
@@ -141,10 +139,9 @@ describe('preload adoption', () => {
     await Promise.all([navigation, preload])
     expect(beforeLoadCalls).toBe(2)
     expect(loader).toHaveBeenCalledTimes(1)
-    expect(
-      router.state.matches.find((match) => match.routeId === fooRoute.id)
-        ?.status,
-    ).toBe('success')
+    expect(router.state.matches.find((match) => match.routeId === fooRoute.id)?.status).toBe(
+      'success',
+    )
   })
 
   test("a sibling preload shares another preload lane's in-flight loader", async () => {
@@ -194,10 +191,9 @@ describe('preload adoption', () => {
     await router.navigate({ to: '/foo' })
 
     expect(loader).toHaveBeenCalledTimes(1)
-    expect(
-      router.state.matches.find((match) => match.routeId === fooRoute.id)
-        ?.loaderData,
-    ).toBe('once')
+    expect(router.state.matches.find((match) => match.routeId === fooRoute.id)?.loaderData).toBe(
+      'once',
+    )
   })
 
   test('a fulfilled undefined loader result is adopted as success', async () => {
@@ -238,9 +234,7 @@ describe('preload adoption', () => {
     await Promise.all([preload, navigation])
 
     expect(loader).toHaveBeenCalledTimes(1)
-    const match = router.state.matches.find(
-      (candidate) => candidate.routeId === fooRoute.id,
-    )
+    const match = router.state.matches.find((candidate) => candidate.routeId === fooRoute.id)
     expect(match?.status).toBe('success')
     expect(match?.loaderData).toBeUndefined()
   })
@@ -281,10 +275,7 @@ describe('preload adoption', () => {
       },
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -307,15 +298,11 @@ describe('preload adoption', () => {
     expect(parentLoads).toBe(1)
     expect(childLoads).toBe(1)
     expect(router.state.location.pathname).toBe('/parent/child')
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
       status: 'error',
       error: parentFailure,
     })
-    expect(
-      router.state.matches.find((match) => match.routeId === childRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === childRoute.id)).toMatchObject({
       status: 'success',
       loaderData: 'child data',
     })
@@ -342,10 +329,7 @@ describe('preload adoption', () => {
       loader: childLoader,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -355,13 +339,11 @@ describe('preload adoption', () => {
 
     expect(parentLoader).toHaveBeenCalledTimes(1)
     expect(childLoader).toHaveBeenCalledTimes(1)
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id)
-        ?.loaderData,
-    ).toBe('parent data')
-    expect(
-      router.state.matches.find((match) => match.routeId === childRoute.id)
-        ?.loaderData,
-    ).toBe('child data')
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)?.loaderData).toBe(
+      'parent data',
+    )
+    expect(router.state.matches.find((match) => match.routeId === childRoute.id)?.loaderData).toBe(
+      'child data',
+    )
   })
 })

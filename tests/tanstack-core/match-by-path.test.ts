@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  findSingleMatch,
-  processRouteTree,
-} from '@tanstack/router-core/new-process-route-tree'
+import { findSingleMatch, processRouteTree } from '@tanstack/router-core/new-process-route-tree'
 
 const { processedTree } = processRouteTree({
   id: '__root__',

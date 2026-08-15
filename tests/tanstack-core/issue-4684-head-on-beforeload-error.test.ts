@@ -47,16 +47,10 @@ describe('#4684 existing Core behavior: head executes when beforeLoad throws', (
 
     expect(response.status).toBe(500)
 
-    const rootMatch = router.state.matches.find(
-      (match) => match.routeId === rootRoute.id,
-    )
-    const failingMatch = router.state.matches.find(
-      (match) => match.routeId === failingRoute.id,
-    )
+    const rootMatch = router.state.matches.find((match) => match.routeId === rootRoute.id)
+    const failingMatch = router.state.matches.find((match) => match.routeId === failingRoute.id)
     expect(rootMatch?.meta).toEqual([{ title: 'Root title' }])
-    expect(rootMatch?.links).toEqual([
-      { rel: 'stylesheet', href: '/global.css' },
-    ])
+    expect(rootMatch?.links).toEqual([{ rel: 'stylesheet', href: '/global.css' }])
     expect(failingMatch?.status).toBe('error')
     expect(failingMatch?.error).toBe(beforeLoadError)
     expect(failingMatch?.meta).toEqual([{ title: 'Error title' }])
@@ -67,16 +61,10 @@ describe('#4684 existing Core behavior: head executes when beforeLoad throws', (
 
     await router.load()
 
-    const rootMatch = router.state.matches.find(
-      (match) => match.routeId === rootRoute.id,
-    )
-    const failingMatch = router.state.matches.find(
-      (match) => match.routeId === failingRoute.id,
-    )
+    const rootMatch = router.state.matches.find((match) => match.routeId === rootRoute.id)
+    const failingMatch = router.state.matches.find((match) => match.routeId === failingRoute.id)
     expect(rootMatch?.meta).toEqual([{ title: 'Root title' }])
-    expect(rootMatch?.links).toEqual([
-      { rel: 'stylesheet', href: '/global.css' },
-    ])
+    expect(rootMatch?.links).toEqual([{ rel: 'stylesheet', href: '/global.css' }])
     expect(failingMatch?.status).toBe('error')
     expect(failingMatch?.error).toBe(beforeLoadError)
     expect(failingMatch?.meta).toEqual([{ title: 'Error title' }])

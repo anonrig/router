@@ -316,10 +316,7 @@ describe('adversarial client lane ownership', () => {
       loader: childLoader,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -442,8 +439,7 @@ describe('adversarial client lane ownership', () => {
       {
         isServer,
         thrownType: 'AbortError',
-        createThrownValue: () =>
-          new DOMException('The operation was aborted.', 'AbortError'),
+        createThrownValue: () => new DOMException('The operation was aborted.', 'AbortError'),
       },
     ]),
   )(
@@ -505,10 +501,7 @@ describe('adversarial client lane ownership', () => {
       loader: ({ abortController }) => {
         pendingSignal = abortController.signal
         pendingStarted.resolve()
-        return Promise.race([
-          pendingGate,
-          abortAwareGate(abortController.signal),
-        ])
+        return Promise.race([pendingGate, abortAwareGate(abortController.signal)])
       },
     })
     const brokenRoute = new BaseRoute({

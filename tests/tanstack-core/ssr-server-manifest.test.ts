@@ -128,9 +128,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
 
     const script = router.serverSsr!.takeBufferedScripts()
     expect(script?.children).toBeTruthy()
-    const dehydratedManifest = parseSerializedRouter(
-      script!.children!,
-    ).manifest!
+    const dehydratedManifest = parseSerializedRouter(script!.children!).manifest!
 
     expect(dehydratedManifest.scriptFormat).toBe('iife')
   })
@@ -161,10 +159,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
     await router.load()
 
     expect(router.ssr!.manifest?.routes.__root__).toMatchObject({
-      preloads: [
-        { href: '/assets/rsc-client.js', crossOrigin: 'anonymous' },
-        '/assets/root.js',
-      ],
+      preloads: [{ href: '/assets/rsc-client.js', crossOrigin: 'anonymous' }, '/assets/root.js'],
       scripts: [
         {
           attrs: {
@@ -235,15 +230,10 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
 
     const script = router.serverSsr!.takeBufferedScripts()
     expect(script?.children).toBeTruthy()
-    const dehydratedManifest = parseSerializedRouter(
-      script!.children!,
-    ).manifest!
+    const dehydratedManifest = parseSerializedRouter(script!.children!).manifest!
 
     expect(dehydratedManifest.routes.__root__).toMatchObject({
-      preloads: [
-        { href: '/assets/rsc-client.js', crossOrigin: 'anonymous' },
-        '/assets/root.js',
-      ],
+      preloads: [{ href: '/assets/rsc-client.js', crossOrigin: 'anonymous' }, '/assets/root.js'],
       scripts: [
         {
           attrs: {
@@ -259,9 +249,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
       ],
     })
     expect(Array.isArray(dehydratedManifest.routes.__root__?.css)).toBe(true)
-    expect((dehydratedManifest.routes.__root__?.css as any).links).toBe(
-      undefined,
-    )
+    expect((dehydratedManifest.routes.__root__?.css as any).links).toBe(undefined)
   })
 
   test('dehydrates preloads-only request assets into manifest data', async () => {
@@ -282,9 +270,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
 
     const script = router.serverSsr!.takeBufferedScripts()
     expect(script?.children).toBeTruthy()
-    const dehydratedManifest = parseSerializedRouter(
-      script!.children!,
-    ).manifest!
+    const dehydratedManifest = parseSerializedRouter(script!.children!).manifest!
 
     expect(dehydratedManifest.routes.__root__?.preloads).toEqual([
       { href: '/assets/rsc-client.js', crossOrigin: 'anonymous' },
@@ -315,9 +301,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
     const dehydratedRouter = parseSerializedRouter(script!.children!)
     const dehydratedManifest = dehydratedRouter.manifest!
     const rootInlineCss = dehydratedManifest.inlineStyle
-    const allLinks = Object.values(dehydratedManifest.routes).flatMap(
-      (route) => route.css ?? [],
-    )
+    const allLinks = Object.values(dehydratedManifest.routes).flatMap((route) => route.css ?? [])
 
     expect(rootInlineCss).toEqual({
       attrs: {
@@ -332,9 +316,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
           : asset.href === '/assets/shared.css',
       ),
     ).toBe(false)
-    expect(dehydratedManifest.routes['/']?.preloads).toEqual([
-      '/assets/index.js',
-    ])
+    expect(dehydratedManifest.routes['/']?.preloads).toEqual(['/assets/index.js'])
   })
 
   test('strips only inlinable stylesheet links from dehydrated manifest data', async () => {
@@ -384,9 +366,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
 
     const script = router.serverSsr!.takeBufferedScripts()
     expect(script?.children).toBeTruthy()
-    const dehydratedManifest = parseSerializedRouter(
-      script!.children!,
-    ).manifest!
+    const dehydratedManifest = parseSerializedRouter(script!.children!).manifest!
 
     expect(dehydratedManifest.routes.__root__?.css).toEqual([
       {
@@ -394,12 +374,8 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
         crossOrigin: 'anonymous',
       },
     ])
-    expect(dehydratedManifest.routes['/']?.css).toEqual([
-      '/assets/index-linked.css',
-    ])
-    expect(dehydratedManifest.routes['/']?.preloads).toEqual([
-      '/assets/index.js',
-    ])
+    expect(dehydratedManifest.routes['/']?.css).toEqual(['/assets/index-linked.css'])
+    expect(dehydratedManifest.routes['/']?.preloads).toEqual(['/assets/index.js'])
   })
 
   test('omits descendant assets past a terminal parent boundary', async () => {
@@ -447,9 +423,7 @@ describe('attachRouterServerSsrUtils manifest dehydration', () => {
     await router.serverSsr!.dehydrate()
     const script = router.serverSsr!.takeBufferedScripts()
     expect(script?.children).toBeTruthy()
-    const dehydratedManifest = parseSerializedRouter(
-      script!.children!,
-    ).manifest!
+    const dehydratedManifest = parseSerializedRouter(script!.children!).manifest!
 
     expect(dehydratedManifest.routes[childRoute.id]).toBeUndefined()
   })

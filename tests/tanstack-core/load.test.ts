@@ -9,11 +9,7 @@ import {
   rootRouteId,
 } from '@tanstack/router-core'
 import { createTestRouter, loadServerResponse } from './router-test-utils'
-import type {
-  LoaderStaleReloadMode,
-  RootRouteOptions,
-  RouterCore,
-} from '@tanstack/router-core'
+import type { LoaderStaleReloadMode, RootRouteOptions, RouterCore } from '@tanstack/router-core'
 
 type AnyRouteOptions = RootRouteOptions<any>
 type BeforeLoad = NonNullable<AnyRouteOptions['beforeLoad']>
@@ -602,9 +598,7 @@ test('exec on stay (beforeLoad & loader)', async () => {
     path: '/bar',
   })
 
-  const routeTree = rootRoute.addChildren([
-    layoutRoute.addChildren([fooRoute, barRoute]),
-  ])
+  const routeTree = rootRoute.addChildren([layoutRoute.addChildren([fooRoute, barRoute])])
 
   const router = createTestRouter({
     routeTree,
@@ -656,15 +650,11 @@ describe('stale loader reload triggers', () => {
     vi.useRealTimers()
   })
 
-  const getMatchById = (
-    router: RouterCore<any, any, any, any, any>,
-    id: string,
-  ) => router.state.matches.find((match) => match.id === id)
+  const getMatchById = (router: RouterCore<any, any, any, any, any>, id: string) =>
+    router.state.matches.find((match) => match.id === id)
 
-  const hasActiveMatch = (
-    router: RouterCore<any, any, any, any, any>,
-    id: string,
-  ) => router.state.matches.some((match) => match.id === id)
+  const hasActiveMatch = (router: RouterCore<any, any, any, any, any>, id: string) =>
+    router.state.matches.some((match) => match.id === id)
 
   const setup = ({
     loader,
@@ -883,9 +873,7 @@ describe('stale loader reload triggers', () => {
       gcTime: 0,
     })
 
-    const routeTree = rootRoute.addChildren([
-      rootChildRoute.addChildren([leafRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([rootChildRoute.addChildren([leafRoute])])
     const router = createTestRouter({
       routeTree,
       history: createMemoryHistory(),
@@ -1063,11 +1051,7 @@ describe('stale loader reload triggers', () => {
     const { loader, resolveStaleReload } = createControlledStaleReload()
     const router = setup({ loader, staleTime: 0 })
 
-    await expectBackgroundStaleReloadBehavior(
-      router,
-      loader,
-      resolveStaleReload,
-    )
+    await expectBackgroundStaleReloadBehavior(router, loader, resolveStaleReload)
   })
 
   test('blocks stale reloads when loader staleReloadMode is blocking', async () => {
@@ -1105,11 +1089,7 @@ describe('stale loader reload triggers', () => {
       } satisfies LoaderEntry,
     })
 
-    await expectBackgroundStaleReloadBehavior(
-      router,
-      loader,
-      resolveStaleReload,
-    )
+    await expectBackgroundStaleReloadBehavior(router, loader, resolveStaleReload)
   })
 })
 
@@ -1162,9 +1142,7 @@ test('navigating away from a pending route aborts its loader', async () => {
     routeId: barRoute.id,
     status: 'success',
   })
-  expect(
-    router.state.matches.some((match) => match.routeId === fooRoute.id),
-  ).toBe(false)
+  expect(router.state.matches.some((match) => match.routeId === fooRoute.id)).toBe(false)
   expect(loaderSignal?.aborted).toBe(true)
 })
 
@@ -1183,8 +1161,7 @@ describe('head execution', () => {
         return { level: index }
       })
 
-    const makeHead = (label: string) =>
-      vi.fn(() => ({ meta: [{ title: label }] }))
+    const makeHead = (label: string) => vi.fn(() => ({ meta: [{ title: label }] }))
 
     const rootRoute = new BaseRootRoute({
       loader: makeLoader(0),
@@ -1242,12 +1219,8 @@ describe('head execution', () => {
     })
 
     const routes = [rootRoute, level1Route, level2Route, level3Route] as const
-    const loaders = routes.map(
-      (route) => route.options.loader as ReturnType<typeof makeLoader>,
-    )
-    const heads = routes.map(
-      (route) => route.options.head as ReturnType<typeof makeHead>,
-    )
+    const loaders = routes.map((route) => route.options.loader as ReturnType<typeof makeLoader>)
+    const heads = routes.map((route) => route.options.head as ReturnType<typeof makeHead>)
     return {
       router,
       routes,
@@ -1298,9 +1271,7 @@ describe('head execution', () => {
     }
 
     const thrownRoute = routes[throwAtIndex]!
-    const thrownMatch = router.state.matches.find(
-      (m) => m.routeId === thrownRoute.id,
-    )
+    const thrownMatch = router.state.matches.find((m) => m.routeId === thrownRoute.id)
     expect(thrownMatch?.status).toBe('notFound')
   }
 
@@ -1364,10 +1335,9 @@ describe('head execution', () => {
 
     await router.load()
 
-    expect(
-      router.state.matches.find((match) => match.routeId === childRoute.id)
-        ?.error,
-    ).toBe(beforeLoadError)
+    expect(router.state.matches.find((match) => match.routeId === childRoute.id)?.error).toBe(
+      beforeLoadError,
+    )
 
     expect(router.state.matches[0]?.loaderData).toEqual({ level: 0 })
     expect(router.state.matches.map(getTitle)).toEqual(['Root', 'Child'])
@@ -1407,10 +1377,9 @@ describe('head execution', () => {
 
     await router.load()
 
-    expect(
-      router.state.matches.find((match) => match.routeId === childRoute.id)
-        ?.error,
-    ).toBe(beforeLoadError)
+    expect(router.state.matches.find((match) => match.routeId === childRoute.id)?.error).toBe(
+      beforeLoadError,
+    )
 
     expect(router.state.matches[0]?.loaderData).toEqual({ level: 0 })
     expect(router.state.matches.map(getTitle)).toEqual(['Root', 'Child'])
@@ -1449,8 +1418,7 @@ describe('head execution', () => {
       beforeLoadNotFoundFactory?: Scenario['beforeLoadNotFoundFactory']
       skipRootLoaderOnReload?: boolean
     }) => {
-      const makeHead = (label: string) =>
-        vi.fn(() => ({ meta: [{ title: label }] }))
+      const makeHead = (label: string) => vi.fn(() => ({ meta: [{ title: label }] }))
 
       const makeLoader = (index: number) =>
         vi.fn(({ location }: { location: { pathname: string } }) => {
@@ -1476,9 +1444,7 @@ describe('head execution', () => {
       const rootRoute = new BaseRootRoute({
         loader: makeLoader(0),
         head: makeHead('Root'),
-        ...(skipRootLoaderOnReload
-          ? { staleTime: Infinity, shouldReload: () => false }
-          : {}),
+        ...(skipRootLoaderOnReload ? { staleTime: Infinity, shouldReload: () => false } : {}),
       })
 
       const level1Route = new BaseRoute({
@@ -1513,12 +1479,8 @@ describe('head execution', () => {
       ])
 
       const routes = [rootRoute, level1Route, level2Route, level3Route] as const
-      const loaders = routes.map(
-        (route) => route.options.loader as ReturnType<typeof makeLoader>,
-      )
-      const heads = routes.map(
-        (route) => route.options.head as ReturnType<typeof makeHead>,
-      )
+      const loaders = routes.map((route) => route.options.loader as ReturnType<typeof makeLoader>)
+      const heads = routes.map((route) => route.options.head as ReturnType<typeof makeHead>)
 
       const throwRoute = routes[throwAtIndex]!
       throwRoute.options.beforeLoad = () => {
@@ -1680,12 +1642,8 @@ describe('head execution', () => {
         expect(matches.some((match) => match.error !== undefined)).toBe(false)
         expect(matches.some((match) => match._notFound)).toBe(false)
       } else {
-        const boundary = matches.find(
-          (match) => match.status === 'notFound' || match._notFound,
-        )!
-        expect(boundary.routeId).toBe(
-          routes[scenario.expectedBoundaryIndex!]!.id,
-        )
+        const boundary = matches.find((match) => match.status === 'notFound' || match._notFound)!
+        expect(boundary.routeId).toBe(routes[scenario.expectedBoundaryIndex!]!.id)
 
         expect(boundary.error).toEqual(
           expect.objectContaining({
@@ -1699,29 +1657,22 @@ describe('head execution', () => {
           expect(boundary._notFound).toBe(true)
         } else {
           expect(boundary.status).toBe('notFound')
-          expect(boundary.error).toEqual(
-            expect.objectContaining({ routeId: boundary.routeId }),
-          )
+          expect(boundary.error).toEqual(expect.objectContaining({ routeId: boundary.routeId }))
         }
       }
 
       loaders.forEach((loader, index) => {
         const originalLaneCalls = loader.mock.calls.filter(
-          ([options]) =>
-            options.location.pathname === '/level-1/level-2/level-3',
+          ([options]) => options.location.pathname === '/level-1/level-2/level-3',
         )
-        expect(originalLaneCalls).toHaveLength(
-          index < scenario.expectedLoaderCount ? 1 : 0,
-        )
+        expect(originalLaneCalls).toHaveLength(index < scenario.expectedLoaderCount ? 1 : 0)
       })
       heads.forEach((head, index) => {
-        expect(head).toHaveBeenCalledTimes(
-          index < scenario.expectedHeadTitles.length ? 1 : 0,
-        )
+        expect(head).toHaveBeenCalledTimes(index < scenario.expectedHeadTitles.length ? 1 : 0)
       })
-      expect(
-        matches.map(getTitle).filter((title) => title !== undefined),
-      ).toEqual(scenario.expectedHeadTitles)
+      expect(matches.map(getTitle).filter((title) => title !== undefined)).toEqual(
+        scenario.expectedHeadTitles,
+      )
       expect(router.state.status).toBe('idle')
     })
 
@@ -1738,9 +1689,7 @@ describe('head execution', () => {
 
       await router.load()
 
-      const rootMatch = router.state.matches.find(
-        (m) => m.routeId === routes[0].id,
-      )
+      const rootMatch = router.state.matches.find((m) => m.routeId === routes[0].id)
 
       expect(rootMatch?._notFound).toBe(true)
       expect(rootMatch?.status).toBe('success')
@@ -1765,9 +1714,7 @@ describe('head execution', () => {
       })
 
       await router.load()
-      const initialRootMatch = router.state.matches.find(
-        (match) => match.routeId === routes[0].id,
-      )
+      const initialRootMatch = router.state.matches.find((match) => match.routeId === routes[0].id)
       expect(initialRootMatch?._notFound).toBe(true)
       expect(initialRootMatch?.error).toEqual(
         expect.objectContaining({
@@ -1782,9 +1729,7 @@ describe('head execution', () => {
 
       await router.load()
 
-      const rootMatch = router.state.matches.find(
-        (m) => m.routeId === routes[0].id,
-      )
+      const rootMatch = router.state.matches.find((m) => m.routeId === routes[0].id)
 
       expect(rootMatch?._notFound).toBe(false)
       expect(rootMatch?.status).toBe('success')
@@ -1817,9 +1762,7 @@ describe('params.parse notFound', () => {
 
     await router.load()
 
-    const match = router.stores.matches
-      .get()
-      .find((m) => m.routeId === testRoute.id)
+    const match = router.stores.matches.get().find((m) => m.routeId === testRoute.id)
 
     expect(match?.status).toBe('notFound')
   })
@@ -1942,9 +1885,7 @@ describe('routeId in context options', () => {
       context: childContext,
     })
 
-    const routeTree = rootRoute.addChildren([
-      parentRoute.addChildren([childRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([parentRoute.addChildren([childRoute])])
 
     const router = createTestRouter({
       routeTree,
@@ -2025,9 +1966,7 @@ describe('routeId in context options', () => {
       path: '/',
     })
 
-    const routeTree = rootRoute.addChildren([
-      layoutRoute.addChildren([indexRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([layoutRoute.addChildren([indexRoute])])
 
     const router = createTestRouter({
       routeTree,

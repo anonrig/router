@@ -313,10 +313,7 @@ describe('buildLocation - search params', () => {
         param2: search.param2 === undefined ? defaults.param2 : search.param2,
       }),
       search: {
-        middlewares: [
-          retainSearchParams(['param2']),
-          stripSearchParams(defaults),
-        ],
+        middlewares: [retainSearchParams(['param2']), stripSearchParams(defaults)],
       },
     })
 
@@ -352,10 +349,7 @@ describe('buildLocation - search params', () => {
         param2: search.param2 === undefined ? defaults.param2 : search.param2,
       }),
       search: {
-        middlewares: [
-          retainSearchParams(['param1', 'param2']),
-          stripSearchParams(defaults),
-        ],
+        middlewares: [retainSearchParams(['param1', 'param2']), stripSearchParams(defaults)],
       },
     })
 
@@ -484,10 +478,7 @@ describe('buildLocation - search params', () => {
         Auth: search.Auth === undefined ? 'true' : `${search.Auth}`,
       }),
       search: {
-        middlewares: [
-          retainSearchParams(['Auth']),
-          stripSearchParams({ Auth: 'true' }),
-        ],
+        middlewares: [retainSearchParams(['Auth']), stripSearchParams({ Auth: 'true' })],
       },
     })
     const indexRoute = new BaseRoute({
@@ -555,9 +546,7 @@ describe('buildLocation - search params', () => {
       validateSearch: (search: Record<string, unknown>) => ({
         filter: Array.isArray(search.filter) ? search.filter : ['default'],
         filterOrder:
-          typeof search.filterOrder === 'object' && search.filterOrder
-            ? search.filterOrder
-            : {},
+          typeof search.filterOrder === 'object' && search.filterOrder ? search.filterOrder : {},
         anotherFilterOrder: Array.isArray(search.anotherFilterOrder)
           ? search.anotherFilterOrder
           : [],
@@ -604,9 +593,7 @@ describe('buildLocation - search params', () => {
       validateSearch: (search: Record<string, unknown>) => ({
         filter: Array.isArray(search.filter) ? search.filter : ['default'],
         filterOrder:
-          typeof search.filterOrder === 'object' && search.filterOrder
-            ? search.filterOrder
-            : {},
+          typeof search.filterOrder === 'object' && search.filterOrder ? search.filterOrder : {},
         anotherFilterOrder: Array.isArray(search.anotherFilterOrder)
           ? search.anotherFilterOrder
           : [],
@@ -674,11 +661,7 @@ describe('buildLocation - search params', () => {
       }),
     })
 
-    const routeTree = rootRoute.addChildren([
-      indexRoute,
-      settingsRoute,
-      aboutRoute,
-    ])
+    const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, aboutRoute])
 
     const router = createTestRouter({
       routeTree,
@@ -1210,9 +1193,7 @@ describe('buildLocation - relative paths', () => {
       path: '/detail',
     })
 
-    const routeTree = rootRoute.addChildren([
-      postsRoute.addChildren([postDetailRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([postsRoute.addChildren([postDetailRoute])])
 
     const router = createTestRouter({
       routeTree,
@@ -1423,9 +1404,7 @@ describe('buildLocation - basepath', () => {
       path: '/$postId',
     })
 
-    const routeTree = rootRoute.addChildren([
-      postsRoute.addChildren([postRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([postsRoute.addChildren([postRoute])])
 
     const router = createTestRouter({
       routeTree,

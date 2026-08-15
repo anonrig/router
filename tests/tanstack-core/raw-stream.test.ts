@@ -212,8 +212,7 @@ describe('RawStream', () => {
       }
 
       // Create deserialize plugin with function
-      const deserializePlugin =
-        createRawStreamDeserializePlugin(getOrCreateStream)
+      const deserializePlugin = createRawStreamDeserializePlugin(getOrCreateStream)
 
       // Deserialize
       const deserialized = fromCrossJSON(serialized, {

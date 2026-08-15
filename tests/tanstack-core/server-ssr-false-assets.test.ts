@@ -69,9 +69,7 @@ describe('server assets for ssr:false routes', () => {
       headers: childHeaders,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        clientOnlyRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([clientOnlyRoute.addChildren([childRoute])]),
       history: createMemoryHistory({
         initialEntries: ['/client-only/child'],
       }),
@@ -92,9 +90,7 @@ describe('server assets for ssr:false routes', () => {
     expect(parentLoader).not.toHaveBeenCalled()
     expect(response.headers.get('x-client-only-parent')).toBe('projected')
     expect(
-      router.state.matches.find(
-        (match) => match.routeId === clientOnlyRoute.id,
-      ),
+      router.state.matches.find((match) => match.routeId === clientOnlyRoute.id),
     ).toMatchObject({
       meta: [{ title: 'client-only parent' }],
       scripts: [{ children: 'window.parentAssetRan = true' }],
@@ -108,9 +104,7 @@ describe('server assets for ssr:false routes', () => {
 
   test('executes assets when the root route is client-only', async () => {
     const rootHead = vi.fn(() => ({ meta: [{ title: 'root shell' }] }))
-    const rootScripts = vi.fn(() => [
-      { children: 'window.rootShellRan = true' },
-    ])
+    const rootScripts = vi.fn(() => [{ children: 'window.rootShellRan = true' }])
     const rootHeaders = vi.fn(() => ({ 'x-root-shell': 'projected' }))
     const childHead = vi.fn(() => ({ meta: [{ title: 'child' }] }))
     const childScripts = vi.fn(() => [{ children: 'window.childRan = true' }])

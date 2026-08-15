@@ -39,10 +39,7 @@ describe('cache retention across an error-boundary commit', () => {
       loader: childLoader,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/p/c'] }),
       defaultStaleReloadMode: 'blocking',
     })
@@ -58,9 +55,9 @@ describe('cache retention across an error-boundary commit', () => {
     await vi.waitFor(() => expect(childLoader).toHaveBeenCalledTimes(2))
     parentGate.resolve()
     await refresh
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({ status: 'error' })
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
+      status: 'error',
+    })
 
     // Leave and return with reloads declined: the presented child data must
     // be the newer generation, not the superseded one.
@@ -69,9 +66,7 @@ describe('cache retention across an error-boundary commit', () => {
     await router.navigate({ to: '/' })
     await router.navigate({ to: '/p/c' })
 
-    const child = router.state.matches.find(
-      (match) => match.routeId === childRoute.id,
-    )
+    const child = router.state.matches.find((match) => match.routeId === childRoute.id)
     expect(childLoader).toHaveBeenCalledTimes(2)
     expect(child).toMatchObject({
       status: 'success',

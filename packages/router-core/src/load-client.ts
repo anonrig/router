@@ -232,7 +232,7 @@ export function waitFor<T>(value: T | PromiseLike<T>, signal: AbortSignal): Prom
   return new Promise<T>((resolve, reject) => {
     const abort = () => reject(signal)
     signal.addEventListener('abort', abort, { once: true })
-    Promise.resolve(value)
+    void Promise.resolve(value)
       .then(resolve, reject)
       .finally(() => signal.removeEventListener('abort', abort))
   })

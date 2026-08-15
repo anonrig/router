@@ -545,9 +545,7 @@ describe('buildLocation - route masks', () => {
     })
 
     expect(location.maskedLocation).toBeDefined()
-    expect(location.maskedLocation!.pathname).toBe(
-      '/profiles/john/articles/my-first-post',
-    )
+    expect(location.maskedLocation!.pathname).toBe('/profiles/john/articles/my-first-post')
     expect(location.pathname).toBe('/users/john/posts/my-first-post')
   })
 
@@ -640,8 +638,6 @@ describe('buildLocation - route masks', () => {
     })
 
     expect(location.maskedLocation).toBeDefined()
-    expect(location.maskedLocation!.pathname).toBe(
-      '/articles/article-5/replies/10',
-    )
+    expect(location.maskedLocation!.pathname).toBe('/articles/article-5/replies/10')
   })
 })

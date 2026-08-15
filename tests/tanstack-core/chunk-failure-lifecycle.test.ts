@@ -39,17 +39,15 @@ describe('route chunk failure lifecycle', () => {
     })
 
     await router.navigate({ to: '/lazy' })
-    expect(
-      router.state.matches.find((match) => match.routeId === lazyRoute.id)
-        ?.status,
-    ).toBe('error')
+    expect(router.state.matches.find((match) => match.routeId === lazyRoute.id)?.status).toBe(
+      'error',
+    )
 
     await router.invalidate()
     expect(lazyCalls).toBe(2)
-    expect(
-      router.state.matches.find((match) => match.routeId === lazyRoute.id)
-        ?.status,
-    ).toBe('success')
+    expect(router.state.matches.find((match) => match.routeId === lazyRoute.id)?.status).toBe(
+      'success',
+    )
   })
 
   test('calls route onError when lazy route chunk rejects during navigation', async () => {
@@ -72,9 +70,7 @@ describe('route chunk failure lifecycle', () => {
 
     await router.navigate({ to: '/lazy' })
 
-    const lazyMatch = router.state.matches.find(
-      (match) => match.routeId === lazyRoute.id,
-    )
+    const lazyMatch = router.state.matches.find((match) => match.routeId === lazyRoute.id)
     expect(lazyMatch?.status).toBe('error')
     expect(lazyMatch?.error).toBe(chunkError)
     expect(capturedError).toBe(chunkError)

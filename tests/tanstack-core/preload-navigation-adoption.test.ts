@@ -13,13 +13,11 @@ describe('navigation adopting an in-flight preload', () => {
     const loaderStarted = createControlledPromise<void>()
     const beforeLoad = vi.fn()
     let preloadSignal: AbortSignal | undefined
-    const loader = vi.fn(
-      ({ abortController }: { abortController: AbortController }) => {
-        preloadSignal = abortController.signal
-        loaderStarted.resolve()
-        return loaderGate
-      },
-    )
+    const loader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+      preloadSignal = abortController.signal
+      loaderStarted.resolve()
+      return loaderGate
+    })
 
     const rootRoute = new BaseRootRoute({})
     const indexRoute = new BaseRoute({
@@ -43,9 +41,7 @@ describe('navigation adopting an in-flight preload', () => {
     // Start the preload and wait until its loader is actually in flight.
     const preload = router.preloadRoute({ to: '/foo' })
     await loaderStarted
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true])
     expect(loader).toHaveBeenCalledTimes(1)
     expect(preloadSignal).toBeDefined()
     expect(preloadSignal?.aborted).toBe(false)
@@ -53,10 +49,7 @@ describe('navigation adopting an in-flight preload', () => {
     // The navigation runs its own guard but shares the loader generation.
     const navigation = router.navigate({ to: '/foo' })
     await vi.waitFor(() => expect(beforeLoad).toHaveBeenCalledTimes(2))
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loaderGate.status).toBe('pending')
     expect(loader).toHaveBeenCalledTimes(1)
     expect(preloadSignal?.aborted).toBe(false)
@@ -70,9 +63,7 @@ describe('navigation adopting an in-flight preload', () => {
     expect(preloadSignal?.aborted).toBe(false)
 
     // Navigation committed with the adopted loaderData.
-    const committed = router.state.matches.find(
-      (match) => match.routeId === fooRoute.id,
-    )
+    const committed = router.state.matches.find((match) => match.routeId === fooRoute.id)
     expect(committed?.status).toBe('success')
     expect(committed?.loaderData).toBe('adopted')
 
@@ -85,13 +76,9 @@ describe('navigation adopting an in-flight preload', () => {
   test('reruns beforeLoad when router context changes during an active preload', async () => {
     const loaderGate = createControlledPromise<string>()
     const beforeLoad = vi.fn(
-      ({
-        context,
-        preload,
-      }: {
-        context: { auth: boolean }
-        preload: boolean
-      }) => ({ authorization: `${context.auth}:${preload}` }),
+      ({ context, preload }: { context: { auth: boolean }; preload: boolean }) => ({
+        authorization: `${context.auth}:${preload}`,
+      }),
     )
     const loader = vi.fn(() => loaderGate)
     const rootRoute = new BaseRootRoute<any, undefined, { auth: boolean }>({})
@@ -119,10 +106,7 @@ describe('navigation adopting an in-flight preload', () => {
     const navigation = router.navigate({ to: '/guarded' })
     await vi.waitFor(() => expect(beforeLoad).toHaveBeenCalledTimes(2))
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(1)
 
     loaderGate.resolve('shared')
@@ -135,11 +119,9 @@ describe('navigation adopting an in-flight preload', () => {
 
   test('reruns beforeLoad when user location state changes at the same href', async () => {
     const loaderGate = createControlledPromise<string>()
-    const beforeLoad = vi.fn(
-      ({ location, preload }: { location: any; preload: boolean }) => ({
-        authorization: `${location.state.auth}:${preload}`,
-      }),
-    )
+    const beforeLoad = vi.fn(({ location, preload }: { location: any; preload: boolean }) => ({
+      authorization: `${location.state.auth}:${preload}`,
+    }))
     const loader = vi.fn(() => loaderGate)
     const rootRoute = new BaseRootRoute({})
     const indexRoute = new BaseRoute({

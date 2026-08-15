@@ -34,10 +34,7 @@ export function loadServerResponse(router: AnyRouter, path: string, signal?: Abo
   })(({ router: loadedRouter, responseHeaders }) => {
     const result = (loadedRouter as AnyRouter & { _serverResult?: any })._serverResult
     return new Response(null, {
-      status:
-        result?.type === 'redirect'
-          ? result.redirect.status
-          : (result?.status ?? 500),
+      status: result?.type === 'redirect' ? result.redirect.status : (result?.status ?? 500),
       headers: responseHeaders,
     })
   })

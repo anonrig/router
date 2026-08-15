@@ -46,9 +46,7 @@ describe('issue #4444: param parse error on a route with a lazy child', () => {
     lazyChildRoute.lazy(lazyFn)
 
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        langRoute.addChildren([lazyChildRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([langRoute.addChildren([lazyChildRoute])]),
       history: createMemoryHistory({ initialEntries: ['/lang/es/lazy'] }),
     })
 
@@ -57,17 +55,15 @@ describe('issue #4444: param parse error on a route with a lazy child', () => {
     expect(router.state.status).toBe('idle')
 
     // The failing route commits the parse error for its error boundary…
-    const langMatch = router.state.matches.find(
-      (match) => match.routeId === langRoute.id,
-    )
+    const langMatch = router.state.matches.find((match) => match.routeId === langRoute.id)
     expect(langMatch?.status).toBe('error')
     expect(langMatch?.error).toBeInstanceOf(PathParamError)
 
     // …while the structurally matched lazy child remains unresolved and hidden
     // below that boundary without starting its chunk.
-    expect(
-      router.state.matches.find((match) => match.routeId === lazyChildRoute.id),
-    ).toMatchObject({ status: 'pending', isFetching: false })
+    expect(router.state.matches.find((match) => match.routeId === lazyChildRoute.id)).toMatchObject(
+      { status: 'pending', isFetching: false },
+    )
     expect(lazyFn).not.toHaveBeenCalled()
     expect(router.state.isLoading).toBe(false)
   })

@@ -1,19 +1,6 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  onTestFinished,
-  test,
-  vi,
-} from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  redirect,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, redirect } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 beforeEach(() => {
@@ -293,9 +280,8 @@ describe('HMR route refresh', () => {
       }
       return Promise.reject(new Error('replacement render failed'))
     }
-    ;(
-      router as typeof router & { _cancelTransition?: () => void }
-    )._cancelTransition = () => supersedeFirst()
+    ;(router as typeof router & { _cancelTransition?: () => void })._cancelTransition = () =>
+      supersedeFirst()
 
     generation = 2
     const firstRefresh = router._refreshRoute!()
@@ -341,21 +327,16 @@ describe('HMR route refresh', () => {
       }
       return Promise.resolve(true)
     }
-    ;(
-      router as typeof router & { _cancelTransition?: () => void }
-    )._cancelTransition = () => cancelRefresh()
+    ;(router as typeof router & { _cancelTransition?: () => void })._cancelTransition = () =>
+      cancelRefresh()
 
     generation = 2
     const refresh = router._refreshRoute!()
     await vi.waitFor(() => expect(transitionCount).toBe(1))
 
     const navigationSettled = vi.fn()
-    const navigation = router
-      .navigate({ to: '/destination' })
-      .then(navigationSettled)
-    await vi.waitFor(() =>
-      expect(router.state.location.pathname).toBe('/destination'),
-    )
+    const navigation = router.navigate({ to: '/destination' }).then(navigationSettled)
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/destination'))
     expect(navigationSettled).not.toHaveBeenCalled()
 
     destinationGate.resolve()

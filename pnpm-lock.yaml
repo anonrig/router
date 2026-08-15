@@ -50,6 +50,9 @@ importers:
       react-dom:
         specifier: ~19.2.0
         version: 19.2.8(react@19.2.8)
+      seroval:
+        specifier: ^1.6.2
+        version: 1.6.2
       typescript:
         specifier: ^5.8.2
         version: 5.9.3

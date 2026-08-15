@@ -8,10 +8,7 @@ type LoaderInvocation = {
   signal: AbortSignal
 }
 
-const createAbortableInvocation = (
-  abortController: AbortController,
-  onAbort?: () => void,
-) => {
+const createAbortableInvocation = (abortController: AbortController, onAbort?: () => void) => {
   let resolve!: (value: string) => void
   const promise = new Promise<string>((promiseResolve, reject) => {
     const handleAbort = () => {
@@ -48,8 +45,7 @@ describe('issue #3928: rapid reloads of a reused parent', () => {
       // Search is deliberately not part of this loader's key. Its active
       // same-ID flight may serve successors while the child keys each filter.
       loader: ({ abortController, location }) => {
-        const { invocation, promise } =
-          createAbortableInvocation(abortController)
+        const { invocation, promise } = createAbortableInvocation(abortController)
         const search = location.search as Record<string, unknown>
         const filter = typeof search.filter === 'string' ? search.filter : ''
         rootInvocations.set(filter, invocation)
@@ -72,10 +68,7 @@ describe('issue #3928: rapid reloads of a reused parent', () => {
         deps: { filter: string }
         abortController: AbortController
       }) => {
-        const { invocation, promise } = createAbortableInvocation(
-          abortController,
-          indexAbort,
-        )
+        const { invocation, promise } = createAbortableInvocation(abortController, indexAbort)
         indexInvocations.set(deps.filter, invocation)
         return promise
       },
@@ -131,8 +124,6 @@ describe('issue #3928: rapid reloads of a reused parent', () => {
       status: 'success',
       loaderData: 'abc',
     })
-    expect(router.state.matches.some((match) => match.status === 'error')).toBe(
-      false,
-    )
+    expect(router.state.matches.some((match) => match.status === 'error')).toBe(false)
   })
 })

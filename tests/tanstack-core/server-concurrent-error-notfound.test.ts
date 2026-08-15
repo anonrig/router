@@ -24,13 +24,8 @@ describe('concurrent route failure ordering', () => {
     'selects the reachable failure (parentData=%s, parent=%s, isServer=%s, order=%s)',
     async (parentData, parentOutcome, isServer, settlementOrder) => {
       const parentFailure =
-        parentOutcome === 'error'
-          ? new Error('parent loader failed')
-          : notFound()
-      const childFailure =
-        parentOutcome === 'error'
-          ? notFound()
-          : new Error('child loader failed')
+        parentOutcome === 'error' ? new Error('parent loader failed') : notFound()
+      const childFailure = parentOutcome === 'error' ? notFound() : new Error('child loader failed')
       const childOutcome = parentOutcome === 'error' ? 'notFound' : 'error'
       const parentGate = createControlledPromise<void>()
       const childGate = createControlledPromise<void>()
@@ -75,9 +70,7 @@ describe('concurrent route failure ordering', () => {
         notFoundComponent: () => null,
       })
       const router = createTestRouter({
-        routeTree: rootRoute.addChildren([
-          parentRoute.addChildren([childRoute]),
-        ]),
+        routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute])]),
         history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
         isServer,
         defaultStaleReloadMode: 'blocking',
@@ -85,9 +78,7 @@ describe('concurrent route failure ordering', () => {
 
       if (parentData === 'retained') {
         await router.load()
-        const parentMatch = router.state.matches.find(
-          (match) => match.routeId === parentRoute.id,
-        )
+        const parentMatch = router.state.matches.find((match) => match.routeId === parentRoute.id)
         expect(parentMatch).toMatchObject({
           routeId: parentRoute.id,
           status: 'success',
@@ -98,10 +89,7 @@ describe('concurrent route failure ordering', () => {
 
       const responsePromise = isServer
         ? loadServerResponse(router, '/parent/child')
-        : (parentData === 'retained'
-            ? router.invalidate()
-            : router.load()
-          ).then(() => undefined)
+        : (parentData === 'retained' ? router.invalidate() : router.load()).then(() => undefined)
       await Promise.all([parentStarted, childStarted])
       if (settlementOrder === 'child-first') {
         childGate.resolve()
@@ -116,17 +104,14 @@ describe('concurrent route failure ordering', () => {
       }
       const response = await responsePromise
 
-      const parentWon =
-        parentData === 'fresh' || settlementOrder === 'parent-first'
+      const parentWon = parentData === 'fresh' || settlementOrder === 'parent-first'
       const selectedOutcome = parentWon ? parentOutcome : childOutcome
       const selectedFailure = parentWon ? parentFailure : childFailure
       if (isServer) {
         expect(response?.status).toBe(selectedOutcome === 'error' ? 500 : 404)
       }
       expect(settlements).toEqual(
-        settlementOrder === 'child-first'
-          ? ['child', 'parent']
-          : ['parent', 'child'],
+        settlementOrder === 'child-first' ? ['child', 'parent'] : ['parent', 'child'],
       )
       const terminalMatch = router.state.matches.find(
         (match) => match.status === 'error' || match.status === 'notFound',
@@ -187,9 +172,7 @@ describe('concurrent route failure ordering', () => {
       })
       const router = createTestRouter({
         routeTree: rootRoute.addChildren([
-          intermediateRoute.addChildren([
-            ancestorRoute.addChildren([childRoute]),
-          ]),
+          intermediateRoute.addChildren([ancestorRoute.addChildren([childRoute])]),
         ]),
         history: createMemoryHistory({
           initialEntries: ['/intermediate/ancestor/child'],
@@ -212,15 +195,11 @@ describe('concurrent route failure ordering', () => {
       }
       expect(settlements).toEqual(['child', 'ancestor'])
       expect(intermediateLazy).toHaveBeenCalled()
-      expect(
-        router.state.matches.find((match) => match.routeId === rootRoute.id),
-      ).toMatchObject({
+      expect(router.state.matches.find((match) => match.routeId === rootRoute.id)).toMatchObject({
         status: 'success',
         error: rootNotFound,
       })
-      expect(
-        router.state.matches.some((match) => match.error === chunkError),
-      ).toBe(false)
+      expect(router.state.matches.some((match) => match.error === chunkError)).toBe(false)
     },
   )
 
@@ -261,9 +240,7 @@ describe('concurrent route failure ordering', () => {
         loader: phase === 'loader' ? throwNotFound : undefined,
       })
       const router = createTestRouter({
-        routeTree: rootRoute.addChildren([
-          intermediateRoute.addChildren([childRoute]),
-        ]),
+        routeTree: rootRoute.addChildren([intermediateRoute.addChildren([childRoute])]),
         history: createMemoryHistory({
           initialEntries: ['/intermediate/child'],
         }),
@@ -278,10 +255,9 @@ describe('concurrent route failure ordering', () => {
         expect(response?.status).toBe(404)
       }
       expect(lazyCalls).toBe(!isServer && phase === 'loader' ? 2 : 1)
-      expect(
-        router.state.matches.find((match) => match.error === notFoundError)
-          ?.routeId,
-      ).toBe(rootRoute.id)
+      expect(router.state.matches.find((match) => match.error === notFoundError)?.routeId).toBe(
+        rootRoute.id,
+      )
     },
   )
 
@@ -347,10 +323,7 @@ describe('concurrent route failure ordering', () => {
       path: '/target',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        parentRoute.addChildren([childRoute]),
-        targetRoute,
-      ]),
+      routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute]), targetRoute]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
       isServer: true,
     })
@@ -421,11 +394,9 @@ describe('concurrent route failure ordering', () => {
         path: '/child',
         loader: ({ abortController }) => {
           childSignal = abortController.signal
-          abortController.signal.addEventListener(
-            'abort',
-            () => childLoader.reject(cancellation),
-            { once: true },
-          )
+          abortController.signal.addEventListener('abort', () => childLoader.reject(cancellation), {
+            once: true,
+          })
           childStarted.resolve()
           return childLoader
         },
@@ -436,10 +407,7 @@ describe('concurrent route failure ordering', () => {
         path: '/target',
       })
       const router = createTestRouter({
-        routeTree: rootRoute.addChildren([
-          sourceRoute.addChildren([childRoute]),
-          targetRoute,
-        ]),
+        routeTree: rootRoute.addChildren([sourceRoute.addChildren([childRoute]), targetRoute]),
         history: createMemoryHistory({ initialEntries: ['/source/child'] }),
         isServer,
       })

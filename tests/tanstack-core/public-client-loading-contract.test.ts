@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  redirect,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, redirect } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 afterEach(() => {
@@ -39,9 +34,10 @@ describe('public client loading contracts', () => {
 
     await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1))
     await vi.waitFor(() =>
-      expect(
-        router.state.matches.find((match) => match.routeId === targetRoute.id),
-      ).toMatchObject({ status: 'pending', isFetching: 'loader' }),
+      expect(router.state.matches.find((match) => match.routeId === targetRoute.id)).toMatchObject({
+        status: 'pending',
+        isFetching: 'loader',
+      }),
     )
 
     loaderGate.resolve('target data')
@@ -58,9 +54,7 @@ describe('public client loading contracts', () => {
   test('background loading is observable while retaining committed data', async () => {
     const reloadGate = createControlledPromise<{ generation: number }>()
     let loaderCalls = 0
-    const loader = vi.fn(() =>
-      ++loaderCalls === 1 ? { generation: 1 } : reloadGate,
-    )
+    const loader = vi.fn(() => (++loaderCalls === 1 ? { generation: 1 } : reloadGate))
     const rootRoute = new BaseRootRoute({})
     const pageRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -251,9 +245,7 @@ describe('public client loading contracts', () => {
 
     expect(loader).toHaveBeenCalledTimes(22)
     await vi.waitFor(() =>
-      expect(
-        router.state.matches.find((match) => match.status !== 'success'),
-      ).toMatchObject({
+      expect(router.state.matches.find((match) => match.status !== 'success')).toMatchObject({
         routeId: rootRoute.id,
         status: 'error',
         error: expect.objectContaining({ message: 'Too many redirects' }),
@@ -264,9 +256,7 @@ describe('public client loading contracts', () => {
   test('a blocking child observes the fresh semantic parent generation', async () => {
     const parentReload = createControlledPromise<{ revision: number }>()
     let parentCalls = 0
-    const parentLoader = vi.fn(() =>
-      ++parentCalls === 1 ? { revision: 1 } : parentReload,
-    )
+    const parentLoader = vi.fn(() => (++parentCalls === 1 ? { revision: 1 } : parentReload))
     const childLoader = vi.fn(async ({ parentMatchPromise }) => {
       const parent = await parentMatchPromise
       return {
@@ -310,13 +300,13 @@ describe('public client loading contracts', () => {
     await navigation
 
     await vi.waitFor(() =>
-      expect(
-        router.state.matches.find((match) => match.routeId === parentRoute.id),
-      ).toMatchObject({ loaderData: { revision: 2 } }),
+      expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
+        loaderData: { revision: 2 },
+      }),
     )
-    expect(
-      router.state.matches.find((match) => match.routeId === childRoute.id),
-    ).toMatchObject({ loaderData: { parentRevision: 2 } })
+    expect(router.state.matches.find((match) => match.routeId === childRoute.id)).toMatchObject({
+      loaderData: { parentRevision: 2 },
+    })
   })
 
   test('a background descendant redirect wins after a blocking ancestor loader fails', async () => {
@@ -359,10 +349,7 @@ describe('public client loading contracts', () => {
       path: '/target',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        parentRoute.addChildren([childRoute]),
-        targetRoute,
-      ]),
+      routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute]), targetRoute]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
     })
 
@@ -377,9 +364,7 @@ describe('public client loading contracts', () => {
       routeId: targetRoute.id,
       status: 'success',
     })
-    expect(
-      router.state.matches.some((match) => match.error === parentError),
-    ).toBe(false)
+    expect(router.state.matches.some((match) => match.error === parentError)).toBe(false)
   })
 
   test('a hidden background descendant failure cannot replace an ancestor failure', async () => {
@@ -429,20 +414,17 @@ describe('public client loading contracts', () => {
       parentRoute.id,
       childRoute.id,
     ])
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({ status: 'error', error: parentError })
-    expect(
-      router.state.matches.find((match) => match.routeId === childRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
+      status: 'error',
+      error: parentError,
+    })
+    expect(router.state.matches.find((match) => match.routeId === childRoute.id)).toMatchObject({
       status: 'success',
       error: undefined,
       isFetching: false,
       loaderData: 'child data',
     })
-    expect(
-      router.state.matches.some((match) => match.error === childError),
-    ).toBe(false)
+    expect(router.state.matches.some((match) => match.error === childError)).toBe(false)
   })
 
   test('background projection stays private until its lane wins publication', async () => {
@@ -451,9 +433,7 @@ describe('public client loading contracts', () => {
     const freshHeadStarted = createControlledPromise<void>()
     let loaderCalls = 0
     let allowReload = true
-    const loader = vi.fn(() =>
-      ++loaderCalls === 1 ? { title: 'old' } : reloadGate,
-    )
+    const loader = vi.fn(() => (++loaderCalls === 1 ? { title: 'old' } : reloadGate))
     const head = vi.fn(async ({ loaderData }) => {
       if (loaderData?.title === 'fresh') {
         freshHeadStarted.resolve()
@@ -580,11 +560,7 @@ describe('public client loading contracts', () => {
           return 'root data'
         }
         finalRootSignal = abortController.signal
-        finalRootSignal.addEventListener(
-          'abort',
-          () => finalRootAborted.resolve(),
-          { once: true },
-        )
+        finalRootSignal.addEventListener('abort', () => finalRootAborted.resolve(), { once: true })
         return finalRootData
       },
     })
@@ -607,10 +583,7 @@ describe('public client loading contracts', () => {
       path: '/cleanup',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        parentRoute.addChildren([childRoute]),
-        cleanupRoute,
-      ]),
+      routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute]), cleanupRoute]),
       history: createMemoryHistory({
         initialEntries: ['/hop/0/child'],
       }),
@@ -625,9 +598,7 @@ describe('public client loading contracts', () => {
       await expect(loading).resolves.toBeUndefined()
 
       expect(router.state.location.pathname).toBe('/hop/20/child')
-      const firstTerminalMatch = router.state.matches.find(
-        (match) => match.status !== 'success',
-      )
+      const firstTerminalMatch = router.state.matches.find((match) => match.status !== 'success')
       expect(firstTerminalMatch).toMatchObject({
         routeId: rootRoute.id,
         status: 'error',
@@ -636,9 +607,7 @@ describe('public client loading contracts', () => {
       })
       expect(finalRootData.status).toBe('pending')
       expect(finalRootSignal?.aborted).toBe(true)
-      expect(
-        router.state.matches.every((match) => match.isFetching === false),
-      ).toBe(true)
+      expect(router.state.matches.every((match) => match.isFetching === false)).toBe(true)
       expect(router.state.status).toBe('idle')
       expect(router.state.isLoading).toBe(false)
     } finally {
@@ -649,9 +618,7 @@ describe('public client loading contracts', () => {
 
     await router.navigate({ to: '/cleanup' })
     expect(router.state.location.pathname).toBe('/cleanup')
-    expect(
-      router.state.matches.every((match) => match.status === 'success'),
-    ).toBe(true)
+    expect(router.state.matches.every((match) => match.status === 'success')).toBe(true)
     expect(router.state.status).toBe('idle')
   })
 

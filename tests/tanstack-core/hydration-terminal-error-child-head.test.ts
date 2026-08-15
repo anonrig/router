@@ -69,9 +69,7 @@ describe('hydrated terminal error prefix', () => {
       loader: serverChildLoader,
     })
     const serverRouter = createTestRouter({
-      routeTree: serverRootRoute.addChildren([
-        serverAppRoute.addChildren([serverChildRoute]),
-      ]),
+      routeTree: serverRootRoute.addChildren([serverAppRoute.addChildren([serverChildRoute])]),
       history: createMemoryHistory({ initialEntries: ['/app/child'] }),
       isServer: true,
     })
@@ -146,9 +144,7 @@ describe('hydrated terminal error prefix', () => {
     ])
     expect(router.state.matches[2]?.status).toBe('pending')
 
-    const committedApp = router.state.matches.find(
-      (match) => match.routeId === appRoute.id,
-    )
+    const committedApp = router.state.matches.find((match) => match.routeId === appRoute.id)
     expect(router.state.location.pathname).toBe('/app/child')
     expect(router.state.isLoading).toBe(false)
     expect(committedApp?.status).toBe('error')

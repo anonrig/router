@@ -5,16 +5,12 @@ import { createTestRouter } from './router-test-utils'
 
 // Existing-behavior coverage for https://github.com/TanStack/router/issues/4696
 test('#4696 existing behavior: normalized child search keeps reused parent context', async () => {
-  const rootLoader = vi.fn(
-    ({ context }: { context: Record<string, unknown> }) => context,
-  )
-  const dashboardBeforeLoad = vi.fn(
-    ({ context }: { context: Record<string, unknown> }) => {
-      if (!context.isAuthenticated) {
-        throw new Error('Authentication context was lost')
-      }
-    },
-  )
+  const rootLoader = vi.fn(({ context }: { context: Record<string, unknown> }) => context)
+  const dashboardBeforeLoad = vi.fn(({ context }: { context: Record<string, unknown> }) => {
+    if (!context.isAuthenticated) {
+      throw new Error('Authentication context was lost')
+    }
+  })
   const rootRoute = new BaseRootRoute({
     beforeLoad: async () => {
       await Promise.resolve()
@@ -66,8 +62,7 @@ test('#4696 existing behavior: normalized child search keeps reused parent conte
     }),
   )
   expect(
-    router.state.matches.find((match) => match.routeId === rootRoute.id)
-      ?.loaderData,
+    router.state.matches.find((match) => match.routeId === rootRoute.id)?.loaderData,
   ).toMatchObject({ isAuthenticated: true })
 
   dashboardBeforeLoad.mockClear()
@@ -84,12 +79,8 @@ test('#4696 existing behavior: normalized child search keeps reused parent conte
   )
   expect(rootLoader).toHaveBeenCalledTimes(1)
   expect(router.state.location.pathname).toBe('/dashboard')
-  const rootMatch = router.state.matches.find(
-    (match) => match.routeId === rootRoute.id,
-  )
-  const dashboardMatch = router.state.matches.find(
-    (match) => match.routeId === dashboardRoute.id,
-  )
+  const rootMatch = router.state.matches.find((match) => match.routeId === rootRoute.id)
+  const dashboardMatch = router.state.matches.find((match) => match.routeId === dashboardRoute.id)
   expect(rootMatch?.loaderData).toMatchObject({
     isAuthenticated: true,
     isAdmin: false,

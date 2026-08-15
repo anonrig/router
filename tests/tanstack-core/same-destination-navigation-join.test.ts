@@ -164,12 +164,10 @@ describe('same-destination navigation while one is in flight', () => {
     const failure = new Error('reserved generation failed')
     const signals: Array<AbortSignal> = []
     const onError = vi.fn()
-    const loader = vi.fn(
-      ({ abortController }: { abortController: AbortController }) => {
-        signals.push(abortController.signal)
-        return loader.mock.calls.length === 1 ? firstResult : 'fresh'
-      },
-    )
+    const loader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+      signals.push(abortController.signal)
+      return loader.mock.calls.length === 1 ? firstResult : 'fresh'
+    })
     const rootRoute = new BaseRootRoute({})
     const indexRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -262,14 +260,12 @@ describe('same-destination navigation while one is in flight', () => {
 
   test('filtered invalidate does not adopt same-id work from an active preload', async () => {
     const secondGate = createControlledPromise<string>()
-    const loader = vi.fn(
-      ({ abortController }: { abortController: AbortController }) => {
-        const generation = loader.mock.calls.length
-        return generation === 2
-          ? secondGate
-          : `generation ${generation}:${abortController.signal.aborted}`
-      },
-    )
+    const loader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+      const generation = loader.mock.calls.length
+      return generation === 2
+        ? secondGate
+        : `generation ${generation}:${abortController.signal.aborted}`
+    })
     const rootRoute = new BaseRootRoute({})
     const targetRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -296,8 +292,7 @@ describe('same-destination navigation while one is in flight', () => {
 
     const invalidation = router.invalidate({
       filter: (match) =>
-        match.routeId === targetRoute.id &&
-        (match.search as { revision: number }).revision === 1,
+        match.routeId === targetRoute.id && (match.search as { revision: number }).revision === 1,
     })
     await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(3))
     await invalidation

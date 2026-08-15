@@ -55,10 +55,7 @@ describe('hydrated notFound boundary coverage', () => {
     })
 
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        postsRoute.addChildren([postRoute]),
-        safeRoute,
-      ]),
+      routeTree: rootRoute.addChildren([postsRoute.addChildren([postRoute]), safeRoute]),
       history,
       isServer: false,
     })
@@ -137,10 +134,7 @@ describe('hydrated notFound boundary coverage', () => {
     await router.navigate({ to: '/safe' })
     expect(router.state.location.pathname).toBe('/safe')
     expect(router.state.isLoading).toBe(false)
-    expect(router.state.matches.map((match) => match.routeId)).toEqual([
-      rootRoute.id,
-      safeRoute.id,
-    ])
+    expect(router.state.matches.map((match) => match.routeId)).toEqual([rootRoute.id, safeRoute.id])
     expect(router.state.matches.at(-1)).toMatchObject({
       routeId: safeRoute.id,
       status: 'success',
@@ -182,10 +176,7 @@ describe('hydrated notFound boundary coverage', () => {
     })
 
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        postsRoute.addChildren([postRoute]),
-        safeRoute,
-      ]),
+      routeTree: rootRoute.addChildren([postsRoute.addChildren([postRoute]), safeRoute]),
       history,
       isServer: false,
     })
@@ -258,10 +249,7 @@ describe('hydrated notFound boundary coverage', () => {
     await router.navigate({ to: '/safe' })
     expect(router.state.location.pathname).toBe('/safe')
     expect(router.state.isLoading).toBe(false)
-    expect(router.state.matches.map((match) => match.routeId)).toEqual([
-      rootRoute.id,
-      safeRoute.id,
-    ])
+    expect(router.state.matches.map((match) => match.routeId)).toEqual([rootRoute.id, safeRoute.id])
     expect(router.state.matches.at(-1)).toMatchObject({
       routeId: safeRoute.id,
       status: 'success',

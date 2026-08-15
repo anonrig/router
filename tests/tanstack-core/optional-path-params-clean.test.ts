@@ -227,9 +227,7 @@ describe('Optional Path Parameters - Clean Comprehensive Tests', () => {
         path: pattern,
         params: { env: 'prod', version: 'v2', id: '123', tab: 'settings' },
       })
-      expect(result1.interpolatedPath).toBe(
-        '/app/prod/api/v2/users/123/settings',
-      )
+      expect(result1.interpolatedPath).toBe('/app/prod/api/v2/users/123/settings')
 
       // Only required param
       const result2 = interpolatePath({

@@ -114,24 +114,20 @@ describe('hydrated stay match data preservation', () => {
     // Hydration adopts the server root before client loads can re-enter beforeLoad.
     expect(rootBeforeLoad).not.toHaveBeenCalled()
     expect(rootLoader).not.toHaveBeenCalled()
-    expect(
-      router.state.matches.find((m) => m.routeId === rootRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((m) => m.routeId === rootRoute.id)).toMatchObject({
       context: { auth: 'server' },
       loaderData: { root: 'server' },
     })
 
     await router.load()
 
-    expect(
-      router.state.matches.find((m) => m.routeId === aRoute.id)?.loaderData,
-    ).toBe('a client data')
+    expect(router.state.matches.find((m) => m.routeId === aRoute.id)?.loaderData).toBe(
+      'a client data',
+    )
     expect(router.state.location.pathname).toBe('/a')
     expect(router.state.resolvedLocation?.pathname).toBe('/a')
     expect(rootLoader).not.toHaveBeenCalled()
-    expect(
-      router.state.matches.find((m) => m.routeId === rootRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((m) => m.routeId === rootRoute.id)).toMatchObject({
       context: { auth: 'server' },
       loaderData: { root: 'server' },
     })
@@ -139,20 +135,15 @@ describe('hydrated stay match data preservation', () => {
     // The root stay match refreshes beforeLoad context without rerunning its loader.
     await router.navigate({ to: '/b' })
 
-    expect(
-      router.state.matches.find((m) => m.routeId === bRoute.id)?.loaderData,
-    ).toBe('b client data')
+    expect(router.state.matches.find((m) => m.routeId === bRoute.id)?.loaderData).toBe(
+      'b client data',
+    )
     expect(router.state.location.pathname).toBe('/b')
     expect(router.state.resolvedLocation?.pathname).toBe('/b')
-    expect(router.state.matches.map((match) => match.routeId)).toEqual([
-      rootRoute.id,
-      bRoute.id,
-    ])
+    expect(router.state.matches.map((match) => match.routeId)).toEqual([rootRoute.id, bRoute.id])
     expect(rootBeforeLoad).toHaveBeenCalledTimes(1)
     expect(rootLoader).not.toHaveBeenCalled()
-    expect(
-      router.state.matches.find((m) => m.routeId === rootRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((m) => m.routeId === rootRoute.id)).toMatchObject({
       context: { auth: 'client' },
       loaderData: { root: 'server' },
     })

@@ -53,7 +53,5 @@ test('#3179: preloading the active route does not replay its load callbacks', as
   // reruns it with fresh flags while retaining the accepted loader generation.
   calls.length = 0
   await router.preloadRoute({ to: '/' })
-  expect(calls).toEqual([
-    { phase: 'beforeLoad', cause: 'preload', preload: true },
-  ])
+  expect(calls).toEqual([{ phase: 'beforeLoad', cause: 'preload', preload: true }])
 })

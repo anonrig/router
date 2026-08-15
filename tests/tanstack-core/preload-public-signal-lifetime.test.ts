@@ -11,18 +11,16 @@ test('an adopted loader signal lives until public replacement and unload', async
   let generation = 0
   let adoptedSignal: AbortSignal | undefined
   let replacementSignal: AbortSignal | undefined
-  const loader = vi.fn(
-    ({ abortController }: { abortController: AbortController }) => {
-      generation++
-      if (generation === 1) {
-        adoptedSignal = abortController.signal
-        return { generation }
-      }
+  const loader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+    generation++
+    if (generation === 1) {
+      adoptedSignal = abortController.signal
+      return { generation }
+    }
 
-      replacementSignal = abortController.signal
-      return replacementGate
-    },
-  )
+    replacementSignal = abortController.signal
+    return replacementGate
+  })
 
   const rootRoute = new BaseRootRoute({})
   const homeRoute = new BaseRoute({
@@ -51,8 +49,7 @@ test('an adopted loader signal lives until public replacement and unload', async
   await router.navigate({ to: '/reports' })
   expect(loader).toHaveBeenCalledTimes(1)
   expect(
-    router.state.matches.find((match) => match.routeId === reportsRoute.id)
-      ?.loaderData,
+    router.state.matches.find((match) => match.routeId === reportsRoute.id)?.loaderData,
   ).toEqual({ generation: 1 })
   expect(adoptedSignal?.aborted).toBe(false)
 
@@ -68,8 +65,7 @@ test('an adopted loader signal lives until public replacement and unload', async
   replacementGate.resolve({ generation: 2 })
   await replacement
   expect(
-    router.state.matches.find((match) => match.routeId === reportsRoute.id)
-      ?.loaderData,
+    router.state.matches.find((match) => match.routeId === reportsRoute.id)?.loaderData,
   ).toEqual({ generation: 2 })
   expect(adoptedSignal?.aborted).toBe(true)
   expect(replacementSignal?.aborted).toBe(false)
@@ -106,10 +102,7 @@ test('a superseded preload releases its borrowed loader signal lease', async () 
     },
   })
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      homeRoute,
-      parentRoute.addChildren([childRoute]),
-    ]),
+    routeTree: rootRoute.addChildren([homeRoute, parentRoute.addChildren([childRoute])]),
     history: createMemoryHistory({ initialEntries: ['/parent'] }),
   })
 
@@ -148,8 +141,9 @@ test('a terminal preload aborts its loader generation', async () => {
   await router.load()
   const matches = await router.preloadRoute({ to: '/reports' })
 
-  expect(
-    matches?.find((match) => match.routeId === reportsRoute.id),
-  ).toMatchObject({ status: 'error', error: routeError })
+  expect(matches?.find((match) => match.routeId === reportsRoute.id)).toMatchObject({
+    status: 'error',
+    error: routeError,
+  })
   expect(signal?.aborted).toBe(true)
 })

@@ -47,9 +47,7 @@ test('server preloadRoute stays speculative and receives preload true', async ()
   await router.load()
   const matches = await router.preloadRoute({ to: '/child' })
 
-  expect(beforeLoad).toHaveBeenCalledWith(
-    expect.objectContaining({ preload: true }),
-  )
+  expect(beforeLoad).toHaveBeenCalledWith(expect.objectContaining({ preload: true }))
   expect(loader).toHaveBeenCalledOnce()
   expect(matches?.at(-1)).toMatchObject({
     routeId: childRoute.id,

@@ -150,9 +150,7 @@ test('#4572: active nested preload reruns its full pathless lane', async () => {
   expect(nestedBeforeLoad).toHaveBeenCalledWith(
     expect.objectContaining({ cause: 'enter', preload: false }),
   )
-  expect(
-    router.state.matches.some((match) => match.routeId === nestedRoute.id),
-  ).toBe(true)
+  expect(router.state.matches.some((match) => match.routeId === nestedRoute.id)).toBe(true)
   rootBeforeLoad.mockClear()
   indexBeforeLoad.mockClear()
   aboutBeforeLoad.mockClear()

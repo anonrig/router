@@ -1,11 +1,6 @@
 import { expect, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  notFound,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, notFound } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 test('a background boundary keeps the matched branch and its lifecycle stable', async () => {
@@ -165,10 +160,7 @@ test('foreground supersession aborts every loader in a background batch', async 
     path: '/other',
   })
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      parentRoute.addChildren([childRoute]),
-      otherRoute,
-    ]),
+    routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute]), otherRoute]),
     history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
   })
 

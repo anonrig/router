@@ -39,10 +39,7 @@ test.each([
       path: '/target',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        parentRoute.addChildren([childRoute]),
-        targetRoute,
-      ]),
+      routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute]), targetRoute]),
       history: createMemoryHistory({
         initialEntries: ['/parent/child'],
       }),
@@ -92,18 +89,13 @@ test.each(['client', 'server'] as const)(
       path: '/target',
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        parentRoute.addChildren([childRoute]),
-        targetRoute,
-      ]),
+      routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute]), targetRoute]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
       isServer: environment === 'server',
     })
 
     const loading =
-      environment === 'server'
-        ? loadServerResponse(router, '/parent/child')
-        : router.load()
+      environment === 'server' ? loadServerResponse(router, '/parent/child') : router.load()
     parentGate.resolve()
     await vi.waitFor(() => expect(parentOnError).toHaveBeenCalledOnce())
     childGate.resolve()
@@ -176,16 +168,14 @@ test('an ignored preload flight is released after a navigation has planned its l
   const preloadFailure = createControlledPromise<string>()
   const childGate = createControlledPromise<string>()
   let preloadSignal: AbortSignal | undefined
-  const parentLoader = vi.fn(
-    ({ abortController }: { abortController: AbortController }) => {
-      const generation = parentLoader.mock.calls.length
-      if (generation === 1) {
-        return 'initial parent data'
-      }
-      preloadSignal = abortController.signal
-      return preloadFailure
-    },
-  )
+  const parentLoader = vi.fn(({ abortController }: { abortController: AbortController }) => {
+    const generation = parentLoader.mock.calls.length
+    if (generation === 1) {
+      return 'initial parent data'
+    }
+    preloadSignal = abortController.signal
+    return preloadFailure
+  })
   const childLoader = vi.fn(() => childGate)
   const rootRoute = new BaseRootRoute({})
   const parentRoute = new BaseRoute({
@@ -204,9 +194,7 @@ test('an ignored preload flight is released after a navigation has planned its l
     path: '/sibling',
   })
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      parentRoute.addChildren([childRoute, siblingRoute]),
-    ]),
+    routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute, siblingRoute])]),
     history: createMemoryHistory({ initialEntries: ['/parent'] }),
   })
 
@@ -249,9 +237,7 @@ test('an ordinary route-context failure still permits ancestor loaders', async (
   await router.load()
 
   expect(parentLoader).toHaveBeenCalledOnce()
-  expect(
-    router.state.matches.find((match) => match.routeId === parentRoute.id),
-  ).toMatchObject({
+  expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
     status: 'success',
     loaderData: 'parent data',
   })
@@ -380,8 +366,7 @@ test('a fast background candidate remains private when a reentrant navigation wi
     validateSearch: (search: Record<string, unknown>) => ({
       reload: Number(search.reload ?? 0),
     }),
-    shouldReload: ({ location }) =>
-      (location.search as { reload: number }).reload === 1,
+    shouldReload: ({ location }) => (location.search as { reload: number }).reload === 1,
     loader: ({ abortController }) => {
       parentLoads++
       if (parentLoads === 1) {
@@ -403,8 +388,7 @@ test('a fast background candidate remains private when a reentrant navigation wi
   const childRoute = new BaseRoute({
     getParentRoute: () => parentRoute,
     path: '/child',
-    shouldReload: ({ location }) =>
-      (location.search as { reload: number }).reload === 1,
+    shouldReload: ({ location }) => (location.search as { reload: number }).reload === 1,
     loader: () => {
       childLoads++
       if (childLoads === 2) {
@@ -418,10 +402,7 @@ test('a fast background candidate remains private when a reentrant navigation wi
     path: '/target',
   })
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      parentRoute.addChildren([childRoute]),
-      targetRoute,
-    ]),
+    routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute]), targetRoute]),
     history: createMemoryHistory({
       initialEntries: ['/parent/child?reload=0'],
     }),
@@ -435,9 +416,9 @@ test('a fast background candidate remains private when a reentrant navigation wi
   await reentrantNavigation
 
   expect(router.state.location.search).toEqual({ reload: 2 })
-  expect(
-    router.state.matches.find((match) => match.routeId === parentRoute.id),
-  ).toMatchObject({ loaderData: { revision: 1 } })
+  expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
+    loaderData: { revision: 1 },
+  })
   expect(parentLoads).toBe(2)
   expect(activeSignal?.aborted).toBe(false)
   expect(replacementSignal?.aborted).toBe(true)
@@ -528,9 +509,7 @@ test('an ancestor beforeLoad failure releases an unconsumed background loader', 
     getParentRoute: () => parentRoute,
     path: '/child',
     shouldReload: ({ location }) =>
-      (location.search as { phase: string }).phase === 'refresh'
-        ? true
-        : undefined,
+      (location.search as { phase: string }).phase === 'refresh' ? true : undefined,
     staleTime: Infinity,
     loader: {
       staleReloadMode: 'background',
@@ -560,9 +539,9 @@ test('an ancestor beforeLoad failure releases an unconsumed background loader', 
     search: { phase: 'fail' },
   })
 
-  expect(
-    router.state.matches.find((match) => match.routeId === parentRoute.id),
-  ).toMatchObject({ status: 'error' })
+  expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
+    status: 'error',
+  })
   expect(signals[1]?.aborted).toBe(true)
 
   backgroundResult.resolve(2)
@@ -619,9 +598,7 @@ test('reentrant navigation from onError cancels stale serial work', async () => 
 
   expect(router.state.location.pathname).toBe('/target')
   expect(router.state.matches.at(-1)?.routeId).toBe(targetRoute.id)
-  expect(router.state.matches.some((match) => match.error === failure)).toBe(
-    false,
-  )
+  expect(router.state.matches.some((match) => match.error === failure)).toBe(false)
   expect(parentLoader).not.toHaveBeenCalled()
 })
 
@@ -767,9 +744,7 @@ test('an unrelated preload redirect does not override a navigation error', async
     pathname: '/parent/child',
     search: { mode: 'navigation' },
   })
-  expect(
-    router.state.matches.find((match) => match.routeId === parentRoute.id),
-  ).toMatchObject({
+  expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
     status: 'error',
     error: navigationFailure,
   })
@@ -783,9 +758,7 @@ test('an unrelated preload redirect does not override a navigation error', async
     pathname: '/parent/child',
     search: { mode: 'navigation' },
   })
-  expect(
-    router.state.matches.find((match) => match.routeId === parentRoute.id),
-  ).toMatchObject({
+  expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
     status: 'error',
     error: navigationFailure,
   })
@@ -839,9 +812,7 @@ test('loaderDeps redirects use the bounded navigation redirect policy', async ()
   await router.load()
 
   expect(router.state.location.pathname).toBe('/step-20')
-  expect(
-    router.state.matches.find((match) => match.status !== 'success'),
-  ).toMatchObject({
+  expect(router.state.matches.find((match) => match.status !== 'success')).toMatchObject({
     routeId: rootRoute.id,
     status: 'error',
     error: expect.objectContaining({
@@ -879,11 +850,7 @@ test('a reentrant user navigation starts a fresh redirect chain', async () => {
     path: '/target',
   })
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      ...(chain as any),
-      freshRoute,
-      targetRoute,
-    ]) as any,
+    routeTree: rootRoute.addChildren([...(chain as any), freshRoute, targetRoute]) as any,
     history: createMemoryHistory({ initialEntries: ['/chain-0'] }),
   })
   navigateFresh = () => {

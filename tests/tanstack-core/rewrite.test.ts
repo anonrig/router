@@ -61,12 +61,8 @@ describe('rewrite helpers', () => {
 
     const rewrite = composeRewrites([first, second])
 
-    expect(
-      executeRewriteInput(rewrite, new URL('https://example.com/')).pathname,
-    ).toBe('/ab')
-    expect(
-      executeRewriteOutput(rewrite, new URL('https://example.com/')).pathname,
-    ).toBe('/cd')
+    expect(executeRewriteInput(rewrite, new URL('https://example.com/')).pathname).toBe('/ab')
+    expect(executeRewriteOutput(rewrite, new URL('https://example.com/')).pathname).toBe('/cd')
     expect(calls).toEqual(['first-in', 'second-in', 'second-out', 'first-out'])
   })
 })

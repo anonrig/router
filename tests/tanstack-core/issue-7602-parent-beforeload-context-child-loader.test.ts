@@ -29,11 +29,7 @@ test('#7602: browser Back republishes a cached child with fresh parent beforeLoa
   const reproIndexRoute = new BaseRoute({
     getParentRoute: () => reproRoute,
     path: '/',
-    loader: async ({
-      context,
-    }: {
-      context: { number?: number; generation?: number }
-    }) => {
+    loader: async ({ context }: { context: { number?: number; generation?: number } }) => {
       loaderRuns++
       loaderContexts.push({
         number: context.number,
@@ -46,10 +42,7 @@ test('#7602: browser Back republishes a cached child with fresh parent beforeLoa
     },
   })
   const router = createTestRouter({
-    routeTree: rootRoute.addChildren([
-      homeRoute,
-      reproRoute.addChildren([reproIndexRoute]),
-    ]),
+    routeTree: rootRoute.addChildren([homeRoute, reproRoute.addChildren([reproIndexRoute])]),
     history: createMemoryHistory({ initialEntries: ['/repro'] }),
   })
   const getChildMatch = () =>
@@ -94,9 +87,7 @@ test('#7602: browser Back republishes a cached child with fresh parent beforeLoa
   ])
 
   reloadGate.resolve()
-  await vi.waitFor(() =>
-    expect(getChildMatch()?.loaderData).toEqual({ visit: 2 }),
-  )
+  await vi.waitFor(() => expect(getChildMatch()?.loaderData).toEqual({ visit: 2 }))
   expect(router.state.location.pathname).toBe('/repro')
   expect(router.state.isLoading).toBe(false)
   expect(getChildMatch()?.context).toMatchObject({

@@ -13,24 +13,15 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       parent: preload ? 'preloaded parent' : 'loaded parent',
     }))
     const childBeforeLoad = vi.fn(
-      ({
-        context,
-        preload,
-      }: {
-        context: { parent: string }
-        preload: boolean
-      }) => ({
+      ({ context, preload }: { context: { parent: string }; preload: boolean }) => ({
         child: `${context.parent}:${preload}`,
       }),
     )
     const childLoader = vi.fn(
-      ({
+      ({ context, preload }: { context: { parent: string; child: string }; preload: boolean }) => ({
         context,
         preload,
-      }: {
-        context: { parent: string; child: string }
-        preload: boolean
-      }) => ({ context, preload }),
+      }),
     )
     const rootRoute = new BaseRootRoute({})
     const indexRoute = new BaseRoute({
@@ -51,10 +42,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       loader: childLoader,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -63,9 +51,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
     await router.navigate({ to: '/parent/child' })
 
     expect(parentBeforeLoad).toHaveBeenCalledTimes(2)
-    expect(parentBeforeLoad).toHaveBeenLastCalledWith(
-      expect.objectContaining({ preload: false }),
-    )
+    expect(parentBeforeLoad).toHaveBeenLastCalledWith(expect.objectContaining({ preload: false }))
     expect(childBeforeLoad).toHaveBeenCalledTimes(2)
     expect(childBeforeLoad).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -74,9 +60,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       }),
     )
     expect(childLoader).toHaveBeenCalledTimes(1)
-    const match = router.state.matches.find(
-      (candidate) => candidate.routeId === childRoute.id,
-    )
+    const match = router.state.matches.find((candidate) => candidate.routeId === childRoute.id)
     expect(match?.context).toEqual({
       parent: 'loaded parent',
       child: 'loaded parent:false',
@@ -119,10 +103,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
 
     const navigation = router.navigate({ to: '/guarded' })
     await vi.waitFor(() => expect(beforeLoad).toHaveBeenCalledTimes(2))
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(1)
 
     loaderGate.resolve('shared loader data')
@@ -172,12 +153,8 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       vi.setSystemTime(5_000 + age)
       await router.navigate({ to: '/guarded' })
 
-      expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual(
-        expected,
-      )
-      expect(loader.mock.calls.map(([context]) => context.preload)).toEqual([
-        false,
-      ])
+      expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual(expected)
+      expect(loader.mock.calls.map(([context]) => context.preload)).toEqual([false])
       expect(router.state.matches.at(-1)?.context).toEqual({ guard })
     },
   )
@@ -212,10 +189,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
     await router.navigate({ to: '/other' })
     await router.navigate({ to: '/guarded' })
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(router.state.matches.at(-1)?.context).toEqual({
       guard: 'loaded',
     })
@@ -223,13 +197,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
 
   test('does not reuse child context under a different parent match', async () => {
     const childBeforeLoad = vi.fn(
-      ({
-        context,
-        preload,
-      }: {
-        context: { version: number }
-        preload: boolean
-      }) => ({
+      ({ context, preload }: { context: { version: number }; preload: boolean }) => ({
         childVersion: context.version,
       }),
     )
@@ -258,10 +226,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       beforeLoad: childBeforeLoad,
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -275,9 +240,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       search: { version: 2 },
     })
 
-    expect(
-      childBeforeLoad.mock.calls.map(([context]) => context.preload),
-    ).toEqual([true, false])
+    expect(childBeforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(router.state.matches.at(-1)?.context).toEqual({
       version: 2,
       childVersion: 2,
@@ -350,10 +313,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       },
     })
     const router = createTestRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -407,9 +367,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
       generation,
       preload,
     }))
-    const loader = vi.fn(() =>
-      loader.mock.calls.length === 1 ? loaderGate : 'new loader data',
-    )
+    const loader = vi.fn(() => (loader.mock.calls.length === 1 ? loaderGate : 'new loader data'))
     const rootRoute = new BaseRootRoute({})
     const indexRoute = new BaseRoute({
       getParentRoute: () => rootRoute,
@@ -439,10 +397,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
     loaderGate.resolve('shared loader data')
     await Promise.all([preload, navigation])
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(loader).toHaveBeenCalledTimes(2)
     expect(router.state.matches.at(-1)?.context).toEqual({
       generation: 2,
@@ -519,10 +474,7 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
 
     expect(beforeLoad).toHaveBeenCalledTimes(2)
     expect(loader).toHaveBeenCalledTimes(2)
-    expect(loader.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
+    expect(loader.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
     expect(shouldReload).toHaveBeenCalledTimes(1)
     expect(shouldReload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -564,13 +516,8 @@ describe('preloaded loader reuse with fresh beforeLoad context', () => {
     vi.setSystemTime(1_100)
     await router.navigate({ to: '/guarded' })
 
-    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-      false,
-    ])
-    expect(loader.mock.calls.map(([context]) => context.preload)).toEqual([
-      true,
-    ])
+    expect(beforeLoad.mock.calls.map(([context]) => context.preload)).toEqual([true, false])
+    expect(loader.mock.calls.map(([context]) => context.preload)).toEqual([true])
     expect(shouldReload).toHaveBeenCalledTimes(1)
     expect(router.state.matches.at(-1)?.context).toEqual({ guard: 'loaded' })
   })

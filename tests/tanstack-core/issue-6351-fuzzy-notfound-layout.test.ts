@@ -63,9 +63,7 @@ function setup(opts: {
 function _notFoundRouteIds(router: {
   state: { matches: Array<{ routeId: string; _notFound?: boolean }> }
 }) {
-  return router.state.matches
-    .filter((match) => match._notFound)
-    .map((match) => match.routeId)
+  return router.state.matches.filter((match) => match._notFound).map((match) => match.routeId)
 }
 
 describe('issue #6351: fuzzy notFound honors pathless layout boundaries', () => {

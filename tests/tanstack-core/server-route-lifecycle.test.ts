@@ -46,11 +46,7 @@ test('server route lifecycle callbacks run after loaded matches are published', 
   })
 
   expect((await loadServerResponse(router, '/foo?step=one')).status).toBe(200)
-  expect(events).toEqual([
-    'beforeLoad:/foo',
-    'loader:/foo:true',
-    `enter:${fooRoute.id}:foo data`,
-  ])
+  expect(events).toEqual(['beforeLoad:/foo', 'loader:/foo:true', `enter:${fooRoute.id}:foo data`])
   expect(onEnter).toHaveBeenCalledWith(
     expect.objectContaining({
       routeId: fooRoute.id,
@@ -62,11 +58,7 @@ test('server route lifecycle callbacks run after loaded matches are published', 
 
   events.length = 0
   expect((await loadServerResponse(router, '/foo?step=two')).status).toBe(200)
-  expect(events).toEqual([
-    'beforeLoad:/foo',
-    'loader:/foo:true',
-    `stay:${fooRoute.id}:two`,
-  ])
+  expect(events).toEqual(['beforeLoad:/foo', 'loader:/foo:true', `stay:${fooRoute.id}:two`])
 
   events.length = 0
   expect((await loadServerResponse(router, '/bar')).status).toBe(200)

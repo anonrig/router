@@ -76,17 +76,11 @@ describe('callbacks', () => {
 
       // Entering foo
       await router.navigate({ to: '/foo' })
-      expect(onEnter).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ id: '/foo/foo' }),
-      )
+      expect(onEnter).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: '/foo/foo' }))
 
       // Entering bar
       await router.navigate({ to: '/bar' })
-      expect(onEnter).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({ id: '/bar/bar' }),
-      )
+      expect(onEnter).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: '/bar/bar' }))
     })
   })
 
@@ -98,17 +92,11 @@ describe('callbacks', () => {
 
       // Leaving foo to bar
       await router.navigate({ to: '/bar' })
-      expect(onLeave).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ id: '/foo/foo' }),
-      )
+      expect(onLeave).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: '/foo/foo' }))
 
       // Leaving bar to foo
       await router.navigate({ to: '/foo' })
-      expect(onLeave).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({ id: '/bar/bar' }),
-      )
+      expect(onLeave).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: '/bar/bar' }))
     })
   })
 
@@ -189,15 +177,11 @@ describe('callbacks', () => {
       const router = createFooRouter({ loader, staleTime: 60_000 })
 
       await router.navigate({ to: '/foo', search: { page: '1' } })
-      const page1MatchId = router.state.matches.find(
-        (d) => d.routeId === '/foo',
-      )?.id
+      const page1MatchId = router.state.matches.find((d) => d.routeId === '/foo')?.id
       expect(page1MatchId).toBeDefined()
 
       await router.navigate({ to: '/foo', search: { page: '2' } })
-      const page2MatchId = router.state.matches.find(
-        (d) => d.routeId === '/foo',
-      )?.id
+      const page2MatchId = router.state.matches.find((d) => d.routeId === '/foo')?.id
       expect(page2MatchId).toBeDefined()
       expect(page2MatchId).not.toBe(page1MatchId)
       await router.navigate({ to: '/foo', search: { page: '1' } })
@@ -210,15 +194,11 @@ describe('callbacks', () => {
       const router = setupWithPathParams({ loader, staleTime: 60_000 })
 
       await router.navigate({ to: '/posts/$postId', params: { postId: '1' } })
-      const post1MatchId = router.state.matches.find(
-        (d) => d.routeId === '/posts/$postId',
-      )?.id
+      const post1MatchId = router.state.matches.find((d) => d.routeId === '/posts/$postId')?.id
       expect(post1MatchId).toBeDefined()
 
       await router.navigate({ to: '/posts/$postId', params: { postId: '2' } })
-      const post2MatchId = router.state.matches.find(
-        (d) => d.routeId === '/posts/$postId',
-      )?.id
+      const post2MatchId = router.state.matches.find((d) => d.routeId === '/posts/$postId')?.id
       expect(post2MatchId).toBeDefined()
       expect(post2MatchId).not.toBe(post1MatchId)
       await router.navigate({ to: '/posts/$postId', params: { postId: '1' } })

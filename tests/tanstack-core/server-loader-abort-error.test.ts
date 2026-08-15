@@ -15,8 +15,7 @@ describe('loader user-thrown abort values', () => {
       {
         isServer,
         thrownType: 'AbortError',
-        createThrownValue: () =>
-          new DOMException('The operation was aborted.', 'AbortError'),
+        createThrownValue: () => new DOMException('The operation was aborted.', 'AbortError'),
       },
     ]),
   )(
@@ -47,9 +46,7 @@ describe('loader user-thrown abort values', () => {
         await router.load()
       }
 
-      const match = router.state.matches.find(
-        (item) => item.routeId === abortingRoute.id,
-      )
+      const match = router.state.matches.find((item) => item.routeId === abortingRoute.id)
       // A server match remains ordinary route failure during reduction, then
       // its controller is retired when the request response is cleaned up.
       expect(matchSignal?.aborted).toBe(isServer)
@@ -106,9 +103,7 @@ describe('loader user-thrown abort values', () => {
 
     await expect(response).rejects.toBe(cancellation)
     expect(controllers).toHaveLength(3)
-    expect(
-      controllers.every((controller) => controller === controllers[0]),
-    ).toBe(true)
+    expect(controllers.every((controller) => controller === controllers[0])).toBe(true)
     expect(controllers[0]?.signal.aborted).toBe(true)
     expect(controllers[0]?.signal.reason).toBe(cancellation)
     expect(onError).not.toHaveBeenCalled()

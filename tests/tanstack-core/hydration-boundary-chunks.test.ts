@@ -113,9 +113,7 @@ describe('hydration route chunks below a server boundary', () => {
 
     await expect(hydrate(router)).resolves.toBeUndefined()
 
-    const appMatch = router.state.matches.find(
-      (match) => match.routeId === appRoute.id,
-    )
+    const appMatch = router.state.matches.find((match) => match.routeId === appRoute.id)
     expect(appMatch?.status).toBe('error')
     expect(appMatch?.error).toBe(transportedError)
     expect(appMatch?.error).toMatchObject({
@@ -156,9 +154,7 @@ describe('hydration route chunks below a server boundary', () => {
         loader: serverChildLoader,
       })
       const serverRouter = createTestRouter({
-        routeTree: serverRootRoute.addChildren([
-          serverParentRoute.addChildren([serverChildRoute]),
-        ]),
+        routeTree: serverRootRoute.addChildren([serverParentRoute.addChildren([serverChildRoute])]),
         history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
         isServer: true,
       })
@@ -196,9 +192,7 @@ describe('hydration route chunks below a server boundary', () => {
         component: ChildComponent,
       })
       const router = createTestRouter({
-        routeTree: rootRoute.addChildren([
-          parentRoute.addChildren([childRoute]),
-        ]),
+        routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute])]),
         history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
         isServer: false,
       })
@@ -215,9 +209,7 @@ describe('hydration route chunks below a server boundary', () => {
       expect(isNotFound(router.state.matches[1]?.error)).toBe(true)
       expect(router.state.matches[2]?.status).toBe('pending')
       expect(router.state.location.pathname).toBe('/parent/child')
-      expect(router.state.resolvedLocation?.pathname).toBe(
-        resolved ? '/parent/child' : undefined,
-      )
+      expect(router.state.resolvedLocation?.pathname).toBe(resolved ? '/parent/child' : undefined)
       expect(childComponentPreload).not.toHaveBeenCalled()
       expect(childLoader).not.toHaveBeenCalled()
 
