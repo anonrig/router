@@ -1,14 +1,7 @@
 import React, { act } from 'react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import {
-  cleanup,
-  configure,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import { z } from 'zod'
 
@@ -86,9 +79,7 @@ test('when navigating to /posts', async () => {
 
   fireEvent.click(postsButton)
 
-  expect(
-    await screen.findByRole('heading', { name: 'Posts' }),
-  ).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
   expect(window.location.pathname).toBe('/posts')
 })
@@ -101,11 +92,7 @@ test('when navigating from /posts to ./$postId', async () => {
       <>
         <h1>Index</h1>
         <button onClick={() => navigate({ to: '/posts' })}>Posts</button>
-        <button
-          onClick={() =>
-            navigate({ to: '/posts/$postId', params: { postId: 'id1' } })
-          }
-        >
+        <button onClick={() => navigate({ to: '/posts/$postId', params: { postId: 'id1' } })}>
           To first post
         </button>
       </>
@@ -211,11 +198,7 @@ test('when navigating from /posts to ../posts/$postId', async () => {
       <>
         <h1>Index</h1>
         <button onClick={() => navigate({ to: '/posts' })}>Posts</button>
-        <button
-          onClick={() =>
-            navigate({ to: '/posts/$postId', params: { postId: 'id1' } })
-          }
-        >
+        <button onClick={() => navigate({ to: '/posts/$postId', params: { postId: 'id1' } })}>
           To first post
         </button>
       </>
@@ -389,11 +372,7 @@ test('when navigating from /posts/$postId to /posts/$postId/info and the current
     return (
       <>
         <h1>Details!</h1>
-        <button
-          onClick={() =>
-            navigate({ from: '/posts/$postId', to: '/posts/$postId/info' })
-          }
-        >
+        <button onClick={() => navigate({ from: '/posts/$postId', to: '/posts/$postId/info' })}>
           To Information
         </button>
       </>
@@ -424,9 +403,7 @@ test('when navigating from /posts/$postId to /posts/$postId/info and the current
     routeTree: rootRoute.addChildren([
       indexRoute,
       layoutRoute.addChildren([
-        postsRoute.addChildren([
-          postRoute.addChildren([detailsRoute, informationRoute]),
-        ]),
+        postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
       ]),
     ]),
     history,
@@ -535,9 +512,7 @@ test('when navigating from /posts/$postId to ./info and the current route is /po
     return (
       <>
         <h1>Details!</h1>
-        <button
-          onClick={() => navigate({ from: '/posts/$postId', to: './info' })}
-        >
+        <button onClick={() => navigate({ from: '/posts/$postId', to: './info' })}>
           To Information
         </button>
       </>
@@ -568,9 +543,7 @@ test('when navigating from /posts/$postId to ./info and the current route is /po
     routeTree: rootRoute.addChildren([
       indexRoute,
       layoutRoute.addChildren([
-        postsRoute.addChildren([
-          postRoute.addChildren([detailsRoute, informationRoute]),
-        ]),
+        postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
       ]),
     ]),
     history,
@@ -679,9 +652,7 @@ test('when navigating from /posts/$postId to ../$postId and the current route is
     return (
       <>
         <h1>Details!</h1>
-        <button
-          onClick={() => navigate({ from: '/posts/$postId', to: '../$postId' })}
-        >
+        <button onClick={() => navigate({ from: '/posts/$postId', to: '../$postId' })}>
           To Post
         </button>
       </>
@@ -712,9 +683,7 @@ test('when navigating from /posts/$postId to ../$postId and the current route is
     routeTree: rootRoute.addChildren([
       indexRoute,
       layoutRoute.addChildren([
-        postsRoute.addChildren([
-          postRoute.addChildren([detailsRoute, informationRoute]),
-        ]),
+        postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
       ]),
     ]),
     history,
@@ -827,9 +796,7 @@ test('when navigating from /posts/$postId with an index to ../$postId and the cu
     return (
       <>
         <h1>Details!</h1>
-        <button
-          onClick={() => navigate({ from: '/posts/$postId', to: '../$postId' })}
-        >
+        <button onClick={() => navigate({ from: '/posts/$postId', to: '../$postId' })}>
           To Post
         </button>
       </>
@@ -861,11 +828,7 @@ test('when navigating from /posts/$postId with an index to ../$postId and the cu
       indexRoute,
       layoutRoute.addChildren([
         postsRoute.addChildren([
-          postRoute.addChildren([
-            postIndexRoute,
-            detailsRoute,
-            informationRoute,
-          ]),
+          postRoute.addChildren([postIndexRoute, detailsRoute, informationRoute]),
         ]),
       ]),
     ]),
@@ -1045,9 +1008,7 @@ test('when navigating from /invoices to ./invoiceId and the current route is /po
       indexRoute,
       layoutRoute.addChildren([
         invoicesRoute.addChildren([invoiceRoute]),
-        postsRoute.addChildren([
-          postRoute.addChildren([detailsRoute, informationRoute]),
-        ]),
+        postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
       ]),
     ]),
     history,
@@ -1069,9 +1030,7 @@ test('when navigating from /invoices to ./invoiceId and the current route is /po
 
   fireEvent.click(invoicesButton)
 
-  expect(consoleWarn).toHaveBeenCalledWith(
-    'Could not find match for from: /invoices',
-  )
+  expect(consoleWarn).toHaveBeenCalledWith('Could not find match for from: /invoices')
 
   consoleWarn.mockRestore()
 })
@@ -1084,11 +1043,7 @@ test('when navigating to /posts/$postId/info which is masked as /posts/$postId',
     return (
       <>
         <h1>Index</h1>
-        <button
-          onClick={() =>
-            navigate({ to: '/posts/$postId/info', params: { postId: 'id1' } })
-          }
-        >
+        <button onClick={() => navigate({ to: '/posts/$postId/info', params: { postId: 'id1' } })}>
           To first post
         </button>
       </>
@@ -1477,10 +1432,7 @@ test.each([true, false])(
       return (
         <>
           <h1 data-testid="index-heading">Index</h1>
-          <button
-            data-testid="posts-btn"
-            onClick={() => navigate({ to: '/posts' })}
-          >
+          <button data-testid="posts-btn" onClick={() => navigate({ to: '/posts' })}>
             Posts
           </button>
         </>
@@ -1549,9 +1501,7 @@ test.each([true, false])(
       const params = useParams({ strict: false })
       return (
         <>
-          <span data-testid={`post-${params.postId}`}>
-            Params: {params.postId}
-          </span>
+          <span data-testid={`post-${params.postId}`}>Params: {params.postId}</span>
         </>
       )
     }
@@ -1683,17 +1633,11 @@ test.each([true, false])(
             Post Path "/{params.postId}/detail-{props.id}"!
           </div>
           {currentTest ? (
-            <button
-              data-testid={`detail-btn-remove-${props.id}`}
-              onClick={() => setTest(false)}
-            >
+            <button data-testid={`detail-btn-remove-${props.id}`} onClick={() => setTest(false)}>
               Remove test
             </button>
           ) : (
-            <button
-              data-testid={`detail-btn-add-${props.id}`}
-              onClick={() => setTest(true)}
-            >
+            <button data-testid={`detail-btn-add-${props.id}`} onClick={() => setTest(true)}>
               Add test
             </button>
           )}
@@ -1886,10 +1830,7 @@ test.each([true, false])(
       return (
         <>
           <h1 data-testid="index-heading">Index</h1>
-          <button
-            data-testid="posts-btn"
-            onClick={() => navigate({ to: '/posts' })}
-          >
+          <button data-testid="posts-btn" onClick={() => navigate({ to: '/posts' })}>
             Posts
           </button>
         </>
@@ -2043,9 +1984,7 @@ test.each([true, false])(
       routeTree: rootRoute.addChildren([
         indexRoute,
         layoutRoute.addChildren([
-          postsRoute.addChildren([
-            postDetailRoute.addChildren([postInfoRoute, postNotesRoute]),
-          ]),
+          postsRoute.addChildren([postDetailRoute.addChildren([postInfoRoute, postNotesRoute])]),
         ]),
       ]),
       trailingSlash: trailingSlash ? 'always' : 'never',
@@ -2064,9 +2003,7 @@ test.each([true, false])(
 
     fireEvent.click(firstPostButton)
 
-    expect(
-      await screen.findByTestId('post-detail-index-heading'),
-    ).toBeInTheDocument()
+    expect(await screen.findByTestId('post-detail-index-heading')).toBeInTheDocument()
     expect(window.location.pathname).toEqual(`/posts/1${tail}`)
 
     const postInfoButton = await screen.findByTestId('post-info-btn')
@@ -2076,15 +2013,11 @@ test.each([true, false])(
     expect(await screen.findByTestId('post-info-heading')).toBeInTheDocument()
     expect(window.location.pathname).toEqual(`/posts/1/info${tail}`)
 
-    const toPostDetailIndexButton = await screen.findByTestId(
-      'to-post-detail-index-btn',
-    )
+    const toPostDetailIndexButton = await screen.findByTestId('to-post-detail-index-btn')
 
     fireEvent.click(toPostDetailIndexButton)
 
-    expect(
-      await screen.findByTestId('post-detail-index-heading'),
-    ).toBeInTheDocument()
+    expect(await screen.findByTestId('post-detail-index-heading')).toBeInTheDocument()
     expect(screen.queryByTestId('post-info-heading')).not.toBeInTheDocument()
     expect(window.location.pathname).toEqual(`/posts/1${tail}`)
 
@@ -2101,18 +2034,14 @@ test.each([true, false])(
 
     expect(await screen.findByTestId('posts-index-heading')).toBeInTheDocument()
     expect(screen.queryByTestId('post-notes-heading')).not.toBeInTheDocument()
-    expect(
-      screen.queryByTestId('post-detail-index-heading'),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByTestId('post-detail-index-heading')).not.toBeInTheDocument()
     expect(window.location.pathname).toEqual(`/posts${tail}`)
 
     const secondPostButton = await screen.findByTestId('second-post-btn')
 
     fireEvent.click(secondPostButton)
 
-    expect(
-      await screen.findByTestId('post-detail-index-heading'),
-    ).toBeInTheDocument()
+    expect(await screen.findByTestId('post-detail-index-heading')).toBeInTheDocument()
     expect(window.location.pathname).toEqual(`/posts/2${tail}`)
   },
 )
@@ -2238,9 +2167,7 @@ describe('when on /posts/$postId and navigating to ../ with default `from` /post
       routeTree: rootRoute.addChildren([
         indexRoute,
         layoutRoute.addChildren([
-          postsRoute.addChildren([
-            postRoute.addChildren([postIndexRoute, detailsRoute]),
-          ]),
+          postsRoute.addChildren([postRoute.addChildren([postIndexRoute, detailsRoute])]),
         ]),
       ]),
     })
@@ -2300,9 +2227,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
           return (
             <>
               <h1>B Route</h1>
-              <button onClick={() => navigate({ to: '..' })}>
-                Link to Parent
-              </button>
+              <button onClick={() => navigate({ to: '..' })}>Link to Parent</button>
             </>
           )
         },
@@ -2318,18 +2243,12 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
             <>
               <h1>Param Route</h1>
               <span data-testid="param-value">{params.param}</span>
-              <button
-                onClick={() =>
-                  navigate({ from: paramRoute.fullPath, to: './a' })
-                }
-              >
+              <button onClick={() => navigate({ from: paramRoute.fullPath, to: './a' })}>
                 Link to ./a
               </button>
               <button
                 data-testid="btn-param-bar"
-                onClick={() =>
-                  navigate({ to: '.', params: { param: 'bar' } as any })
-                }
+                onClick={() => navigate({ to: '.', params: { param: 'bar' } as any })}
               >
                 Navigate to . with param:bar
               </button>
@@ -2347,17 +2266,10 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
           return (
             <>
               <h1>Param A Route</h1>
-              <button
-                onClick={() =>
-                  navigate({ from: paramARoute.fullPath, to: '..' })
-                }
-              >
+              <button onClick={() => navigate({ from: paramARoute.fullPath, to: '..' })}>
                 Link to .. from /param/foo/a
               </button>
-              <button
-                onClick={() => navigate({ to: '..' })}
-                data-testid={'link-to-previous'}
-              >
+              <button onClick={() => navigate({ to: '..' })} data-testid={'link-to-previous'}>
                 Link to .. from current active route
               </button>
               <Outlet />
@@ -2374,17 +2286,11 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
           return (
             <>
               <h1>Param B Route</h1>
-              <button onClick={() => navigate({ to: '..' })}>
-                Link to Parent
-              </button>
-              <button
-                onClick={() => navigate({ to: '..', params: { param: 'bar' } })}
-              >
+              <button onClick={() => navigate({ to: '..' })}>Link to Parent</button>
+              <button onClick={() => navigate({ to: '..', params: { param: 'bar' } })}>
                 Link to Parent with param:bar
               </button>
-              <button
-                onClick={() => navigate({ to: '..', params: { param: 'bar' } })}
-              >
+              <button onClick={() => navigate({ to: '..', params: { param: 'bar' } })}>
                 Link to Parent with param:bar functional
               </button>
             </>
@@ -2454,9 +2360,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
       })
 
       // Inspect the link to go up a parent and keep the params
-      const parentLink = await screen.findByText(
-        'Link to Parent with param:bar',
-      )
+      const parentLink = await screen.findByText('Link to Parent with param:bar')
 
       // Click the link and ensure the new location
       fireEvent.click(parentLink)
@@ -2494,9 +2398,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
       })
 
       // Inspect the relative link to ./a
-      const relativeLink = await screen.findByText(
-        'Link to .. from /param/foo/a',
-      )
+      const relativeLink = await screen.findByText('Link to .. from /param/foo/a')
 
       // Click the link and ensure the new location
       fireEvent.click(relativeLink)
@@ -2619,9 +2521,7 @@ describe('splat routes with empty splat', () => {
       render(<RouterProvider router={router} />)
 
       // Navigate with empty _splat
-      const splatBtnWithEmptySplat = await screen.findByTestId(
-        'splat-btn-with-empty-splat',
-      )
+      const splatBtnWithEmptySplat = await screen.findByTestId('splat-btn-with-empty-splat')
 
       await act(async () => {
         fireEvent.click(splatBtnWithEmptySplat)
@@ -2636,9 +2536,7 @@ describe('splat routes with empty splat', () => {
       })
 
       // Navigate with undefined _splat
-      const splatBtnWithUndefinedSplat = await screen.findByTestId(
-        'splat-btn-with-undefined-splat',
-      )
+      const splatBtnWithUndefinedSplat = await screen.findByTestId('splat-btn-with-undefined-splat')
 
       await act(async () => {
         fireEvent.click(splatBtnWithUndefinedSplat)
@@ -2653,9 +2551,7 @@ describe('splat routes with empty splat', () => {
       })
 
       // Navigate with no _splat
-      const splatBtnWithNoSplat = await screen.findByTestId(
-        'splat-btn-with-no-splat',
-      )
+      const splatBtnWithNoSplat = await screen.findByTestId('splat-btn-with-no-splat')
 
       await act(async () => {
         fireEvent.click(splatBtnWithNoSplat)
@@ -2672,8 +2568,7 @@ describe('encoded and unicode paths', () => {
     {
       name: 'with prefix',
       path: '/foo/prefix@대{$}',
-      expectedPath:
-        '/foo/prefix@%EB%8C%80test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]',
+      expectedPath: '/foo/prefix@%EB%8C%80test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]',
       expectedLocation: '/foo/prefix@대test[s%5C/.%5C/parameter%25!🚀%40]',
       params: {
         _splat: 'test[s\\/.\\/parameter%!🚀@]',
@@ -2683,8 +2578,7 @@ describe('encoded and unicode paths', () => {
     {
       name: 'with suffix',
       path: '/foo/{$}대suffix@',
-      expectedPath:
-        '/foo/test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]%EB%8C%80suffix@',
+      expectedPath: '/foo/test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]%EB%8C%80suffix@',
       expectedLocation: '/foo/test[s%5C/.%5C/parameter%25!🚀%40]대suffix@',
       params: {
         _splat: 'test[s\\/.\\/parameter%!🚀@]',
@@ -2730,10 +2624,7 @@ describe('encoded and unicode paths', () => {
         return (
           <>
             <h1>Index Route</h1>
-            <button
-              data-testid="btn-to-path"
-              onClick={() => navigate({ to: path, params })}
-            >
+            <button data-testid="btn-to-path" onClick={() => navigate({ to: path, params })}>
               Navigate to path
             </button>
           </>
@@ -2752,10 +2643,7 @@ describe('encoded and unicode paths', () => {
           <div>
             <h1>Path Route</h1>
             <p>
-              params:{' '}
-              <span data-testid="params-to-validate">
-                {JSON.stringify(params)}
-              </span>
+              params: <span data-testid="params-to-validate">{JSON.stringify(params)}</span>
             </p>
           </div>
         )
@@ -2790,10 +2678,7 @@ test('when navigating to /auth/sign-in with literal path (no params)', async () 
     return (
       <>
         <h1>Index</h1>
-        <button
-          data-testid="navigate-btn"
-          onClick={() => navigate({ to: '/auth/sign-in' })}
-        >
+        <button data-testid="navigate-btn" onClick={() => navigate({ to: '/auth/sign-in' })}>
           Navigate to Sign In
         </button>
       </>

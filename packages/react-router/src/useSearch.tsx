@@ -1,8 +1,5 @@
 import { useMatch } from './useMatch'
-import type {
-  StructuralSharingOption,
-  ValidateSelected,
-} from './structuralSharing'
+import type { StructuralSharingOption, ValidateSelected } from './structuralSharing'
 import type {
   AnyRouter,
   RegisteredRouter,
@@ -35,14 +32,7 @@ export type UseSearchOptions<
   TSelected,
   TStructuralSharing,
 > = StrictOrFrom<TRouter, TFrom, TStrict> &
-  UseSearchBaseOptions<
-    TRouter,
-    TFrom,
-    TStrict,
-    TThrow,
-    TSelected,
-    TStructuralSharing
-  > &
+  UseSearchBaseOptions<TRouter, TFrom, TStrict, TThrow, TSelected, TStructuralSharing> &
   StructuralSharingOption<TRouter, TSelected, TStructuralSharing>
 
 export type UseSearchRoute<out TFrom> = <
@@ -77,10 +67,7 @@ export function useSearch<
     TSelected,
     TStructuralSharing
   >,
-): ThrowOrOptional<
-  UseSearchResult<TRouter, TFrom, TStrict, TSelected>,
-  TThrow
-> {
+): ThrowOrOptional<UseSearchResult<TRouter, TFrom, TStrict, TSelected>, TThrow> {
   return useMatch({
     from: opts?.from as any,
     strict: opts?.strict,

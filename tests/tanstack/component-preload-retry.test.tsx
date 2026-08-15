@@ -68,9 +68,7 @@ test('revisiting a resolved lazy component skips pending UI', async () => {
     .mockImplementationOnce(() => componentImport)
     .mockImplementationOnce(() => repeatedImport)
   const Page = lazyRouteComponent(importer)
-  const PendingComponent = vi.fn(() => (
-    <div data-testid="pending-component">Loading page</div>
-  ))
+  const PendingComponent = vi.fn(() => <div data-testid="pending-component">Loading page</div>)
   const rootRoute = createRootRoute({
     component: () => (
       <>
@@ -102,9 +100,7 @@ test('revisiting a resolved lazy component skips pending UI', async () => {
   expect(await screen.findByText('Home content')).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('link', { name: 'Page link' }))
-  expect(await screen.findByTestId('pending-component')).toHaveTextContent(
-    'Loading page',
-  )
+  expect(await screen.findByTestId('pending-component')).toHaveTextContent('Loading page')
   await act(() => {
     componentImport.resolve({ default: () => <div>Page content</div> })
   })
@@ -171,9 +167,7 @@ test('a failed component download is retried from the route error UI', async () 
 
   expect(await screen.findByText('Page content')).toBeInTheDocument()
   expect(importer).toHaveBeenCalledTimes(2)
-  expect(
-    screen.queryByRole('button', { name: 'Retry' }),
-  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
 })
 
 test('renders after retrying a module download that failed during preload', async () => {
@@ -181,9 +175,7 @@ test('renders after retrying a module download that failed during preload', asyn
   const importer = vi
     .fn<() => Promise<{ default: typeof PageContent }>>()
     .mockRejectedValueOnce(
-      new TypeError(
-        'Failed to fetch dynamically imported module: /assets/page.js',
-      ),
+      new TypeError('Failed to fetch dynamically imported module: /assets/page.js'),
     )
     .mockResolvedValue({ default: PageContent })
   const Page = lazyRouteComponent(importer)

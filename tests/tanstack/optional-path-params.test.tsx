@@ -1,12 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   Link,
   Outlet,
@@ -187,8 +180,7 @@ describe('React Router - Optional Path Parameters', () => {
           getParentRoute: () => rootRoute,
           path: '/{-$locale}',
           beforeLoad: ({ params }) => {
-            const currentLocale = (params.locale ||
-              'en') as keyof typeof content
+            const currentLocale = (params.locale || 'en') as keyof typeof content
 
             return {
               content: content[currentLocale],
@@ -213,9 +205,7 @@ describe('React Router - Optional Path Parameters', () => {
         window.history.replaceState({}, '', path)
 
         const router = createRouter({
-          routeTree: rootRoute.addChildren([
-            localeRoute.addChildren([indexRoute]),
-          ]),
+          routeTree: rootRoute.addChildren([localeRoute.addChildren([indexRoute])]),
         })
 
         render(<RouterProvider router={router} />)
@@ -225,9 +215,7 @@ describe('React Router - Optional Path Parameters', () => {
         const titleElement = screen.getByTestId('index-title')
         const descriptionElement = screen.getByTestId('index-description')
         expect(titleElement).toHaveTextContent(content[expectedLocale].title)
-        expect(descriptionElement).toHaveTextContent(
-          content[expectedLocale].description,
-        )
+        expect(descriptionElement).toHaveTextContent(content[expectedLocale].description)
       },
     )
   })
@@ -337,14 +325,10 @@ describe('React Router - Optional Path Parameters', () => {
       await setupTestRouter()
 
       expect(
-        await screen.findByTestId(
-          'admin-levels-route-required-param-route-component',
-        ),
+        await screen.findByTestId('admin-levels-route-required-param-route-component'),
       ).toBeInTheDocument()
       expect(
-        await screen.findByTestId(
-          'admin-levels-route-required-param-index-route-component',
-        ),
+        await screen.findByTestId('admin-levels-route-required-param-index-route-component'),
       ).toBeInTheDocument()
     })
 
@@ -353,32 +337,20 @@ describe('React Router - Optional Path Parameters', () => {
 
       await setupTestRouter()
 
-      expect(
-        await screen.findByTestId('index-route-component'),
-      ).toBeInTheDocument()
-      const reportsLink = await screen.findByTestId(
-        'reports-optional-param-link',
-      )
+      expect(await screen.findByTestId('index-route-component')).toBeInTheDocument()
+      const reportsLink = await screen.findByTestId('reports-optional-param-link')
       fireEvent.click(reportsLink)
 
-      expect(
-        await screen.findByTestId('reports-route-component'),
-      ).toBeInTheDocument()
-      const requiredParamLink = await screen.findByTestId(
-        'navigate-to-required-param-link',
-      )
+      expect(await screen.findByTestId('reports-route-component')).toBeInTheDocument()
+      const requiredParamLink = await screen.findByTestId('navigate-to-required-param-link')
       fireEvent.click(requiredParamLink)
 
       expect(
-        await screen.findByTestId(
-          'admin-levels-route-required-param-route-component',
-        ),
+        await screen.findByTestId('admin-levels-route-required-param-route-component'),
       ).toBeInTheDocument()
 
       expect(
-        await screen.findByTestId(
-          'admin-levels-route-required-param-index-route-component',
-        ),
+        await screen.findByTestId('admin-levels-route-required-param-index-route-component'),
       ).toBeInTheDocument()
     })
   })
@@ -408,11 +380,7 @@ describe('React Router - Optional Path Parameters', () => {
             >
               Specific Post
             </Link>
-            <Link
-              to="/posts/{-$category}/{-$slug}"
-              params={{}}
-              data-testid="empty-params-link"
-            >
+            <Link to="/posts/{-$category}/{-$slug}" params={{}} data-testid="empty-params-link">
               Empty Params
             </Link>
           </>
@@ -498,9 +466,7 @@ describe('React Router - Optional Path Parameters', () => {
       await act(() => router.load())
 
       {
-        await expect(
-          screen.findByTestId('home-heading'),
-        ).resolves.toBeInTheDocument()
+        await expect(screen.findByTestId('home-heading')).resolves.toBeInTheDocument()
         // Test navigation to /posts
         const postsLink = await screen.findByTestId('posts-link')
         fireEvent.click(postsLink)
@@ -515,9 +481,7 @@ describe('React Router - Optional Path Parameters', () => {
         // Navigate back
         const homeLink = await screen.findByTestId('home-link')
         fireEvent.click(homeLink)
-        await expect(
-          screen.findByTestId('home-heading'),
-        ).resolves.toBeInTheDocument()
+        await expect(screen.findByTestId('home-heading')).resolves.toBeInTheDocument()
       }
 
       // test with parameters
@@ -682,9 +646,7 @@ describe('React Router - Optional Path Parameters', () => {
             <div data-testid="params">{JSON.stringify(params)}</div>
             <button
               data-testid="add-category"
-              onClick={() =>
-                navigate({ to: '.', params: { category: 'tech' } })
-              }
+              onClick={() => navigate({ to: '.', params: { category: 'tech' } })}
             >
               Add Category
             </button>
@@ -706,9 +668,7 @@ describe('React Router - Optional Path Parameters', () => {
       render(<RouterProvider router={router} />)
       await act(() => router.load())
 
-      expect(await screen.findByTestId('params')).toHaveTextContent(
-        JSON.stringify({}),
-      )
+      expect(await screen.findByTestId('params')).toHaveTextContent(JSON.stringify({}))
 
       const addCategoryBtn = await screen.findByTestId('add-category')
       const removeCategoryBtn = await screen.findByTestId('remove-category')
@@ -722,9 +682,7 @@ describe('React Router - Optional Path Parameters', () => {
 
       // Remove category
       fireEvent.click(removeCategoryBtn)
-      expect(await screen.findByTestId('params')).toHaveTextContent(
-        JSON.stringify({}),
-      )
+      expect(await screen.findByTestId('params')).toHaveTextContent(JSON.stringify({}))
       expect(router.state.location.pathname).toBe('/posts')
     })
   })
@@ -780,9 +738,7 @@ describe('React Router - Optional Path Parameters', () => {
             return (
               <div>
                 <h1>Posts Layout</h1>
-                <div data-testid="category-param">
-                  {category ?? 'undefined'}
-                </div>
+                <div data-testid="category-param">{category ?? 'undefined'}</div>
                 <Outlet />
               </div>
             )
@@ -806,9 +762,7 @@ describe('React Router - Optional Path Parameters', () => {
         window.history.replaceState({}, '', path)
 
         const router = createRouter({
-          routeTree: rootRoute.addChildren([
-            postsRoute.addChildren([postRoute]),
-          ]),
+          routeTree: rootRoute.addChildren([postsRoute.addChildren([postRoute])]),
         })
 
         render(<RouterProvider router={router} />)

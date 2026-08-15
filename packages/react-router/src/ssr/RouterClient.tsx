@@ -9,9 +9,6 @@ export function RouterClient(props: { router: AnyRouter }) {
   hydrationPromise ??= hydrate(props.router).finally(() => window.$_TSR!.h())
 
   return (
-    <Await
-      promise={hydrationPromise}
-      children={() => <RouterProvider router={props.router} />}
-    />
+    <Await promise={hydrationPromise} children={() => <RouterProvider router={props.router} />} />
   )
 }

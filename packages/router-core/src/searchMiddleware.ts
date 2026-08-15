@@ -1,10 +1,6 @@
 import { deepEqual, hasOwn } from './utils'
 import type { NoInfer, PickOptional } from './utils'
-import type {
-  SearchMiddleware,
-  SearchMiddlewareContext,
-  SearchMiddlewareMeta,
-} from './route'
+import type { SearchMiddleware, SearchMiddlewareContext, SearchMiddlewareMeta } from './route'
 import type { IsRequiredParams } from './link'
 
 type SearchMiddlewareNextWithMeta<TSearchSchema> = (
@@ -52,10 +48,7 @@ export function retainSearchParams<TSearchSchema extends object>(
           !(
             meta.removed?.has(key) &&
             ((explicit && hasOwn.call(explicit, key)) ||
-              deepEqual(
-                search[key as keyof TSearchSchema],
-                meta.removed.get(key),
-              ))
+              deepEqual(search[key as keyof TSearchSchema], meta.removed.get(key)))
           )
         ) {
           copy[key as keyof TSearchSchema] = search[key as keyof TSearchSchema]
@@ -102,9 +95,7 @@ export function stripSearchParams<
   TSearchSchema,
   TOptionalProps = PickOptional<NoInfer<TSearchSchema>>,
   const TValues = Partial<NoInfer<TSearchSchema>> | Array<keyof TOptionalProps>,
-  const TInput = IsRequiredParams<TSearchSchema> extends never
-    ? TValues | true
-    : TValues,
+  const TInput = IsRequiredParams<TSearchSchema> extends never ? TValues | true : TValues,
 >(input: NoInfer<TInput>): SearchMiddleware<TSearchSchema> {
   return (({ search, next, meta }: SearchMiddlewareContext<TSearchSchema>) => {
     if (input === true) {
@@ -125,16 +116,14 @@ export function stripSearchParams<
         }
       })
     } else {
-      Object.entries(input as Record<string, unknown>).forEach(
-        ([key, value]) => {
-          if (deepEqual(result[key], value)) {
-            delete result[key]
-            if (meta) {
-              ;(meta.removed ||= new Map()).set(key, value)
-            }
+      Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+        if (deepEqual(result[key], value)) {
+          delete result[key]
+          if (meta) {
+            ;(meta.removed ||= new Map()).set(key, value)
           }
-        },
-      )
+        }
+      })
     }
     return result as any
   }) as SearchMiddleware<TSearchSchema>

@@ -47,10 +47,7 @@ export class RawStream {
 /**
  * Callback type for RPC plugin to register raw streams with multiplexer
  */
-export type OnRawStreamCallback = (
-  streamId: number,
-  stream: ReadableStream<Uint8Array>,
-) => void
+export type OnRawStreamCallback = (streamId: number, stream: ReadableStream<Uint8Array>) => void
 
 // Base64 helpers used in both Node and browser.
 // In Node-like runtimes, prefer Buffer for speed and compatibility.
@@ -96,9 +93,7 @@ const RAW_STREAM_FACTORY_TEXT: Record<string, never> = Object.create(null)
 
 // Factory constructor for binary mode - converts seroval stream to ReadableStream<Uint8Array>
 // All chunks are base64 encoded strings
-const RAW_STREAM_FACTORY_CONSTRUCTOR_BINARY = (
-  stream: ReturnType<typeof createStream>,
-) =>
+const RAW_STREAM_FACTORY_CONSTRUCTOR_BINARY = (stream: ReturnType<typeof createStream>) =>
   new ReadableStream<Uint8Array>({
     start(controller) {
       stream.on({
@@ -127,9 +122,7 @@ const RAW_STREAM_FACTORY_CONSTRUCTOR_BINARY = (
 // Chunks are either strings (UTF-8) or { $b64: string } (base64 fallback)
 // Use module-level TextEncoder to avoid per-factory allocation
 const textEncoderForFactory = new TextEncoder()
-const RAW_STREAM_FACTORY_CONSTRUCTOR_TEXT = (
-  stream: ReturnType<typeof createStream>,
-) => {
+const RAW_STREAM_FACTORY_CONSTRUCTOR_TEXT = (stream: ReturnType<typeof createStream>) => {
   return new ReadableStream<Uint8Array>({
     start(controller) {
       stream.on({
@@ -268,10 +261,7 @@ const RawStreamFactoryBinaryPlugin = /* @__PURE__ */ createPlugin<
 })
 
 // Factory plugin for text mode
-const RawStreamFactoryTextPlugin = /* @__PURE__ */ createPlugin<
-  Record<string, never>,
-  PluginInfo
->({
+const RawStreamFactoryTextPlugin = /* @__PURE__ */ createPlugin<Record<string, never>, PluginInfo>({
   tag: 'tss/RawStreamFactoryText',
   test(value) {
     return value === RAW_STREAM_FACTORY_TEXT
@@ -313,10 +303,7 @@ export interface RawStreamRPCNode extends PluginInfo {
  * - 'binary': Always base64 encode (default)
  * - 'text': Try UTF-8 first, fallback to base64 for invalid UTF-8
  */
-export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<
-  RawStream,
-  RawStreamSSRNode
->({
+export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<RawStream, RawStreamSSRNode>({
   tag: 'tss/RawStream',
   extends: [RawStreamFactoryBinaryPlugin, RawStreamFactoryTextPlugin],
 
@@ -327,10 +314,7 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<
   parse: {
     sync(value: RawStream, ctx, _data) {
       // Sync parse not really supported for streams, return empty stream
-      const factory =
-        value.hint === 'text'
-          ? RAW_STREAM_FACTORY_TEXT
-          : RAW_STREAM_FACTORY_BINARY
+      const factory = value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
       return {
         hint: ctx.parse(value.hint),
         factory: ctx.parse(factory),
@@ -338,14 +322,9 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<
       }
     },
     async async(value: RawStream, ctx, _data) {
-      const factory =
-        value.hint === 'text'
-          ? RAW_STREAM_FACTORY_TEXT
-          : RAW_STREAM_FACTORY_BINARY
+      const factory = value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
       const encodedStream =
-        value.hint === 'text'
-          ? toTextStream(value.stream)
-          : toBinaryStream(value.stream)
+        value.hint === 'text' ? toTextStream(value.stream) : toBinaryStream(value.stream)
       return {
         hint: await ctx.parse(value.hint),
         factory: await ctx.parse(factory),
@@ -353,14 +332,9 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<
       }
     },
     stream(value: RawStream, ctx, _data) {
-      const factory =
-        value.hint === 'text'
-          ? RAW_STREAM_FACTORY_TEXT
-          : RAW_STREAM_FACTORY_BINARY
+      const factory = value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
       const encodedStream =
-        value.hint === 'text'
-          ? toTextStream(value.stream)
-          : toBinaryStream(value.stream)
+        value.hint === 'text' ? toTextStream(value.stream) : toBinaryStream(value.stream)
       return {
         hint: ctx.parse(value.hint),
         factory: ctx.parse(factory),
@@ -370,13 +344,7 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<
   },
 
   serialize(node: RawStreamSSRNode, ctx, _data) {
-    return (
-      '(' +
-      ctx.serialize(node.factory) +
-      ')(' +
-      ctx.serialize(node.stream) +
-      ')'
-    )
+    return '(' + ctx.serialize(node.factory) + ')(' + ctx.serialize(node.stream) + ')'
   },
 
   deserialize(node: RawStreamSSRNode, ctx, _data): any {

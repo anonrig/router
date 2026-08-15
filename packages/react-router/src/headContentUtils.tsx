@@ -12,11 +12,7 @@ import {
 } from '@anonrig/router-core'
 import { isServer } from '@anonrig/router-core/isServer'
 import { useRouter } from './useRouter'
-import type {
-  AnyRouteMatch,
-  AssetCrossOriginConfig,
-  RouterManagedTag,
-} from '@anonrig/router-core'
+import type { AnyRouteMatch, AssetCrossOriginConfig, RouterManagedTag } from '@anonrig/router-core'
 
 function buildTagsFromMatches(
   router: ReturnType<typeof useRouter>,
@@ -25,9 +21,7 @@ function buildTagsFromMatches(
   assetCrossOrigin?: AssetCrossOriginConfig,
 ): Array<RouterManagedTag> {
   matches = _getAssetMatches(matches)
-  const routeMeta = matches
-    .map((match) => match.meta)
-    .filter((meta) => meta !== undefined)
+  const routeMeta = matches.map((match) => match.meta).filter((meta) => meta !== undefined)
 
   const resultMeta: Array<RouterManagedTag> = []
   const metaByAttribute: Record<string, true> = {}
@@ -118,8 +112,7 @@ function buildTagsFromMatches(
             rel: 'stylesheet',
             ...resolvedLink,
             crossOrigin:
-              getAssetCrossOrigin(assetCrossOrigin, 'stylesheet') ??
-              resolvedLink.crossOrigin,
+              getAssetCrossOrigin(assetCrossOrigin, 'stylesheet') ?? resolvedLink.crossOrigin,
             suppressHydrationWarning: true,
             nonce,
           },
@@ -198,12 +191,7 @@ export const useTags = (assetCrossOrigin?: AssetCrossOriginConfig) => {
   const nonce = router.options.ssr?.nonce
 
   if (isServer ?? router.isServer) {
-    return buildTagsFromMatches(
-      router,
-      nonce,
-      router.stores.matches.get(),
-      assetCrossOrigin,
-    )
+    return buildTagsFromMatches(router, nonce, router.stores.matches.get(), assetCrossOrigin)
   }
 
   // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static

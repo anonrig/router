@@ -16,20 +16,13 @@ interface ScriptAttrs {
 
 const noopScriptHandler = () => {}
 
-function setScriptAttrs(
-  script: HTMLScriptElement,
-  attrs: ScriptAttrs | undefined,
-) {
+function setScriptAttrs(script: HTMLScriptElement, attrs: ScriptAttrs | undefined) {
   if (!attrs) {
     return
   }
 
   for (const [key, value] of Object.entries(attrs)) {
-    if (
-      key !== 'suppressHydrationWarning' &&
-      value !== undefined &&
-      value !== false
-    ) {
+    if (key !== 'suppressHydrationWarning' && value !== undefined && value !== false) {
       script.setAttribute(key, typeof value === 'boolean' ? '' : String(value))
     }
   }
@@ -56,10 +49,7 @@ export function Asset(
       return (
         <link
           {...attrs}
-          precedence={
-            attrs?.precedence ??
-            (attrs?.rel === 'stylesheet' ? 'default' : undefined)
-          }
+          precedence={attrs?.precedence ?? (attrs?.rel === 'stylesheet' ? 'default' : undefined)}
           nonce={nonce}
           suppressHydrationWarning
         />
@@ -78,11 +68,7 @@ export function Asset(
       }
 
       return (
-        <style
-          {...attrs}
-          dangerouslySetInnerHTML={{ __html: children as string }}
-          nonce={nonce}
-        />
+        <style {...attrs} dangerouslySetInnerHTML={{ __html: children as string }} nonce={nonce} />
       )
     case 'script':
       return (
@@ -111,14 +97,11 @@ function InlineCssStyle({
     }
 
     return (
-      document.querySelector<HTMLStyleElement>(
-        `style[${INLINE_CSS_HYDRATION_ATTR}]`,
-      )?.textContent ?? undefined
+      document.querySelector<HTMLStyleElement>(`style[${INLINE_CSS_HYDRATION_ATTR}]`)
+        ?.textContent ?? undefined
     )
   })
-  const html = isInlineCssPlaceholder
-    ? (hydratedInlineCss ?? '')
-    : (children ?? '')
+  const html = isInlineCssPlaceholder ? (hydratedInlineCss ?? '') : (children ?? '')
 
   return (
     <style
@@ -187,10 +170,8 @@ function Script({
     }
 
     if (typeof children === 'string') {
-      const typeAttr =
-        typeof attrs?.type === 'string' ? attrs.type : 'text/javascript'
-      const nonceAttr =
-        typeof attrs?.nonce === 'string' ? attrs.nonce : undefined
+      const typeAttr = typeof attrs?.type === 'string' ? attrs.type : 'text/javascript'
+      const nonceAttr = typeof attrs?.nonce === 'string' ? attrs.nonce : undefined
       for (const el of document.querySelectorAll('script:not([src])')) {
         if (!(el instanceof HTMLScriptElement)) {
           continue
@@ -198,11 +179,7 @@ function Script({
 
         const sType = el.getAttribute('type') ?? 'text/javascript'
         const sNonce = el.getAttribute('nonce') ?? undefined
-        if (
-          el.textContent === children &&
-          sType === typeAttr &&
-          sNonce === nonceAttr
-        ) {
+        if (el.textContent === children && sType === typeAttr && sNonce === nonceAttr) {
           return
         }
       }
@@ -257,11 +234,7 @@ function Script({
   // the useEffect intentionally skips them.
   if (dataScript && typeof children === 'string') {
     return (
-      <script
-        {...attrs}
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: children }}
-      />
+      <script {...attrs} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: children }} />
     )
   }
 

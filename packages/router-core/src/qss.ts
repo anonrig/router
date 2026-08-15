@@ -10,10 +10,7 @@ function encodeComponent(str: string): string {
   if (typeof str !== 'string') str = String(str)
   // encodeURIComponent plus always-encode `()` so alien values like `()`
   // re-serialize differently from the raw query string.
-  return encodeURIComponent(str)
-    .replace(/%20/g, '+')
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
+  return encodeURIComponent(str).replace(/%20/g, '+').replace(/\(/g, '%28').replace(/\)/g, '%29')
 }
 
 function decodeComponent(str: string): string {

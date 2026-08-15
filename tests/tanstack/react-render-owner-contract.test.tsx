@@ -51,9 +51,7 @@ test('a suspended same-membership publication cannot acknowledge its successor',
 
   const renderedRevisions: Array<number> = []
   const unsubscribe = router.subscribe('onRendered', (event) => {
-    renderedRevisions.push(
-      Number((event.toLocation.search as Record<string, unknown>).revision),
-    )
+    renderedRevisions.push(Number((event.toLocation.search as Record<string, unknown>).revision))
   })
   testCleanups.push(unsubscribe)
 
@@ -84,9 +82,7 @@ test('a suspended same-membership publication cannot acknowledge its successor',
     await firstNavigation
 
     expect(screen.getByText('Root revision 2')).toBeInTheDocument()
-    expect(router.state.matches.map((match) => match.routeId)).toEqual(
-      initialIds,
-    )
+    expect(router.state.matches.map((match) => match.routeId)).toEqual(initialIds)
     expect(renderedRevisions).toEqual([2])
     expect(firstSettled).toHaveBeenCalledOnce()
   } finally {

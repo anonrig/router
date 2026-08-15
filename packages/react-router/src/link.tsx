@@ -38,15 +38,9 @@ export function useLinkProps(props: LinkProps): AnchorHTMLAttributes<HTMLAnchorE
     [router, props.to, props.params, props.search, props.hash, props.from, props.href],
   )
 
-  const href = router.history.createHref(
-    `${next.pathname}${next.searchStr}${next.hash}`,
-  )
+  const href = router.history.createHref(`${next.pathname}${next.searchStr}${next.hash}`)
 
-  const isActive = exactPathTest(
-    location.pathname,
-    next.pathname,
-    router.basepath,
-  )
+  const isActive = exactPathTest(location.pathname, next.pathname, router.basepath)
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     props.onClick?.(e)
@@ -105,10 +99,7 @@ export function useLinkProps(props: LinkProps): AnchorHTMLAttributes<HTMLAnchorE
   } as AnchorHTMLAttributes<HTMLAnchorElement>
 }
 
-export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(
-  props,
-  ref,
-) {
+export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(props, ref) {
   const {
     activeProps,
     inactiveProps,

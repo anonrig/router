@@ -1,15 +1,8 @@
 import { createMemoryHistory } from '@anonrig/history'
 import { _getRenderedMatches } from '../load-client'
 import { mergeHeaders } from './headers'
-import {
-  attachRouterServerSsrUtils,
-  getNormalizedURL,
-  getOrigin,
-} from './ssr-server'
-import {
-  bindSsrResponseToRequest,
-  disposeSsrResponseDetached,
-} from './handlerCallback'
+import { attachRouterServerSsrUtils, getNormalizedURL, getOrigin } from './ssr-server'
+import { bindSsrResponseToRequest, disposeSsrResponseDetached } from './handlerCallback'
 import type { HandlerCallback } from './handlerCallback'
 import type { AnyHeaders } from './headers'
 import type { AnyRouter } from '../router'
@@ -157,11 +150,7 @@ export function createRequestHandler<TRouter extends AnyRouter>({
           disposeSsrResponseDetached(late, request.signal.reason)
         },
       )
-      const ssrResponse = bindSsrResponseToRequest(
-        router,
-        response,
-        request.signal,
-      )
+      const ssrResponse = bindSsrResponseToRequest(router, response, request.signal)
       request.signal.throwIfAborted()
       responseOwnsCleanup = ssrResponse.serverSsrCleanup === 'stream'
       return ssrResponse.response

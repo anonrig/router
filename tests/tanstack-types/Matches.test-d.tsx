@@ -119,8 +119,7 @@ const commentsRoute = createRoute({
     page: 0,
     search: '',
   }),
-  loader: () =>
-    [{ comment: 'one comment' }, { comment: 'two comment' }] as const,
+  loader: () => [{ comment: 'one comment' }, { comment: 'two comment' }] as const,
 })
 
 type CommentsRoute = typeof commentsRoute
@@ -155,16 +154,12 @@ test('when matching a route with params', () => {
   expectTypeOf(matchRoute<string, '/invoices/$invoiceId'>)
     .parameter(0)
     .toHaveProperty('to')
-    .toEqualTypeOf<
-      '/' | '.' | '..' | '/invoices' | '/invoices/$invoiceId' | '/comments/$id'
-    >()
+    .toEqualTypeOf<'/' | '.' | '..' | '/invoices' | '/invoices/$invoiceId' | '/comments/$id'>()
 
   expectTypeOf(MatchRoute<DefaultRouter, string, '/invoices/$invoiceId'>)
     .parameter(0)
     .toHaveProperty('to')
-    .toEqualTypeOf<
-      '/' | '.' | '..' | '/invoices' | '/invoices/$invoiceId' | '/comments/$id'
-    >()
+    .toEqualTypeOf<'/' | '.' | '..' | '/invoices' | '/invoices/$invoiceId' | '/comments/$id'>()
 
   expectTypeOf(
     matchRoute({
@@ -204,12 +199,13 @@ test('when filtering useMatches by search', () => {
     .parameter(1)
     .toEqualTypeOf<keyof AnyRouteMatch>()
 
-  expectTypeOf(isMatch<(typeof matches)[number], 'search.'>).parameter(1)
-    .toEqualTypeOf<'search.page' | 'search.search'>
+  expectTypeOf(isMatch<(typeof matches)[number], 'search.'>).parameter(1).toEqualTypeOf<
+    'search.page' | 'search.search'
+  >
 
-  expectTypeOf(
-    matches.filter((match) => isMatch(match, 'search.page')),
-  ).toEqualTypeOf<Array<InvoiceMatch | CommentsMatch>>()
+  expectTypeOf(matches.filter((match) => isMatch(match, 'search.page'))).toEqualTypeOf<
+    Array<InvoiceMatch | CommentsMatch>
+  >()
 })
 
 test('when filtering useMatches by loaderData with an array', () => {
@@ -223,16 +219,17 @@ test('when filtering useMatches by loaderData with an array', () => {
     .parameter(1)
     .toEqualTypeOf<'loaderData.0' | 'loaderData.1' | `loaderData.${number}`>()
 
-  expectTypeOf(isMatch<(typeof matches)[number], 'loaderData.0.'>).parameter(1)
-    .toEqualTypeOf<'loaderData.0.id' | 'loaderData.0.comment'>
+  expectTypeOf(isMatch<(typeof matches)[number], 'loaderData.0.'>).parameter(1).toEqualTypeOf<
+    'loaderData.0.id' | 'loaderData.0.comment'
+  >
 
-  expectTypeOf(
-    matches.filter((match) => isMatch(match, 'loaderData.5.id')),
-  ).toEqualTypeOf<Array<InvoicesMatch>>()
+  expectTypeOf(matches.filter((match) => isMatch(match, 'loaderData.5.id'))).toEqualTypeOf<
+    Array<InvoicesMatch>
+  >()
 
-  expectTypeOf(
-    matches.filter((match) => isMatch(match, 'loaderData.0.comment')),
-  ).toEqualTypeOf<Array<CommentsMatch>>()
+  expectTypeOf(matches.filter((match) => isMatch(match, 'loaderData.0.comment'))).toEqualTypeOf<
+    Array<CommentsMatch>
+  >()
 })
 
 test('MatchRoute children are typed from resolved params under pathless layouts', () => {

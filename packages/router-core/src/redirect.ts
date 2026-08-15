@@ -44,10 +44,7 @@ export type RedirectOptionsRoute<
   TRouter extends AnyRouter = RegisteredRouter,
   TTo extends string | undefined = undefined,
   TMaskTo extends string = '',
-> = Omit<
-  RedirectOptions<TRouter, TDefaultFrom, TTo, TDefaultFrom, TMaskTo>,
-  'from'
->
+> = Omit<RedirectOptions<TRouter, TDefaultFrom, TTo, TDefaultFrom, TMaskTo>, 'from'>
 
 export interface RedirectFnRoute<in out TDefaultFrom extends string = string> {
   <
@@ -70,11 +67,7 @@ export function redirect<
 ): Redirect<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> {
   opts.statusCode = opts.statusCode || opts.code || 307
 
-  if (
-    !opts._builtLocation &&
-    !opts.reloadDocument &&
-    typeof opts.href === 'string'
-  ) {
+  if (!opts._builtLocation && !opts.reloadDocument && typeof opts.href === 'string') {
     try {
       new URL(opts.href)
       opts.reloadDocument = true
@@ -102,9 +95,7 @@ export function isRedirect(obj: any): obj is AnyRedirect {
   return obj instanceof Response && !!(obj as any).options
 }
 
-export function isResolvedRedirect(
-  obj: any,
-): obj is AnyRedirect & { options: { href: string } } {
+export function isResolvedRedirect(obj: any): obj is AnyRedirect & { options: { href: string } } {
   return isRedirect(obj) && !!obj.options.href
 }
 

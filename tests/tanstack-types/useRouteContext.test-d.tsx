@@ -111,18 +111,18 @@ test('when there is the root context', () => {
     userId: string
   }>()
 
-  expectTypeOf(
-    useRouteContext<DefaultRouter, '/invoices/$invoiceId'>,
-  ).returns.toEqualTypeOf<{ userId: string }>()
+  expectTypeOf(useRouteContext<DefaultRouter, '/invoices/$invoiceId'>).returns.toEqualTypeOf<{
+    userId: string
+  }>()
 
   expectTypeOf(useRouteContext<DefaultRouter, '/invoices/$invoiceId'>)
     .parameter(0)
     .toHaveProperty('select')
     .toEqualTypeOf<((search: { userId: string }) => unknown) | undefined>()
 
-  expectTypeOf(
-    useRouteContext<DefaultRouter, '/invoices', false>,
-  ).returns.toEqualTypeOf<{ userId?: string }>()
+  expectTypeOf(useRouteContext<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+    userId?: string
+  }>()
 
   expectTypeOf(useRouteContext<DefaultRouter, '/invoices', false>)
     .parameter(0)
@@ -193,25 +193,24 @@ test('when there are multiple contexts', () => {
     userId: string
   }>()
 
-  expectTypeOf(
-    useRouteContext<DefaultRouter, '/invoices/$invoiceId'>,
-  ).returns.toEqualTypeOf<{ userId: string }>()
+  expectTypeOf(useRouteContext<DefaultRouter, '/invoices/$invoiceId'>).returns.toEqualTypeOf<{
+    userId: string
+  }>()
 
   expectTypeOf(useRouteContext<DefaultRouter, '/invoices/$invoiceId'>)
     .parameter(0)
     .toHaveProperty('select')
     .toEqualTypeOf<((search: { userId: string }) => unknown) | undefined>()
 
-  expectTypeOf(
-    useRouteContext<DefaultRouter, '/invoices', false>,
-  ).returns.toEqualTypeOf<{ userId?: string; username?: string }>()
+  expectTypeOf(useRouteContext<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+    userId?: string
+    username?: string
+  }>()
 
   expectTypeOf(useRouteContext<DefaultRouter, '/invoices', false>)
     .parameter(0)
     .toHaveProperty('select')
-    .toEqualTypeOf<
-      ((search: { userId?: string; username?: string }) => unknown) | undefined
-    >()
+    .toEqualTypeOf<((search: { userId?: string; username?: string }) => unknown) | undefined>()
 })
 
 test('when there are overlapping contexts', () => {
@@ -275,9 +274,7 @@ test('when there are overlapping contexts', () => {
     userId: string
   }>
 
-  expectTypeOf(
-    useRouteContext<DefaultRouter, '/invoices/$invoiceId'>,
-  ).returns.toEqualTypeOf<{
+  expectTypeOf(useRouteContext<DefaultRouter, '/invoices/$invoiceId'>).returns.toEqualTypeOf<{
     userId: string
     readonly username: 'username2'
   }>()
@@ -286,16 +283,10 @@ test('when there are overlapping contexts', () => {
     .parameter(0)
     .toHaveProperty('select')
     .toEqualTypeOf<
-      | ((search: {
-          userId: string
-          readonly username: 'username2'
-        }) => unknown)
-      | undefined
+      ((search: { userId: string; readonly username: 'username2' }) => unknown) | undefined
     >()
 
-  expectTypeOf(
-    useRouteContext<DefaultRouter, '/invoices', false>,
-  ).returns.toEqualTypeOf<{
+  expectTypeOf(useRouteContext<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
     userId?: string
     username?: 'username1' | 'username2'
   }>()
@@ -304,10 +295,6 @@ test('when there are overlapping contexts', () => {
     .parameter(0)
     .toHaveProperty('select')
     .toEqualTypeOf<
-      | ((search: {
-          userId?: string
-          username?: 'username2' | 'username1'
-        }) => unknown)
-      | undefined
+      ((search: { userId?: string; username?: 'username2' | 'username1' }) => unknown) | undefined
     >()
 })

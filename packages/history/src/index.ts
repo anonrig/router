@@ -57,9 +57,7 @@ export type BlockerFnArgs = {
   action: HistoryAction
 }
 
-export type BlockerFn = (
-  args: BlockerFnArgs,
-) => Promise<any> | any
+export type BlockerFn = (args: BlockerFnArgs) => Promise<any> | any
 
 export type NavigationBlocker = {
   blockerFn: BlockerFn
@@ -74,10 +72,7 @@ type TryNavigateArgs = {
   task: () => void
   type: 'PUSH' | 'REPLACE' | 'BACK' | 'FORWARD' | 'GO'
   navigateOpts?: NavigateOptions
-} & (
-  | { type: 'PUSH' | 'REPLACE'; path: string; state: any }
-  | { type: 'BACK' | 'FORWARD' | 'GO' }
-)
+} & ({ type: 'PUSH' | 'REPLACE'; path: string; state: any } | { type: 'BACK' | 'FORWARD' | 'GO' })
 
 export function createHistory(opts: {
   getLocation: () => HistoryLocation
@@ -108,11 +103,7 @@ export function createHistory(opts: {
     else location = opts.getLocation()
   }
 
-  const tryNavigation = async ({
-    task,
-    navigateOpts,
-    ...actionInfo
-  }: TryNavigateArgs) => {
+  const tryNavigation = async ({ task, navigateOpts, ...actionInfo }: TryNavigateArgs) => {
     const ignoreBlocker = navigateOpts?.ignoreBlocker ?? false
     if (ignoreBlocker) {
       task()
@@ -120,8 +111,7 @@ export function createHistory(opts: {
     }
 
     const blockers = opts.getBlockers?.() ?? []
-    const isPushOrReplace =
-      actionInfo.type === 'PUSH' || actionInfo.type === 'REPLACE'
+    const isPushOrReplace = actionInfo.type === 'PUSH' || actionInfo.type === 'REPLACE'
     if (typeof document !== 'undefined' && blockers.length && isPushOrReplace) {
       for (const blocker of blockers) {
         const nextLocation = parseHref(actionInfo.path, actionInfo.state)
@@ -245,9 +235,7 @@ export function createBrowserHistory(opts?: {
   createHref?: (path: string) => string
   window?: any
 }): RouterHistory {
-  const win =
-    opts?.window ??
-    (typeof document !== 'undefined' ? window : (undefined as any))
+  const win = opts?.window ?? (typeof document !== 'undefined' ? window : (undefined as any))
 
   const originalPushState = win.history.pushState
   const originalReplaceState = win.history.replaceState
@@ -288,28 +276,18 @@ export function createBrowserHistory(opts?: {
 
   const getLocation = () => currentLocation
 
-  let next:
-    | undefined
-    | [href: string, state: any, isPush: boolean]
+  let next: undefined | [href: string, state: any, isPush: boolean]
 
   const flush = () => {
     if (!next) return
     history._ignoreSubscribers = true
-    ;(next[2] ? win.history.pushState : win.history.replaceState)(
-      next[1],
-      '',
-      next[0],
-    )
+    ;(next[2] ? win.history.pushState : win.history.replaceState)(next[1], '', next[0])
     history._ignoreSubscribers = false
     next = undefined
     rollbackLocation = undefined
   }
 
-  const queueHistoryAction = (
-    isPush: boolean,
-    destHref: string,
-    state: any,
-  ) => {
+  const queueHistoryAction = (isPush: boolean, destHref: string, state: any) => {
     const href = createHref(destHref)
     const hasPendingAction = !!next
     if (!hasPendingAction) rollbackLocation = currentLocation
@@ -330,8 +308,7 @@ export function createBrowserHistory(opts?: {
     }
 
     const nextLocation = parseLocation()
-    const delta =
-      nextLocation.state[STATE_INDEX] - currentLocation.state[STATE_INDEX]
+    const delta = nextLocation.state[STATE_INDEX] - currentLocation.state[STATE_INDEX]
     const isForward = delta === 1
     const isBack = delta === -1
     const isGo = (!isForward && !isBack) || nextPopIsGo
@@ -382,10 +359,7 @@ export function createBrowserHistory(opts?: {
           shouldBlock = true
           break
         }
-        if (
-          typeof shouldHaveBeforeUnload === 'function' &&
-          shouldHaveBeforeUnload() === true
-        ) {
+        if (typeof shouldHaveBeforeUnload === 'function' && shouldHaveBeforeUnload() === true) {
           shouldBlock = true
           break
         }
@@ -454,9 +428,7 @@ export function createBrowserHistory(opts?: {
 }
 
 export function createHashHistory(opts?: { window?: any }): RouterHistory {
-  const win =
-    opts?.window ??
-    (typeof document !== 'undefined' ? window : (undefined as any))
+  const win = opts?.window ?? (typeof document !== 'undefined' ? window : (undefined as any))
   return createBrowserHistory({
     window: win,
     parseLocation: () => {
@@ -464,12 +436,10 @@ export function createHashHistory(opts?: { window?: any }): RouterHistory {
       const pathPart = hashSplit[0] ?? '/'
       const searchPart = win.location.search
       const hashEntries = hashSplit.slice(1)
-      const hashPart =
-        hashEntries.length === 0 ? '' : `#${hashEntries.join('#')}`
+      const hashPart = hashEntries.length === 0 ? '' : `#${hashEntries.join('#')}`
       return parseHref(`${pathPart}${searchPart}${hashPart}`, win.history.state)
     },
-    createHref: (href) =>
-      `${win.location.pathname}${win.location.search}#${href}`,
+    createHref: (href) => `${win.location.pathname}${win.location.search}#${href}`,
   })
 }
 
@@ -536,10 +506,7 @@ function sanitizePath(path: string): string {
   return sanitized
 }
 
-export function parseHref(
-  href: string,
-  state: ParsedHistoryState | undefined,
-): HistoryLocation {
+export function parseHref(href: string, state: ParsedHistoryState | undefined): HistoryLocation {
   const sanitizedHref = sanitizePath(href)
   let hashIndex = -1
   let searchIndex = -1
@@ -568,10 +535,7 @@ export function parseHref(
     hash: hashIndex > -1 ? sanitizedHref.substring(hashIndex) : '',
     search:
       searchIndex > -1
-        ? sanitizedHref.slice(
-            searchIndex,
-            hashIndex === -1 ? undefined : hashIndex,
-          )
+        ? sanitizedHref.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex)
         : '',
     state: state || { [STATE_INDEX]: 0, key: addedKey, __TSR_key: addedKey },
   }

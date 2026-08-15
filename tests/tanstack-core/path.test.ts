@@ -186,66 +186,63 @@ describe('resolvePath', () => {
     })
   })
 
-  describe.each([{ base: '/' }, { base: '/nested' }])(
-    'param routes w/ base=$base',
-    ({ base }) => {
-      describe('wildcard (prefix + suffix)', () => {
-        it.each([
-          { name: 'regular top-level', to: '/$' },
-          { name: 'regular nested', to: '/params/wildcard/$' },
-          { name: 'with top-level prefix', to: '/prefix{$}' },
-          { name: 'with nested prefix', to: '/params/wildcard/prefix{$}' },
-          { name: 'with top-level suffix', to: '/{$}suffix' },
-          { name: 'with nested suffix', to: '/params/wildcard/{$}suffix' },
-          {
-            name: 'with top-level prefix + suffix',
-            to: '/prefix{$}suffix',
-          },
-          {
-            name: 'with nested prefix + suffix',
-            to: '/params/wildcard/prefix{$}suffix',
-          },
-        ])('$name', ({ to }) => {
-          const candidate = base + trimPathLeft(to)
-          expect(
-            resolvePath({
-              base,
-              to: candidate,
-              trailingSlash: 'never',
-            }),
-          ).toEqual(candidate)
-        })
+  describe.each([{ base: '/' }, { base: '/nested' }])('param routes w/ base=$base', ({ base }) => {
+    describe('wildcard (prefix + suffix)', () => {
+      it.each([
+        { name: 'regular top-level', to: '/$' },
+        { name: 'regular nested', to: '/params/wildcard/$' },
+        { name: 'with top-level prefix', to: '/prefix{$}' },
+        { name: 'with nested prefix', to: '/params/wildcard/prefix{$}' },
+        { name: 'with top-level suffix', to: '/{$}suffix' },
+        { name: 'with nested suffix', to: '/params/wildcard/{$}suffix' },
+        {
+          name: 'with top-level prefix + suffix',
+          to: '/prefix{$}suffix',
+        },
+        {
+          name: 'with nested prefix + suffix',
+          to: '/params/wildcard/prefix{$}suffix',
+        },
+      ])('$name', ({ to }) => {
+        const candidate = base + trimPathLeft(to)
+        expect(
+          resolvePath({
+            base,
+            to: candidate,
+            trailingSlash: 'never',
+          }),
+        ).toEqual(candidate)
       })
+    })
 
-      describe('named (prefix + suffix)', () => {
-        it.each([
-          { name: 'regular top-level', to: '/$foo' },
-          { name: 'regular nested', to: '/params/named/$foo' },
-          { name: 'with top-level prefix', to: '/prefix{$foo}' },
-          { name: 'with nested prefix', to: '/params/named/prefix{$foo}' },
-          { name: 'with top-level suffix', to: '/{$foo}suffix' },
-          { name: 'with nested suffix', to: '/params/named/{$foo}suffix' },
-          {
-            name: 'with top-level prefix + suffix',
-            to: '/prefix{$foo}suffix',
-          },
-          {
-            name: 'with nested prefix + suffix',
-            to: '/params/named/prefix{$foo}suffix',
-          },
-        ])('$name', ({ to }) => {
-          const candidate = base + trimPathLeft(to)
-          expect(
-            resolvePath({
-              base,
-              to: candidate,
-              trailingSlash: 'never',
-            }),
-          ).toEqual(candidate)
-        })
+    describe('named (prefix + suffix)', () => {
+      it.each([
+        { name: 'regular top-level', to: '/$foo' },
+        { name: 'regular nested', to: '/params/named/$foo' },
+        { name: 'with top-level prefix', to: '/prefix{$foo}' },
+        { name: 'with nested prefix', to: '/params/named/prefix{$foo}' },
+        { name: 'with top-level suffix', to: '/{$foo}suffix' },
+        { name: 'with nested suffix', to: '/params/named/{$foo}suffix' },
+        {
+          name: 'with top-level prefix + suffix',
+          to: '/prefix{$foo}suffix',
+        },
+        {
+          name: 'with nested prefix + suffix',
+          to: '/params/named/prefix{$foo}suffix',
+        },
+      ])('$name', ({ to }) => {
+        const candidate = base + trimPathLeft(to)
+        expect(
+          resolvePath({
+            base,
+            to: candidate,
+            trailingSlash: 'never',
+          }),
+        ).toEqual(candidate)
       })
-    },
-  )
+    })
+  })
 
   it('preserves explicit route-template param syntax', () => {
     expect(
@@ -412,18 +409,15 @@ describe.each([{ server: true }, { server: false }])(
           params: { id: '123' },
           result: '/a/123/',
         },
-      ])(
-        'should preserve trailing slash for $path',
-        ({ path, params, result }) => {
-          expect(
-            interpolatePath({
-              path,
-              params,
-              server,
-            }).interpolatedPath,
-          ).toBe(result)
-        },
-      )
+      ])('should preserve trailing slash for $path', ({ path, params, result }) => {
+        expect(
+          interpolatePath({
+            path,
+            params,
+            server,
+          }).interpolatedPath,
+        ).toBe(result)
+      })
     })
 
     describe('wildcard (prefix + suffix)', () => {
@@ -639,30 +633,27 @@ describe.each([{ server: true }, { server: false }])(
     })
 
     describe('resolvePath + interpolatePath', () => {
-      it.each(['never', 'preserve', 'always'] as const)(
-        'trailing slash: %s',
-        (trailingSlash) => {
-          const tail = trailingSlash === 'always' ? '/' : ''
-          const defaultedFromPath = '/'
-          const fromPath = resolvePath({
-            base: defaultedFromPath,
-            to: '.',
-            trailingSlash,
-          })
-          const nextTo = resolvePath({
-            base: fromPath,
-            to: '/splat/$',
-            trailingSlash,
-          })
-          const nextParams = { _splat: '' }
-          const interpolatedNextTo = interpolatePath({
-            path: nextTo,
-            params: nextParams,
-            server,
-          }).interpolatedPath
-          expect(interpolatedNextTo).toBe(`/splat${tail}`)
-        },
-      )
+      it.each(['never', 'preserve', 'always'] as const)('trailing slash: %s', (trailingSlash) => {
+        const tail = trailingSlash === 'always' ? '/' : ''
+        const defaultedFromPath = '/'
+        const fromPath = resolvePath({
+          base: defaultedFromPath,
+          to: '.',
+          trailingSlash,
+        })
+        const nextTo = resolvePath({
+          base: fromPath,
+          to: '/splat/$',
+          trailingSlash,
+        })
+        const nextParams = { _splat: '' }
+        const interpolatedNextTo = interpolatePath({
+          path: nextTo,
+          params: nextParams,
+          server,
+        }).interpolatedPath
+        expect(interpolatedNextTo).toBe(`/splat${tail}`)
+      })
     })
   },
 )
@@ -764,9 +755,7 @@ describe('matchPathname', () => {
         },
       },
     ])('$name', ({ input, matchingOptions, expectedMatchedParams }) => {
-      expect(matchPathname(input, matchingOptions)).toStrictEqual(
-        toNullObj(expectedMatchedParams),
-      )
+      expect(matchPathname(input, matchingOptions)).toStrictEqual(toNullObj(expectedMatchedParams))
     })
   })
 
@@ -828,9 +817,7 @@ describe('matchPathname', () => {
         },
       },
     ])('$name', ({ input, matchingOptions, expectedMatchedParams }) => {
-      expect(matchPathname(input, matchingOptions)).toStrictEqual(
-        toNullObj(expectedMatchedParams),
-      )
+      expect(matchPathname(input, matchingOptions)).toStrictEqual(toNullObj(expectedMatchedParams))
     })
   })
 
@@ -907,9 +894,7 @@ describe('matchPathname', () => {
         },
       },
     ])('$name', ({ input, matchingOptions, expectedMatchedParams }) => {
-      expect(matchPathname(input, matchingOptions)).toStrictEqual(
-        toNullObj(expectedMatchedParams),
-      )
+      expect(matchPathname(input, matchingOptions)).toStrictEqual(toNullObj(expectedMatchedParams))
     })
   })
 })

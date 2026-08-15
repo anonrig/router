@@ -40,10 +40,7 @@ describe('public presentation lane contracts', () => {
       component: () => <div>Child content</div>,
     })
     const router = createRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -65,9 +62,10 @@ describe('public presentation lane contracts', () => {
       parentRoute.id,
       childRoute.id,
     ])
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({ status: 'pending', isFetching: 'loader' })
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
+      status: 'pending',
+      isFetching: 'loader',
+    })
 
     await act(async () => {
       parentGate.resolve('parent data')
@@ -97,8 +95,7 @@ describe('public presentation lane contracts', () => {
       pendingMs: 0,
       pendingMinMs: 100,
       pendingComponent: () => <div>Loading page</div>,
-      beforeLoad: ({ search }) =>
-        search.revision === 1 ? firstGate : secondGate,
+      beforeLoad: ({ search }) => (search.revision === 1 ? firstGate : secondGate),
       component: () => {
         const search = pageRoute.useSearch()
         return <div>Page revision {search.revision}</div>
@@ -167,8 +164,7 @@ describe('public presentation lane contracts', () => {
       })
 
       settledAtOriginalDeadline = successorSettled
-      renderedAtOriginalDeadline =
-        screen.queryByText('Page revision 2') !== null
+      renderedAtOriginalDeadline = screen.queryByText('Page revision 2') !== null
     } finally {
       // Finish a faulty implementation too, so a deadline assertion cannot
       // strand this router and contaminate the following test.

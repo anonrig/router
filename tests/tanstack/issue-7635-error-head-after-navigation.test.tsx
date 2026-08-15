@@ -1,11 +1,5 @@
 import { createPortal } from 'react-dom'
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import {
   HeadContent,
@@ -88,9 +82,7 @@ test('#7635: a parent beforeLoad error replaces the previous child title', async
 
   fireEvent.click(screen.getByRole('link', { name: 'Fail app load' }))
 
-  expect(await screen.findByTestId('app-error')).toHaveTextContent(
-    appError.message,
-  )
+  expect(await screen.findByTestId('app-error')).toHaveTextContent(appError.message)
   expect(appErrorRendered).toHaveBeenCalledWith(appError)
   expect(screen.queryByTestId('child-content')).not.toBeInTheDocument()
   await waitFor(() => expect(document.title).toBe('App error title'))

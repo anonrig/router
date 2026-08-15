@@ -19,9 +19,7 @@ export type FindValueByIndex<
 > = TKey extends `${infer TIndex extends number}` ? TValue[TIndex] : never
 
 export type FindValueByKey<TKey, TValue> =
-  TValue extends ReadonlyArray<any>
-    ? FindValueByIndex<TKey, TValue>
-    : TValue[TKey & keyof TValue]
+  TValue extends ReadonlyArray<any> ? FindValueByIndex<TKey, TValue> : TValue[TKey & keyof TValue]
 
 export type CreateMatchAndValue<TMatch, TValue> = TValue extends any
   ? {
@@ -34,10 +32,7 @@ export type NextMatchAndValue<
   TKey,
   TMatchAndValue extends AnyMatchAndValue,
 > = TMatchAndValue extends any
-  ? CreateMatchAndValue<
-      TMatchAndValue['match'],
-      FindValueByKey<TKey, TMatchAndValue['value']>
-    >
+  ? CreateMatchAndValue<TMatchAndValue['match'], FindValueByKey<TKey, TMatchAndValue['value']>>
   : never
 
 export type IsMatchKeyOf<TValue> =
@@ -69,11 +64,7 @@ export type IsMatchParse<
   TParentPath extends string = '',
 > = TPath extends `${string}.${string}`
   ? TPath extends `${infer TFirst}.${infer TRest}`
-    ? IsMatchParse<
-        TRest,
-        NextMatchAndValue<TFirst, TMatchAndValue>,
-        `${TParentPath}${TFirst}.`
-      >
+    ? IsMatchParse<TRest, NextMatchAndValue<TFirst, TMatchAndValue>, `${TParentPath}${TFirst}.`>
     : never
   : {
       path: IsMatchPath<TParentPath, TMatchAndValue>
@@ -176,12 +167,8 @@ export interface PreValidationErrorHandlingRouteMatch<
   fullPath: TFullPath
   index: number
   pathname: string
-  search:
-    | { status: 'success'; value: TFullSearchSchema }
-    | { status: 'error'; error: unknown }
-  params:
-    | { status: 'success'; value: TAllParams }
-    | { status: 'error'; error: unknown }
+  search: { status: 'success'; value: TFullSearchSchema } | { status: 'error'; error: unknown }
+  params: { status: 'success'; value: TAllParams } | { status: 'error'; error: unknown }
   staticData: StaticDataRouteOption
   ssr?: boolean | 'data-only'
 }

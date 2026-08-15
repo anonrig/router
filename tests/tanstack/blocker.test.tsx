@@ -52,9 +52,7 @@ async function setup({ blockerFn, disabled, ignoreBlocker }: BlockerTestOpts) {
             link to posts
           </Link>
           <Link to="/foo">link to foo</Link>
-          <button onClick={() => navigate({ to: '/posts', ignoreBlocker })}>
-            button
-          </button>
+          <button onClick={() => navigate({ to: '/posts', ignoreBlocker })}>button</button>
         </>
       )
     },
@@ -94,12 +92,7 @@ async function setup({ blockerFn, disabled, ignoreBlocker }: BlockerTestOpts) {
   })
 
   const router = createRouter({
-    routeTree: rootRoute.addChildren([
-      indexRoute,
-      postsRoute,
-      fooRoute,
-      barRoute,
-    ]),
+    routeTree: rootRoute.addChildren([indexRoute, postsRoute, fooRoute, barRoute]),
     history,
   })
 
@@ -128,8 +121,7 @@ describe('Blocker', () => {
         ignoreBlocker: undefined,
       },
       {
-        blockerFn: async () =>
-          await new Promise<boolean>((resolve) => resolve(false)),
+        blockerFn: async () => await new Promise<boolean>((resolve) => resolve(false)),
         disabled: false,
         ignoreBlocker: false,
       },
@@ -152,12 +144,9 @@ describe('Blocker', () => {
       const { clickable, blockerFn } = await setup(opts)
 
       fireEvent.click(clickable[clickTarget])
-      expect(
-        await screen.findByRole('heading', { name: 'Posts' }),
-      ).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
       expect(window.location.pathname).toBe('/posts')
-      if (opts.ignoreBlocker || opts.disabled)
-        expect(blockerFn).not.toHaveBeenCalled()
+      if (opts.ignoreBlocker || opts.disabled) expect(blockerFn).not.toHaveBeenCalled()
     },
   )
 
@@ -169,8 +158,7 @@ describe('Blocker', () => {
         ignoreBlocker: undefined,
       },
       {
-        blockerFn: async () =>
-          await new Promise<boolean>((resolve) => resolve(true)),
+        blockerFn: async () => await new Promise<boolean>((resolve) => resolve(true)),
         disabled: false,
         ignoreBlocker: false,
       },
@@ -183,9 +171,7 @@ describe('Blocker', () => {
       const { clickable } = await setup(opts)
 
       fireEvent.click(clickable[clickTarget])
-      await expect(
-        screen.findByRole('header', { name: 'Posts' }),
-      ).rejects.toThrow()
+      await expect(screen.findByRole('header', { name: 'Posts' })).rejects.toThrow()
       expect(window.location.pathname).toBe('/')
     },
   )
@@ -196,9 +182,7 @@ describe('Blocker', () => {
       ignoreBlocker: false,
     })
     fireEvent.click(clickable.fooLink)
-    expect(
-      await screen.findByRole('heading', { name: 'Bar' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Bar' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/bar')
     expect(blockerFn).toHaveBeenCalledTimes(1)
   })

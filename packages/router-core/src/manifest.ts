@@ -46,8 +46,7 @@ export function getScriptPreloadAttrs(
   crossOrigin?: AssetCrossOrigin
 } {
   const preloadLink = resolveManifestAssetLink(link)
-  const crossOrigin =
-    getAssetCrossOrigin(assetCrossOrigin, 'script') ?? preloadLink.crossOrigin
+  const crossOrigin = getAssetCrossOrigin(assetCrossOrigin, 'script') ?? preloadLink.crossOrigin
 
   return {
     ...(getManifestScriptFormat(manifest) === 'iife'
@@ -97,10 +96,7 @@ export type ManifestRoute = {
 
 export type ServerManifestRoute = ManifestRoute
 
-export type ManifestRouteAssets = Pick<
-  ManifestRoute,
-  'preloads' | 'scripts' | 'css'
->
+export type ManifestRouteAssets = Pick<ManifestRoute, 'preloads' | 'scripts' | 'css'>
 
 export type RouterManagedTitleTag = {
   tag: 'title'

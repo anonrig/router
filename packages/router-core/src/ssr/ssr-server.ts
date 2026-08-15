@@ -58,10 +58,7 @@ export function dehydrateMatch(match: AnyRouteMatch): DehydratedMatch {
   return dehydratedMatch
 }
 
-const INITIAL_SCRIPTS = [
-  getCrossReferenceHeader(SCOPE_ID),
-  minifiedTsrBootStrapScript,
-]
+const INITIAL_SCRIPTS = [getCrossReferenceHeader(SCOPE_ID), minifiedTsrBootStrapScript]
 
 class ScriptBuffer {
   private injectScript: ((script: string) => void) | undefined
@@ -183,9 +180,7 @@ const manifestCaches = new WeakMap<ServerManifest, ManifestLRU>()
 function getManifestCache(manifest: ServerManifest): ManifestLRU {
   const cache = manifestCaches.get(manifest)
   if (cache) return cache
-  const newCache = createLRUCache<string, PreparedMatchedManifestRoutes>(
-    MANIFEST_CACHE_SIZE,
-  )
+  const newCache = createLRUCache<string, PreparedMatchedManifestRoutes>(MANIFEST_CACHE_SIZE)
   manifestCaches.set(manifest, newCache)
   return newCache
 }
@@ -401,15 +396,8 @@ export function attachRouterServerSsrUtils({
       let routes = manifest.routes
       if (manifest.inlineCss) {
         const cacheKey = getMatchedRoutesCacheKey(matches)
-        const preparedManifest = getPreparedMatchedManifestRoutes(
-          manifest,
-          matches,
-          cacheKey,
-        )
-        inlineCssAsset = getInlineCssAssetForPreparedRoutes(
-          manifest,
-          preparedManifest,
-        )
+        const preparedManifest = getPreparedMatchedManifestRoutes(manifest, matches, cacheKey)
+        inlineCssAsset = getInlineCssAssetForPreparedRoutes(manifest, preparedManifest)
         if (preparedManifest.hasStrippedRoutes) {
           routes = { ...manifest.routes, ...preparedManifest.routes }
         }
@@ -417,9 +405,7 @@ export function attachRouterServerSsrUtils({
 
       if (!hasAssets) {
         return {
-          ...(manifest.scriptFormat
-            ? { scriptFormat: manifest.scriptFormat }
-            : {}),
+          ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
           ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
           routes,
         }
@@ -429,16 +415,11 @@ export function attachRouterServerSsrUtils({
 
       // Merge request-scoped assets into root route without mutating cached manifest
       return {
-        ...(manifest.scriptFormat
-          ? { scriptFormat: manifest.scriptFormat }
-          : {}),
+        ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
         ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
         routes: {
           ...routes,
-          [rootRouteId]: mergeRequestAssetsIntoRootRoute(
-            rootRoute,
-            requestAssets,
-          ),
+          [rootRouteId]: mergeRequestAssetsIntoRootRoute(rootRoute, requestAssets),
         },
       }
     },
@@ -464,10 +445,7 @@ export function attachRouterServerSsrUtils({
     }
   }
 
-  const removeListener = (
-    listeners: Array<() => void>,
-    listener: () => void,
-  ) => {
+  const removeListener = (listeners: Array<() => void>, listener: () => void) => {
     const index = listeners.indexOf(listener)
     if (index >= 0) listeners.splice(index, 1)
   }
@@ -516,9 +494,7 @@ export function attachRouterServerSsrUtils({
         )
 
         manifestToDehydrate = {
-          ...(manifest.scriptFormat
-            ? { scriptFormat: manifest.scriptFormat }
-            : {}),
+          ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
           ...(preparedManifest.inlineCssHrefs
             ? { inlineStyle: createInlineCssPlaceholderAsset() }
             : {}),
@@ -531,10 +507,7 @@ export function attachRouterServerSsrUtils({
           const existingRoot = manifestToDehydrate.routes[rootRouteId]
           manifestToDehydrate.routes = {
             ...manifestToDehydrate.routes,
-            [rootRouteId]: mergeRequestAssetsIntoRootRoute(
-              existingRoot,
-              requestAssets,
-            ),
+            [rootRouteId]: mergeRequestAssetsIntoRootRoute(existingRoot, requestAssets),
           }
         }
       }
@@ -765,15 +738,10 @@ export function getNormalizedURL(url: string | URL, base?: string | URL) {
   if (typeof url === 'string') url = url.replace('\\', '%5C')
 
   const rawUrl = new URL(url, base)
-  const { path: decodedPathname, handledProtocolRelativeURL } = decodePath(
-    rawUrl.pathname,
-  )
+  const { path: decodedPathname, handledProtocolRelativeURL } = decodePath(rawUrl.pathname)
   const searchParams = new URLSearchParams(rawUrl.search)
   const normalizedHref =
-    decodedPathname +
-    (searchParams.size > 0 ? '?' : '') +
-    searchParams.toString() +
-    rawUrl.hash
+    decodedPathname + (searchParams.size > 0 ? '?' : '') + searchParams.toString() + rawUrl.hash
 
   return {
     url: new URL(normalizedHref, rawUrl.origin),

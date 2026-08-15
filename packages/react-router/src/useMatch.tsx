@@ -2,10 +2,7 @@ import { useContext } from 'react'
 import { dummyMatchContext, matchContext } from './matchContext'
 import { useRouter } from './useRouter'
 import { useRouterState } from './useRouterState'
-import type {
-  StructuralSharingOption,
-  ValidateSelected,
-} from './structuralSharing'
+import type { StructuralSharingOption, ValidateSelected } from './structuralSharing'
 import type {
   AnyRouter,
   MakeRouteMatch,
@@ -35,14 +32,7 @@ export type UseMatchRoute<out TFrom> = <
   TSelected = unknown,
   TStructuralSharing extends boolean = boolean,
 >(
-  opts?: UseMatchBaseOptions<
-    TRouter,
-    TFrom,
-    true,
-    true,
-    TSelected,
-    TStructuralSharing
-  > &
+  opts?: UseMatchBaseOptions<TRouter, TFrom, true, true, TSelected, TStructuralSharing> &
     StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
 ) => UseMatchResult<TRouter, TFrom, true, TSelected>
 
@@ -54,14 +44,7 @@ export type UseMatchOptions<
   TSelected,
   TStructuralSharing extends boolean,
 > = StrictOrFrom<TRouter, TFrom, TStrict> &
-  UseMatchBaseOptions<
-    TRouter,
-    TFrom,
-    TStrict,
-    TThrow,
-    TSelected,
-    TStructuralSharing
-  > &
+  UseMatchBaseOptions<TRouter, TFrom, TStrict, TThrow, TSelected, TStructuralSharing> &
   StructuralSharingOption<TRouter, TSelected, TStructuralSharing>
 
 export type UseMatchResult<

@@ -19,10 +19,7 @@ import { useRouter } from './useRouter'
 import { useRouterState } from './useRouterState'
 import { useMatch } from './useMatch'
 import { deepEqual } from '@anonrig/router-core'
-import type {
-  StructuralSharingOption,
-  ValidateSelected,
-} from './structuralSharing'
+import type { StructuralSharingOption, ValidateSelected } from './structuralSharing'
 
 export function Matches() {
   const router = useRouter()
@@ -46,10 +43,7 @@ export function Matches() {
   const wrapped = router.options.disableGlobalCatchBoundary ? (
     inner
   ) : (
-    <CatchBoundary
-      getResetKey={() => resetKey}
-      onCatch={router.options.defaultOnCatch}
-    >
+    <CatchBoundary getResetKey={() => resetKey} onCatch={router.options.defaultOnCatch}>
       {inner}
     </CatchBoundary>
   )
@@ -60,20 +54,15 @@ export function Matches() {
   )
 }
 
-export interface UseMatchesBaseOptions<
-  TRouter extends AnyRouter,
-  TSelected,
-  TStructuralSharing,
-> {
+export interface UseMatchesBaseOptions<TRouter extends AnyRouter, TSelected, TStructuralSharing> {
   select?: (
     matches: Array<MakeRouteMatchUnion<TRouter>>,
   ) => ValidateSelected<TRouter, TSelected, TStructuralSharing>
 }
 
-export type UseMatchesResult<
-  TRouter extends AnyRouter,
-  TSelected,
-> = unknown extends TSelected ? Array<MakeRouteMatchUnion<TRouter>> : TSelected
+export type UseMatchesResult<TRouter extends AnyRouter, TSelected> = unknown extends TSelected
+  ? Array<MakeRouteMatchUnion<TRouter>>
+  : TSelected
 
 export function useMatches<
   TRouter extends AnyRouter = RegisteredRouter,
@@ -84,8 +73,7 @@ export function useMatches<
     StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
 ): UseMatchesResult<TRouter, TSelected> {
   return useRouterState({
-    select: (s) =>
-      opts?.select ? opts.select(s.matches as any) : (s.matches as any),
+    select: (s) => (opts?.select ? opts.select(s.matches as any) : (s.matches as any)),
   }) as UseMatchesResult<TRouter, TSelected>
 }
 
@@ -157,11 +145,7 @@ export type MakeMatchRouteOptions<
   TMaskTo extends string = '',
 > = UseMatchRouteOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & {
   children?:
-    | ((
-        params?: Expand<
-          ResolveRoute<TRouter, TFrom, TTo>['types']['allParams']
-        >,
-      ) => ReactNode)
+    | ((params?: Expand<ResolveRoute<TRouter, TFrom, TTo>['types']['allParams']>) => ReactNode)
     | ReactNode
 }
 

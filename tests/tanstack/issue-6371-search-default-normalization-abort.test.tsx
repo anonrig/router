@@ -68,9 +68,7 @@ test('#6371: initial search defaults produce one live canonical loader', async (
       page: typeof search.page === 'number' ? search.page : 1,
     }),
     loader,
-    component: () => (
-      <div data-testid="about-data">{aboutRoute.useLoaderData()}</div>
-    ),
+    component: () => <div data-testid="about-data">{aboutRoute.useLoaderData()}</div>,
     errorComponent: ({ error }) => {
       errorComponentRendered(error)
       return <div data-testid="about-error">{error.message}</div>
@@ -119,9 +117,7 @@ test('#6371: initial search defaults produce one live canonical loader', async (
     loaderGate.resolve('about data')
   })
 
-  expect(await screen.findByTestId('about-data')).toHaveTextContent(
-    'about data',
-  )
+  expect(await screen.findByTestId('about-data')).toHaveTextContent('about data')
   expect(loader).toHaveBeenCalledTimes(1)
   expect(loaderSignals[0]?.aborted).toBe(false)
   expect(errorComponentRendered).not.toHaveBeenCalled()
@@ -129,9 +125,7 @@ test('#6371: initial search defaults produce one live canonical loader', async (
 })
 
 test('initial canonicalization bypasses existing navigation blockers', async () => {
-  const loader = vi.fn(
-    ({ location }: { location: { href: string } }) => location.href,
-  )
+  const loader = vi.fn(({ location }: { location: { href: string } }) => location.href)
   const rootRoute = createRootRoute({
     component: () => <Outlet />,
   })

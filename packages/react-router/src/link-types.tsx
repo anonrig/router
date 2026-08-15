@@ -28,16 +28,9 @@ import type {
   RoutePaths,
 } from '@anonrig/router-core'
 import type { ReactNode } from 'react'
-import type {
-  ValidateLinkOptions,
-  ValidateLinkOptionsArray,
-} from './typePrimitives'
+import type { ValidateLinkOptions, ValidateLinkOptionsArray } from './typePrimitives'
 
-type LinkState = [
-  href: string | undefined,
-  externalLink: string | undefined,
-  isActive: boolean,
-]
+type LinkState = [href: string | undefined, externalLink: string | undefined, isActive: boolean]
 
 // Keep a referentially stable value while the contents are equal. Links
 // routinely pass inline `params` / `search` object literals, which would
@@ -272,9 +265,7 @@ export function useLinkProps<
     const hrefOptionPublicHref = next.maskedLocation
       ? next.maskedLocation.publicHref
       : next.publicHref
-    const hrefOptionExternal = next.maskedLocation
-      ? next.maskedLocation.external
-      : next.external
+    const hrefOptionExternal = next.maskedLocation ? next.maskedLocation.external : next.external
     const hrefOption = getHrefOption(
       hrefOptionPublicHref,
       hrefOptionExternal,
@@ -286,9 +277,7 @@ export function useLinkProps<
       if (hrefOption?.external) {
         if (isDangerousProtocol(hrefOption.href, router.protocolAllowlist)) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn(
-              `Blocked Link with dangerous protocol: ${hrefOption.href}`,
-            )
+            console.warn(`Blocked Link with dangerous protocol: ${hrefOption.href}`)
           }
           return undefined
         }
@@ -322,23 +311,13 @@ export function useLinkProps<
       const exact = activeOptions?.exact ?? false
 
       if (exact) {
-        const testExact = exactPathTest(
-          currentLocation.pathname,
-          next.pathname,
-          router.basepath,
-        )
+        const testExact = exactPathTest(currentLocation.pathname, next.pathname, router.basepath)
         if (!testExact) {
           return false
         }
       } else {
-        const currentPathSplit = removeTrailingSlash(
-          currentLocation.pathname,
-          router.basepath,
-        )
-        const nextPathSplit = removeTrailingSlash(
-          next.pathname,
-          router.basepath,
-        )
+        const currentPathSplit = removeTrailingSlash(currentLocation.pathname, router.basepath)
+        const nextPathSplit = removeTrailingSlash(next.pathname, router.basepath)
 
         const pathIsFuzzyEqual =
           currentPathSplit.startsWith(nextPathSplit) &&
@@ -355,12 +334,10 @@ export function useLinkProps<
         if (currentLocation.search !== next.search) {
           const currentSearchEmpty =
             !currentLocation.search ||
-            (typeof currentLocation.search === 'object' &&
-              !hasKeys(currentLocation.search))
+            (typeof currentLocation.search === 'object' && !hasKeys(currentLocation.search))
           const nextSearchEmpty =
             !next.search ||
-            (typeof next.search === 'object' &&
-              !hasKeys(next.search as Record<string, unknown>))
+            (typeof next.search === 'object' && !hasKeys(next.search as Record<string, unknown>))
 
           if (!(currentSearchEmpty && nextSearchEmpty)) {
             const searchTest = deepEqual(currentLocation.search, next.search, {
@@ -395,15 +372,13 @@ export function useLinkProps<
       }
     }
 
-    const resolvedActiveProps: React.HTMLAttributes<HTMLAnchorElement> =
-      isActive
-        ? (functionalUpdate(activeProps as any, {}) ?? STATIC_ACTIVE_OBJECT)
-        : STATIC_EMPTY_OBJECT
+    const resolvedActiveProps: React.HTMLAttributes<HTMLAnchorElement> = isActive
+      ? (functionalUpdate(activeProps as any, {}) ?? STATIC_ACTIVE_OBJECT)
+      : STATIC_EMPTY_OBJECT
 
-    const resolvedInactiveProps: React.HTMLAttributes<HTMLAnchorElement> =
-      isActive
-        ? STATIC_EMPTY_OBJECT
-        : (functionalUpdate(inactiveProps, {}) ?? STATIC_EMPTY_OBJECT)
+    const resolvedInactiveProps: React.HTMLAttributes<HTMLAnchorElement> = isActive
+      ? STATIC_EMPTY_OBJECT
+      : (functionalUpdate(inactiveProps, {}) ?? STATIC_EMPTY_OBJECT)
 
     const resolvedStyle = (() => {
       const baseStyle = style
@@ -536,11 +511,7 @@ export function useLinkProps<
         disabled,
       )
 
-      const externalLink = resolveExternalLink(
-        hrefOption,
-        to,
-        router.protocolAllowlist,
-      )
+      const externalLink = resolveExternalLink(hrefOption, to, router.protocolAllowlist)
 
       return [
         hrefOption?.href,
@@ -571,10 +542,9 @@ export function useLinkProps<
     : STATIC_EMPTY_OBJECT
 
   // Get the inactive props
-  const resolvedInactiveProps: React.HTMLAttributes<HTMLAnchorElement> =
-    isActive
-      ? STATIC_EMPTY_OBJECT
-      : (functionalUpdate(inactiveProps, {}) ?? STATIC_EMPTY_OBJECT)
+  const resolvedInactiveProps: React.HTMLAttributes<HTMLAnchorElement> = isActive
+    ? STATIC_EMPTY_OBJECT
+    : (functionalUpdate(inactiveProps, {}) ?? STATIC_EMPTY_OBJECT)
 
   const resolvedClassName = [
     className,
@@ -584,9 +554,7 @@ export function useLinkProps<
     .filter(Boolean)
     .join(' ')
 
-  const resolvedStyle = (style ||
-    resolvedActiveProps.style ||
-    resolvedInactiveProps.style) && {
+  const resolvedStyle = (style || resolvedActiveProps.style || resolvedInactiveProps.style) && {
     ...style,
     ...resolvedActiveProps.style,
     ...resolvedInactiveProps.style,
@@ -599,8 +567,7 @@ export function useLinkProps<
     options.reloadDocument || externalLink || disabled
       ? false
       : (userPreload ?? router.options.defaultPreload)
-  const preloadDelay =
-    userPreloadDelay ?? router.options.defaultPreloadDelay ?? 0
+  const preloadDelay = userPreloadDelay ?? router.options.defaultPreloadDelay ?? 0
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const doPreload = React.useCallback(() => {
@@ -620,12 +587,7 @@ export function useLinkProps<
         return
       }
 
-      if (
-        !(
-          (e as IntersectionObserverEntry).isIntersecting ??
-          preload === 'intent'
-        )
-      ) {
+      if (!((e as IntersectionObserverEntry).isIntersecting ?? preload === 'intent')) {
         if ((e as IntersectionObserverEntry).isIntersecting === false) {
           cancelPreload(innerRef)
         }
@@ -669,9 +631,9 @@ export function useLinkProps<
   // The click handler
   const handleClick = (e: React.MouseEvent) => {
     // Check actual element's target attribute as fallback
-    const elementTarget = (
-      e.currentTarget as HTMLAnchorElement | SVGAElement
-    ).getAttribute('target')
+    const elementTarget = (e.currentTarget as HTMLAnchorElement | SVGAElement).getAttribute(
+      'target',
+    )
     const effectiveTarget = target !== undefined ? target : elementTarget
 
     if (
@@ -760,8 +722,7 @@ const cancelPreload = (eventTarget: object) => {
 }
 
 const composeHandlers =
-  (handlers: Array<undefined | React.EventHandler<any>>) =>
-  (e: React.SyntheticEvent) => {
+  (handlers: Array<undefined | React.EventHandler<any>>) => (e: React.SyntheticEvent) => {
     for (const handler of handlers) {
       if (!handler) continue
       if (e.defaultPrevented) return
@@ -796,8 +757,7 @@ function isSafeInternal(to: unknown) {
 type UseLinkReactProps<TComp> = TComp extends keyof React.JSX.IntrinsicElements
   ? React.JSX.IntrinsicElements[TComp]
   : TComp extends React.ComponentType<any>
-    ? React.ComponentPropsWithoutRef<TComp> &
-        React.RefAttributes<React.ComponentRef<TComp>>
+    ? React.ComponentPropsWithoutRef<TComp> & React.RefAttributes<React.ComponentRef<TComp>>
     : never
 
 export type UseLinkPropsOptions<
@@ -806,8 +766,7 @@ export type UseLinkPropsOptions<
   TTo extends string | undefined = '.',
   TMaskFrom extends RoutePaths<TRouter['routeTree']> | string = TFrom,
   TMaskTo extends string = '.',
-> = ActiveLinkOptions<'a', TRouter, TFrom, TTo, TMaskFrom, TMaskTo> &
-  UseLinkReactProps<'a'>
+> = ActiveLinkOptions<'a', TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & UseLinkReactProps<'a'>
 
 export type ActiveLinkOptions<
   TComp = 'a',
@@ -816,8 +775,7 @@ export type ActiveLinkOptions<
   TTo extends string | undefined = '.',
   TMaskFrom extends string = TFrom,
   TMaskTo extends string = '.',
-> = LinkOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> &
-  ActiveLinkOptionProps<TComp>
+> = LinkOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & ActiveLinkOptionProps<TComp>
 
 type ActiveLinkProps<TComp> = Partial<
   LinkComponentReactProps<TComp> & {
@@ -845,20 +803,14 @@ export type LinkProps<
   TTo extends string | undefined = '.',
   TMaskFrom extends string = TFrom,
   TMaskTo extends string = '.',
-> = ActiveLinkOptions<TComp, TRouter, TFrom, TTo, TMaskFrom, TMaskTo> &
-  LinkPropsChildren
+> = ActiveLinkOptions<TComp, TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & LinkPropsChildren
 
 export interface LinkPropsChildren {
   // If a function is passed as a child, it will be given the `isActive` boolean to aid in further styling on the element it returns
-  children?:
-    | React.ReactNode
-    | ((state: { isActive: boolean }) => React.ReactNode)
+  children?: React.ReactNode | ((state: { isActive: boolean }) => React.ReactNode)
 }
 
-type LinkComponentReactProps<TComp> = Omit<
-  UseLinkReactProps<TComp>,
-  keyof CreateLinkProps
->
+type LinkComponentReactProps<TComp> = Omit<UseLinkReactProps<TComp>, keyof CreateLinkProps>
 
 export type LinkComponentProps<
   TComp = 'a',
@@ -867,22 +819,11 @@ export type LinkComponentProps<
   TTo extends string | undefined = '.',
   TMaskFrom extends string = TFrom,
   TMaskTo extends string = '.',
-> = LinkComponentReactProps<TComp> &
-  LinkProps<TComp, TRouter, TFrom, TTo, TMaskFrom, TMaskTo>
+> = LinkComponentReactProps<TComp> & LinkProps<TComp, TRouter, TFrom, TTo, TMaskFrom, TMaskTo>
 
-export type CreateLinkProps = LinkProps<
-  any,
-  any,
-  string,
-  string,
-  string,
-  string
->
+export type CreateLinkProps = LinkProps<any, any, string, string, string, string>
 
-export type LinkComponent<
-  in out TComp,
-  in out TDefaultFrom extends string = string,
-> = <
+export type LinkComponent<in out TComp, in out TDefaultFrom extends string = string> = <
   TRouter extends AnyRouter = RegisteredRouter,
   const TFrom extends string = TDefaultFrom,
   const TTo extends string | undefined = undefined,
@@ -892,23 +833,14 @@ export type LinkComponent<
   props: LinkComponentProps<TComp, TRouter, TFrom, TTo, TMaskFrom, TMaskTo>,
 ) => React.ReactElement
 
-export interface LinkComponentRoute<
-  in out TDefaultFrom extends string = string,
-> {
-  defaultFrom: TDefaultFrom;
+export interface LinkComponentRoute<in out TDefaultFrom extends string = string> {
+  defaultFrom: TDefaultFrom
   <
     TRouter extends AnyRouter = RegisteredRouter,
     const TTo extends string | undefined = undefined,
     const TMaskTo extends string = '',
   >(
-    props: LinkComponentProps<
-      'a',
-      TRouter,
-      this['defaultFrom'],
-      TTo,
-      this['defaultFrom'],
-      TMaskTo
-    >,
+    props: LinkComponentProps<'a', TRouter, this['defaultFrom'], TTo, this['defaultFrom'], TMaskTo>,
   ): React.ReactElement
 }
 
@@ -948,41 +880,32 @@ export function createLink<const TComp>(
  * @returns An anchor-like element that navigates without full page reloads.
  * @link https://tanstack.com/router/latest/docs/framework/react/api/router/linkComponent
  */
-export const Link: LinkComponent<'a'> = React.forwardRef<Element, any>(
-  (props, ref) => {
-    const { _asChild, ...rest } = props
-    const { type: _type, ...linkProps } = useLinkProps(rest as any, ref)
+export const Link: LinkComponent<'a'> = React.forwardRef<Element, any>((props, ref) => {
+  const { _asChild, ...rest } = props
+  const { type: _type, ...linkProps } = useLinkProps(rest as any, ref)
 
-    const children =
-      typeof rest.children === 'function'
-        ? rest.children({
-            isActive: (linkProps as any)['data-status'] === 'active',
-          })
-        : rest.children
+  const children =
+    typeof rest.children === 'function'
+      ? rest.children({
+          isActive: (linkProps as any)['data-status'] === 'active',
+        })
+      : rest.children
 
-    if (!_asChild) {
-      // the ReturnType of useLinkProps returns the correct type for a <a> element, not a general component that has a disabled prop
-      // @ts-expect-error
-      const { disabled: _, ...rest } = linkProps
-      return React.createElement('a', rest, children)
-    }
-    return React.createElement(_asChild, linkProps, children)
-  },
-) as any
+  if (!_asChild) {
+    // the ReturnType of useLinkProps returns the correct type for a <a> element, not a general component that has a disabled prop
+    // @ts-expect-error
+    const { disabled: _, ...rest } = linkProps
+    return React.createElement('a', rest, children)
+  }
+  return React.createElement(_asChild, linkProps, children)
+}) as any
 
-export type LinkOptionsFnOptions<
-  TOptions,
-  TComp,
-  TRouter extends AnyRouter = RegisteredRouter,
-> =
+export type LinkOptionsFnOptions<TOptions, TComp, TRouter extends AnyRouter = RegisteredRouter> =
   TOptions extends ReadonlyArray<any>
     ? ValidateLinkOptionsArray<TRouter, TOptions, string, TComp>
     : ValidateLinkOptions<TRouter, TOptions, string, TComp>
 
-export type LinkOptionsFn<TComp> = <
-  const TOptions,
-  TRouter extends AnyRouter = RegisteredRouter,
->(
+export type LinkOptionsFn<TComp> = <const TOptions, TRouter extends AnyRouter = RegisteredRouter>(
   options: LinkOptionsFnOptions<TOptions, TComp, TRouter>,
 ) => TOptions
 

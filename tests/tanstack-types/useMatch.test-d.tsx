@@ -65,12 +65,7 @@ describe('useMatch', () => {
   test('shouldThrow must be false when strict is false', () => {
     const strict = false as const
     const shouldThrow = true as const
-    useMatch<
-      DefaultRouter,
-      typeof undefined,
-      typeof strict,
-      typeof shouldThrow
-    >({
+    useMatch<DefaultRouter, typeof undefined, typeof strict, typeof shouldThrow>({
       strict,
       // @ts-expect-error shouldThrow must be false when strict is false
       shouldThrow,

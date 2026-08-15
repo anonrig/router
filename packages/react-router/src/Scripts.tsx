@@ -52,9 +52,7 @@ export const Scripts = () => {
           tag: 'script',
           attrs: { ...asset.attrs, nonce },
           children: asset.children,
-          ...(typeof asset.attrs?.src === 'string'
-            ? { preventScriptHoist: true }
-            : {}),
+          ...(typeof asset.attrs?.src === 'string' ? { preventScriptHoist: true } : {}),
         })
       }
     }
@@ -74,10 +72,7 @@ export const Scripts = () => {
   return renderScripts(router, scripts)
 }
 
-function renderScripts(
-  router: ReturnType<typeof useRouter>,
-  scripts: Array<ScriptRenderAsset>,
-) {
+function renderScripts(router: ReturnType<typeof useRouter>, scripts: Array<ScriptRenderAsset>) {
   if ((isServer ?? router.isServer) && router.serverSsr) {
     const serverBufferedScript = router.serverSsr.takeBufferedScripts()
     if (serverBufferedScript) {

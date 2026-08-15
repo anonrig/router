@@ -8,9 +8,7 @@ import type {
 describe('ValidateSerializable array handling', () => {
   it('preserves nested array payloads for input validation', () => {
     type Input = Array<{ value: string; nested: Array<{ id: number }> }>
-    expectTypeOf<
-      ValidateSerializable<Input, Serializable>
-    >().branded.toEqualTypeOf<Input>()
+    expectTypeOf<ValidateSerializable<Input, Serializable>>().branded.toEqualTypeOf<Input>()
   })
 
   it('preserves tuple structure for input validation', () => {

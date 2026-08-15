@@ -15,6 +15,4 @@ export type UseLoaderDataResult<
   TFrom,
   TStrict extends boolean,
   TSelected,
-> = unknown extends TSelected
-  ? ResolveUseLoaderData<TRouter, TFrom, TStrict>
-  : TSelected
+> = unknown extends TSelected ? ResolveUseLoaderData<TRouter, TFrom, TStrict> : TSelected

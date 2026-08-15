@@ -3,9 +3,7 @@ import type { NotFoundRouteProps, RegisteredRouter, RouteIds } from '@tanstack/r
 
 describe('NotFoundRouteProps', () => {
   test('should have correct basic property types', () => {
-    expectTypeOf<NotFoundRouteProps['data']>().toEqualTypeOf<
-      unknown | undefined
-    >()
+    expectTypeOf<NotFoundRouteProps['data']>().toEqualTypeOf<unknown | undefined>()
     expectTypeOf<NotFoundRouteProps['isNotFound']>().toEqualTypeOf<boolean>()
     expectTypeOf<NotFoundRouteProps['routeId']>().toEqualTypeOf<
       RouteIds<RegisteredRouter['routeTree']>
@@ -87,9 +85,7 @@ describe('NotFoundRouteProps', () => {
     const component: NotFoundComponent = (props) => {
       expectTypeOf(props.data).toEqualTypeOf<unknown | undefined>()
       expectTypeOf(props.isNotFound).toEqualTypeOf<boolean>()
-      expectTypeOf(props.routeId).toEqualTypeOf<
-        RouteIds<RegisteredRouter['routeTree']>
-      >()
+      expectTypeOf(props.routeId).toEqualTypeOf<RouteIds<RegisteredRouter['routeTree']>>()
       return null
     }
 

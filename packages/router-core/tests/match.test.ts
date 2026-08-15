@@ -35,11 +35,7 @@ describe('matcher', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/posts/tkdodo')
     expect(matches?.at(-1)?.params).toEqual({ slug: 'tkdodo' })
-    expect(matches?.map((m) => m.route.id)).toEqual([
-      '__root__',
-      '/posts',
-      '/posts/$slug',
-    ])
+    expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts', '/posts/$slug'])
   })
 
   it('matches pathless layouts', () => {

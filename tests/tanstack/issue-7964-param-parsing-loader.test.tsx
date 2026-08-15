@@ -79,9 +79,7 @@ test('#7964: a child loader receives fresh structured params after revisiting it
       params: { parsedParam: { recordName: 'blue', revisionNumber: 1 } },
     }),
   )
-  expect(
-    await screen.findByText('Params have blue with revision 1'),
-  ).toBeInTheDocument()
+  expect(await screen.findByText('Params have blue with revision 1')).toBeInTheDocument()
   expect(await screen.findByText('Loader data is 100')).toBeInTheDocument()
 
   await act(() => router.navigate({ to: '/' }))

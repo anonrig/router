@@ -322,10 +322,7 @@ export function findRouteMatch(
       node: tree.root,
       index: 0,
       params: Object.create(null),
-      chain: applyPathless(
-        tree.root,
-        tree.root.route ? [tree.root.route] : [],
-      ),
+      chain: applyPathless(tree.root, tree.root.route ? [tree.root.route] : []),
     },
   ]
 
@@ -432,7 +429,8 @@ export function findRouteMatch(
       )
     }
 
-    const staticChild = node.staticChildren?.get(key) ??
+    const staticChild =
+      node.staticChildren?.get(key) ??
       (caseSensitive ? undefined : node.staticChildren?.get(raw.toLowerCase()))
     if (staticChild) {
       const chain = frame.chain.slice()
@@ -473,11 +471,7 @@ type PatternPart = {
   suffix: string
 }
 
-function extractPrefixed(
-  value: string,
-  prefix: string,
-  suffix: string,
-): string | null {
+function extractPrefixed(value: string, prefix: string, suffix: string): string | null {
   if (prefix && !value.startsWith(prefix)) return null
   if (suffix && !value.endsWith(suffix)) return null
   let inner = value
@@ -530,15 +524,7 @@ function matchPatternParts(
     }
     const splat = stripped.join('/')
     const next = withParams(params, { _splat: splat, '*': splat })
-    return matchPatternParts(
-      parts,
-      pi + 1,
-      pathSegs,
-      pathSegs.length,
-      next,
-      caseSensitive,
-      fuzzy,
-    )
+    return matchPatternParts(parts, pi + 1, pathSegs, pathSegs.length, next, caseSensitive, fuzzy)
   }
 
   if (part.kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
@@ -625,15 +611,7 @@ export function findSingleMatch(
     })
   }
 
-  const params = matchPatternParts(
-    parts,
-    0,
-    pathSegs,
-    0,
-    Object.create(null),
-    caseSensitive,
-    fuzzy,
-  )
+  const params = matchPatternParts(parts, 0, pathSegs, 0, Object.create(null), caseSensitive, fuzzy)
   if (!params) return null
   const rawParams = Object.assign(Object.create(null), params)
   return { rawParams, params: rawParams }
@@ -647,10 +625,7 @@ function decodeSeg(value: string) {
   }
 }
 
-export function findFlatMatch(
-  tree: ProcessedTree,
-  from: string,
-): AnyRouteLike | undefined {
+export function findFlatMatch(tree: ProcessedTree, from: string): AnyRouteLike | undefined {
   return tree.routesById[from] ?? tree.routesByPath[from]
 }
 

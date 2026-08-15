@@ -45,9 +45,7 @@ async function expectBodyRejects(response: Response, message: string) {
   ).rejects.toThrow(message)
 }
 
-function unwrapResponse(
-  result: Awaited<ReturnType<typeof renderRouterToStream>>,
-) {
+function unwrapResponse(result: Awaited<ReturnType<typeof renderRouterToStream>>) {
   return result.response
 }
 
@@ -83,12 +81,10 @@ describe('renderRouterToStream - pipeable sync errors', () => {
 
   test('sync onError before pipeable is assigned still aborts pipeable', async () => {
     const abort = vi.fn()
-    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce(
-      (_children, opts) => {
-        opts.onError(new Error('sync-react-error'), { componentStack: '' })
-        return { abort, pipe: vi.fn() }
-      },
-    )
+    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce((_children, opts) => {
+      opts.onError(new Error('sync-react-error'), { componentStack: '' })
+      return { abort, pipe: vi.fn() }
+    })
 
     const router = await buildRouter()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -112,12 +108,10 @@ describe('renderRouterToStream - pipeable sync errors', () => {
 
   test('sync non-Error onError before pipeable assignment still errors body', async () => {
     const abort = vi.fn()
-    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce(
-      (_children, opts) => {
-        opts.onError('string-react-error', { componentStack: '' })
-        return { abort, pipe: vi.fn() }
-      },
-    )
+    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce((_children, opts) => {
+      opts.onError('string-react-error', { componentStack: '' })
+      return { abort, pipe: vi.fn() }
+    })
 
     const router = await buildRouter()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -141,12 +135,10 @@ describe('renderRouterToStream - pipeable sync errors', () => {
 
   test('sync undefined onError before pipeable assignment still errors body', async () => {
     const abort = vi.fn()
-    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce(
-      (_children, opts) => {
-        opts.onError(undefined, { componentStack: '' })
-        return { abort, pipe: vi.fn() }
-      },
-    )
+    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce((_children, opts) => {
+      opts.onError(undefined, { componentStack: '' })
+      return { abort, pipe: vi.fn() }
+    })
 
     const router = await buildRouter()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -171,12 +163,10 @@ describe('renderRouterToStream - pipeable sync errors', () => {
   test('undefined onError after response attach errors body', async () => {
     const abort = vi.fn()
     let onError!: (error: unknown, info: unknown) => void
-    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce(
-      (_children, opts) => {
-        onError = opts.onError
-        return { abort, pipe: vi.fn() }
-      },
-    )
+    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce((_children, opts) => {
+      onError = opts.onError
+      return { abort, pipe: vi.fn() }
+    })
 
     const router = await buildRouter()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -228,12 +218,10 @@ describe('renderRouterToStream - pipeable sync errors', () => {
 
   test('request abort cancels pipeable rendering before the response body is consumed', async () => {
     const abort = vi.fn()
-    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce(
-      (_children, opts) => {
-        queueMicrotask(() => opts.onShellReady())
-        return { abort, pipe: vi.fn() }
-      },
-    )
+    reactDomServerMocks.renderToPipeableStream.mockImplementationOnce((_children, opts) => {
+      queueMicrotask(() => opts.onShellReady())
+      return { abort, pipe: vi.fn() }
+    })
 
     const router = await buildRouter()
     const controller = new AbortController()

@@ -1,8 +1,6 @@
 import type { AnyRouteMatch } from './router'
 
-export function _getAssetMatches(
-  matches: Array<AnyRouteMatch> = [],
-): Array<AnyRouteMatch> {
+export function _getAssetMatches(matches: Array<AnyRouteMatch> = []): Array<AnyRouteMatch> {
   let end = matches.length
   for (let index = 0; index < end; index++) {
     const match = matches[index]!

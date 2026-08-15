@@ -1,10 +1,5 @@
 import { expectTypeOf, test } from 'vitest'
-import {
-  RouterProvider,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from '@tanstack/react-router'
+import { RouterProvider, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 
 const rootRoute = createRootRoute()
 

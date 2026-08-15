@@ -58,9 +58,7 @@ describe('ClientOnly', () => {
     await router.load()
 
     // Initial render (SSR)
-    const html = ReactDOMServer.renderToString(
-      <RouterProvider router={router} />,
-    )
+    const html = ReactDOMServer.renderToString(<RouterProvider router={router} />)
     expect(html).include('Loading...')
     expect(html).not.include('Client Only Content')
   })

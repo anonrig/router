@@ -1,9 +1,4 @@
-import {
-  BaseRootRoute,
-  BaseRoute,
-  BaseRouteApi,
-  notFound,
-} from '@anonrig/router-core'
+import { BaseRootRoute, BaseRoute, BaseRouteApi, notFound } from '@anonrig/router-core'
 import React from 'react'
 import { useLoaderData } from './useLoaderData'
 import { useLoaderDeps } from './useLoaderDeps'
@@ -57,17 +52,10 @@ declare module '@anonrig/router-core' {
   }
 
   export interface RootRouteOptionsExtensions {
-    shellComponent?: ({
-      children,
-    }: {
-      children: React.ReactNode
-    }) => React.ReactNode
+    shellComponent?: ({ children }: { children: React.ReactNode }) => React.ReactNode
   }
 
-  export interface RouteExtensions<
-    in out TId extends string,
-    in out TFullPath extends string,
-  > {
+  export interface RouteExtensions<in out TId extends string, in out TFullPath extends string> {
     useMatch: UseMatchRoute<TId>
     useRouteContext: UseRouteContextRoute<TId>
     useSearch: UseSearchRoute<TId>
@@ -88,17 +76,16 @@ declare module '@anonrig/router-core' {
  * @returns A `RouteApi` instance bound to the given route ID.
  * @link https://tanstack.com/router/latest/docs/framework/react/api/router/getRouteApiFunction
  */
-export function getRouteApi<
-  const TId,
-  TRouter extends AnyRouter = RegisteredRouter,
->(id: ConstrainLiteral<TId, RouteIds<TRouter['routeTree']>>) {
+export function getRouteApi<const TId, TRouter extends AnyRouter = RegisteredRouter>(
+  id: ConstrainLiteral<TId, RouteIds<TRouter['routeTree']>>,
+) {
   return new RouteApi<TId, TRouter>({ id })
 }
 
-export class RouteApi<
+export class RouteApi<TId, TRouter extends AnyRouter = RegisteredRouter> extends BaseRouteApi<
   TId,
-  TRouter extends AnyRouter = RegisteredRouter,
-> extends BaseRouteApi<TId, TRouter> {
+  TRouter
+> {
   /**
    * @deprecated Use the `getRouteApi` function instead.
    */
@@ -144,9 +131,7 @@ export class RouteApi<
     return useLoaderData({ ...opts, from: this.id, strict: false } as any)
   }
 
-  useNavigate = (): UseNavigateResult<
-    RouteTypesById<TRouter, TId>['fullPath']
-  > => {
+  useNavigate = (): UseNavigateResult<RouteTypesById<TRouter, TId>['fullPath']> => {
     const router = useRouter()
     return useNavigate({ from: router.routesById[this.id as string]?.fullPath })
   }
@@ -155,30 +140,22 @@ export class RouteApi<
     return notFound({ routeId: this.id as string, ...opts })
   }
 
-  Link: LinkComponentRoute<RouteTypesById<TRouter, TId>['fullPath']> =
-    React.forwardRef((props, ref: React.ForwardedRef<HTMLAnchorElement>) => {
+  Link: LinkComponentRoute<RouteTypesById<TRouter, TId>['fullPath']> = React.forwardRef(
+    (props, ref: React.ForwardedRef<HTMLAnchorElement>) => {
       const router = useRouter()
       const fullPath = router.routesById[this.id as string]?.fullPath
       return <Link ref={ref} from={fullPath as never} {...props} />
-    }) as unknown as LinkComponentRoute<
-      RouteTypesById<TRouter, TId>['fullPath']
-    >
+    },
+  ) as unknown as LinkComponentRoute<RouteTypesById<TRouter, TId>['fullPath']>
 }
 
 export class Route<
   in out TRegister = unknown,
   in out TParentRoute extends RouteConstraints['TParentRoute'] = AnyRoute,
   in out TPath extends RouteConstraints['TPath'] = '/',
-  in out TFullPath extends RouteConstraints['TFullPath'] = ResolveFullPath<
-    TParentRoute,
-    TPath
-  >,
+  in out TFullPath extends RouteConstraints['TFullPath'] = ResolveFullPath<TParentRoute, TPath>,
   in out TCustomId extends RouteConstraints['TCustomId'] = string,
-  in out TId extends RouteConstraints['TId'] = ResolveId<
-    TParentRoute,
-    TCustomId,
-    TPath
-  >,
+  in out TId extends RouteConstraints['TId'] = ResolveId<TParentRoute, TCustomId, TPath>,
   in out TSearchValidator = undefined,
   in out TParams = ResolveParams<TPath>,
   in out TRouterContext = AnyContext,
@@ -324,16 +301,9 @@ export function createRoute<
   TRegister = unknown,
   TParentRoute extends RouteConstraints['TParentRoute'] = AnyRoute,
   TPath extends RouteConstraints['TPath'] = '/',
-  TFullPath extends RouteConstraints['TFullPath'] = ResolveFullPath<
-    TParentRoute,
-    TPath
-  >,
+  TFullPath extends RouteConstraints['TFullPath'] = ResolveFullPath<TParentRoute, TPath>,
   TCustomId extends RouteConstraints['TCustomId'] = string,
-  TId extends RouteConstraints['TId'] = ResolveId<
-    TParentRoute,
-    TCustomId,
-    TPath
-  >,
+  TId extends RouteConstraints['TId'] = ResolveId<TParentRoute, TCustomId, TPath>,
   TSearchValidator = undefined,
   TParams = ResolveParams<TPath>,
   TRouteContextFn = AnyContext,
@@ -402,19 +372,7 @@ export function createRoute<
   )
 }
 
-export type AnyRootRoute = RootRoute<
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any
->
+export type AnyRootRoute = RootRoute<any, any, any, any, any, any, any, any, any, any, any>
 
 /**
  * Creates a root route factory that requires a router context type.
@@ -657,9 +615,7 @@ export function createRouteMask<
 }
 
 export interface DefaultRouteTypes<TProps> {
-  component:
-    | ((props: TProps) => any)
-    | React.LazyExoticComponent<(props: TProps) => any>
+  component: ((props: TProps) => any) | React.LazyExoticComponent<(props: TProps) => any>
 }
 export interface RouteTypes<TProps> extends DefaultRouteTypes<TProps> {}
 
@@ -722,12 +678,7 @@ export class NotFoundRoute<
         TSSR,
         TServerMiddlewares
       >,
-      | 'caseSensitive'
-      | 'parseParams'
-      | 'stringifyParams'
-      | 'path'
-      | 'id'
-      | 'params'
+      'caseSensitive' | 'parseParams' | 'stringifyParams' | 'path' | 'id' | 'params'
     >,
   ) {
     super({

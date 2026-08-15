@@ -32,9 +32,7 @@ test('immediate pending spinner (pendingMs: 0 + pendingMinMs) with root beforeLo
     pendingMs: 0,
     pendingMinMs: 100,
     pendingComponent: () => <div data-testid="pending">loading</div>,
-    errorComponent: ({ error }) => (
-      <pre data-testid="root-error">{String(error)}</pre>
-    ),
+    errorComponent: ({ error }) => <pre data-testid="root-error">{String(error)}</pre>,
     beforeLoad: async () => {
       await sleep(50)
       if (!hasRedirected) {

@@ -147,13 +147,7 @@ export {
   createMemoryHistory,
 } from './history'
 
-export type {
-  BlockerFn,
-  HistoryLocation,
-  RouterHistory,
-  ParsedPath,
-  HistoryState,
-} from './history'
+export type { BlockerFn, HistoryLocation, RouterHistory, ParsedPath, HistoryState } from './history'
 
 export { useAwaited, Await } from './awaited'
 export type { AwaitOptions } from './awaited'

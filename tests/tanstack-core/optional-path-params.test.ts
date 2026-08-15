@@ -488,9 +488,7 @@ describe('Optional Path Parameters', () => {
         expectedMatchedParams: {},
       },
     ])('$name', ({ input, matchingOptions, expectedMatchedParams }) => {
-      expect(matchPathname(input, matchingOptions)).toStrictEqual(
-        toNullObj(expectedMatchedParams),
-      )
+      expect(matchPathname(input, matchingOptions)).toStrictEqual(toNullObj(expectedMatchedParams))
     })
   })
 
@@ -499,9 +497,7 @@ describe('Optional Path Parameters', () => {
       // This test will be expanded when we implement params.parse for optional params
       const path = '/posts/{-$category}'
       const params = { category: 'tech' }
-      expect(interpolatePath({ path, params }).interpolatedPath).toBe(
-        '/posts/tech',
-      )
+      expect(interpolatePath({ path, params }).interpolatedPath).toBe('/posts/tech')
     })
 
     it('should handle multiple consecutive optional parameters correctly', () => {

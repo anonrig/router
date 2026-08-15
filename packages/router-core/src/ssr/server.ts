@@ -11,19 +11,11 @@ export {
   replaceSsrResponse,
   stripSsrResponseBody,
 } from './handlerCallback'
-export type {
-  HandlerCallback,
-  HandlerCallbackResult,
-  SsrResponse,
-} from './handlerCallback'
+export type { HandlerCallback, HandlerCallbackResult, SsrResponse } from './handlerCallback'
 export {
   transformPipeableStreamWithRouter,
   transformStreamWithRouter,
   transformReadableStreamWithRouter,
 } from './transformStreamWithRouter'
 export type { TransformStreamWithRouterOptions } from './transformStreamWithRouter'
-export {
-  attachRouterServerSsrUtils,
-  getNormalizedURL,
-  getOrigin,
-} from './ssr-server'
+export { attachRouterServerSsrUtils, getNormalizedURL, getOrigin } from './ssr-server'

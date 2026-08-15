@@ -1,11 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   Link,
   Outlet,
@@ -159,27 +153,19 @@ describe('useMatch', () => {
 
     render(<RouterProvider router={router} />)
     expect(await screen.findByText('Nearest revision 1')).toBeInTheDocument()
-    expect(screen.getByTestId('targeted-match')).toHaveTextContent(
-      'Targeted revision 1',
-    )
+    expect(screen.getByTestId('targeted-match')).toHaveTextContent('Targeted revision 1')
 
     fireEvent.click(screen.getByText('Revision 2'))
     expect(await screen.findByText('Nearest revision 2')).toBeInTheDocument()
-    expect(screen.getByTestId('targeted-match')).toHaveTextContent(
-      'Targeted revision 2',
-    )
+    expect(screen.getByTestId('targeted-match')).toHaveTextContent('Targeted revision 2')
 
     fireEvent.click(screen.getByText('Other'))
     expect(await screen.findByText('Other route')).toBeInTheDocument()
-    expect(screen.getByTestId('targeted-match')).toHaveTextContent(
-      'Targeted absent',
-    )
+    expect(screen.getByTestId('targeted-match')).toHaveTextContent('Targeted absent')
 
     fireEvent.click(screen.getByText('Revision 3'))
     expect(await screen.findByText('Nearest revision 3')).toBeInTheDocument()
-    expect(screen.getByTestId('targeted-match')).toHaveTextContent(
-      'Targeted revision 3',
-    )
+    expect(screen.getByTestId('targeted-match')).toHaveTextContent('Targeted revision 3')
   })
 
   test('renders a route generation that re-enters before an intermediate route renders', async () => {
@@ -246,20 +232,17 @@ describe('useMatch', () => {
   })
 
   describe('when match is not found', () => {
-    test.each([undefined, true])(
-      'throws if shouldThrow = %s',
-      async (shouldThrow) => {
-        function RootComponent() {
-          useMatch({ from: '/posts', shouldThrow })
-          return <Outlet />
-        }
-        setup({ RootComponent })
-        const postsError = await screen.findByText(
-          'Invariant failed: Could not find an active match from "/posts"',
-        )
-        expect(postsError).toBeInTheDocument()
-      },
-    )
+    test.each([undefined, true])('throws if shouldThrow = %s', async (shouldThrow) => {
+      function RootComponent() {
+        useMatch({ from: '/posts', shouldThrow })
+        return <Outlet />
+      }
+      setup({ RootComponent })
+      const postsError = await screen.findByText(
+        'Invariant failed: Could not find an active match from "/posts"',
+      )
+      expect(postsError).toBeInTheDocument()
+    })
 
     describe('returns undefined if shouldThrow = false', () => {
       test('without select function', async () => {
@@ -269,9 +252,7 @@ describe('useMatch', () => {
           return <Outlet />
         }
         setup({ RootComponent })
-        expect(
-          await waitFor(() => screen.findByText('IndexTitle')),
-        ).toBeInTheDocument()
+        expect(await waitFor(() => screen.findByText('IndexTitle'))).toBeInTheDocument()
       })
       test('with select function', async () => {
         const select = vi.fn()

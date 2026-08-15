@@ -99,34 +99,26 @@ describe('useParams', () => {
 
     expectTypeOf(useParams<DefaultRouter, '/'>).returns.toEqualTypeOf<{}>()
 
-    expectTypeOf(
-      useParams<DefaultRouter, '/invoices/$invoiceId'>,
-    ).returns.toEqualTypeOf<{ invoiceId: string }>()
+    expectTypeOf(useParams<DefaultRouter, '/invoices/$invoiceId'>).returns.toEqualTypeOf<{
+      invoiceId: string
+    }>()
 
     expectTypeOf(useParams<DefaultRouter, '/invoices/$invoiceId'>)
       .parameter(0)
       .toHaveProperty('select')
       .toEqualTypeOf<((search: { invoiceId: string }) => unknown) | undefined>()
 
-    expectTypeOf(
-      useParams<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ invoiceId?: string }>()
+    expectTypeOf(useParams<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      invoiceId?: string
+    }>()
 
     expectTypeOf(useParams<DefaultRouter, '/invoices', false>)
       .parameter(0)
       .toHaveProperty('select')
-      .toEqualTypeOf<
-        ((search: { invoiceId?: string }) => unknown) | undefined
-      >()
+      .toEqualTypeOf<((search: { invoiceId?: string }) => unknown) | undefined>()
 
     expectTypeOf(
-      useParams<
-        DefaultRouter,
-        '/invoices',
-        /* strict */ false,
-        /* shouldThrow */ true,
-        number
-      >,
+      useParams<DefaultRouter, '/invoices', /* strict */ false, /* shouldThrow */ true, number>,
     ).returns.toEqualTypeOf<number>()
   })
 
@@ -181,26 +173,24 @@ describe('useParams', () => {
 
     expectTypeOf(useParams<DefaultRouter, '/'>).returns.toEqualTypeOf<{}>()
 
-    expectTypeOf(
-      useParams<DefaultRouter, '/invoices/$invoiceId'>,
-    ).returns.toEqualTypeOf<{ invoiceId: string }>()
+    expectTypeOf(useParams<DefaultRouter, '/invoices/$invoiceId'>).returns.toEqualTypeOf<{
+      invoiceId: string
+    }>()
 
     expectTypeOf(useParams<DefaultRouter, '/invoices/$invoiceId'>)
       .parameter(0)
       .toHaveProperty('select')
       .toEqualTypeOf<((search: { invoiceId: string }) => unknown) | undefined>()
 
-    expectTypeOf(
-      useParams<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ invoiceId?: string; postId?: string }>()
+    expectTypeOf(useParams<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      invoiceId?: string
+      postId?: string
+    }>()
 
     expectTypeOf(useParams<DefaultRouter, '/invoices', false>)
       .parameter(0)
       .toHaveProperty('select')
-      .toEqualTypeOf<
-        | ((search: { invoiceId?: string; postId?: string }) => unknown)
-        | undefined
-      >()
+      .toEqualTypeOf<((search: { invoiceId?: string; postId?: string }) => unknown) | undefined>()
 
     expectTypeOf(
       useParams<
@@ -330,10 +320,7 @@ describe('useParams', () => {
       path: '$id',
     })
 
-    const routeTree = rootRoute.addChildren([
-      invoicesRoute.addChildren([invoiceRoute]),
-      indexRoute,
-    ])
+    const routeTree = rootRoute.addChildren([invoicesRoute.addChildren([invoiceRoute]), indexRoute])
 
     // eslint-disable-next-line unused-imports/no-unused-vars
     const router = createRouter({ routeTree })
@@ -341,24 +328,20 @@ describe('useParams', () => {
     const from = '/invoices/$id'
     test('return type is `{ id: string }` when shouldThrow = true', () => {
       const shouldThrow = true
-      const params = useParams<
-        typeof router,
-        typeof from,
-        /* strict */ true,
-        typeof shouldThrow
-      >({ from, shouldThrow })
+      const params = useParams<typeof router, typeof from, /* strict */ true, typeof shouldThrow>({
+        from,
+        shouldThrow,
+      })
 
       expectTypeOf(params).toEqualTypeOf<{ id: string }>()
     })
 
     test('return type is `{page: string} | undefined` when shouldThrow = false', () => {
       const shouldThrow = false
-      const params = useParams<
-        typeof router,
-        typeof from,
-        /* strict */ true,
-        typeof shouldThrow
-      >({ from, shouldThrow })
+      const params = useParams<typeof router, typeof from, /* strict */ true, typeof shouldThrow>({
+        from,
+        shouldThrow,
+      })
 
       expectTypeOf(params).toEqualTypeOf<{ id: string } | undefined>()
     })

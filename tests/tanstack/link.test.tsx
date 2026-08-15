@@ -39,11 +39,7 @@ import {
   useRouterState,
   useSearch,
 } from '@tanstack/react-router'
-import {
-  getIntersectionObserverMock,
-  getSearchParamsFromURI,
-  sleep,
-} from './utils'
+import { getIntersectionObserverMock, getSearchParamsFromURI, sleep } from './utils'
 import type { RouterHistory } from '@tanstack/react-router'
 
 const ioObserveMock = vi.fn()
@@ -105,9 +101,7 @@ describe('Link', () => {
         const indexRoute = createRoute({
           getParentRoute: () => rootRoute,
           path: '/',
-          component: () => (
-            <IndexComponent>{childrenRef.current}</IndexComponent>
-          ),
+          component: () => <IndexComponent>{childrenRef.current}</IndexComponent>,
         })
         return rootRoute.addChildren([indexRoute])
       }, [])
@@ -179,15 +173,11 @@ describe('Link', () => {
 
     fireEvent.click(postsLink)
 
-    await expect(
-      screen.findByRole('header', { name: 'Posts' }),
-    ).rejects.toThrow()
+    await expect(screen.findByRole('header', { name: 'Posts' })).rejects.toThrow()
   })
 
   test('does not forward internal Link props to the DOM', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined)
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const internalPropNames = [
       'activeProps',
       'inactiveProps',
@@ -425,25 +415,13 @@ describe('Link', () => {
       if (opts.explicitUndefined) {
         expect(indexFooUndefinedExactLink).not.toHaveClass('active')
         expect(indexFooUndefinedExactLink).toHaveClass('inactive')
-        expect(indexFooUndefinedExactLink).not.toHaveAttribute(
-          'aria-current',
-          'page',
-        )
-        expect(indexFooUndefinedExactLink).not.toHaveAttribute(
-          'data-status',
-          'active',
-        )
+        expect(indexFooUndefinedExactLink).not.toHaveAttribute('aria-current', 'page')
+        expect(indexFooUndefinedExactLink).not.toHaveAttribute('data-status', 'active')
       } else {
         expect(indexFooUndefinedExactLink).toHaveClass('active')
         expect(indexFooUndefinedExactLink).not.toHaveClass('inactive')
-        expect(indexFooUndefinedExactLink).toHaveAttribute(
-          'aria-current',
-          'page',
-        )
-        expect(indexFooUndefinedExactLink).toHaveAttribute(
-          'data-status',
-          'active',
-        )
+        expect(indexFooUndefinedExactLink).toHaveAttribute('aria-current', 'page')
+        expect(indexFooUndefinedExactLink).toHaveAttribute('data-status', 'active')
       }
 
       expect(indexFooUndefinedExactLink).toHaveAttribute('href', '/')
@@ -470,14 +448,8 @@ describe('Link', () => {
       if (opts.explicitUndefined) {
         expect(indexFooUndefinedLink).not.toHaveClass('active')
         expect(indexFooUndefinedLink).toHaveClass('inactive')
-        expect(indexFooUndefinedLink).not.toHaveAttribute(
-          'aria-current',
-          'page',
-        )
-        expect(indexFooUndefinedLink).not.toHaveAttribute(
-          'data-status',
-          'active',
-        )
+        expect(indexFooUndefinedLink).not.toHaveAttribute('aria-current', 'page')
+        expect(indexFooUndefinedLink).not.toHaveAttribute('data-status', 'active')
       } else {
         expect(indexFooUndefinedLink).toHaveClass('active')
         expect(indexFooUndefinedLink).not.toHaveClass('inactive')
@@ -490,14 +462,8 @@ describe('Link', () => {
       expect(indexFooUndefinedExactLink).toHaveClass('inactive')
       expect(indexFooUndefinedExactLink).not.toHaveClass('active')
       expect(indexFooUndefinedExactLink).toHaveAttribute('href', '/')
-      expect(indexFooUndefinedExactLink).not.toHaveAttribute(
-        'aria-current',
-        'page',
-      )
-      expect(indexFooUndefinedExactLink).not.toHaveAttribute(
-        'data-status',
-        'active',
-      )
+      expect(indexFooUndefinedExactLink).not.toHaveAttribute('aria-current', 'page')
+      expect(indexFooUndefinedExactLink).not.toHaveAttribute('data-status', 'active')
 
       expect(indexFooBarLink).toHaveClass('active')
       expect(indexFooBarLink).not.toHaveClass('inactive')
@@ -535,9 +501,7 @@ describe('Link', () => {
         path: '/',
         component: () => (
           <Link to="https://example.com">
-            {({ isActive }) => (
-              <span data-testid="external-link-active">{String(isActive)}</span>
-            )}
+            {({ isActive }) => <span data-testid="external-link-active">{String(isActive)}</span>}
           </Link>
         ),
       })
@@ -549,9 +513,7 @@ describe('Link', () => {
 
       render(<RouterProvider router={router} />)
 
-      expect(
-        await screen.findByTestId('external-link-active'),
-      ).toHaveTextContent('false')
+      expect(await screen.findByTestId('external-link-active')).toHaveTextContent('false')
     })
 
     test('updates exact and fuzzy active state before the next route renders', async () => {
@@ -598,11 +560,7 @@ describe('Link', () => {
         component: () => (
           <>
             <h1>Posts</h1>
-            <Link
-              data-testid="open-post"
-              to="/posts/$postId"
-              params={{ postId: '1' }}
-            >
+            <Link data-testid="open-post" to="/posts/$postId" params={{ postId: '1' }}>
               Open post
             </Link>
             <Outlet />
@@ -765,12 +723,7 @@ describe('Link', () => {
             >
               Current search
             </Link>
-            <Link
-              data-testid="switch-search"
-              from="/posts"
-              to="."
-              search={{ page: nextPage }}
-            >
+            <Link data-testid="switch-search" from="/posts" to="." search={{ page: nextPage }}>
               Switch search
             </Link>
             <Outlet />
@@ -974,9 +927,10 @@ describe('Link', () => {
 
       render(<RouterProvider router={router} />)
 
-      expect(
-        await screen.findByRole('link', { name: 'Continue' }),
-      ).toHaveAttribute('href', '/javascript:alert(1)')
+      expect(await screen.findByRole('link', { name: 'Continue' })).toHaveAttribute(
+        'href',
+        '/javascript:alert(1)',
+      )
     })
   })
 
@@ -1214,11 +1168,7 @@ describe('Link', () => {
       return (
         <>
           <div data-testid="root-nav">
-            <Link
-              to="."
-              search={{ page: 2, filter: 'inactive' }}
-              data-testid="update-search"
-            >
+            <Link to="." search={{ page: 2, filter: 'inactive' }} data-testid="update-search">
               Update Search
             </Link>
           </div>
@@ -1238,11 +1188,7 @@ describe('Link', () => {
         return (
           <>
             <h1>Index</h1>
-            <Link
-              to="/posts"
-              search={{ page: 1, filter: 'active' }}
-              data-testid="to-posts"
-            >
+            <Link to="/posts" search={{ page: 1, filter: 'active' }} data-testid="to-posts">
               Go to Posts
             </Link>
           </>
@@ -1300,10 +1246,7 @@ describe('Link', () => {
 
     // Navigate to current route (.) with updated search
     const updateSearchLink = await screen.findByTestId('update-search')
-    expect(updateSearchLink).toHaveAttribute(
-      'href',
-      '/posts?page=2&filter=inactive',
-    )
+    expect(updateSearchLink).toHaveAttribute('href', '/posts?page=2&filter=inactive')
 
     await act(() => fireEvent.click(updateSearchLink))
 
@@ -1327,11 +1270,7 @@ describe('Link', () => {
       return (
         <>
           <div data-testid="root-nav">
-            <Link
-              to="."
-              search={{ page: 2, filter: 'inactive' }}
-              data-testid="update-search"
-            >
+            <Link to="." search={{ page: 2, filter: 'inactive' }} data-testid="update-search">
               Update Search
             </Link>
           </div>
@@ -1351,11 +1290,7 @@ describe('Link', () => {
         return (
           <>
             <h1>Index</h1>
-            <Link
-              to="/posts"
-              search={{ page: 1, filter: 'active' }}
-              data-testid="to-posts"
-            >
+            <Link to="/posts" search={{ page: 1, filter: 'active' }} data-testid="to-posts">
               Go to Posts
             </Link>
           </>
@@ -1395,10 +1330,7 @@ describe('Link', () => {
 
     // Start at index page
     const toPostsLink = await screen.findByTestId('to-posts')
-    expect(toPostsLink).toHaveAttribute(
-      'href',
-      '/Dashboard/posts?page=1&filter=active',
-    )
+    expect(toPostsLink).toHaveAttribute('href', '/Dashboard/posts?page=1&filter=active')
 
     // Navigate to posts with initial search params
     await act(() => fireEvent.click(toPostsLink))
@@ -1417,10 +1349,7 @@ describe('Link', () => {
     // Navigate to current route (.) with updated search
     const updateSearchLink = await screen.findByTestId('update-search')
 
-    expect(updateSearchLink).toHaveAttribute(
-      'href',
-      '/Dashboard/posts?page=2&filter=inactive',
-    )
+    expect(updateSearchLink).toHaveAttribute('href', '/Dashboard/posts?page=2&filter=inactive')
 
     await act(() => fireEvent.click(updateSearchLink))
 
@@ -1965,10 +1894,7 @@ describe('Link', () => {
 
     const router = createRouter({
       context: { userId: 'userId' },
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        postsRoute.addChildren([postRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, postsRoute.addChildren([postRoute])]),
       history,
     })
 
@@ -1994,9 +1920,7 @@ describe('Link', () => {
       getParentRoute: () => rootRoute,
       path: '/',
       component: () => {
-        throw new Error(
-          'Error from component should not render notFoundComponent',
-        )
+        throw new Error('Error from component should not render notFoundComponent')
       },
     })
 
@@ -2007,9 +1931,7 @@ describe('Link', () => {
 
     render(<RouterProvider router={router} />)
 
-    const errorText = await screen.findByText(
-      'Expected rendering error message',
-    )
+    const errorText = await screen.findByText('Expected rendering error message')
     expect(errorText).toBeInTheDocument()
     expect(notFoundComponent).not.toBeCalled()
   })
@@ -2168,10 +2090,7 @@ describe('Link', () => {
     })
 
     const router = createRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        postsRoute.addChildren([postRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, postsRoute.addChildren([postRoute])]),
       history,
     })
 
@@ -2270,9 +2189,7 @@ describe('Link', () => {
     })
 
     const router = createRouter({
-      routeTree: rootRoute.addChildren([
-        postRoute.addChildren([step1Route, step2Route]),
-      ]),
+      routeTree: rootRoute.addChildren([postRoute.addChildren([step1Route, step2Route])]),
       history: createMemoryHistory({
         initialEntries: ['/post/1/step1'],
       }),
@@ -2435,11 +2352,7 @@ describe('Link', () => {
       return (
         <>
           <h1>Posts</h1>
-          <Link
-            to="/posts/$postId"
-            params={{ postId: 'id1' }}
-            data-testid="post1-link"
-          >
+          <Link to="/posts/$postId" params={{ postId: 'id1' }} data-testid="post1-link">
             To first post
           </Link>
           <Outlet />
@@ -2723,9 +2636,7 @@ describe('Link', () => {
       routeTree: rootRoute.addChildren([
         indexRoute,
         layoutRoute.addChildren([
-          postsRoute.addChildren([
-            postRoute.addChildren([detailsRoute, informationRoute]),
-          ]),
+          postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
         ]),
       ]),
       history,
@@ -2868,11 +2779,7 @@ describe('Link', () => {
         indexRoute,
         layoutRoute.addChildren([
           postsRoute.addChildren([
-            postRoute.addChildren([
-              postIndexRoute,
-              detailsRoute,
-              informationRoute,
-            ]),
+            postRoute.addChildren([postIndexRoute, detailsRoute, informationRoute]),
           ]),
         ]),
       ]),
@@ -2956,18 +2863,10 @@ describe('Link', () => {
       return (
         <>
           <h1 data-testid="posts-heading">Posts</h1>
-          <Link
-            to="/dashboard/posts/$postid"
-            data-testid="post1-link"
-            params={{ postid: 'id1' }}
-          >
+          <Link to="/dashboard/posts/$postid" data-testid="post1-link" params={{ postid: 'id1' }}>
             Post1
           </Link>
-          <Link
-            to="/dashboard/posts/$postid"
-            data-testid="post2-link"
-            params={{ postid: 'id2' }}
-          >
+          <Link to="/dashboard/posts/$postid" data-testid="post2-link" params={{ postid: 'id2' }}>
             Post2
           </Link>
           <Outlet />
@@ -2979,18 +2878,10 @@ describe('Link', () => {
       return (
         <>
           <h1 data-testid="users-heading">Users</h1>
-          <Link
-            to="/dashboard/users/$userid"
-            data-testid="user1-link"
-            params={{ userid: 'id1' }}
-          >
+          <Link to="/dashboard/users/$userid" data-testid="user1-link" params={{ userid: 'id1' }}>
             User1
           </Link>
-          <Link
-            to="/dashboard/users/$userid"
-            data-testid="user2-link"
-            params={{ userid: 'id2' }}
-          >
+          <Link to="/dashboard/users/$userid" data-testid="user2-link" params={{ userid: 'id2' }}>
             User2
           </Link>
           <Outlet />
@@ -3195,9 +3086,7 @@ describe('Link', () => {
       routeTree: rootRoute.addChildren([
         indexRoute,
         layoutRoute.addChildren([
-          postsRoute.addChildren([
-            postRoute.addChildren([detailsRoute, informationRoute]),
-          ]),
+          postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
         ]),
       ]),
       history,
@@ -3322,9 +3211,7 @@ describe('Link', () => {
     const router = createRouter({
       routeTree: rootRoute.addChildren([
         indexRoute,
-        layoutRoute.addChildren([
-          postsRoute.addChildren([postRoute.addChildren([detailsRoute])]),
-        ]),
+        layoutRoute.addChildren([postsRoute.addChildren([postRoute.addChildren([detailsRoute])])]),
       ]),
       history,
     })
@@ -3373,11 +3260,7 @@ describe('Link', () => {
           <>
             <h1>Index</h1>
             <Link to="/posts">Posts</Link>
-            <Link
-              to="/posts/$postId/details"
-              params={{ postId: 'id1' }}
-              search={{ page: 2 }}
-            >
+            <Link to="/posts/$postId/details" params={{ postId: 'id1' }} search={{ page: 2 }}>
               To first post
             </Link>
           </>
@@ -3466,9 +3349,7 @@ describe('Link', () => {
       routeTree: rootRoute.addChildren([
         indexRoute,
         layoutRoute.addChildren([
-          postsRoute.addChildren([
-            postRoute.addChildren([detailsRoute, informationRoute]),
-          ]),
+          postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
         ]),
       ]),
       history,
@@ -3491,10 +3372,7 @@ describe('Link', () => {
       name: 'To Information',
     })
 
-    expect(informationLink).toHaveAttribute(
-      'href',
-      '/posts/id1/info?page=2&more=true',
-    )
+    expect(informationLink).toHaveAttribute('href', '/posts/id1/info?page=2&more=true')
 
     await act(() => fireEvent.click(informationLink))
 
@@ -3607,9 +3485,7 @@ describe('Link', () => {
       routeTree: rootRoute.addChildren([
         indexRoute,
         layoutRoute.addChildren([
-          postsRoute.addChildren([
-            postRoute.addChildren([detailsRoute, informationRoute]),
-          ]),
+          postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
         ]),
       ]),
       history,
@@ -3749,11 +3625,7 @@ describe('Link', () => {
         indexRoute,
         layoutRoute.addChildren([
           postsRoute.addChildren([
-            postRoute.addChildren([
-              postIndexRoute,
-              detailsRoute,
-              informationRoute,
-            ]),
+            postRoute.addChildren([postIndexRoute, detailsRoute, informationRoute]),
           ]),
         ]),
       ]),
@@ -3858,11 +3730,7 @@ describe('Link', () => {
       return (
         <>
           <h1>Details!</h1>
-          <Link
-            from="/invoices"
-            to="./$invoiceId"
-            params={{ invoiceId: 'id1' }}
-          >
+          <Link from="/invoices" to="./$invoiceId" params={{ invoiceId: 'id1' }}>
             To Invoices
           </Link>
         </>
@@ -3912,9 +3780,7 @@ describe('Link', () => {
         indexRoute,
         layoutRoute.addChildren([
           invoicesRoute.addChildren([invoiceRoute]),
-          postsRoute.addChildren([
-            postRoute.addChildren([detailsRoute, informationRoute]),
-          ]),
+          postsRoute.addChildren([postRoute.addChildren([detailsRoute, informationRoute])]),
         ]),
       ]),
       history,
@@ -3936,9 +3802,7 @@ describe('Link', () => {
 
     fireEvent.click(invoicesLink)
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Could not find match for from: /invoices',
-    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Could not find match for from: /invoices')
 
     consoleWarnSpy.mockRestore()
   })
@@ -4188,9 +4052,7 @@ describe('Link', () => {
     })
 
     const LoginComponent = () => {
-      const [status, setStatus] = React.useState<'idle' | 'success' | 'error'>(
-        'idle',
-      )
+      const [status, setStatus] = React.useState<'idle' | 'success' | 'error'>('idle')
 
       React.useEffect(() => {
         const onLoad = async () => {
@@ -4567,11 +4429,7 @@ describe('Link', () => {
         return (
           <>
             <h1>Index</h1>
-            <Link
-              to="/posts/$postId"
-              params={{ postId: 'id1' }}
-              preloadDelay={0}
-            >
+            <Link to="/posts/$postId" params={{ postId: 'id1' }} preloadDelay={0}>
               To first post
             </Link>
           </>
@@ -4721,11 +4579,7 @@ describe('Link', () => {
       ),
     })
 
-    const routeTree = rootRoute.addChildren([
-      indexRoute,
-      postsRoute,
-      invoicesRoute,
-    ])
+    const routeTree = rootRoute.addChildren([indexRoute, postsRoute, invoicesRoute])
 
     const router = createRouter({
       routeTree,
@@ -5250,16 +5104,10 @@ describe('Link', () => {
     const rootRoute = createRootRoute()
     const RouteComponent = () => {
       const [to, setTo] = React.useState<'/about' | '/other'>('/about')
-      const [preload, setPreload] = React.useState<
-        'viewport' | 'intent' | false
-      >('viewport')
+      const [preload, setPreload] = React.useState<'viewport' | 'intent' | false>('viewport')
       return (
         <>
-          <button
-            onClick={() =>
-              setTo((current) => (current === '/about' ? '/other' : '/about'))
-            }
-          >
+          <button onClick={() => setTo((current) => (current === '/about' ? '/other' : '/about'))}>
             Change destination
           </button>
           <button onClick={() => setPreload('intent')}>Use intent</button>
@@ -5346,9 +5194,7 @@ describe('Link', () => {
     )
     await vi.advanceTimersByTimeAsync(50)
     expect(preloadRouteSpy).toHaveBeenCalledTimes(1)
-    expect(preloadRouteSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '/about' }),
-    )
+    expect(preloadRouteSpy).toHaveBeenCalledWith(expect.objectContaining({ to: '/about' }))
 
     preloadRouteSpy.mockClear()
     fireEvent.click(screen.getByRole('button', { name: 'Use intent' }))
@@ -5410,10 +5256,7 @@ describe('Link', () => {
         component: () => (
           <>
             <h1>Index Heading</h1>
-            <Link
-              to="/about"
-              {...(preloadMode === undefined ? {} : { preload: preloadMode })}
-            >
+            <Link to="/about" {...(preloadMode === undefined ? {} : { preload: preloadMode })}>
               About Link
             </Link>
           </>
@@ -5440,9 +5283,7 @@ describe('Link', () => {
       expect(aboutLink).toBeInTheDocument()
 
       if (preloadMode === 'render') {
-        await waitFor(() =>
-          expect(preloadRouteSpy.mock.calls.length).toBeGreaterThan(0),
-        )
+        await waitFor(() => expect(preloadRouteSpy.mock.calls.length).toBeGreaterThan(0))
       }
 
       const baselineCalls = preloadRouteSpy.mock.calls.length
@@ -5493,19 +5334,13 @@ describe('Link', () => {
     const baselineCalls = preloadRouteSpy.mock.calls.length
 
     fireEvent.focus(aboutLink)
-    await waitFor(() =>
-      expect(preloadRouteSpy).toHaveBeenCalledTimes(baselineCalls + 1),
-    )
+    await waitFor(() => expect(preloadRouteSpy).toHaveBeenCalledTimes(baselineCalls + 1))
 
     fireEvent.mouseOver(aboutLink)
-    await waitFor(() =>
-      expect(preloadRouteSpy).toHaveBeenCalledTimes(baselineCalls + 2),
-    )
+    await waitFor(() => expect(preloadRouteSpy).toHaveBeenCalledTimes(baselineCalls + 2))
 
     fireEvent.touchStart(aboutLink)
-    await waitFor(() =>
-      expect(preloadRouteSpy).toHaveBeenCalledTimes(baselineCalls + 3),
-    )
+    await waitFor(() => expect(preloadRouteSpy).toHaveBeenCalledTimes(baselineCalls + 3))
   })
 
   test('Router.preload="intent", pendingComponent renders during unresolved route loader', async () => {
@@ -5573,18 +5408,10 @@ describe('Link', () => {
         component: () => {
           return (
             <>
-              <Link
-                data-testid="link-1"
-                to="/posts/$postId"
-                params={{ postId: 'id1' }}
-              >
+              <Link data-testid="link-1" to="/posts/$postId" params={{ postId: 'id1' }}>
                 To first post
               </Link>
-              <Link
-                data-testid="link-2"
-                to="/posts/$postId"
-                params={{ postId: 'id2' }}
-              >
+              <Link data-testid="link-2" to="/posts/$postId" params={{ postId: 'id2' }}>
                 To second post
               </Link>
               <Outlet />
@@ -5645,10 +5472,7 @@ describe('Link', () => {
         loader: postLoaderFn,
       })
 
-      const routeTree = rootRoute.addChildren([
-        indexRoute,
-        postsRoute.addChildren([postRoute]),
-      ])
+      const routeTree = rootRoute.addChildren([indexRoute, postsRoute.addChildren([postRoute])])
 
       const router = createRouter({
         routeTree,
@@ -5661,14 +5485,10 @@ describe('Link', () => {
       fireEvent.mouseOver(link)
 
       const expected = expect.objectContaining({ preload: expectedPreload })
-      await waitFor(() =>
-        expect(postsBeforeLoadFn).toHaveBeenCalledWith(expected),
-      )
+      await waitFor(() => expect(postsBeforeLoadFn).toHaveBeenCalledWith(expected))
       await waitFor(() => expect(postsLoaderFn).toHaveBeenCalledWith(expected))
 
-      await waitFor(() =>
-        expect(postBeforeLoadFn).toHaveBeenCalledWith(expected),
-      )
+      await waitFor(() => expect(postBeforeLoadFn).toHaveBeenCalledWith(expected))
       await waitFor(() => expect(postLoaderFn).toHaveBeenCalledWith(expected))
     }
     test('`true` when on / and hovering `/posts/id1` ', async () => {
@@ -5822,15 +5642,11 @@ describe('createLink', () => {
 
     const button1 = await screen.findByText('active: yes - foo: no - Button1')
     expect(button1.getAttribute('data-hello')).toBe('world')
-    expect(button1.getAttribute('overrideMeIfYouWant')).toBe(
-      'overridden-by-activeProps',
-    )
+    expect(button1.getAttribute('overrideMeIfYouWant')).toBe('overridden-by-activeProps')
 
     const button2 = await screen.findByText('active: no - foo: yes - Button2')
     expect(button2.getAttribute('data-hello')).toBe('void')
-    expect(button2.getAttribute('overrideMeIfYouWant')).toBe(
-      'overridden-by-inactiveProps',
-    )
+    expect(button2.getAttribute('overrideMeIfYouWant')).toBe('overridden-by-inactiveProps')
 
     const button3 = await screen.findByText('active: no - foo: no - Button3')
     expect(button3.getAttribute('overrideMeIfYouWant')).toBe('Button3')
@@ -5840,9 +5656,7 @@ describe('createLink', () => {
     const CustomLinkWithTarget = React.forwardRef<
       HTMLAnchorElement,
       { href?: string; children?: React.ReactNode }
-    >((props, ref) => (
-      <a ref={ref} {...props} target="_blank" rel="noopener noreferrer" />
-    ))
+    >((props, ref) => <a ref={ref} {...props} target="_blank" rel="noopener noreferrer" />)
 
     const CreatedCustomLink = createLink(CustomLinkWithTarget)
 
@@ -5853,9 +5667,7 @@ describe('createLink', () => {
       component: () => (
         <>
           <h1>Index</h1>
-          <CreatedCustomLink to="/posts">
-            Posts (should open in new tab)
-          </CreatedCustomLink>
+          <CreatedCustomLink to="/posts">Posts (should open in new tab)</CreatedCustomLink>
         </>
       ),
     })
@@ -6049,11 +5861,7 @@ describe('search middleware', () => {
           <>
             <h1>Index</h1>
             <div data-testid="search">{root ?? '$undefined'}</div>
-            <Link
-              data-testid="update-search"
-              to="/"
-              search={{ root: 'newValue' }}
-            >
+            <Link data-testid="update-search" to="/" search={{ root: 'newValue' }}>
               update search
             </Link>
             <Link to="/posts" search={{ page: 123 }}>
@@ -6121,11 +5929,7 @@ describe('search middleware', () => {
         return (
           <>
             <h1>Root</h1>
-            <Link
-              data-testid="root-link-posts"
-              search={{ foo: 'default' }}
-              to="/posts"
-            >
+            <Link data-testid="root-link-posts" search={{ foo: 'default' }} to="/posts">
               posts
             </Link>{' '}
             <Link data-testid="root-link-invoices" to="/invoices">
@@ -6275,10 +6079,7 @@ describe('search middleware', () => {
       })
 
       const router = createRouter({
-        routeTree: rootRoute.addChildren([
-          indexRoute,
-          postsRoute.addChildren([postRoute]),
-        ]),
+        routeTree: rootRoute.addChildren([indexRoute, postsRoute.addChildren([postRoute])]),
         history,
       })
 
@@ -6384,10 +6185,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
               <Link to=".." params={{ param: 'bar' }}>
                 Link to Parent with param:bar
               </Link>
-              <paramBRoute.Link
-                to=".."
-                params={(prev) => ({ ...prev, param: 'bar' })}
-              >
+              <paramBRoute.Link to=".." params={(prev) => ({ ...prev, param: 'bar' })}>
                 Link to Parent with param:bar functional
               </paramBRoute.Link>
             </>
@@ -6428,9 +6226,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
         routeTree: rootRoute.addChildren([
           indexRoute,
           aRoute.addChildren([bRoute]),
-          paramRoute.addChildren([
-            paramARoute.addChildren([paramBRoute, paramCRoute]),
-          ]),
+          paramRoute.addChildren([paramARoute.addChildren([paramBRoute, paramCRoute])]),
           splatRoute,
         ]),
         history,
@@ -6493,9 +6289,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
       })
 
       // Inspect the link to go up a parent and keep the params
-      const parentLink = await screen.findByText(
-        'Link to Parent with param:bar',
-      )
+      const parentLink = await screen.findByText('Link to Parent with param:bar')
       expect(parentLink.getAttribute('href')).toBe(`${basepath}/param/bar/a`)
 
       // Click the link and ensure the new location
@@ -6537,9 +6331,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
       })
 
       // Inspect the relative link to ./a
-      const relativeLink = await screen.findByText(
-        'Link to .. from /param/foo/a',
-      )
+      const relativeLink = await screen.findByText('Link to .. from /param/foo/a')
       expect(relativeLink.getAttribute('href')).toBe(`${basepath}/param/foo`)
 
       // Click the link and ensure the new location
@@ -6582,9 +6374,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
 
       // Inspect the relative link to ./a
       const relativeLink = await screen.findByText('Link to c')
-      expect(relativeLink.getAttribute('href')).toBe(
-        `${basepath}/param/foo/a/b/c`,
-      )
+      expect(relativeLink.getAttribute('href')).toBe(`${basepath}/param/foo/a/b/c`)
 
       // Click the link and ensure the new location
       await act(async () => {
@@ -6605,9 +6395,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
 
       // Inspect the relative link to ./a
       const relativeLink = await screen.findByText('Link to ../c')
-      expect(relativeLink.getAttribute('href')).toBe(
-        `${basepath}/param/foo/a/c`,
-      )
+      expect(relativeLink.getAttribute('href')).toBe(`${basepath}/param/foo/a/c`)
 
       // Click the link and ensure the new location
       await act(async () => {
@@ -6667,9 +6455,7 @@ describe.each([{ basepath: '' }, { basepath: '/basepath' }])(
       })
 
       const relativeLink = await screen.findByText('Unsafe link to ./child')
-      expect(relativeLink.getAttribute('href')).toBe(
-        `${basepath}/splat/a/b/c/child`,
-      )
+      expect(relativeLink.getAttribute('href')).toBe(`${basepath}/splat/a/b/c/child`)
 
       // Click the link and ensure the new location
       await act(async () => {
@@ -6758,21 +6544,15 @@ describe('splat routes with empty splat', () => {
 
       render(<RouterProvider router={router} />)
 
-      const splatLinkWithEmptySplat = await screen.findByTestId(
-        'splat-link-with-empty-splat',
-      )
+      const splatLinkWithEmptySplat = await screen.findByTestId('splat-link-with-empty-splat')
       const splatLinkWithUndefinedSplat = await screen.findByTestId(
         'splat-link-with-undefined-splat',
       )
-      const splatLinkWithNoSplat = await screen.findByTestId(
-        'splat-link-with-no-splat',
-      )
+      const splatLinkWithNoSplat = await screen.findByTestId('splat-link-with-no-splat')
 
       // When _splat has a value, it should follow the trailingSlash setting
       expect(splatLinkWithEmptySplat.getAttribute('href')).toBe(`/splat${tail}`)
-      expect(splatLinkWithUndefinedSplat.getAttribute('href')).toBe(
-        `/splat${tail}`,
-      )
+      expect(splatLinkWithUndefinedSplat.getAttribute('href')).toBe(`/splat${tail}`)
       expect(splatLinkWithNoSplat.getAttribute('href')).toBe(`/splat${tail}`)
 
       // Click the link with empty _splat and ensure the route matches
@@ -6803,18 +6583,10 @@ describe('relative links to current route', () => {
             <Link data-testid="posts-link" to="/post">
               Post
             </Link>
-            <Link
-              data-testid="search-link"
-              to="."
-              search={{ param1: 'value1' }}
-            >
+            <Link data-testid="search-link" to="." search={{ param1: 'value1' }}>
               Search
             </Link>
-            <Link
-              data-testid="search2-link"
-              to="."
-              search={{ param1: 'value2' }}
-            >
+            <Link data-testid="search2-link" to="." search={{ param1: 'value2' }}>
               Search2
             </Link>
             <Outlet />
@@ -6882,18 +6654,10 @@ describe('relative links to current route', () => {
             <Link data-testid="posts-link" to="/post">
               Post
             </Link>
-            <Link
-              data-testid="search-link"
-              to="."
-              search={{ param1: 'value1' }}
-            >
+            <Link data-testid="search-link" to="." search={{ param1: 'value1' }}>
               Search
             </Link>
-            <Link
-              data-testid="search2-link"
-              to="/post"
-              search={{ param1: 'value2' }}
-            >
+            <Link data-testid="search2-link" to="/post" search={{ param1: 'value2' }}>
               Search2
             </Link>
             <Outlet />
@@ -6986,18 +6750,10 @@ describe('relative links to current route', () => {
         return (
           <>
             <h1 data-testid="posts-index-heading">Posts</h1>
-            <Link
-              data-testid="first-post-link"
-              to="$postId"
-              params={{ postId: 'id1' }}
-            >
+            <Link data-testid="first-post-link" to="$postId" params={{ postId: 'id1' }}>
               To first post
             </Link>
-            <Link
-              data-testid="second-post-link"
-              to="."
-              params={{ postId: 'id2' }}
-            >
+            <Link data-testid="second-post-link" to="." params={{ postId: 'id2' }}>
               To second post
             </Link>
             <Outlet />
@@ -7015,9 +6771,7 @@ describe('relative links to current route', () => {
         const params = useParams({ strict: false })
         return (
           <>
-            <span data-testid={`post-${params.postId}`}>
-              Params: {params.postId}
-            </span>
+            <span data-testid={`post-${params.postId}`}>Params: {params.postId}</span>
           </>
         )
       }
@@ -7042,9 +6796,7 @@ describe('relative links to current route', () => {
 
       await act(() => fireEvent.click(postsButton))
 
-      expect(
-        await screen.findByTestId('posts-index-heading'),
-      ).toBeInTheDocument()
+      expect(await screen.findByTestId('posts-index-heading')).toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts${tail}`)
 
       const firstPostButton = await screen.findByTestId('first-post-link')
@@ -7078,11 +6830,7 @@ describe('relative links to from route', () => {
             <Link data-testid="posts-link" to="/post">
               Post
             </Link>
-            <Link
-              data-testid="search-link"
-              to="."
-              search={{ param1: 'value1' }}
-            >
+            <Link data-testid="search-link" to="." search={{ param1: 'value1' }}>
               Search
             </Link>
             <Link data-testid="home-link" from="/" to=".">
@@ -7178,18 +6926,10 @@ describe('relative links to from route', () => {
         return (
           <>
             <h1 data-testid="posts-index-heading">Posts</h1>
-            <Link
-              data-testid="first-post-link"
-              to="$postId"
-              params={{ postId: '1' }}
-            >
+            <Link data-testid="first-post-link" to="$postId" params={{ postId: '1' }}>
               To first post
             </Link>
-            <Link
-              data-testid="second-post-link"
-              to="$postId"
-              params={{ postId: '2' }}
-            >
+            <Link data-testid="second-post-link" to="$postId" params={{ postId: '2' }}>
               To second post
             </Link>
             <Link data-testid="to-posts-index-link" from="/posts" to=".">
@@ -7210,11 +6950,7 @@ describe('relative links to from route', () => {
             <Link data-testid="post-notes-link" to="notes">
               To post notes
             </Link>
-            <Link
-              data-testid="to-post-detail-index-link"
-              from="/posts/$postId"
-              to="."
-            >
+            <Link data-testid="to-post-detail-index-link" from="/posts/$postId" to=".">
               To index detail options
             </Link>
             <Outlet />
@@ -7266,9 +7002,7 @@ describe('relative links to from route', () => {
         routeTree: rootRoute.addChildren([
           indexRoute,
           layoutRoute.addChildren([
-            postsRoute.addChildren([
-              postDetailRoute.addChildren([postInfoRoute, postNotesRoute]),
-            ]),
+            postsRoute.addChildren([postDetailRoute.addChildren([postInfoRoute, postNotesRoute])]),
           ]),
         ]),
         trailingSlash: trailingSlash ? 'always' : 'never',
@@ -7280,18 +7014,14 @@ describe('relative links to from route', () => {
 
       fireEvent.click(postsButton)
 
-      expect(
-        await screen.findByTestId('posts-index-heading'),
-      ).toBeInTheDocument()
+      expect(await screen.findByTestId('posts-index-heading')).toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts${tail}`)
 
       const firstPostButton = await screen.findByTestId('first-post-link')
 
       fireEvent.click(firstPostButton)
 
-      expect(
-        await screen.findByTestId('post-detail-index-heading'),
-      ).toBeInTheDocument()
+      expect(await screen.findByTestId('post-detail-index-heading')).toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts/1${tail}`)
 
       const postInfoButton = await screen.findByTestId('post-info-link')
@@ -7301,15 +7031,11 @@ describe('relative links to from route', () => {
       expect(await screen.findByTestId('post-info-heading')).toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts/1/info${tail}`)
 
-      const toPostDetailIndexButton = await screen.findByTestId(
-        'to-post-detail-index-link',
-      )
+      const toPostDetailIndexButton = await screen.findByTestId('to-post-detail-index-link')
 
       fireEvent.click(toPostDetailIndexButton)
 
-      expect(
-        await screen.findByTestId('post-detail-index-heading'),
-      ).toBeInTheDocument()
+      expect(await screen.findByTestId('post-detail-index-heading')).toBeInTheDocument()
       expect(screen.queryByTestId('post-info-heading')).not.toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts/1${tail}`)
 
@@ -7317,33 +7043,23 @@ describe('relative links to from route', () => {
 
       fireEvent.click(postNotesButton)
 
-      expect(
-        await screen.findByTestId('post-notes-heading'),
-      ).toBeInTheDocument()
+      expect(await screen.findByTestId('post-notes-heading')).toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts/1/notes${tail}`)
 
-      const toPostsIndexButton = await screen.findByTestId(
-        'to-posts-index-link',
-      )
+      const toPostsIndexButton = await screen.findByTestId('to-posts-index-link')
 
       fireEvent.click(toPostsIndexButton)
 
-      expect(
-        await screen.findByTestId('posts-index-heading'),
-      ).toBeInTheDocument()
+      expect(await screen.findByTestId('posts-index-heading')).toBeInTheDocument()
       expect(screen.queryByTestId('post-notes-heading')).not.toBeInTheDocument()
-      expect(
-        screen.queryByTestId('post-detail-index-heading'),
-      ).not.toBeInTheDocument()
+      expect(screen.queryByTestId('post-detail-index-heading')).not.toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts${tail}`)
 
       const secondPostButton = await screen.findByTestId('second-post-link')
 
       fireEvent.click(secondPostButton)
 
-      expect(
-        await screen.findByTestId('post-detail-index-heading'),
-      ).toBeInTheDocument()
+      expect(await screen.findByTestId('post-detail-index-heading')).toBeInTheDocument()
       expect(window.location.pathname).toEqual(`/posts/2${tail}`)
     },
   )
@@ -7469,9 +7185,7 @@ describe('when on /posts/$postId and navigating to ../ with default `from` /post
       routeTree: rootRoute.addChildren([
         indexRoute,
         layoutRoute.addChildren([
-          postsRoute.addChildren([
-            postRoute.addChildren([postIndexRoute, detailsRoute]),
-          ]),
+          postsRoute.addChildren([postRoute.addChildren([postIndexRoute, detailsRoute])]),
         ]),
       ]),
     })
@@ -7634,8 +7348,7 @@ describe('encoded and unicode paths', () => {
     {
       name: 'with prefix',
       path: '/foo/prefix@대{$}',
-      expectedPath:
-        '/foo/prefix@%EB%8C%80test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]',
+      expectedPath: '/foo/prefix@%EB%8C%80test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]',
       expectedLocation: '/foo/prefix@대test[s%5C/.%5C/parameter%25!🚀%40]',
       params: {
         _splat: 'test[s\\/.\\/parameter%!🚀@]',
@@ -7645,8 +7358,7 @@ describe('encoded and unicode paths', () => {
     {
       name: 'with suffix',
       path: '/foo/{$}대suffix@',
-      expectedPath:
-        '/foo/test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]%EB%8C%80suffix@',
+      expectedPath: '/foo/test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]%EB%8C%80suffix@',
       expectedLocation: '/foo/test[s%5C/.%5C/parameter%25!🚀%40]대suffix@',
       params: {
         _splat: 'test[s\\/.\\/parameter%!🚀@]',
@@ -7707,10 +7419,7 @@ describe('encoded and unicode paths', () => {
           <div>
             <h1>Path Route</h1>
             <p>
-              params:{' '}
-              <span data-testid="params-to-validate">
-                {JSON.stringify(params)}
-              </span>
+              params: <span data-testid="params-to-validate">{JSON.stringify(params)}</span>
             </p>
           </div>
         )
@@ -7747,10 +7456,7 @@ describe('protocolAllowlist', () => {
     component: () => (
       <>
         <Link to="x-safari-https://example.com" />
-        <Link
-          to="intent://example.com#Intent;scheme=https;end"
-          reloadDocument
-        />
+        <Link to="intent://example.com#Intent;scheme=https;end" reloadDocument />
       </>
     ),
   })
@@ -7773,10 +7479,7 @@ describe('protocolAllowlist', () => {
     render(<RouterProvider router={router} />)
     const links = await screen.findAllByRole('link')
     expect(links[0]).toHaveAttribute('href', 'x-safari-https://example.com')
-    expect(links[1]).toHaveAttribute(
-      'href',
-      'intent://example.com#Intent;scheme=https;end',
-    )
+    expect(links[1]).toHaveAttribute('href', 'intent://example.com#Intent;scheme=https;end')
     expect(consoleWarn).not.toHaveBeenCalled()
   })
 
@@ -7789,10 +7492,7 @@ describe('protocolAllowlist', () => {
     render(<RouterProvider router={router} />)
     const links = await screen.findAllByRole('link')
     expect(links[0]).toHaveAttribute('href', '/x-safari-https:/example.com')
-    expect(links[1]).toHaveAttribute(
-      'href',
-      '/intent:/example.com#Intent;scheme=https;end',
-    )
+    expect(links[1]).toHaveAttribute('href', '/intent:/example.com#Intent;scheme=https;end')
     expect(consoleWarn).toHaveBeenCalledWith(
       'Blocked Link with dangerous protocol: x-safari-https://example.com',
     )
@@ -7861,11 +7561,7 @@ describe('link re-render bail-out', () => {
     })
 
     const router = createRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        postsRoute,
-        elsewhereRoute,
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, postsRoute, elsewhereRoute]),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
 
@@ -7878,29 +7574,21 @@ describe('link re-render bail-out', () => {
 
     await screen.findByTestId('unaffected')
     const before = { ...renderCounts }
-    expect(screen.getByTestId('becomesActive')).not.toHaveAttribute(
-      'data-status',
-    )
+    expect(screen.getByTestId('becomesActive')).not.toHaveAttribute('data-status')
 
     fireEvent.click(await screen.findByTestId('go'))
     expect(await screen.findByText('Posts')).toBeInTheDocument()
 
     // `/posts` gains its active state, so it has to re-render.
     expect(renderCounts.becomesActive).toBeGreaterThan(before.becomesActive)
-    expect(screen.getByTestId('becomesActive')).toHaveAttribute(
-      'data-status',
-      'active',
-    )
+    expect(screen.getByTestId('becomesActive')).toHaveAttribute('data-status', 'active')
 
     // `/elsewhere` is neither the origin nor the destination: its href and
     // active state are identical before and after, so the subscription must
     // bail out rather than publish an equal value. Asserting the published
     // values too, so a selector that returned a constant would still fail.
     expect(renderCounts.unaffected).toBe(before.unaffected)
-    expect(screen.getByTestId('unaffected')).toHaveAttribute(
-      'href',
-      '/elsewhere',
-    )
+    expect(screen.getByTestId('unaffected')).toHaveAttribute('href', '/elsewhere')
     expect(screen.getByTestId('unaffected')).not.toHaveAttribute('data-status')
   })
 })
@@ -7911,11 +7599,7 @@ describe('explicit-undefined params are not collapsed into an empty object', () 
   // options are stabilised by value, and that comparison must not treat them as
   // equal or the link keeps publishing the stale href.
   it('updates href when params goes from {} to { category: undefined }', async () => {
-    function CategoryLink({
-      params,
-    }: {
-      params: Record<string, string | undefined>
-    }) {
+    function CategoryLink({ params }: { params: Record<string, string | undefined> }) {
       return (
         <Link to="/posts/{-$category}" params={params} data-testid="lnk">
           link
@@ -7928,15 +7612,10 @@ describe('explicit-undefined params are not collapsed into an empty object', () 
       getParentRoute: () => rootRoute,
       path: '/posts/{-$category}',
       component: function Posts() {
-        const [params, setParams] = React.useState<
-          Record<string, string | undefined>
-        >({})
+        const [params, setParams] = React.useState<Record<string, string | undefined>>({})
         return (
           <>
-            <button
-              data-testid="clear"
-              onClick={() => setParams({ category: undefined })}
-            >
+            <button data-testid="clear" onClick={() => setParams({ category: undefined })}>
               clear
             </button>
             <CategoryLink params={params} />
@@ -7952,14 +7631,10 @@ describe('explicit-undefined params are not collapsed into an empty object', () 
 
     render(<RouterProvider router={router} />)
 
-    await waitFor(() =>
-      expect(screen.getByTestId('lnk')).toHaveAttribute('href', '/posts/tech'),
-    )
+    await waitFor(() => expect(screen.getByTestId('lnk')).toHaveAttribute('href', '/posts/tech'))
 
     fireEvent.click(screen.getByTestId('clear'))
 
-    await waitFor(() =>
-      expect(screen.getByTestId('lnk')).toHaveAttribute('href', '/posts'),
-    )
+    await waitFor(() => expect(screen.getByTestId('lnk')).toHaveAttribute('href', '/posts'))
   })
 })

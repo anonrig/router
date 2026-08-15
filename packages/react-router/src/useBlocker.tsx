@@ -1,19 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from './useRouter'
 import type { HistoryAction } from '@anonrig/history'
-import type {
-  AnyRoute,
-  AnyRouter,
-  ParseRoute,
-  RegisteredRouter,
-} from '@anonrig/router-core'
+import type { AnyRoute, AnyRouter, ParseRoute, RegisteredRouter } from '@anonrig/router-core'
 
-type ShouldBlockFnLocation<
-  out TRouteId,
-  out TFullPath,
-  out TAllParams,
-  out TFullSearchSchema,
-> = {
+type ShouldBlockFnLocation<out TRouteId, out TFullPath, out TAllParams, out TFullSearchSchema> = {
   routeId: TRouteId
   fullPath: TFullPath
   pathname: string
@@ -92,7 +82,7 @@ export function useBlocker(opts?: any): any {
         const fn =
           typeof current === 'function'
             ? current
-            : current?.shouldBlockFn ?? (current as any)?.blockerFn
+            : (current?.shouldBlockFn ?? (current as any)?.blockerFn)
         const should = fn ? await fn(args) : true
         if (!should) return false
         if (typeof current !== 'function' && current?.withResolver) {
@@ -110,8 +100,7 @@ export function useBlocker(opts?: any): any {
         }
         return should
       },
-      enableBeforeUnload:
-        typeof opts === 'function' ? true : (opts?.enableBeforeUnload ?? true),
+      enableBeforeUnload: typeof opts === 'function' ? true : (opts?.enableBeforeUnload ?? true),
     })
   }, [router])
 

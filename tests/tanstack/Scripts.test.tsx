@@ -1,12 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createPortal } from 'react-dom'
 import ReactDOMServer from 'react-dom/server'
 import { hydrate } from '@tanstack/router-core/ssr/client'
@@ -162,9 +155,7 @@ describe('ssr scripts', () => {
       { src: 'script3.js' },
     ])
 
-    const html = ReactDOMServer.renderToString(
-      <RouterProvider router={router} />,
-    )
+    const html = ReactDOMServer.renderToString(<RouterProvider router={router} />)
     expect(html).toContain('<script src="script.js"></script>')
     expect(html).toContain('<script src="script3.js"></script>')
     expect(html).not.toContain('script2.js')
@@ -214,9 +205,7 @@ describe('scripts with async/defer attributes', () => {
     await router.load()
 
     // Use ReactDOMServer.renderToString to test actual server output
-    const html = ReactDOMServer.renderToString(
-      <RouterProvider router={router} />,
-    )
+    const html = ReactDOMServer.renderToString(<RouterProvider router={router} />)
 
     expect(html).toMatch(/<script[^>]*src="script\.js"[^>]*async=""/)
     expect(html).toMatch(/<script[^>]*src="script2\.js"[^>]*defer=""/)
@@ -270,9 +259,7 @@ describe('scripts with async/defer attributes', () => {
 
     await router.load()
 
-    const html = ReactDOMServer.renderToString(
-      <RouterProvider router={router} />,
-    )
+    const html = ReactDOMServer.renderToString(<RouterProvider router={router} />)
     const contentIndex = html.indexOf('<main data-testid="content">')
     const scriptIndex = html.indexOf('src="/entry.js"')
 
@@ -379,9 +366,7 @@ describe('ssr HeadContent', () => {
       history: createMemoryHistory({
         initialEntries: ['/report/details'],
       }),
-      routeTree: rootRoute.addChildren([
-        dataOnlyRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([dataOnlyRoute.addChildren([childRoute])]),
     })
     const matches = router.matchRoutes(router.latestLocation)
     window.$_TSR = {
@@ -433,21 +418,13 @@ describe('ssr HeadContent', () => {
       </RouterContextProvider>,
     )
 
-    expect(
-      document.querySelector('meta[name="data-only-child"]'),
-    ).not.toBeNull()
-    expect(
-      document.querySelector('link[href="/data-only-head-link.js"]'),
-    ).not.toBeNull()
+    expect(document.querySelector('meta[name="data-only-child"]')).not.toBeNull()
+    expect(document.querySelector('link[href="/data-only-head-link.js"]')).not.toBeNull()
     expect(document.querySelector('#data-only-route-style')).not.toBeNull()
     expect(document.querySelector('#data-only-head-script')).not.toBeNull()
     expect(document.querySelector('#data-only-body-script')).not.toBeNull()
-    expect(
-      document.querySelector('link[href="/data-only-manifest.css"]'),
-    ).not.toBeNull()
-    expect(
-      document.querySelector('link[href="/data-only-manifest.js"]'),
-    ).not.toBeNull()
+    expect(document.querySelector('link[href="/data-only-manifest.css"]')).not.toBeNull()
+    expect(document.querySelector('link[href="/data-only-manifest.js"]')).not.toBeNull()
     expect(document.querySelector('#data-only-manifest-script')).not.toBeNull()
   })
 
@@ -539,9 +516,7 @@ describe('ssr HeadContent', () => {
       { property: 'og:image', content: 'index-image.jpg' },
     ])
 
-    const html = ReactDOMServer.renderToString(
-      <RouterProvider router={router} />,
-    )
+    const html = ReactDOMServer.renderToString(<RouterProvider router={router} />)
     expect(html).toEqual(
       `<title>Index</title><meta name="image" content="image.jpg"/><meta property="og:description" content="Root description"/><meta name="description" content="Index"/><meta name="last-modified" content="2021-10-10"/><meta property="og:image" content="index-image.jpg"/>`,
     )
@@ -558,11 +533,7 @@ describe('ssr HeadContent', () => {
             {createPortal(<HeadContent />, document.head)}
             <button
               onClick={() => {
-                window.history.replaceState(
-                  { slideId: 'slide-2' },
-                  '',
-                  window.location.href,
-                )
+                window.history.replaceState({ slideId: 'slide-2' }, '', window.location.href)
               }}
             >
               Replace state
@@ -670,14 +641,10 @@ describe('ssr HeadContent', () => {
 
     await waitFor(() => {
       expect(
-        document.head.querySelector(
-          `link[rel="stylesheet"][href="${stylesheetHref}"]`,
-        ),
+        document.head.querySelector(`link[rel="stylesheet"][href="${stylesheetHref}"]`),
       ).toBeTruthy()
       expect(
-        document.head.querySelector(
-          `link[rel="modulepreload"][href="${preloadHref}"]`,
-        ),
+        document.head.querySelector(`link[rel="modulepreload"][href="${preloadHref}"]`),
       ).toBeTruthy()
     })
 
@@ -735,14 +702,12 @@ describe('ssr HeadContent', () => {
     await act(() => render(<RouterProvider router={router} />))
 
     await waitFor(() => {
-      expect(
-        document.head.querySelector('style#runtime-inline-style'),
-      ).toBeTruthy()
+      expect(document.head.querySelector('style#runtime-inline-style')).toBeTruthy()
     })
 
-    expect(
-      document.head.querySelector('style#runtime-inline-style')?.textContent,
-    ).toBe('.runtime{color:red}')
+    expect(document.head.querySelector('style#runtime-inline-style')?.textContent).toBe(
+      '.runtime{color:red}',
+    )
   })
 
   test('renders preload as script links for iife manifest preloads', async () => {
@@ -784,16 +749,12 @@ describe('ssr HeadContent', () => {
 
     await waitFor(() => {
       expect(
-        document.head.querySelector(
-          `link[rel="preload"][as="script"][href="${preloadHref}"]`,
-        ),
+        document.head.querySelector(`link[rel="preload"][as="script"][href="${preloadHref}"]`),
       ).toBeTruthy()
     })
 
     expect(
-      document.head.querySelector(
-        `link[rel="modulepreload"][href="${preloadHref}"]`,
-      ),
+      document.head.querySelector(`link[rel="modulepreload"][href="${preloadHref}"]`),
     ).toBeFalsy()
   })
 
@@ -806,10 +767,7 @@ describe('ssr HeadContent', () => {
       component: () => {
         return (
           <>
-            {createPortal(
-              <HeadContent assetCrossOrigin="anonymous" />,
-              document.head,
-            )}
+            {createPortal(<HeadContent assetCrossOrigin="anonymous" />, document.head)}
             <Outlet />
           </>
         )
@@ -831,9 +789,7 @@ describe('ssr HeadContent', () => {
       manifest: {
         routes: {
           [rootRoute.id]: {
-            preloads: [
-              { href: preloadHref, crossOrigin: 'use-credentials' as const },
-            ],
+            preloads: [{ href: preloadHref, crossOrigin: 'use-credentials' as const }],
             css: [
               {
                 href: stylesheetHref,
@@ -851,14 +807,10 @@ describe('ssr HeadContent', () => {
 
     await waitFor(() => {
       expect(
-        document.head.querySelector(
-          `link[rel="stylesheet"][href="${stylesheetHref}"]`,
-        ),
+        document.head.querySelector(`link[rel="stylesheet"][href="${stylesheetHref}"]`),
       ).toBeTruthy()
       expect(
-        document.head.querySelector(
-          `link[rel="modulepreload"][href="${preloadHref}"]`,
-        ),
+        document.head.querySelector(`link[rel="modulepreload"][href="${preloadHref}"]`),
       ).toBeTruthy()
     })
 
@@ -991,9 +943,7 @@ describe('ssr HeadContent', () => {
         styles: [{ children: '.terminal-child { color: red }' }],
         scripts: [{ type: 'application/ld+json', children: childHeadScript }],
       }),
-      scripts: () => [
-        { type: 'application/ld+json', children: childBodyScript },
-      ],
+      scripts: () => [{ type: 'application/ld+json', children: childBodyScript }],
       component: () => <div>Child content</div>,
     })
     const router = createRouter({
@@ -1020,23 +970,13 @@ describe('ssr HeadContent', () => {
     await act(() => render(<RouterProvider router={router} />))
 
     await waitFor(() => {
-      expect(
-        document.head.querySelector('meta[name="terminal-child"]'),
-      ).not.toBeNull()
-      expect(
-        document.head.querySelector(`link[href="${childPreload}"]`),
-      ).not.toBeNull()
-      expect(
-        document.head.querySelector(`link[href="${childHeadLink}"]`),
-      ).not.toBeNull()
-      expect(document.head.textContent).toContain(
-        '.terminal-child { color: red }',
-      )
+      expect(document.head.querySelector('meta[name="terminal-child"]')).not.toBeNull()
+      expect(document.head.querySelector(`link[href="${childPreload}"]`)).not.toBeNull()
+      expect(document.head.querySelector(`link[href="${childHeadLink}"]`)).not.toBeNull()
+      expect(document.head.textContent).toContain('.terminal-child { color: red }')
       expect(document.documentElement.textContent).toContain(childHeadScript)
       expect(document.documentElement.textContent).toContain(childBodyScript)
-      expect(document.documentElement.textContent).toContain(
-        childManifestScript,
-      )
+      expect(document.documentElement.textContent).toContain(childManifestScript)
     })
 
     failParent = true
@@ -1054,27 +994,13 @@ describe('ssr HeadContent', () => {
       scripts: [{ type: 'application/ld+json', children: childBodyScript }],
     })
     await waitFor(() => {
-      expect(
-        document.head.querySelector('meta[name="terminal-child"]'),
-      ).toBeNull()
-      expect(
-        document.head.querySelector(`link[href="${childPreload}"]`),
-      ).toBeNull()
-      expect(
-        document.head.querySelector(`link[href="${childHeadLink}"]`),
-      ).toBeNull()
-      expect(document.head.textContent).not.toContain(
-        '.terminal-child { color: red }',
-      )
-      expect(document.documentElement.textContent).not.toContain(
-        childHeadScript,
-      )
-      expect(document.documentElement.textContent).not.toContain(
-        childBodyScript,
-      )
-      expect(document.documentElement.textContent).not.toContain(
-        childManifestScript,
-      )
+      expect(document.head.querySelector('meta[name="terminal-child"]')).toBeNull()
+      expect(document.head.querySelector(`link[href="${childPreload}"]`)).toBeNull()
+      expect(document.head.querySelector(`link[href="${childHeadLink}"]`)).toBeNull()
+      expect(document.head.textContent).not.toContain('.terminal-child { color: red }')
+      expect(document.documentElement.textContent).not.toContain(childHeadScript)
+      expect(document.documentElement.textContent).not.toContain(childBodyScript)
+      expect(document.documentElement.textContent).not.toContain(childManifestScript)
     })
   })
 })
@@ -1120,9 +1046,7 @@ describe('data script rendering', () => {
 
     await router.load()
 
-    const html = ReactDOMServer.renderToString(
-      <RouterProvider router={router} />,
-    )
+    const html = ReactDOMServer.renderToString(<RouterProvider router={router} />)
 
     expect(html).toContain('application/ld+json')
     expect(html).toContain(jsonLd)
@@ -1167,16 +1091,12 @@ describe('data script rendering', () => {
 
     await router.load()
 
-    const { container } = await act(() =>
-      render(<RouterProvider router={router} />),
-    )
+    const { container } = await act(() => render(<RouterProvider router={router} />))
 
     const rootEl = container.querySelector('[data-testid="data-client-root"]')
     expect(rootEl).not.toBeNull()
 
-    const scriptEl = container.querySelector(
-      'script[type="application/ld+json"]',
-    )
+    const scriptEl = container.querySelector('script[type="application/ld+json"]')
     expect(scriptEl).not.toBeNull()
     expect(scriptEl!.innerHTML).toBe(jsonLd)
   })
@@ -1213,18 +1133,14 @@ describe('data script rendering', () => {
 
     await router.load()
 
-    const { container } = await act(() =>
-      render(<RouterProvider router={router} />),
-    )
+    const { container } = await act(() => render(<RouterProvider router={router} />))
 
     const rootEl = container.querySelector('[data-testid="exec-root"]')
     expect(rootEl).not.toBeNull()
 
     // Executable inline scripts are injected into document.head via useEffect,
     // not rendered in the React tree on the client.
-    const headScript = document.head.querySelector(
-      'script:not([type]):not([src])',
-    )
+    const headScript = document.head.querySelector('script:not([type]):not([src])')
     expect(headScript).not.toBeNull()
     expect(headScript!.textContent).toBe('console.log("hello")')
   })
@@ -1262,9 +1178,7 @@ describe('data script rendering', () => {
 
     await router.load()
 
-    const { container } = await act(() =>
-      render(<RouterProvider router={router} />),
-    )
+    const { container } = await act(() => render(<RouterProvider router={router} />))
 
     const rootEl = container.querySelector('[data-testid="module-root"]')
     expect(rootEl).not.toBeNull()
@@ -1311,9 +1225,7 @@ describe('data script rendering', () => {
 
     await router.load()
 
-    const { container } = await act(() =>
-      render(<RouterProvider router={router} />),
-    )
+    const { container } = await act(() => render(<RouterProvider router={router} />))
 
     const rootEl = container.querySelector('[data-testid="json-root"]')
     expect(rootEl).not.toBeNull()
@@ -1362,23 +1274,17 @@ describe('data script rendering', () => {
 
     await router.load()
 
-    const { container } = await act(() =>
-      render(<RouterProvider router={router} />),
-    )
+    const { container } = await act(() => render(<RouterProvider router={router} />))
 
     const rootEl = container.querySelector('[data-testid="dup-root"]')
     expect(rootEl).not.toBeNull()
 
     // Data scripts should NOT be duplicated into document.head by useEffect
-    const headScripts = document.head.querySelectorAll(
-      'script[type="application/ld+json"]',
-    )
+    const headScripts = document.head.querySelectorAll('script[type="application/ld+json"]')
     expect(headScripts.length).toBe(0)
 
     // Should only exist once in the container
-    const containerScripts = container.querySelectorAll(
-      'script[type="application/ld+json"]',
-    )
+    const containerScripts = container.querySelectorAll('script[type="application/ld+json"]')
     expect(containerScripts.length).toBe(1)
     expect(containerScripts[0]!.innerHTML).toBe(jsonLd)
   })
@@ -1416,9 +1322,7 @@ describe('data script rendering', () => {
 
     await router.load()
 
-    const { container } = await act(() =>
-      render(<RouterProvider router={router} />),
-    )
+    const { container } = await act(() => render(<RouterProvider router={router} />))
 
     const rootEl = container.querySelector('[data-testid="empty-type-root"]')
     expect(rootEl).not.toBeNull()

@@ -17,10 +17,10 @@ The compatibility surface is the TanStack Router API. The internals are not a fo
 
 ## Packages
 
-| Package | Role |
-| --- | --- |
-| `@anonrig/history` | Browser, hash, and memory history |
-| `@anonrig/router-core` | Matcher, navigation, loaders, search params |
+| Package                 | Role                                             |
+| ----------------------- | ------------------------------------------------ |
+| `@anonrig/history`      | Browser, hash, and memory history                |
+| `@anonrig/router-core`  | Matcher, navigation, loaders, search params      |
 | `@anonrig/react-router` | React bindings (`RouterProvider`, `Link`, hooks) |
 
 ## Install (workspace)
@@ -87,11 +87,11 @@ Current status:
 
 On this machine, the rewritten hot paths measured:
 
-| Operation | vs TanStack-style baseline |
-| --- | --- |
-| Query-string encode | ~29× faster than `URLSearchParams` |
-| Query-string decode | ~17× faster than `URLSearchParams` |
-| `cleanPath` | ~1.4× faster than regex replace |
+| Operation                | vs TanStack-style baseline           |
+| ------------------------ | ------------------------------------ |
+| Query-string encode      | ~29× faster than `URLSearchParams`   |
+| Query-string decode      | ~17× faster than `URLSearchParams`   |
+| `cleanPath`              | ~1.4× faster than regex replace      |
 | Route match (large tree) | ~1.9M matches/sec (O(segments) trie) |
 
 ## License

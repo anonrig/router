@@ -37,17 +37,11 @@ export type UnionizeSerializationAdaptersInput<
 export function createSerializationAdapter<
   TInput = unknown,
   TOutput = unknown,
-  const TExtendsAdapters extends
-    | ReadonlyArray<AnySerializationAdapter>
-    | never = never,
+  const TExtendsAdapters extends ReadonlyArray<AnySerializationAdapter> | never = never,
 >(
   opts: CreateSerializationAdapterOptions<TInput, TOutput, TExtendsAdapters>,
 ): SerializationAdapter<TInput, TOutput, TExtendsAdapters> {
-  return opts as unknown as SerializationAdapter<
-    TInput,
-    TOutput,
-    TExtendsAdapters
-  >
+  return opts as unknown as SerializationAdapter<TInput, TOutput, TExtendsAdapters>
 }
 
 export interface CreateSerializationAdapterOptions<
@@ -99,9 +93,7 @@ export type ValidateSerializableAsyncGenerator<T, TSerializable> =
     : never
 
 export type ValidateSerializablePromise<T, TSerializable> =
-  T extends Promise<infer TAwaited>
-    ? Promise<ValidateSerializable<TAwaited, TSerializable>>
-    : never
+  T extends Promise<infer TAwaited> ? Promise<ValidateSerializable<TAwaited, TSerializable>> : never
 
 export type ValidateReadableStream<T, TSerializable> =
   T extends ReadableStream<infer TStreamed>
@@ -109,22 +101,14 @@ export type ValidateReadableStream<T, TSerializable> =
     : never
 
 export type ValidateSerializableSet<T, TSerializable> =
-  T extends Set<infer TItem>
-    ? Set<ValidateSerializable<TItem, TSerializable>>
-    : never
+  T extends Set<infer TItem> ? Set<ValidateSerializable<TItem, TSerializable>> : never
 
 export type ValidateSerializableMap<T, TSerializable> =
   T extends Map<infer TKey, infer TValue>
-    ? Map<
-        ValidateSerializable<TKey, TSerializable>,
-        ValidateSerializable<TValue, TSerializable>
-      >
+    ? Map<ValidateSerializable<TKey, TSerializable>, ValidateSerializable<TValue, TSerializable>>
     : never
 
-export type ValidateSerializableArray<T, TSerializable> = T extends readonly [
-  any,
-  ...Array<any>,
-]
+export type ValidateSerializableArray<T, TSerializable> = T extends readonly [any, ...Array<any>]
   ? ValidateSerializableMapped<T, TSerializable>
   : T extends Array<infer U>
     ? Array<ValidateSerializable<U, TSerializable>>
@@ -219,10 +203,9 @@ export type ValidateSerializableLifecycleResultSSR<
       ? any
       : ValidateSerializableInput<TRegister, LooseReturnType<TFn>>
 
-export type RegisteredReadableStream =
-  unknown extends SerializerExtensions['ReadableStream']
-    ? never
-    : SerializerExtensions['ReadableStream']
+export type RegisteredReadableStream = unknown extends SerializerExtensions['ReadableStream']
+  ? never
+  : SerializerExtensions['ReadableStream']
 
 export interface DefaultSerializerExtensions {
   ReadableStream: unknown

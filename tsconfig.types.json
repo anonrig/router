@@ -18,12 +18,18 @@
       "@tanstack/router-core/ssr/server": ["./packages/router-core/src/ssr/server.ts"],
       "@tanstack/router-core/ssr/client": ["./packages/router-core/src/ssr/client.ts"],
       "@tanstack/react-router": ["./packages/react-router/src/index.ts"],
-      "@tanstack/react-router/ssr/RouterClient": ["./packages/react-router/src/ssr/RouterClient.tsx"],
+      "@tanstack/react-router/ssr/RouterClient": [
+        "./packages/react-router/src/ssr/RouterClient.tsx"
+      ],
       "@tanstack/react-store": ["./packages/react-router/src/react-store.ts"],
       "@tanstack/router-core/utils": ["./packages/router-core/src/utils.ts"],
       "@anonrig/router-core/utils": ["./packages/router-core/src/utils.ts"],
-      "@tanstack/router-core/ssr/serializer/transformer": ["./packages/router-core/src/ssr/serializer/transformer-types.ts"],
-      "@anonrig/router-core/ssr/serializer/transformer": ["./packages/router-core/src/ssr/serializer/transformer-types.ts"]
+      "@tanstack/router-core/ssr/serializer/transformer": [
+        "./packages/router-core/src/ssr/serializer/transformer-types.ts"
+      ],
+      "@anonrig/router-core/ssr/serializer/transformer": [
+        "./packages/router-core/src/ssr/serializer/transformer-types.ts"
+      ]
     }
   },
   "include": [
@@ -33,8 +39,5 @@
     "packages/react-router/src/**/*.{ts,tsx}",
     "tests/tanstack-types"
   ],
-  "exclude": [
-    "packages/router-core/src/ssr/**",
-    "packages/react-router/src/ssr/**"
-  ]
+  "exclude": ["packages/router-core/src/ssr/**", "packages/react-router/src/ssr/**"]
 }

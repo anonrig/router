@@ -31,10 +31,7 @@ export const getIntersectionObserverMock = ({
     rootMargin: string
     scrollMargin: string
     thresholds: Array<number>
-    constructor(
-      _cb: IntersectionObserverCallback,
-      options?: IntersectionObserverInit,
-    ) {
+    constructor(_cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
       onCreate?.(_cb)
       this.root = options?.root ?? null
       this.rootMargin = options?.rootMargin ?? '0px'

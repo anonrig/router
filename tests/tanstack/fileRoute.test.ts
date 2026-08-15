@@ -40,12 +40,9 @@ describe('createFileRoute has the same hooks as getRouteApi', () => {
   // @ts-expect-error
   const route = createFileRoute('')({})
 
-  it.each(hookNames.map((name) => [name]))(
-    'should have the "%s" hook defined',
-    (hookName) => {
-      expect(route[hookName as keyof typeof route]).toBeDefined()
-    },
-  )
+  it.each(hookNames.map((name) => [name]))('should have the "%s" hook defined', (hookName) => {
+    expect(route[hookName as keyof typeof route]).toBeDefined()
+  })
 })
 
 describe('createLazyFileRoute has the same hooks as getRouteApi', () => {
@@ -54,12 +51,9 @@ describe('createLazyFileRoute has the same hooks as getRouteApi', () => {
   // @ts-expect-error
   const route = createLazyFileRoute('')({})
 
-  it.each(hookNames.map((name) => [name]))(
-    'should have the "%s" hook defined',
-    (hookName) => {
-      expect(route[hookName as keyof LazyRoute<any>]).toBeDefined()
-    },
-  )
+  it.each(hookNames.map((name) => [name]))('should have the "%s" hook defined', (hookName) => {
+    expect(route[hookName as keyof LazyRoute<any>]).toBeDefined()
+  })
 })
 
 describe('createLazyRoute has the same hooks as getRouteApi', () => {
@@ -67,10 +61,7 @@ describe('createLazyRoute has the same hooks as getRouteApi', () => {
   const route = createLazyRoute({})({})
   const hookNames = Object.keys(routeApi).filter((key) => key.startsWith('use'))
 
-  it.each(hookNames.map((name) => [name]))(
-    'should have the "%s" hook defined',
-    (hookName) => {
-      expect(route[hookName as keyof LazyRoute<any>]).toBeDefined()
-    },
-  )
+  it.each(hookNames.map((name) => [name]))('should have the "%s" hook defined', (hookName) => {
+    expect(route[hookName as keyof LazyRoute<any>]).toBeDefined()
+  })
 })

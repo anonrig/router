@@ -3,10 +3,7 @@ import { decode, encode } from './qss'
 const jsonStart = /^(?:\s|["[{\d-]|fa|nu|tr)/
 
 export const defaultParseSearch = parseSearchWith(JSON.parse)
-export const defaultStringifySearch = stringifySearchWith(
-  JSON.stringify,
-  JSON.parse,
-)
+export const defaultStringifySearch = stringifySearchWith(JSON.stringify, JSON.parse)
 
 export function parseSearchWith(parser: (str: string) => any) {
   return (searchStr: string): Record<string, any> => {

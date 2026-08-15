@@ -143,12 +143,10 @@ test('useParams must return parsed result if applicable.', async () => {
       <div>
         <h1 data-testid="post-heading">Post Route</h1>
         <div>
-          Category_Param:{' '}
-          <span data-testid="param_category_value">{params.category}</span>
+          Category_Param: <span data-testid="param_category_value">{params.category}</span>
         </div>
         <div>
-          PostId_Param:{' '}
-          <span data-testid="param_postId_value">{params.postId}</span>
+          PostId_Param: <span data-testid="param_postId_value">{params.postId}</span>
         </div>
         <div>
           PostId: <span data-testid="post_id_value">{data.post.id}</span>
@@ -157,8 +155,7 @@ test('useParams must return parsed result if applicable.', async () => {
           Title: <span data-testid="post_title_value">{data.post.title}</span>
         </div>
         <div>
-          Category:{' '}
-          <span data-testid="post_category_value">{data.post.category}</span>
+          Category: <span data-testid="post_category_value">{data.post.category}</span>
         </div>
       </div>
     )
@@ -284,11 +281,7 @@ test('useParams({ strict: false }) returns parsed params after child navigation'
       <div>
         <div data-testid="version-type">{typeof version}</div>
         <div data-testid="version-value">{String(version)}</div>
-        <Link
-          data-testid="version-2-link"
-          to={versionRoute.fullPath}
-          params={{ version: 2 }}
-        >
+        <Link data-testid="version-2-link" to={versionRoute.fullPath} params={{ version: 2 }}>
           Version 2
         </Link>
         <Outlet />

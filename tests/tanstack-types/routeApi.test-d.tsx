@@ -40,20 +40,15 @@ const defaultRouter = createRouter({
 
 type DefaultRouter = typeof defaultRouter
 
-type ExtractDefaultFrom<T> =
-  T extends UseNavigateResult<infer DefaultFrom> ? DefaultFrom : never
+type ExtractDefaultFrom<T> = T extends UseNavigateResult<infer DefaultFrom> ? DefaultFrom : never
 
 describe('getRouteApi', () => {
-  const invoiceRouteApi = getRouteApi<'/invoices/$invoiceId', DefaultRouter>(
-    '/invoices/$invoiceId',
-  )
+  const invoiceRouteApi = getRouteApi<'/invoices/$invoiceId', DefaultRouter>('/invoices/$invoiceId')
   describe('useNavigate', () => {
     test('has a static `from`', () => {
       const navigate = invoiceRouteApi.useNavigate()
       navigate
-      expectTypeOf<
-        ExtractDefaultFrom<typeof navigate>
-      >().toEqualTypeOf<'/invoices/$invoiceId'>()
+      expectTypeOf<ExtractDefaultFrom<typeof navigate>>().toEqualTypeOf<'/invoices/$invoiceId'>()
     })
   })
   test('useParams', () => {
@@ -62,9 +57,7 @@ describe('getRouteApi', () => {
     }>()
   })
   test('useContext', () => {
-    expectTypeOf(
-      invoiceRouteApi.useRouteContext<DefaultRouter>(),
-    ).toEqualTypeOf<{
+    expectTypeOf(invoiceRouteApi.useRouteContext<DefaultRouter>()).toEqualTypeOf<{
       beforeLoadContext: number
     }>()
   })
@@ -90,9 +83,7 @@ describe('getRouteApi', () => {
   })
   test('Link', () => {
     const Link = invoiceRouteApi.Link
-    expectTypeOf(Link).toEqualTypeOf<
-      LinkComponentRoute<'/invoices/$invoiceId'>
-    >()
+    expectTypeOf(Link).toEqualTypeOf<LinkComponentRoute<'/invoices/$invoiceId'>>()
   })
 })
 
@@ -100,9 +91,7 @@ describe('createRoute', () => {
   describe('useNavigate', () => {
     test('has a static `from`', () => {
       const navigate = invoiceRoute.useNavigate()
-      expectTypeOf<
-        ExtractDefaultFrom<typeof navigate>
-      >().toEqualTypeOf<'/invoices/$invoiceId'>()
+      expectTypeOf<ExtractDefaultFrom<typeof navigate>>().toEqualTypeOf<'/invoices/$invoiceId'>()
     })
   })
 })

@@ -22,18 +22,11 @@ export function isSsrResponse(value: unknown): value is SsrResponse {
   )
 }
 
-export function normalizeSsrResponse(
-  result: HandlerCallbackResult,
-): SsrResponse {
-  return isSsrResponse(result)
-    ? result
-    : { response: result, serverSsrCleanup: 'none' }
+export function normalizeSsrResponse(result: HandlerCallbackResult): SsrResponse {
+  return isSsrResponse(result) ? result : { response: result, serverSsrCleanup: 'none' }
 }
 
-export function disposeSsrResponse(
-  response: SsrResponse,
-  reason?: unknown,
-): Promise<void> {
+export function disposeSsrResponse(response: SsrResponse, reason?: unknown): Promise<void> {
   if (response.serverSsrCleanup !== 'stream') {
     return Promise.resolve()
   }

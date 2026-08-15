@@ -1,9 +1,6 @@
 import { useMatch } from './useMatch'
 import { useRouter } from './useRouter'
-import type {
-  StructuralSharingOption,
-  ValidateSelected,
-} from './structuralSharing'
+import type { StructuralSharingOption, ValidateSelected } from './structuralSharing'
 import type {
   AnyRouter,
   RegisteredRouter,

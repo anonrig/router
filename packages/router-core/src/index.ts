@@ -235,12 +235,7 @@ export type {
 } from './route'
 export { createStore } from './store'
 export type { Store } from './store'
-export {
-  RouterCore,
-  createRouter,
-  trailingSlashOptions,
-  getLocationChangeInfo,
-} from './router'
+export { RouterCore, createRouter, trailingSlashOptions, getLocationChangeInfo } from './router'
 export type {
   ViewTransitionOptions,
   TrailingSlashOption,
@@ -401,12 +396,7 @@ export type {
   AnyRedirect,
 } from './redirect'
 
-export {
-  redirect,
-  isRedirect,
-  isResolvedRedirect,
-  parseRedirect,
-} from './redirect'
+export { redirect, isRedirect, isResolvedRedirect, parseRedirect } from './redirect'
 
 export type { NotFoundError } from './not-found'
 export { isNotFound, notFound } from './not-found'
@@ -418,10 +408,7 @@ export {
   setupScrollRestoration,
 } from './scroll-restoration'
 
-export type {
-  ScrollRestorationOptions,
-  ScrollRestorationEntry,
-} from './scroll-restoration'
+export type { ScrollRestorationOptions, ScrollRestorationEntry } from './scroll-restoration'
 
 export type {
   ValidateFromPath,

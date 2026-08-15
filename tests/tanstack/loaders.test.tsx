@@ -1,11 +1,4 @@
-import {
-  act,
-  cleanup,
-  configure,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react'
+import { act, cleanup, configure, fireEvent, render, screen } from '@testing-library/react'
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -105,10 +98,7 @@ describe('loaders are being called', () => {
       },
       component: () => <div>Nested Foo page</div>,
     })
-    const routeTree = rootRoute.addChildren([
-      nestedRoute.addChildren([fooRoute]),
-      indexRoute,
-    ])
+    const routeTree = rootRoute.addChildren([nestedRoute.addChildren([fooRoute]), indexRoute])
     const router = createRouter({ routeTree, history })
 
     render(<RouterProvider router={router} />)
@@ -161,10 +151,7 @@ describe('loaders parentMatchPromise', () => {
       },
       component: () => <div>Nested Foo page</div>,
     })
-    const routeTree = rootRoute.addChildren([
-      nestedRoute.addChildren([fooRoute]),
-      indexRoute,
-    ])
+    const routeTree = rootRoute.addChildren([nestedRoute.addChildren([fooRoute]), indexRoute])
     const router = createRouter({ routeTree, history })
 
     render(<RouterProvider router={router} />)
@@ -525,8 +512,7 @@ test('reproducer #4546', async () => {
         >
           <div>Index route</div>
           <div>
-            route context:{' '}
-            <p data-testid="index-route-context">{ctx.counter}</p>
+            route context: <p data-testid="index-route-context">{ctx.counter}</p>
           </div>
           <div>
             loader data: <p data-testid="index-loader-data">{data.counter}</p>
@@ -567,9 +553,7 @@ test('reproducer #4546', async () => {
     },
   })
 
-  const routeTree = rootRoute.addChildren([
-    appRoute.addChildren([indexRoute, idRoute]),
-  ])
+  const routeTree = rootRoute.addChildren([appRoute.addChildren([indexRoute, idRoute])])
   const router = createRouter({ routeTree })
 
   render(<RouterProvider router={router} />)
@@ -702,17 +686,12 @@ test('does not show pending UI when loaders finish before their pending delays',
     },
     component: () => <div>Nested Foo page</div>,
   })
-  const routeTree = rootRoute.addChildren([
-    nestedRoute.addChildren([fooRoute]),
-    indexRoute,
-  ])
+  const routeTree = rootRoute.addChildren([nestedRoute.addChildren([fooRoute]), indexRoute])
   const router = createRouter({
     routeTree,
     history,
     defaultPendingMs: WAIT_TIME * 2,
-    defaultPendingComponent: getPendingComponent(
-      defaultPendingComponentOnMountMock,
-    ),
+    defaultPendingComponent: getPendingComponent(defaultPendingComponentOnMountMock),
   })
 
   render(<RouterProvider router={router} />)
@@ -767,9 +746,7 @@ test('#7673: a spontaneous loader AbortError renders the boundary without execut
   expect(routeComponentRendered).not.toHaveBeenCalled()
   expect(renderedError).toHaveBeenCalledWith(abortError)
   expect(routeSignal?.aborted).toBe(false)
-  expect(
-    router.state.matches.find((match) => match.routeId === indexRoute.id),
-  ).toMatchObject({
+  expect(router.state.matches.find((match) => match.routeId === indexRoute.id)).toMatchObject({
     status: 'error',
     error: abortError,
   })
@@ -893,20 +870,18 @@ test('reproducer for #6388 - rapid navigation between parameterized routes shoul
     path: '/something/$id',
     pendingMs: 0,
     loader: async ({ params, abortController }) => {
-      const result = await new Promise<{ id: string; done: boolean }>(
-        (resolve, reject) => {
-          const timer = setTimeout(() => {
-            loaderCompleteMock(params.id)
-            resolve({ id: params.id, done: true })
-          }, WAIT_TIME * 5)
+      const result = await new Promise<{ id: string; done: boolean }>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          loaderCompleteMock(params.id)
+          resolve({ id: params.id, done: true })
+        }, WAIT_TIME * 5)
 
-          abortController.signal.addEventListener('abort', () => {
-            clearTimeout(timer)
-            onAbortMock(params.id)
-            reject(new DOMException('Aborted', 'AbortError'))
-          })
-        },
-      )
+        abortController.signal.addEventListener('abort', () => {
+          clearTimeout(timer)
+          onAbortMock(params.id)
+          reject(new DOMException('Aborted', 'AbortError'))
+        })
+      })
 
       return result
     },

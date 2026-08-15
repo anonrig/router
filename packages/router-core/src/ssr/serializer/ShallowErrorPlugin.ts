@@ -9,10 +9,7 @@ export interface ErrorNode extends PluginInfo {
  * this plugin serializes only the `message` part of an Error
  * this helps with serializing e.g. a ZodError which has functions attached that cannot be serialized
  */
-export const ShallowErrorPlugin = /* @__PURE__ */ createPlugin<
-  Error,
-  ErrorNode
->({
+export const ShallowErrorPlugin = /* @__PURE__ */ createPlugin<Error, ErrorNode>({
   tag: '$TSR/Error',
   test(value) {
     return value instanceof Error

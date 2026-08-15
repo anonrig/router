@@ -51,8 +51,7 @@ export function createFileRoute<
   TParentRoute extends AnyRoute = FileRoutesByPath[TFilePath]['parentRoute'],
   TId extends RouteConstraints['TId'] = FileRoutesByPath[TFilePath]['id'],
   TPath extends RouteConstraints['TPath'] = FileRoutesByPath[TFilePath]['path'],
-  TFullPath extends RouteConstraints['TFullPath'] =
-    FileRoutesByPath[TFilePath]['fullPath'],
+  TFullPath extends RouteConstraints['TFullPath'] = FileRoutesByPath[TFilePath]['fullPath'],
 >(
   // eslint-disable-next-line unused-imports/no-unused-vars
   path?: TFilePath,
@@ -64,7 +63,7 @@ export function createFileRoute<
   }
 }
 
-/** 
+/**
   @deprecated It's no longer recommended to use the `FileRoute` class directly.
   Instead, use `createFileRoute('/path/to/file')(options)` to create a file route.
 */
@@ -73,8 +72,7 @@ export class FileRoute<
   TParentRoute extends AnyRoute = FileRoutesByPath[TFilePath]['parentRoute'],
   TId extends RouteConstraints['TId'] = FileRoutesByPath[TFilePath]['id'],
   TPath extends RouteConstraints['TPath'] = FileRoutesByPath[TFilePath]['path'],
-  TFullPath extends RouteConstraints['TFullPath'] =
-    FileRoutesByPath[TFilePath]['fullPath'],
+  TFullPath extends RouteConstraints['TFullPath'] = FileRoutesByPath[TFilePath]['fullPath'],
 > {
   silent?: boolean
 

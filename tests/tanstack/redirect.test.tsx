@@ -1,12 +1,5 @@
 import * as React from 'react'
-import {
-  act,
-  cleanup,
-  configure,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react'
+import { act, cleanup, configure, fireEvent, render, screen } from '@testing-library/react'
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createControlledPromise } from '@tanstack/router-core'
@@ -80,17 +73,13 @@ describe('redirect', () => {
         throw redirect({ to: '/' })
       })
       const rootRoute = createRootRoute({
-        errorComponent: ({ error }) => (
-          <div data-testid="root-error">Root: {error.message}</div>
-        ),
+        errorComponent: ({ error }) => <div data-testid="root-error">Root: {error.message}</div>,
       })
       const indexRoute = createRoute({
         getParentRoute: () => rootRoute,
         path: '/',
         loader,
-        errorComponent: ({ error }) => (
-          <div data-testid="index-error">Index: {error.message}</div>
-        ),
+        errorComponent: ({ error }) => <div data-testid="index-error">Index: {error.message}</div>,
       })
       const router = createRouter({
         routeTree: rootRoute.addChildren([indexRoute]),
@@ -99,9 +88,7 @@ describe('redirect', () => {
 
       render(<RouterProvider router={router} />)
 
-      expect(await screen.findByTestId('root-error')).toHaveTextContent(
-        'Root: Too many redirects',
-      )
+      expect(await screen.findByTestId('root-error')).toHaveTextContent('Root: Too many redirects')
       expect(screen.queryByTestId('index-error')).not.toBeInTheDocument()
       expect(window.location.pathname).toBe('/')
       expect(loader).toHaveBeenCalledTimes(21)
@@ -116,25 +103,19 @@ describe('redirect', () => {
         throw redirect({ to: '/' })
       })
       const rootRoute = createRootRoute({
-        errorComponent: ({ error }) => (
-          <div data-testid="root-error">Root: {error.message}</div>
-        ),
+        errorComponent: ({ error }) => <div data-testid="root-error">Root: {error.message}</div>,
       })
       const indexRoute = createRoute({
         getParentRoute: () => rootRoute,
         path: '/',
         loader: indexLoader,
-        errorComponent: ({ error }) => (
-          <div data-testid="index-error">Index: {error.message}</div>
-        ),
+        errorComponent: ({ error }) => <div data-testid="index-error">Index: {error.message}</div>,
       })
       const otherRoute = createRoute({
         getParentRoute: () => rootRoute,
         path: '/other',
         loader: otherLoader,
-        errorComponent: ({ error }) => (
-          <div data-testid="other-error">Other: {error.message}</div>
-        ),
+        errorComponent: ({ error }) => <div data-testid="other-error">Other: {error.message}</div>,
       })
       const router = createRouter({
         routeTree: rootRoute.addChildren([indexRoute, otherRoute]),
@@ -143,9 +124,7 @@ describe('redirect', () => {
 
       render(<RouterProvider router={router} />)
 
-      expect(await screen.findByTestId('root-error')).toHaveTextContent(
-        'Root: Too many redirects',
-      )
+      expect(await screen.findByTestId('root-error')).toHaveTextContent('Root: Too many redirects')
       expect(screen.queryByTestId('index-error')).not.toBeInTheDocument()
       expect(screen.queryByTestId('other-error')).not.toBeInTheDocument()
       expect(window.location.pathname).toBe('/')
@@ -225,9 +204,7 @@ describe('redirect', () => {
     test('when root `beforeLoad` redirects while root pendingComponent is showing and the target route is lazy', async () => {
       let hasRedirected = false
       const beforeLoad = createControlledPromise<void>()
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {})
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const rootRoute = createRootRoute({
         component: () => <Outlet />,
@@ -347,9 +324,7 @@ describe('redirect', () => {
 
       expect(fooElement).toBeInTheDocument()
 
-      expect(router.state.location.href).toBe(
-        '/nested/foo?someSearch=hello123#some-hash',
-      )
+      expect(router.state.location.href).toBe('/nested/foo?someSearch=hello123#some-hash')
       expect(window.location.pathname).toBe('/nested/foo')
 
       expect(nestedLoaderMock).toHaveBeenCalled()
@@ -406,11 +381,7 @@ describe('redirect', () => {
         component: () => <div>Final</div>,
       })
 
-      const routeTree = rootRoute.addChildren([
-        aboutRoute,
-        indexRoute,
-        finalRoute,
-      ])
+      const routeTree = rootRoute.addChildren([aboutRoute, indexRoute, finalRoute])
       const router = createRouter({ routeTree, history })
 
       render(<RouterProvider router={router} />)

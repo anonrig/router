@@ -1,11 +1,4 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   Link,
@@ -214,10 +207,7 @@ describe('transactional route loading', () => {
       errorComponent: () => <div>Child refresh failed</div>,
     })
     const router = createRouter({
-      routeTree: rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ]),
+      routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
       history,
     })
 

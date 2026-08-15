@@ -10,10 +10,7 @@ const hydrate = vi.hoisted(() => vi.fn())
 
 vi.mock('@tanstack/router-core/ssr/client', () => ({ hydrate }))
 
-class ErrorBoundary extends Component<
-  { children: ReactNode },
-  { error?: Error }
-> {
+class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }> {
   state: { error?: Error } = {}
 
   static getDerivedStateFromError(error: Error) {

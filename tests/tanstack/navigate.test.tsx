@@ -14,8 +14,7 @@ afterEach(() => {
 })
 
 function createTestRouter(initialHistory?: RouterHistory) {
-  const history =
-    initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
+  const history = initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
 
   const rootRoute = createRootRoute({})
   const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/' })
@@ -80,9 +79,7 @@ function createTestRouter(initialHistory?: RouterHistory) {
   })
 
   const projectTree = projectRoute.addChildren([
-    projectIdRoute.addChildren([
-      projectVersionRoute.addChildren([projectFrameRoute]),
-    ]),
+    projectIdRoute.addChildren([projectVersionRoute.addChildren([projectFrameRoute])]),
   ])
   const uTree = uRoute.addChildren([uLayoutRoute.addChildren([uUsernameRoute])])
   const gTree = gRoute.addChildren([gLayoutRoute.addChildren([gUsernameRoute])])
@@ -112,9 +109,7 @@ function createTestRouter(initialHistory?: RouterHistory) {
 
 describe('router.navigate navigation using a single path param - object syntax for updates', () => {
   it('should change $slug in "/posts/$slug" from "tanner" to "tkdodo"', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts/tanner'] }))
 
     await router.load()
 
@@ -130,9 +125,7 @@ describe('router.navigate navigation using a single path param - object syntax f
   })
 
   it('should change $slug in "/posts/$slug" from "tanner" to "tkdodo" w/o "to" path being provided', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts/tanner'] }))
 
     await router.load()
 
@@ -149,9 +142,7 @@ describe('router.navigate navigation using a single path param - object syntax f
 
 describe('router.navigate navigation using a single path param - function syntax for updates', () => {
   it('should change $slug in "/posts/$slug" from "tanner" to "tkdodo"', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts/tanner'] }))
 
     await router.load()
 
@@ -167,9 +158,7 @@ describe('router.navigate navigation using a single path param - function syntax
   })
 
   it('should change $slug in "/posts/$slug" from "tanner" to "tkdodo" w/o "to" path being provided', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts/tanner'] }))
 
     await router.load()
 
@@ -400,9 +389,7 @@ describe('router.navigate navigation using multiple path params - function synta
 
 describe('router.navigate navigation using layout routes resolves correctly', () => {
   it('should resolve "/u/tanner" in "/u/_layout/$username" to "/u/tkdodo"', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/u/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/u/tanner'] }))
 
     await router.load()
 
@@ -419,9 +406,7 @@ describe('router.navigate navigation using layout routes resolves correctly', ()
   })
 
   it('should resolve "/u/tanner" in "/u/_layout/$username" to "/u/tkdodo" w/o "to" path being provided', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/u/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/u/tanner'] }))
 
     await router.load()
 
@@ -436,9 +421,7 @@ describe('router.navigate navigation using layout routes resolves correctly', ()
   })
 
   it('should resolve "/g/tanner" in "/g/layout/$username" to "/g/tkdodo"', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/g/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/g/tanner'] }))
 
     await router.load()
 
@@ -455,9 +438,7 @@ describe('router.navigate navigation using layout routes resolves correctly', ()
   })
 
   it('should resolve "/g/tanner" in "/g/layout/$username" to "/g/tkdodo" w/o "to" path being provided', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/g/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/g/tanner'] }))
 
     await router.load()
 
@@ -479,18 +460,14 @@ describe('router.navigate navigation using layout routes resolves correctly', ()
     await router.load()
 
     expect(router.state.location.pathname).toBe('/search')
-    expect(router.state.location.search).toStrictEqual(
-      toNullObj({ 'foo=bar': 2 }),
-    )
+    expect(router.state.location.search).toStrictEqual(toNullObj({ 'foo=bar': 2 }))
 
     await router.navigate({
       search: { 'foo=bar': 3 },
     } as any)
     await router.invalidate()
 
-    expect(router.state.location.search).toStrictEqual(
-      toNullObj({ 'foo=bar': 3 }),
-    )
+    expect(router.state.location.search).toStrictEqual(toNullObj({ 'foo=bar': 3 }))
   })
 })
 
@@ -501,9 +478,7 @@ function toNullObj<T>(obj: T): T {
 
 describe('relative navigation', () => {
   it('should navigate to a child route', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts'] }))
 
     await router.load()
 
@@ -521,9 +496,7 @@ describe('relative navigation', () => {
   })
 
   it('should navigate to a parent route', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts/tanner'] }))
 
     await router.load()
 
@@ -539,9 +512,7 @@ describe('relative navigation', () => {
   })
 
   it('should navigate to a sibling route', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts/tanner'] }))
 
     await router.load()
 
@@ -559,9 +530,7 @@ describe('relative navigation', () => {
   })
 
   it('should navigate to a sibling route without from', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/posts/tanner'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/posts/tanner'] }))
 
     await router.load()
 
@@ -597,8 +566,7 @@ describe('relative navigation', () => {
 
 describe('router.navigate navigation using optional path parameters - object syntax for updates', () => {
   function createOptionalParamTestRouter(initialHistory?: RouterHistory) {
-    const history =
-      initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
+    const history = initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
 
     const rootRoute = createRootRoute({})
     const indexRoute = createRoute({
@@ -624,12 +592,7 @@ describe('router.navigate navigation using optional path parameters - object syn
       path: '/p/$projectId/{-$version}/{-$framework}',
     })
 
-    const routeTree = rootRoute.addChildren([
-      indexRoute,
-      postsRoute,
-      articlesRoute,
-      projectRoute,
-    ])
+    const routeTree = rootRoute.addChildren([indexRoute, postsRoute, articlesRoute, projectRoute])
     const router = createRouter({ routeTree, history })
 
     return {
@@ -808,8 +771,7 @@ describe('router.navigate navigation using optional path parameters - object syn
 
 describe('router.navigate navigation using optional path parameters - function syntax for updates', () => {
   function createOptionalParamTestRouter(initialHistory?: RouterHistory) {
-    const history =
-      initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
+    const history = initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
 
     const rootRoute = createRootRoute({})
     const indexRoute = createRoute({
@@ -832,12 +794,7 @@ describe('router.navigate navigation using optional path parameters - function s
       path: '/p/$projectId/{-$version}/{-$framework}',
     })
 
-    const routeTree = rootRoute.addChildren([
-      indexRoute,
-      postsRoute,
-      articlesRoute,
-      projectRoute,
-    ])
+    const routeTree = rootRoute.addChildren([indexRoute, postsRoute, articlesRoute, projectRoute])
     const router = createRouter({ routeTree, history })
 
     return { router }
@@ -986,8 +943,7 @@ describe('router.navigate navigation using optional path parameters - function s
 
 describe('router.navigate navigation using optional path parameters - parameter inheritance and isolation', () => {
   function createInheritanceTestRouter(initialHistory?: RouterHistory) {
-    const history =
-      initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
+    const history = initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
 
     const rootRoute = createRootRoute({})
     const indexRoute = createRoute({
@@ -1113,8 +1069,7 @@ describe('router.navigate navigation using optional path parameters - parameter 
 
 describe('router.navigate navigation using optional path parameters - edge cases and validations', () => {
   function createEdgeCaseTestRouter(initialHistory?: RouterHistory) {
-    const history =
-      initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
+    const history = initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
 
     const rootRoute = createRootRoute({})
     const indexRoute = createRoute({
@@ -1308,8 +1263,7 @@ describe('encoded and unicode paths', () => {
     {
       name: 'with prefix',
       path: '/foo/prefix@대{$}',
-      expectedPath:
-        '/foo/prefix@%EB%8C%80test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]',
+      expectedPath: '/foo/prefix@%EB%8C%80test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]',
       expectedLocation: '/foo/prefix@대test[s%5C/.%5C/parameter%25!🚀%40]',
       params: {
         _splat: 'test[s\\/.\\/parameter%!🚀@]',
@@ -1319,8 +1273,7 @@ describe('encoded and unicode paths', () => {
     {
       name: 'with suffix',
       path: '/foo/{$}대suffix@',
-      expectedPath:
-        '/foo/test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]%EB%8C%80suffix@',
+      expectedPath: '/foo/test[s%5C/.%5C/parameter%25!%F0%9F%9A%80%40]%EB%8C%80suffix@',
       expectedLocation: '/foo/test[s%5C/.%5C/parameter%25!🚀%40]대suffix@',
       params: {
         _splat: 'test[s\\/.\\/parameter%!🚀@]',

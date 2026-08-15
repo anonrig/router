@@ -60,36 +60,30 @@ describe('resolvePath', () => {
   })
 
   it('honors trailingSlash always', () => {
-    expect(resolvePath({ base: '/a/b/c', to: 'd', trailingSlash: 'always' })).toBe(
-      '/a/b/c/d/',
-    )
+    expect(resolvePath({ base: '/a/b/c', to: 'd', trailingSlash: 'always' })).toBe('/a/b/c/d/')
   })
 })
 
 describe('interpolatePath', () => {
   it('fills $params', () => {
     expect(
-      interpolatePath({ path: '/posts/$slug', params: { slug: 'hello' } })
-        .interpolatedPath,
+      interpolatePath({ path: '/posts/$slug', params: { slug: 'hello' } }).interpolatedPath,
     ).toBe('/posts/hello')
   })
 
   it('fills splat', () => {
-    expect(
-      interpolatePath({ path: '/files/$', params: { _splat: 'a/b' } })
-        .interpolatedPath,
-    ).toBe('/files/a/b')
+    expect(interpolatePath({ path: '/files/$', params: { _splat: 'a/b' } }).interpolatedPath).toBe(
+      '/files/a/b',
+    )
   })
 
   it('skips optional params when missing', () => {
-    expect(
-      interpolatePath({ path: '/docs/{-$lang}/hello', params: {} }).interpolatedPath,
-    ).toBe('/docs/hello')
+    expect(interpolatePath({ path: '/docs/{-$lang}/hello', params: {} }).interpolatedPath).toBe(
+      '/docs/hello',
+    )
   })
 
   it('reports missing params', () => {
-    expect(
-      interpolatePath({ path: '/posts/$slug', params: {} }).isMissingParams,
-    ).toBe(true)
+    expect(interpolatePath({ path: '/posts/$slug', params: {} }).isMissingParams).toBe(true)
   })
 })

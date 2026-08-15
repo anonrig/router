@@ -100,9 +100,9 @@ describe('Search Params serialization and deserialization', () => {
       ).toEqual(
         '?empty=&filter=foo&future=future&name=name&notification=new&tab=tabular&topic=topic&unicode=%E9%9B%AA',
       )
-      expect(
-        stringify({ file: '.env', path: '/products', positive: '+1' }),
-      ).toEqual('?file=.env&path=%2Fproducts&positive=%2B1')
+      expect(stringify({ file: '.env', path: '/products', positive: '+1' })).toEqual(
+        '?file=.env&path=%2Fproducts&positive=%2B1',
+      )
       expect(parseSpy).not.toHaveBeenCalled()
     } finally {
       parseSpy.mockRestore()
@@ -150,14 +150,10 @@ describe('Search Params serialization and deserialization', () => {
     expect(defaultStringifySearch({ foo: new Number(99) })).toEqual('?foo=99')
     expect(defaultStringifySearch(new String('foo'))).toEqual('?0=f&1=o&2=o')
     expect(defaultStringifySearch(new Promise(() => {}))).toEqual('')
-    expect(defaultStringifySearch({ foo: new Promise(() => {}) })).toEqual(
-      '?foo=%7B%7D',
-    )
+    expect(defaultStringifySearch({ foo: new Promise(() => {}) })).toEqual('?foo=%7B%7D')
     expect(defaultStringifySearch([1])).toEqual('?0=1')
     const date = new Date('2024-11-18')
     expect(defaultStringifySearch(date)).toEqual('')
-    expect(defaultStringifySearch({ foo: date })).toEqual(
-      '?foo=%222024-11-18T00%3A00%3A00.000Z%22',
-    )
+    expect(defaultStringifySearch({ foo: date })).toEqual('?foo=%222024-11-18T00%3A00%3A00.000Z%22')
   })
 })

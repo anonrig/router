@@ -10,15 +10,13 @@ import type {
 describe('Serializer', () => {
   it('fails for non-serializable types', () => {
     const value = () => {}
-    expectTypeOf<
-      ValidateSerializable<typeof value, Serializable>
-    >().toEqualTypeOf<SerializationError<'Function may not be serializable'>>()
+    expectTypeOf<ValidateSerializable<typeof value, Serializable>>().toEqualTypeOf<
+      SerializationError<'Function may not be serializable'>
+    >()
   })
 
   it('works for types extending TsrSerializable', () => {
     type MyCustomType = { f: () => {} } & TsrSerializable
-    expectTypeOf<
-      ValidateSerializable<MyCustomType, Serializable>
-    >().toEqualTypeOf<MyCustomType>()
+    expectTypeOf<ValidateSerializable<MyCustomType, Serializable>>().toEqualTypeOf<MyCustomType>()
   })
 })

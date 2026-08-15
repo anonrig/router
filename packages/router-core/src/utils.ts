@@ -8,10 +8,7 @@ export type IsAny<TValue, TYesResult, TNoResult = TValue> = 1 extends 0 & TValue
   ? TYesResult
   : TNoResult
 
-export type PickAsRequired<TValue, TKey extends keyof TValue> = Omit<
-  TValue,
-  TKey
-> &
+export type PickAsRequired<TValue, TKey extends keyof TValue> = Omit<TValue, TKey> &
   Required<Pick<TValue, TKey>>
 
 export type PickRequired<T> = {
@@ -39,8 +36,7 @@ export type DeepPartial<T> = T extends object
     }
   : T
 
-export type MakeDifferenceOptional<TLeft, TRight> = keyof TLeft &
-  keyof TRight extends never
+export type MakeDifferenceOptional<TLeft, TRight> = keyof TLeft & keyof TRight extends never
   ? TRight
   : Omit<TRight, keyof TLeft & keyof TRight> & {
       [K in keyof TLeft & keyof TRight]?: TRight[K]
@@ -54,11 +50,7 @@ export type IsUnion<T, U extends T = T> = (
   ? false
   : true
 
-export type IsNonEmptyObject<T> = T extends object
-  ? keyof T extends never
-    ? false
-    : true
-  : false
+export type IsNonEmptyObject<T> = T extends object ? (keyof T extends never ? false : true) : false
 
 export type Assign<TLeft, TRight> = TLeft extends any
   ? TRight extends any
@@ -84,17 +76,13 @@ export type IntersectAssign<TLeft, TRight> = TLeft extends any
 
 export type Timeout = ReturnType<typeof setTimeout>
 
-export type Updater<TPrevious, TResult = TPrevious> =
-  | TResult
-  | ((prev?: TPrevious) => TResult)
+export type Updater<TPrevious, TResult = TPrevious> = TResult | ((prev?: TPrevious) => TResult)
 
 export type NonNullableUpdater<TPrevious, TResult = TPrevious> =
   | TResult
   | ((prev: TPrevious) => TResult)
 
-export type ExtractObjects<TUnion> = TUnion extends MergeAllPrimitive
-  ? never
-  : TUnion
+export type ExtractObjects<TUnion> = TUnion extends MergeAllPrimitive ? never : TUnion
 
 export type PartialMergeAllObject<TUnion> =
   ExtractObjects<TUnion> extends infer TObj
@@ -125,24 +113,20 @@ export type ExtractPrimitives<TUnion> = TUnion extends MergeAllPrimitive
     ? never
     : TUnion
 
-export type PartialMergeAll<TUnion> =
-  | ExtractPrimitives<TUnion>
-  | PartialMergeAllObject<TUnion>
+export type PartialMergeAll<TUnion> = ExtractPrimitives<TUnion> | PartialMergeAllObject<TUnion>
 
 export type Constrain<T, TConstraint, TDefault = TConstraint> =
   | (T extends TConstraint ? T : never)
   | TDefault
 
-export type ConstrainLiteral<T, TConstraint, TDefault = TConstraint> =
-  | (T & TConstraint)
-  | TDefault
+export type ConstrainLiteral<T, TConstraint, TDefault = TConstraint> = (T & TConstraint) | TDefault
 
 /**
  * To be added to router types
  */
-export type UnionToIntersection<T> = (
-  T extends any ? (arg: T) => any : never
-) extends (arg: infer T) => any
+export type UnionToIntersection<T> = (T extends any ? (arg: T) => any : never) extends (
+  arg: infer T,
+) => any
   ? T
   : never
 
@@ -150,20 +134,15 @@ export type UnionToIntersection<T> = (
  * Merges everything in a union into one object.
  * This mapped type is homomorphic which means it preserves stuff! :)
  */
-export type MergeAllObjects<
-  TUnion,
-  TIntersected = UnionToIntersection<ExtractObjects<TUnion>>,
-> = [keyof TIntersected] extends [never]
+export type MergeAllObjects<TUnion, TIntersected = UnionToIntersection<ExtractObjects<TUnion>>> = [
+  keyof TIntersected,
+] extends [never]
   ? never
   : {
-      [TKey in keyof TIntersected]: TUnion extends any
-        ? TUnion[TKey & keyof TUnion]
-        : never
+      [TKey in keyof TIntersected]: TUnion extends any ? TUnion[TKey & keyof TUnion] : never
     }
 
-export type MergeAll<TUnion> =
-  | MergeAllObjects<TUnion>
-  | ExtractPrimitives<TUnion>
+export type MergeAll<TUnion> = MergeAllObjects<TUnion> | ExtractPrimitives<TUnion>
 
 export type ValidateJSON<T> = ((...args: Array<any>) => any) extends T
   ? unknown extends T
@@ -171,15 +150,9 @@ export type ValidateJSON<T> = ((...args: Array<any>) => any) extends T
     : 'Function is not serializable'
   : { [K in keyof T]: ValidateJSON<T[K]> }
 
-export type LooseReturnType<T> = T extends (
-  ...args: Array<any>
-) => infer TReturn
-  ? TReturn
-  : never
+export type LooseReturnType<T> = T extends (...args: Array<any>) => infer TReturn ? TReturn : never
 
-export type LooseAsyncReturnType<T> = T extends (
-  ...args: Array<any>
-) => infer TReturn
+export type LooseAsyncReturnType<T> = T extends (...args: Array<any>) => infer TReturn
   ? TReturn extends Promise<infer TReturn>
     ? TReturn
     : TReturn
@@ -228,12 +201,7 @@ export const nullReplaceEqualDeep: typeof replaceEqualDeep = (prev, next) =>
  * This can be used for structural sharing between immutable JSON values for example.
  * Do not use this with signals
  */
-export function replaceEqualDeep<T>(
-  prev: any,
-  _next: T,
-  _makeObj = () => ({}),
-  _depth = 0,
-): T {
+export function replaceEqualDeep<T>(prev: any, _next: T, _makeObj = () => ({}), _depth = 0): T {
   if (isServer) {
     return _next
   }
@@ -270,12 +238,7 @@ export function replaceEqualDeep<T>(
       continue
     }
 
-    if (
-      p === null ||
-      n === null ||
-      typeof p !== 'object' ||
-      typeof n !== 'object'
-    ) {
+    if (p === null || n === null || typeof p !== 'object' || typeof n !== 'object') {
       copy[key] = n
       continue
     }
@@ -422,15 +385,9 @@ export function deepEqual(
   return false
 }
 
-export type StringLiteral<T> = T extends string
-  ? string extends T
-    ? string
-    : T
-  : never
+export type StringLiteral<T> = T extends string ? (string extends T ? string : T) : never
 
-export type ThrowOrOptional<T, TThrow extends boolean> = TThrow extends true
-  ? T
-  : T | undefined
+export type ThrowOrOptional<T, TThrow extends boolean> = TThrow extends true ? T : T | undefined
 
 export type StrictOrFrom<
   TRouter extends AnyRouter,
@@ -446,10 +403,11 @@ export type StrictOrFrom<
       strict?: TStrict
     }
 
-export type ThrowConstraint<
-  TStrict extends boolean,
-  TThrow extends boolean,
-> = TStrict extends false ? (TThrow extends true ? never : TThrow) : TThrow
+export type ThrowConstraint<TStrict extends boolean, TThrow extends boolean> = TStrict extends false
+  ? TThrow extends true
+    ? never
+    : TThrow
+  : TThrow
 
 export type ControlledPromise<T> = Promise<T> & {
   resolve: (value: T) => void
@@ -504,13 +462,9 @@ export function isModuleNotFoundError(error: any): boolean {
   )
 }
 
-export function isPromise<T>(
-  value: Promise<Awaited<T>> | T,
-): value is Promise<Awaited<T>> {
+export function isPromise<T>(value: Promise<Awaited<T>> | T): value is Promise<Awaited<T>> {
   return Boolean(
-    value &&
-    typeof value === 'object' &&
-    typeof (value as Promise<T>).then === 'function',
+    value && typeof value === 'object' && typeof (value as Promise<T>).then === 'function',
   )
 }
 
@@ -594,10 +548,7 @@ export const DEFAULT_PROTOCOL_ALLOWLIST = [
  * @param allowlist - Set of protocols to allow
  * @returns true if the URL uses a protocol that is not allowed
  */
-export function isDangerousProtocol(
-  url: string,
-  allowlist: Set<string>,
-): boolean {
+export function isDangerousProtocol(url: string, allowlist: Set<string>): boolean {
   if (!url) return false
 
   try {
@@ -709,10 +660,7 @@ export function encodePathLikeUrl(path: string): string {
  * @param routeIds - Array of matched route IDs to include in the CSS collection
  * @returns The full URL path for the dev styles CSS endpoint
  */
-export function buildDevStylesUrl(
-  basepath: string,
-  routeIds: Array<string>,
-): string {
+export function buildDevStylesUrl(basepath: string, routeIds: Array<string>): string {
   // Trim all leading and trailing slashes from basepath
   const trimmedBasepath = basepath.replace(/^\/+|\/+$/g, '')
   // Build normalized basepath: empty string for root, or '/path' for non-root
@@ -728,7 +676,6 @@ export function arraysEqual<T>(a: Array<T>, b: Array<T>) {
   }
   return true
 }
-
 
 export function createLRUCache<K, V>(max = 1000) {
   const map = new Map<K, V>()

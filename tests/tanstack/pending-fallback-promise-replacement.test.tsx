@@ -42,9 +42,7 @@ test.each(['child', 'root'] as const)(
         const rootRoute = createRootRoute({
           ...routeOptions,
           component: () => (
-            <div data-testid="content">
-              Generation {rootRoute.useLoaderData().generation}
-            </div>
+            <div data-testid="content">Generation {rootRoute.useLoaderData().generation}</div>
           ),
         })
         return createRouter({
@@ -61,9 +59,7 @@ test.each(['child', 'root'] as const)(
         getParentRoute: () => rootRoute,
         path: '/page',
         component: () => (
-          <div data-testid="content">
-            Generation {pageRoute.useLoaderData().generation}
-          </div>
+          <div data-testid="content">Generation {pageRoute.useLoaderData().generation}</div>
         ),
       })
       return createRouter({

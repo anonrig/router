@@ -59,17 +59,14 @@ test('component preload retry remains pending through pendingMinMs', async () =>
   let retryInvalidation!: Promise<void>
   let retrySettled = false
 
-  const Page = Object.assign(
-    () => <div data-testid="page-content">Page content</div>,
-    {
-      preload: vi.fn(() => {
-        preloadAttempt++
-        return preloadAttempt === 1
-          ? Promise.reject(new Error('initial chunk request failed'))
-          : retryChunk
-      }),
-    },
-  )
+  const Page = Object.assign(() => <div data-testid="page-content">Page content</div>, {
+    preload: vi.fn(() => {
+      preloadAttempt++
+      return preloadAttempt === 1
+        ? Promise.reject(new Error('initial chunk request failed'))
+        : retryChunk
+    }),
+  })
 
   function RetryError({ reset }: ErrorComponentProps) {
     const router = useRouter()
@@ -97,9 +94,7 @@ test('component preload retry remains pending through pendingMinMs', async () =>
     errorComponent: RetryError,
     pendingMs: 0,
     pendingMinMs: 100,
-    pendingComponent: () => (
-      <div data-testid="page-pending">Loading page...</div>
-    ),
+    pendingComponent: () => <div data-testid="page-pending">Loading page...</div>,
   })
   const router = createRouter({
     routeTree: rootRoute.addChildren([pageRoute]),
@@ -108,9 +103,7 @@ test('component preload retry remains pending through pendingMinMs', async () =>
 
   render(<RouterProvider router={router} />)
 
-  expect(
-    await screen.findByRole('button', { name: 'Retry chunk' }),
-  ).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Retry chunk' })).toBeInTheDocument()
   expect(Page.preload).toHaveBeenCalledTimes(1)
 
   vi.useFakeTimers()
@@ -122,9 +115,7 @@ test('component preload retry remains pending through pendingMinMs', async () =>
   })
   expect(Page.preload).toHaveBeenCalledTimes(2)
   expect(screen.getByTestId('page-pending')).toBeInTheDocument()
-  expect(
-    screen.queryByRole('button', { name: 'Retry chunk' }),
-  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Retry chunk' })).not.toBeInTheDocument()
 
   await act(async () => {
     retryChunk.resolve()

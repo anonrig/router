@@ -10,9 +10,7 @@ import {
   createRouter,
 } from '@tanstack/react-router'
 
-const outletWarning = (
-  component: 'pendingComponent' | 'errorComponent' | 'notFoundComponent',
-) =>
+const outletWarning = (component: 'pendingComponent' | 'errorComponent' | 'notFoundComponent') =>
   `Warning: An <Outlet /> was rendered inside a ${component}. <Outlet /> should only be rendered inside a route component.`
 
 afterEach(() => {

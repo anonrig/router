@@ -177,10 +177,7 @@ test('when combining optional parameters with wildcards', () => {
 })
 
 test('when using ResolveOptionalParams utility type', () => {
-  type OptionalParams = ResolveOptionalParams<
-    '/posts/{-$category}/{-$slug}',
-    string
-  >
+  type OptionalParams = ResolveOptionalParams<'/posts/{-$category}/{-$slug}', string>
 
   expectTypeOf<OptionalParams>().toEqualTypeOf<{
     category?: string

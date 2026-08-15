@@ -1,13 +1,6 @@
 import * as React from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   Outlet,
   RouterProvider,
@@ -115,22 +108,14 @@ test.each(['render', 'loader'] as const)(
     // Error boundaries log caught errors through console.error, and so does a
     // hooks-order crash. Capture instead of polluting the test output, then
     // inspect the captured calls for the crash signature.
-    const {
-      router,
-      childLoader,
-      parentAction,
-      secondChildLoad,
-      getErrorRenders,
-      getInvalidation,
-    } = setup({ failVia })
+    const { router, childLoader, parentAction, secondChildLoad, getErrorRenders, getInvalidation } =
+      setup({ failVia })
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     try {
       render(<RouterProvider router={router} />)
 
-      expect(await screen.findByTestId('error-ui')).toHaveTextContent(
-        `error: ${failVia} error`,
-      )
+      expect(await screen.findByTestId('error-ui')).toHaveTextContent(`error: ${failVia} error`)
       const initialErrorRenders = getErrorRenders()
       expect(childLoader).toHaveBeenCalledTimes(1)
       consoleError.mockClear()
@@ -155,9 +140,7 @@ test.each(['render', 'loader'] as const)(
       })
 
       await waitFor(() => {
-        expect(screen.getByTestId('error-ui')).toHaveTextContent(
-          `error: ${failVia} error`,
-        )
+        expect(screen.getByTestId('error-ui')).toHaveTextContent(`error: ${failVia} error`)
         expect(getErrorRenders()).toBeGreaterThan(initialErrorRenders)
         expect(screen.getByTestId('invalidate')).toHaveTextContent('invalidate')
         expect(screen.getByTestId('invalidate')).toBeEnabled()
@@ -167,9 +150,7 @@ test.each(['render', 'loader'] as const)(
       expect(parentAction).toHaveBeenCalledTimes(1)
 
       const hooksCrash = consoleError.mock.calls.find((call) =>
-        call.some((arg) =>
-          String(arg?.message ?? arg).includes('Rendered more hooks'),
-        ),
+        call.some((arg) => String(arg?.message ?? arg).includes('Rendered more hooks')),
       )
       expect(hooksCrash).toBeUndefined()
     } finally {

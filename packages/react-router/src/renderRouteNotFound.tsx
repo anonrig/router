@@ -11,16 +11,10 @@ import type { AnyRoute, AnyRouter } from '@anonrig/router-core'
  * @param data - Additional data to pass to the not found component
  * @returns The rendered not found component or a default fallback component
  */
-export function renderRouteNotFound(
-  router: AnyRouter,
-  route: AnyRoute,
-  data: any,
-) {
+export function renderRouteNotFound(router: AnyRouter, route: AnyRoute, data: any) {
   if (!route.options.notFoundComponent) {
     if (router.options.defaultNotFoundComponent) {
-      const notFoundElement = (
-        <router.options.defaultNotFoundComponent {...data} />
-      )
+      const notFoundElement = <router.options.defaultNotFoundComponent {...data} />
       return process.env.NODE_ENV !== 'production'
         ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
         : notFoundElement

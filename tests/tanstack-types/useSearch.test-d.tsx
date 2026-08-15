@@ -41,9 +41,7 @@ describe('useSearch', () => {
     expectTypeOf(useSearch<DefaultRouter>)
       .parameter(0)
       .toHaveProperty('from')
-      .toEqualTypeOf<
-        '/invoices' | '__root__' | '/invoices/$invoiceId' | '/invoices/' | '/'
-      >()
+      .toEqualTypeOf<'/invoices' | '__root__' | '/invoices/$invoiceId' | '/invoices/' | '/'>()
 
     expectTypeOf(useSearch<DefaultRouter>)
       .parameter(0)
@@ -117,9 +115,9 @@ describe('useSearch', () => {
       .toHaveProperty('select')
       .toEqualTypeOf<((search: { page: number }) => unknown) | undefined>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ page?: number }>()
+    expectTypeOf(useSearch<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      page?: number
+    }>()
 
     expectTypeOf(useSearch<DefaultRouter, '/invoices', false>)
       .parameter(0)
@@ -127,13 +125,7 @@ describe('useSearch', () => {
       .toEqualTypeOf<((search: { page?: number }) => unknown) | undefined>()
 
     expectTypeOf(
-      useSearch<
-        DefaultRouter,
-        '/invoices',
-        /* strict */ false,
-        /* shouldThrow */ true,
-        number
-      >,
+      useSearch<DefaultRouter, '/invoices', /* strict */ false, /* shouldThrow */ true, number>,
     ).returns.toEqualTypeOf<number>()
 
     expectTypeOf(
@@ -147,9 +139,7 @@ describe('useSearch', () => {
     )
       .parameter(0)
       .toHaveProperty('select')
-      .toEqualTypeOf<
-        ((search: { page?: number }) => { func: () => void }) | undefined
-      >()
+      .toEqualTypeOf<((search: { page?: number }) => { func: () => void }) | undefined>()
 
     expectTypeOf(
       useSearch<
@@ -350,16 +340,15 @@ describe('useSearch', () => {
       .toHaveProperty('select')
       .toEqualTypeOf<((search: { page: number }) => unknown) | undefined>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ page?: number; detail?: string }>()
+    expectTypeOf(useSearch<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      page?: number
+      detail?: string
+    }>()
 
     expectTypeOf(useSearch<DefaultRouter, '/invoices', false>)
       .parameter(0)
       .toHaveProperty('select')
-      .toEqualTypeOf<
-        ((search: { page?: number; detail?: string }) => unknown) | undefined
-      >()
+      .toEqualTypeOf<((search: { page?: number; detail?: string }) => unknown) | undefined>()
   })
 
   test('when there are overlapping search params', () => {
@@ -411,17 +400,15 @@ describe('useSearch', () => {
       .toHaveProperty('select')
       .toEqualTypeOf<((search: { page: number }) => unknown) | undefined>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ page?: number; detail?: 'detail' | 50 }>()
+    expectTypeOf(useSearch<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      page?: number
+      detail?: 'detail' | 50
+    }>()
 
     expectTypeOf(useSearch<DefaultRouter, '/invoices', false>)
       .parameter(0)
       .toHaveProperty('select')
-      .toEqualTypeOf<
-        | ((search: { page?: number; detail?: 'detail' | 50 }) => unknown)
-        | undefined
-      >()
+      .toEqualTypeOf<((search: { page?: number; detail?: 'detail' | 50 }) => unknown) | undefined>()
   })
 
   test('when the root has no search params but the index route does', () => {
@@ -464,29 +451,23 @@ describe('useSearch', () => {
       indexPage: number
     }>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '__root__'>,
-    ).returns.toEqualTypeOf<{}>()
+    expectTypeOf(useSearch<DefaultRouter, '__root__'>).returns.toEqualTypeOf<{}>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '/invoices'>,
-    ).returns.toEqualTypeOf<{}>()
+    expectTypeOf(useSearch<DefaultRouter, '/invoices'>).returns.toEqualTypeOf<{}>()
 
     expectTypeOf(useSearch<DefaultRouter, '/invoices'>)
       .parameter(0)
       .toHaveProperty('select')
       .toEqualTypeOf<((search: {}) => unknown) | undefined>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ indexPage?: number }>()
+    expectTypeOf(useSearch<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      indexPage?: number
+    }>()
 
     expectTypeOf(useSearch<DefaultRouter, '/invoices', false>)
       .parameter(0)
       .toHaveProperty('select')
-      .toEqualTypeOf<
-        ((search: { indexPage?: number }) => unknown) | undefined
-      >()
+      .toEqualTypeOf<((search: { indexPage?: number }) => unknown) | undefined>()
   })
 
   test('when the root has search params but the index route does not', () => {
@@ -543,9 +524,9 @@ describe('useSearch', () => {
       .toHaveProperty('select')
       .toEqualTypeOf<((search: { rootPage: number }) => unknown) | undefined>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ rootPage?: number }>()
+    expectTypeOf(useSearch<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      rootPage?: number
+    }>()
 
     expectTypeOf(useSearch<DefaultRouter, '/invoices', false>)
       .parameter(0)
@@ -609,17 +590,15 @@ describe('useSearch', () => {
       .toHaveProperty('select')
       .toEqualTypeOf<((search: { rootPage: number }) => unknown) | undefined>()
 
-    expectTypeOf(
-      useSearch<DefaultRouter, '/invoices', false>,
-    ).returns.toEqualTypeOf<{ indexPage?: number; rootPage?: number }>()
+    expectTypeOf(useSearch<DefaultRouter, '/invoices', false>).returns.toEqualTypeOf<{
+      indexPage?: number
+      rootPage?: number
+    }>()
 
     expectTypeOf(useSearch<DefaultRouter, '/invoices', false>)
       .parameter(0)
       .toHaveProperty('select')
-      .toEqualTypeOf<
-        | ((search: { indexPage?: number; rootPage?: number }) => unknown)
-        | undefined
-      >()
+      .toEqualTypeOf<((search: { indexPage?: number; rootPage?: number }) => unknown) | undefined>()
   })
 
   test('when a route has search params using SearchSchemaInput', () => {
@@ -660,9 +639,7 @@ describe('useSearch', () => {
       },
     })
 
-    const routeTree = rootRoute.addChildren([
-      indexRoute.addChildren([indexRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([indexRoute.addChildren([indexRoute])])
     // eslint-disable-next-line unused-imports/no-unused-vars
     const router = createRouter({ routeTree })
     expectTypeOf(useSearch<typeof router, '/'>).returns.toEqualTypeOf<
@@ -692,24 +669,20 @@ describe('useSearch', () => {
     const from = '/invoices'
     test('return type is `{ page: number }` when shouldThrow = true', () => {
       const shouldThrow = true
-      const search = useSearch<
-        typeof router,
-        typeof from,
-        /* strict */ true,
-        typeof shouldThrow
-      >({ from, shouldThrow })
+      const search = useSearch<typeof router, typeof from, /* strict */ true, typeof shouldThrow>({
+        from,
+        shouldThrow,
+      })
 
       expectTypeOf(search).toEqualTypeOf<{ page: number }>()
     })
 
     test('return type is `{page: number} | undefined` when shouldThrow = false', () => {
       const shouldThrow = false
-      const search = useSearch<
-        typeof router,
-        typeof from,
-        /* strict */ true,
-        typeof shouldThrow
-      >({ from, shouldThrow })
+      const search = useSearch<typeof router, typeof from, /* strict */ true, typeof shouldThrow>({
+        from,
+        shouldThrow,
+      })
 
       expectTypeOf(search).toEqualTypeOf<{ page: number } | undefined>()
     })

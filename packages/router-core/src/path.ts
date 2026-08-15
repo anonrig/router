@@ -13,11 +13,7 @@ export function joinPaths(paths: Array<string | undefined>) {
     if (val === undefined) continue
     if (out.length && out.charCodeAt(out.length - 1) !== 47 && val.charCodeAt(0) !== 47) {
       out += '/'
-    } else if (
-      out.length &&
-      out.charCodeAt(out.length - 1) === 47 &&
-      val.charCodeAt(0) === 47
-    ) {
+    } else if (out.length && out.charCodeAt(out.length - 1) === 47 && val.charCodeAt(0) === 47) {
       out += val.slice(1)
       continue
     }
@@ -75,15 +71,8 @@ export function removeTrailingSlash(value: string, basepath: string): string {
   return value
 }
 
-export function exactPathTest(
-  pathName1: string,
-  pathName2: string,
-  basepath: string,
-): boolean {
-  return (
-    removeTrailingSlash(pathName1, basepath) ===
-    removeTrailingSlash(pathName2, basepath)
-  )
+export function exactPathTest(pathName1: string, pathName2: string, basepath: string): boolean {
+  return removeTrailingSlash(pathName1, basepath) === removeTrailingSlash(pathName2, basepath)
 }
 
 interface ResolvePathOptions {
@@ -93,12 +82,7 @@ interface ResolvePathOptions {
   cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
-export function resolvePath({
-  base,
-  to,
-  trailingSlash = 'never',
-  cache,
-}: ResolvePathOptions) {
+export function resolvePath({ base, to, trailingSlash = 'never', cache }: ResolvePathOptions) {
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
 
@@ -160,9 +144,7 @@ function splitPath(path: string): string[] {
   return out
 }
 
-export function compileDecodeCharMap(
-  pathParamsAllowedCharacters: ReadonlyArray<string>,
-) {
+export function compileDecodeCharMap(pathParamsAllowedCharacters: ReadonlyArray<string>) {
   const charMap = new Map(
     pathParamsAllowedCharacters.map((char) => [encodeURIComponent(char), char]),
   )
@@ -170,8 +152,7 @@ export function compileDecodeCharMap(
     .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|')
   const regex = new RegExp(pattern, 'g')
-  return (encoded: string) =>
-    encoded.replace(regex, (match) => charMap.get(match) ?? match)
+  return (encoded: string) => encoded.replace(regex, (match) => charMap.get(match) ?? match)
 }
 
 interface InterpolatePathOptions {
@@ -187,10 +168,7 @@ export type InterPolatePathResult = {
   isMissingParams: boolean
 }
 
-function encodePathParam(
-  value: string,
-  decoder?: InterpolatePathOptions['decoder'],
-) {
+function encodePathParam(value: string, decoder?: InterpolatePathOptions['decoder']) {
   const encoded = encodeURIComponent(value)
   return decoder?.(encoded) ?? encoded
 }

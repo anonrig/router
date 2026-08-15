@@ -1,11 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  cleanup,
-  configure,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react'
+import { cleanup, configure, fireEvent, render, screen } from '@testing-library/react'
 import {
   Link,
   RouterProvider,
@@ -23,8 +17,7 @@ afterEach(() => {
 })
 
 function createTestRouter(initialHistory?: RouterHistory) {
-  const history =
-    initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
+  const history = initialHistory ?? createMemoryHistory({ initialEntries: ['/'] })
 
   const rootRoute = createRootRoute({})
   const indexRoute = createRoute({
@@ -57,9 +50,7 @@ describe('preload: matched routes', { timeout: 20000 }, () => {
   configure({ reactStrictMode: true })
 
   it('should wait for lazy options to be streamed in before ', async () => {
-    const { router } = createTestRouter(
-      createMemoryHistory({ initialEntries: ['/'] }),
-    )
+    const { router } = createTestRouter(createMemoryHistory({ initialEntries: ['/'] }))
 
     await router.load()
 
@@ -120,9 +111,7 @@ describe('preload: matched routes', { timeout: 20000 }, () => {
 
     render(<RouterProvider router={router} />)
 
-    expect(
-      await screen.findByText('Lazy Error: lazy error'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Lazy Error: lazy error')).toBeInTheDocument()
     expect(screen.queryByText('About route content')).not.toBeInTheDocument()
   })
 })

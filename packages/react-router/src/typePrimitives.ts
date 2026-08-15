@@ -75,10 +75,5 @@ export type ValidateLinkOptionsArray<
   TDefaultFrom extends string = string,
   TComp = 'a',
 > = {
-  [K in keyof TOptions]: ValidateLinkOptions<
-    TRouter,
-    TOptions[K],
-    TDefaultFrom,
-    TComp
-  >
+  [K in keyof TOptions]: ValidateLinkOptions<TRouter, TOptions[K], TDefaultFrom, TComp>
 }

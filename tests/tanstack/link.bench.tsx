@@ -12,40 +12,32 @@ import {
 } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 
-const createRouterRenderer =
-  (routesCount: number) => (children: React.ReactNode) => {
-    const rootRoute = createRootRoute()
-    const indexRoute = createRoute({
+const createRouterRenderer = (routesCount: number) => (children: React.ReactNode) => {
+  const rootRoute = createRootRoute()
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => children,
+  })
+  const paramRoutes = Array.from({ length: routesCount }).map((_, i) =>
+    createRoute({
       getParentRoute: () => rootRoute,
-      path: '/',
-      component: () => children,
-    })
-    const paramRoutes = Array.from({ length: routesCount }).map((_, i) =>
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: `/params/$param${i}`,
-      }),
-    )
-    const routeTree = rootRoute.addChildren([indexRoute, ...paramRoutes])
-    return createRouter({
-      routeTree,
-      history: createMemoryHistory({ initialEntries: ['/'] }),
-    })
-  }
+      path: `/params/$param${i}`,
+    }),
+  )
+  const routeTree = rootRoute.addChildren([indexRoute, ...paramRoutes])
+  return createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+}
 
-const InterpolatePathLink = ({
-  to,
-  params,
-  children,
-}: React.PropsWithChildren<LinkProps>) => {
+const InterpolatePathLink = ({ to, params, children }: React.PropsWithChildren<LinkProps>) => {
   const href = interpolatePath({ path: to, params }).interpolatedPath
   return <a href={href}>{children}</a>
 }
 
-const BuildLocationLink = ({
-  children,
-  ...props
-}: React.PropsWithChildren<LinkProps>) => {
+const BuildLocationLink = ({ children, ...props }: React.PropsWithChildren<LinkProps>) => {
   const router = useRouter()
   const { href } = router.buildLocation(props)
   return <a href={href}>{children}</a>
@@ -153,12 +145,7 @@ describe.each([
           const to = `./params/$param${Math.min(i, matchedParamId)}`
 
           return (
-            <Link
-              key={i}
-              from="/"
-              to={to}
-              params={{ [`param${Math.min(i, matchedParamId)}`]: i }}
-            >
+            <Link key={i} from="/" to={to} params={{ [`param${Math.min(i, matchedParamId)}`]: i }}>
               {i}
             </Link>
           )

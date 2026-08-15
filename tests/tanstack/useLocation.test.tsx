@@ -52,9 +52,7 @@ describe('useLocation', () => {
 
     render(<RouterProvider router={router} />)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Posts' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
     await waitFor(() => expect(effectSpy).toHaveBeenCalledTimes(1))
 

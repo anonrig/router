@@ -32,9 +32,7 @@ class TestErrorBoundary extends Component<
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div>External Error Boundary Caught: {this.state.error?.message}</div>
-      )
+      return <div>External Error Boundary Caught: {this.state.error?.message}</div>
     }
 
     return this.props.children

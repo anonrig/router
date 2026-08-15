@@ -8,9 +8,7 @@ export interface UseRouteContextBaseOptions<
   TStrict extends boolean,
   TSelected,
 > {
-  select?: (
-    search: ResolveUseRouteContext<TRouter, TFrom, TStrict>,
-  ) => TSelected
+  select?: (search: ResolveUseRouteContext<TRouter, TFrom, TStrict>) => TSelected
 }
 
 export type UseRouteContextOptions<
@@ -34,6 +32,4 @@ export type UseRouteContextResult<
   TFrom,
   TStrict extends boolean,
   TSelected,
-> = unknown extends TSelected
-  ? ResolveUseRouteContext<TRouter, TFrom, TStrict>
-  : TSelected
+> = unknown extends TSelected ? ResolveUseRouteContext<TRouter, TFrom, TStrict> : TSelected

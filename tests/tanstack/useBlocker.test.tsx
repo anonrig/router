@@ -78,9 +78,7 @@ describe('useBlocker', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Posts' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/posts')
   })
@@ -131,9 +129,7 @@ describe('useBlocker', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Posts' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/posts')
   })
@@ -184,9 +180,7 @@ describe('useBlocker', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
   })
@@ -205,9 +199,7 @@ describe('useBlocker', () => {
         <>
           <h1>Index</h1>
           <button onClick={() => navigate({ to: '/' })}>Index</button>
-          <button onClick={() => navigate({ to: '/posts', replace: true })}>
-            Posts
-          </button>
+          <button onClick={() => navigate({ to: '/posts', replace: true })}>Posts</button>
         </>
       )
     }
@@ -241,9 +233,7 @@ describe('useBlocker', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
 
@@ -328,9 +318,7 @@ describe('useBlocker', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
 
@@ -373,9 +361,7 @@ describe('useBlocker', () => {
           <h1>Index</h1>
           <button onClick={() => navigate({ to: '/' })}>Index</button>
           <button onClick={() => navigate({ to: '/posts' })}>Posts</button>
-          <button onClick={() => navigate({ to: '/invoices' })}>
-            Invoices
-          </button>
+          <button onClick={() => navigate({ to: '/invoices' })}>Invoices</button>
         </>
       )
     }
@@ -423,9 +409,7 @@ describe('useBlocker', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
 
@@ -435,9 +419,7 @@ describe('useBlocker', () => {
 
     fireEvent.click(invoicesButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Invoices' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Invoices' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/invoices')
   })
@@ -453,9 +435,7 @@ describe('useBlocker', () => {
           <>
             <h1>Not Found</h1>
             <button onClick={() => navigate({ to: '/' })}>Go Home</button>
-            <button onClick={() => navigate({ to: '/posts' })}>
-              Go to Posts
-            </button>
+            <button onClick={() => navigate({ to: '/posts' })}>Go to Posts</button>
           </>
         )
       },
@@ -494,18 +474,14 @@ describe('useBlocker', () => {
 
     await router.navigate({ to: '/non-existent' as any })
 
-    expect(
-      await screen.findByRole('heading', { name: 'Not Found' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Not Found' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/non-existent')
 
     const homeButton = await screen.findByRole('button', { name: 'Go Home' })
     fireEvent.click(homeButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
   })
@@ -549,18 +525,14 @@ describe('useBlocker', () => {
 
     await router.navigate({ to: '/non-existent' })
 
-    expect(
-      await screen.findByRole('heading', { name: 'Not Found' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Not Found' })).toBeInTheDocument()
 
     const anotherButton = await screen.findByRole('button', {
       name: 'Go to Another 404',
     })
     fireEvent.click(anotherButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Not Found' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Not Found' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/non-existent')
   })

@@ -69,15 +69,12 @@ describe('createRoute has the same hooks as getRouteApi', () => {
   const hookNames = Object.keys(routeApi).filter((key) => key.startsWith('use'))
   const route = createRoute({} as any)
 
-  it.each(hookNames.map((name) => [name]))(
-    'should have the "%s" hook defined',
-    (hookName) => {
-      expect(route[hookName as keyof typeof route]).toBeDefined()
-    },
-  )
+  it.each(hookNames.map((name) => [name]))('should have the "%s" hook defined', (hookName) => {
+    expect(route[hookName as keyof typeof route]).toBeDefined()
+  })
 })
 
-/* disabled until HMR bug is fixed 
+/* disabled until HMR bug is fixed
 describe('throws invariant exception when trying to access properties before `createRouter` completed', () => {
   function setup() {
     const rootRoute = createRootRoute()
@@ -383,10 +380,7 @@ describe('route.head', () => {
     expect(indexElem).toBeInTheDocument()
 
     const scriptsState = router.state.matches.map((m) => m.headScripts)
-    expect(scriptsState).toEqual([
-      [{ src: 'root.js' }, { src: 'root2.js' }],
-      [{ src: 'index.js' }],
-    ])
+    expect(scriptsState).toEqual([[{ src: 'root.js' }, { src: 'root2.js' }], [{ src: 'index.js' }]])
   })
 
   test('scripts w/ loader', async () => {
@@ -413,10 +407,7 @@ describe('route.head', () => {
     expect(indexElem).toBeInTheDocument()
 
     const scriptsState = router.state.matches.map((m) => m.headScripts)
-    expect(scriptsState).toEqual([
-      [{ src: 'root.js' }, { src: 'root2.js' }],
-      [{ src: 'index.js' }],
-    ])
+    expect(scriptsState).toEqual([[{ src: 'root.js' }, { src: 'root2.js' }], [{ src: 'index.js' }]])
   })
 
   test('links', async () => {

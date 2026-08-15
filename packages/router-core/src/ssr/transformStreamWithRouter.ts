@@ -33,9 +33,7 @@ export function transformPipeableStreamWithRouter(
   routerStream: Readable,
   opts?: TransformStreamWithRouterOptions,
 ) {
-  return Readable.fromWeb(
-    transformStreamWithRouter(router, Readable.toWeb(routerStream), opts),
-  )
+  return Readable.fromWeb(transformStreamWithRouter(router, Readable.toWeb(routerStream), opts))
 }
 
 // Minimum length of a valid closing tag: </a> = 4 characters
@@ -92,10 +90,7 @@ function findHtmlBoundary(str: string): number {
     if (lastClosingTagEnd === -1) {
       let i = openSlash + 2
       const startCode = str.charCodeAt(i)
-      if (
-        (startCode >= 97 && startCode <= 122) ||
-        (startCode >= 65 && startCode <= 90)
-      ) {
+      if ((startCode >= 97 && startCode <= 122) || (startCode >= 65 && startCode <= 90)) {
         i++
         while (i < str.length) {
           const code = str.charCodeAt(i)
@@ -198,10 +193,7 @@ function createAbortNotifier(opts?: TransformStreamWithRouterOptions) {
   }
 }
 
-function listenToAbort(
-  signal: AbortSignal | undefined,
-  onAbort: (reason?: unknown) => void,
-) {
+function listenToAbort(signal: AbortSignal | undefined, onAbort: (reason?: unknown) => void) {
   if (!signal) {
     return
   }
@@ -632,9 +624,7 @@ function makeMainStream(
     if (state >= MergeState.Draining) {
       // At this point final tail/close has already been queued. Emitting late
       // router HTML would put scripts after </body> or drop them silently.
-      const err = new Error(
-        'SSR router HTML injected after stream finalization',
-      )
+      const err = new Error('SSR router HTML injected after stream finalization')
       safeError(err)
       cleanup(err)
       return
@@ -675,11 +665,7 @@ function makeMainStream(
   }
 
   function waitForBackpressure() {
-    return !!(
-      controller &&
-      controller.desiredSize !== null &&
-      controller.desiredSize <= 0
-    )
+    return !!(controller && controller.desiredSize !== null && controller.desiredSize <= 0)
   }
 
   function startSerializationTimeout() {
@@ -746,8 +732,7 @@ function makeMainStream(
     }
     drainRouterHtml()
     if (cleanedUp || isDone()) return
-    serializationFinished =
-      serializationFinished || serverSsr.isSerializationFinished()
+    serializationFinished = serializationFinished || serverSsr.isSerializationFinished()
     if (serializationFinished) {
       tryFinish()
     } else {
@@ -773,20 +758,17 @@ function makeMainStream(
     drainRouterHtml()
   })
 
-  stopListeningToSerializationFinished = serverSsr.onSerializationFinished(
-    () => {
-      serializationFinished = true
-      drainRouterHtml()
-      tryFinish()
-    },
-  )
+  stopListeningToSerializationFinished = serverSsr.onSerializationFinished(() => {
+    serializationFinished = true
+    drainRouterHtml()
+    tryFinish()
+  })
 
   // Subscriptions are installed before snapshots, so missed events are
   // recovered by these synchronous drains/rechecks.
   drainRouterHtml()
   if (cleanedUp || isDone()) return stream
-  serializationFinished =
-    serializationFinished || serverSsr.isSerializationFinished()
+  serializationFinished = serializationFinished || serverSsr.isSerializationFinished()
   if (serializationFinished) {
     drainRouterHtml()
     if (cleanedUp || isDone()) return stream
@@ -796,10 +778,9 @@ function makeMainStream(
     safeError(reason)
     cleanup(reason)
   })
-  if (cleanedUp || isDone())
-    return stream
+  if (cleanedUp || isDone()) return stream
 
-    // Transform the appStream
+  // Transform the appStream
   ;(async () => {
     try {
       while (true) {
@@ -861,10 +842,7 @@ function makeMainStream(
             // Ensure bounded memory even if a consumer streams long text sequences
             // without any closing tags. This may reduce injection granularity but is correct.
             noteBarrierMarker(leftover)
-            const flushed = leftover.slice(
-              0,
-              leftover.length - MAX_LEFTOVER_CHARS,
-            )
+            const flushed = leftover.slice(0, leftover.length - MAX_LEFTOVER_CHARS)
             writeChunk(flushed)
             leftover = leftover.slice(-MAX_LEFTOVER_CHARS)
           }

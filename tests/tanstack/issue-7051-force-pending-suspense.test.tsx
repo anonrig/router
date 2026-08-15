@@ -43,13 +43,9 @@ test('invalidate({ forcePending: true }) keeps rendering the pending fallback in
       return 'done'
     },
     component: () => (
-      <div data-testid="force-pending-route">
-        {forcePendingRoute.useLoaderData()}
-      </div>
+      <div data-testid="force-pending-route">{forcePendingRoute.useLoaderData()}</div>
     ),
-    pendingComponent: () => (
-      <div data-testid="force-pending-fallback">Pending...</div>
-    ),
+    pendingComponent: () => <div data-testid="force-pending-fallback">Pending...</div>,
     errorComponent: ({ error }) => {
       errorComponentRendered(error)
       return <div data-testid="force-pending-error">{String(error)}</div>
@@ -64,9 +60,7 @@ test('invalidate({ forcePending: true }) keeps rendering the pending fallback in
   render(<RouterProvider router={router} />)
 
   await act(() => router.load())
-  expect(await screen.findByTestId('force-pending-route')).toHaveTextContent(
-    'done',
-  )
+  expect(await screen.findByTestId('force-pending-route')).toHaveTextContent('done')
 
   shouldSuspendReload = true
   let invalidation!: Promise<void>
@@ -74,9 +68,7 @@ test('invalidate({ forcePending: true }) keeps rendering the pending fallback in
     invalidation = router.invalidate({ forcePending: true })
   })
 
-  expect(
-    await screen.findByTestId('force-pending-fallback'),
-  ).toBeInTheDocument()
+  expect(await screen.findByTestId('force-pending-fallback')).toBeInTheDocument()
   expect(errorComponentRendered).not.toHaveBeenCalled()
   expect(screen.queryByTestId('force-pending-error')).not.toBeInTheDocument()
 
@@ -85,9 +77,7 @@ test('invalidate({ forcePending: true }) keeps rendering the pending fallback in
   })
 
   await act(() => invalidation)
-  expect(await screen.findByTestId('force-pending-route')).toHaveTextContent(
-    'done',
-  )
+  expect(await screen.findByTestId('force-pending-route')).toHaveTextContent('done')
   expect(screen.queryByTestId('force-pending-fallback')).not.toBeInTheDocument()
   expect(screen.queryByTestId('force-pending-error')).not.toBeInTheDocument()
   expect(errorComponentRendered).not.toHaveBeenCalled()
@@ -128,12 +118,8 @@ test('regular navigation keeps the current pending fallback while its loader is 
       })
       return 'first'
     },
-    component: () => (
-      <div data-testid="first-page">{firstRoute.useLoaderData()}</div>
-    ),
-    pendingComponent: () => (
-      <div data-testid="first-pending">Pending first route</div>
-    ),
+    component: () => <div data-testid="first-page">{firstRoute.useLoaderData()}</div>,
+    pendingComponent: () => <div data-testid="first-pending">Pending first route</div>,
     errorComponent: ({ error }) => {
       firstErrorComponentRendered(error)
       return <div data-testid="first-error">{String(error)}</div>
@@ -147,9 +133,7 @@ test('regular navigation keeps the current pending fallback while its loader is 
       await secondLoaderGate
       return 'second'
     },
-    component: () => (
-      <div data-testid="second-page">{secondRoute.useLoaderData()}</div>
-    ),
+    component: () => <div data-testid="second-page">{secondRoute.useLoaderData()}</div>,
   })
   const router = createRouter({
     routeTree: rootRoute.addChildren([indexRoute, firstRoute, secondRoute]),

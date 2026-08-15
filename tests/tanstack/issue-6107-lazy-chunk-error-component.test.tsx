@@ -1,11 +1,5 @@
 import * as React from 'react'
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import {
   Link,
@@ -78,9 +72,7 @@ test('#6107: lazy chunk hover failure is non-fatal and navigation renders defaul
 
   const callsAfterPreload = lazyCalls
   fireEvent.click(link)
-  expect(await screen.findByTestId('default-error')).toHaveTextContent(
-    chunkError.message,
-  )
+  expect(await screen.findByTestId('default-error')).toHaveTextContent(chunkError.message)
   expect(lazyCalls).toBeGreaterThan(callsAfterPreload)
   expect(defaultErrorRendered).toHaveBeenCalledWith(chunkError)
   expect(screen.queryByText('Index')).not.toBeInTheDocument()

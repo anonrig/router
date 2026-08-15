@@ -24,7 +24,6 @@ export function useRouteContext<
 ): UseRouteContextResult<TRouter, TFrom, TStrict, TSelected> {
   return useMatch({
     ...(opts as any),
-    select: (match: any) =>
-      opts?.select ? opts.select(match.context) : match.context,
+    select: (match: any) => (opts?.select ? opts.select(match.context) : match.context),
   }) as UseRouteContextResult<TRouter, TFrom, TStrict, TSelected>
 }

@@ -80,29 +80,25 @@ export type ResolveSearchValidatorInputFn<TValidator> = TValidator extends (
     : ResolveValidatorOutputFn<TValidator>
   : AnySchema
 
-export type ResolveSearchValidatorInput<TValidator> =
-  TValidator extends AnyStandardSchemaValidator
-    ? NonNullable<TValidator['~standard']['types']>['input']
-    : TValidator extends AnyValidatorAdapter
-      ? TValidator['types']['input']
-      : TValidator extends AnyValidatorObj
-        ? ResolveSearchValidatorInputFn<TValidator['parse']>
-        : ResolveSearchValidatorInputFn<TValidator>
+export type ResolveSearchValidatorInput<TValidator> = TValidator extends AnyStandardSchemaValidator
+  ? NonNullable<TValidator['~standard']['types']>['input']
+  : TValidator extends AnyValidatorAdapter
+    ? TValidator['types']['input']
+    : TValidator extends AnyValidatorObj
+      ? ResolveSearchValidatorInputFn<TValidator['parse']>
+      : ResolveSearchValidatorInputFn<TValidator>
 
-export type ResolveValidatorInputFn<TValidator> = TValidator extends (
-  input: infer TInput,
-) => any
+export type ResolveValidatorInputFn<TValidator> = TValidator extends (input: infer TInput) => any
   ? TInput
   : undefined
 
-export type ResolveValidatorInput<TValidator> =
-  TValidator extends AnyStandardSchemaValidator
-    ? NonNullable<TValidator['~standard']['types']>['input']
-    : TValidator extends AnyValidatorAdapter
-      ? TValidator['types']['input']
-      : TValidator extends AnyValidatorObj
-        ? ResolveValidatorInputFn<TValidator['parse']>
-        : ResolveValidatorInputFn<TValidator>
+export type ResolveValidatorInput<TValidator> = TValidator extends AnyStandardSchemaValidator
+  ? NonNullable<TValidator['~standard']['types']>['input']
+  : TValidator extends AnyValidatorAdapter
+    ? TValidator['types']['input']
+    : TValidator extends AnyValidatorObj
+      ? ResolveValidatorInputFn<TValidator['parse']>
+      : ResolveValidatorInputFn<TValidator>
 
 export type ResolveValidatorOutputFn<TValidator> = TValidator extends (
   ...args: any

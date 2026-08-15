@@ -18,8 +18,7 @@ export function Outlet() {
 }
 
 function renderPending(router: ReturnType<typeof useRouter>, route: any) {
-  const Pending =
-    route?.options.pendingComponent ?? router.options.defaultPendingComponent
+  const Pending = route?.options.pendingComponent ?? router.options.defaultPendingComponent
   return Pending ? <Pending /> : null
 }
 
@@ -41,9 +40,7 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
 
   if (match.status === 'error') {
     const Err =
-      route.options.errorComponent ??
-      router.options.defaultErrorComponent ??
-      ErrorComponent
+      route.options.errorComponent ?? router.options.defaultErrorComponent ?? ErrorComponent
     return (
       <Err
         error={match.error}
@@ -72,9 +69,7 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
   )
 
   if (route.options.wrapInSuspense || route.options.pendingComponent) {
-    inner = (
-      <SuspenseBoundary fallback={renderPending(router, route)}>{inner}</SuspenseBoundary>
-    )
+    inner = <SuspenseBoundary fallback={renderPending(router, route)}>{inner}</SuspenseBoundary>
   }
 
   return (
@@ -90,9 +85,7 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
       <CatchBoundary
         getResetKey={() => resetKey}
         errorComponent={
-          route.options.errorComponent ??
-          router.options.defaultErrorComponent ??
-          ErrorComponent
+          route.options.errorComponent ?? router.options.defaultErrorComponent ?? ErrorComponent
         }
         onCatch={route.options.onCatch ?? router.options.defaultOnCatch}
       >
@@ -102,13 +95,7 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
   )
 })
 
-function SuspenseBoundary({
-  children,
-  fallback,
-}: {
-  children: ReactNode
-  fallback: ReactNode
-}) {
+function SuspenseBoundary({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   return <Suspense fallback={fallback}>{children}</Suspense>
 }
 

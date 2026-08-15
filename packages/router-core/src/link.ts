@@ -12,11 +12,7 @@ import type {
   RouteToPath,
   ToPath,
 } from './routeInfo'
-import type {
-  AnyRouter,
-  RegisteredRouter,
-  ViewTransitionOptions,
-} from './router'
+import type { AnyRouter, RegisteredRouter, ViewTransitionOptions } from './router'
 import type {
   ConstrainLiteral,
   Expand,
@@ -27,24 +23,15 @@ import type {
 } from './utils'
 import type { ParsedLocation } from './location'
 
-export type IsRequiredParams<TParams> =
-  Record<never, never> extends TParams ? never : true
+export type IsRequiredParams<TParams> = Record<never, never> extends TParams ? never : true
 
-export interface ParsePathParamsResult<
-  in out TRequired,
-  in out TOptional,
-  in out TRest,
-> {
+export interface ParsePathParamsResult<in out TRequired, in out TOptional, in out TRest> {
   required: TRequired
   optional: TOptional
   rest: TRest
 }
 
-export type AnyParsePathParamsResult = ParsePathParamsResult<
-  string,
-  string,
-  string
->
+export type AnyParsePathParamsResult = ParsePathParamsResult<string, string, string>
 
 export type ParsePathParamsBoundaryStart<T extends string> =
   T extends `${infer TLeft}{-${infer TRight}`
@@ -57,42 +44,37 @@ export type ParsePathParamsBoundaryStart<T extends string> =
       >
     : T extends `${infer TLeft}{${infer TRight}`
       ? ParsePathParamsResult<
-          | ParsePathParams<TLeft>['required']
-          | ParsePathParams<TRight>['required'],
-          | ParsePathParams<TLeft>['optional']
-          | ParsePathParams<TRight>['optional'],
+          ParsePathParams<TLeft>['required'] | ParsePathParams<TRight>['required'],
+          ParsePathParams<TLeft>['optional'] | ParsePathParams<TRight>['optional'],
           ParsePathParams<TRight>['rest']
         >
       : never
 
-export type ParsePathParamsSymbol<T extends string> =
-  T extends `${string}$${infer TRight}`
-    ? TRight extends `${string}/${string}`
-      ? TRight extends `${infer TParam}/${infer TRest}`
-        ? TParam extends ''
-          ? ParsePathParamsResult<
-              ParsePathParams<TRest>['required'],
-              '_splat' | ParsePathParams<TRest>['optional'],
-              ParsePathParams<TRest>['rest']
-            >
-          : ParsePathParamsResult<
-              TParam | ParsePathParams<TRest>['required'],
-              ParsePathParams<TRest>['optional'],
-              ParsePathParams<TRest>['rest']
-            >
-        : never
-      : TRight extends ''
-        ? ParsePathParamsResult<never, '_splat', never>
-        : ParsePathParamsResult<TRight, never, never>
-    : never
+export type ParsePathParamsSymbol<T extends string> = T extends `${string}$${infer TRight}`
+  ? TRight extends `${string}/${string}`
+    ? TRight extends `${infer TParam}/${infer TRest}`
+      ? TParam extends ''
+        ? ParsePathParamsResult<
+            ParsePathParams<TRest>['required'],
+            '_splat' | ParsePathParams<TRest>['optional'],
+            ParsePathParams<TRest>['rest']
+          >
+        : ParsePathParamsResult<
+            TParam | ParsePathParams<TRest>['required'],
+            ParsePathParams<TRest>['optional'],
+            ParsePathParams<TRest>['rest']
+          >
+      : never
+    : TRight extends ''
+      ? ParsePathParamsResult<never, '_splat', never>
+      : ParsePathParamsResult<TRight, never, never>
+  : never
 
 export type ParsePathParamsBoundaryEnd<T extends string> =
   T extends `${infer TLeft}}${infer TRight}`
     ? ParsePathParamsResult<
-        | ParsePathParams<TLeft>['required']
-        | ParsePathParams<TRight>['required'],
-        | ParsePathParams<TLeft>['optional']
-        | ParsePathParams<TRight>['optional'],
+        ParsePathParams<TLeft>['required'] | ParsePathParams<TRight>['required'],
+        ParsePathParams<TLeft>['optional'] | ParsePathParams<TRight>['optional'],
         ParsePathParams<TRight>['rest']
       >
     : never
@@ -100,16 +82,15 @@ export type ParsePathParamsBoundaryEnd<T extends string> =
 export type ParsePathParamsEscapeStart<T extends string> =
   T extends `${infer TLeft}[${infer TRight}`
     ? ParsePathParamsResult<
-        | ParsePathParams<TLeft>['required']
-        | ParsePathParams<TRight>['required'],
-        | ParsePathParams<TLeft>['optional']
-        | ParsePathParams<TRight>['optional'],
+        ParsePathParams<TLeft>['required'] | ParsePathParams<TRight>['required'],
+        ParsePathParams<TLeft>['optional'] | ParsePathParams<TRight>['optional'],
         ParsePathParams<TRight>['rest']
       >
     : never
 
-export type ParsePathParamsEscapeEnd<T extends string> =
-  T extends `${string}]${infer TRight}` ? ParsePathParams<TRight> : never
+export type ParsePathParamsEscapeEnd<T extends string> = T extends `${string}]${infer TRight}`
+  ? ParsePathParams<TRight>
+  : never
 
 export type ParsePathParams<T extends string> = T extends `${string}[${string}`
   ? ParsePathParamsEscapeStart<T>
@@ -131,9 +112,7 @@ export type RemoveTrailingSlashes<T> = T & `${string}/` extends never
     ? R
     : T
 
-export type AddLeadingSlash<T> = T & `/${string}` extends never
-  ? `/${T & string}`
-  : T
+export type AddLeadingSlash<T> = T & `/${string}` extends never ? `/${T & string}` : T
 
 export type RemoveLeadingSlashes<T> = T & `/${string}` extends never
   ? T
@@ -158,10 +137,7 @@ type RemoveLastSegment<
     : RemoveLastSegment<TRest, `${TAcc}${TSegment}/`>
   : TAcc
 
-export type ResolveCurrentPath<
-  TFrom extends string,
-  TTo extends string,
-> = TTo extends '.'
+export type ResolveCurrentPath<TFrom extends string, TTo extends string> = TTo extends '.'
   ? TFrom
   : TTo extends './'
     ? AddTrailingSlash<TFrom>
@@ -171,10 +147,7 @@ export type ResolveCurrentPath<
         ? AddLeadingSlash<JoinPath<TFrom, TRest>>
         : never
 
-export type ResolveParentPath<
-  TFrom extends string,
-  TTo extends string,
-> = TTo extends '../' | '..'
+export type ResolveParentPath<TFrom extends string, TTo extends string> = TTo extends '../' | '..'
   ? TFrom extends '' | '/'
     ? never
     : AddLeadingSlash<RemoveLastSegment<TFrom>>
@@ -224,9 +197,7 @@ export type RelativeToPath<
   TTo extends string,
   TResolvedPath extends string,
 > =
-  | (TResolvedPath & RouteToPath<TRouter> extends never
-      ? never
-      : ToPath<TRouter, TTo>)
+  | (TResolvedPath & RouteToPath<TRouter> extends never ? never : ToPath<TRouter, TTo>)
   | `${RemoveTrailingSlashes<TTo>}/${InferDescendantToPaths<TRouter, RemoveTrailingSlashes<TResolvedPath>>}`
 
 export type RelativeToParentPath<
@@ -239,10 +210,7 @@ export type RelativeToParentPath<
   | (TTo extends `${string}..` | `${string}../`
       ? TResolvedPath extends '/' | ''
         ? never
-        : FindDescendantToPaths<
-              TRouter,
-              RemoveTrailingSlashes<TResolvedPath>
-            > extends never
+        : FindDescendantToPaths<TRouter, RemoveTrailingSlashes<TResolvedPath>> extends never
           ? never
           : `${RemoveTrailingSlashes<TTo>}/${ParentPath<TRouter>}`
       : never)
@@ -255,16 +223,8 @@ export type RelativeToCurrentPath<
 > = RelativeToPath<TRouter, TTo, TResolvedPath> | CurrentPath<TRouter>
 
 export type AbsoluteToPath<TRouter extends AnyRouter, TFrom extends string> =
-  | (string extends TFrom
-      ? CurrentPath<TRouter>
-      : TFrom extends `/`
-        ? never
-        : CurrentPath<TRouter>)
-  | (string extends TFrom
-      ? ParentPath<TRouter>
-      : TFrom extends `/`
-        ? never
-        : ParentPath<TRouter>)
+  | (string extends TFrom ? CurrentPath<TRouter> : TFrom extends `/` ? never : CurrentPath<TRouter>)
+  | (string extends TFrom ? ParentPath<TRouter> : TFrom extends `/` ? never : ParentPath<TRouter>)
   | RouteToPath<TRouter>
   | (TFrom extends '/'
       ? never
@@ -450,12 +410,7 @@ export type ParamsReducerFn<
   current: Expand<ResolveFromParams<TRouter, TParamVariant, TFrom>>,
 ) => Expand<ResolveRelativeToParams<TRouter, TParamVariant, TFrom, TTo>>
 
-type ParamsReducer<
-  TRouter extends AnyRouter,
-  TParamVariant extends ParamVariant,
-  TFrom,
-  TTo,
-> =
+type ParamsReducer<TRouter extends AnyRouter, TParamVariant extends ParamVariant, TFrom, TTo> =
   | Expand<ResolveRelativeToParams<TRouter, TParamVariant, TFrom, TTo>>
   | (ParamsReducerFn<TRouter, TParamVariant, TFrom, TTo> & {})
 
@@ -472,8 +427,9 @@ export type ResolveRoute<
     : RouteByToPath<TRouter, TPath>
   : never
 
-type ResolveFromParamType<TParamVariant extends ParamVariant> =
-  TParamVariant extends 'PATH' ? 'allParams' : 'fullSearchSchema'
+type ResolveFromParamType<TParamVariant extends ParamVariant> = TParamVariant extends 'PATH'
+  ? 'allParams'
+  : 'fullSearchSchema'
 
 type ResolveFromAllParams<
   TRouter extends AnyRouter,
@@ -488,13 +444,11 @@ type ResolveFromParams<
   TFrom,
 > = string extends TFrom
   ? ResolveFromAllParams<TRouter, TParamVariant>
-  : RouteByPath<
-      TRouter['routeTree'],
-      TFrom
-    >['types'][ResolveFromParamType<TParamVariant>]
+  : RouteByPath<TRouter['routeTree'], TFrom>['types'][ResolveFromParamType<TParamVariant>]
 
-type ResolveToParamType<TParamVariant extends ParamVariant> =
-  TParamVariant extends 'PATH' ? 'allParams' : 'fullSearchSchemaInput'
+type ResolveToParamType<TParamVariant extends ParamVariant> = TParamVariant extends 'PATH'
+  ? 'allParams'
+  : 'fullSearchSchemaInput'
 
 type ResolveAllToParams<
   TRouter extends AnyRouter,
@@ -516,11 +470,7 @@ export type ResolveToParams<
         ? ResolveAllToParams<TRouter, TParamVariant>
         : TPath extends CatchAllPaths<TRouter>
           ? ResolveAllToParams<TRouter, TParamVariant>
-          : ResolveRoute<
-              TRouter,
-              TFrom,
-              TTo
-            >['types'][ResolveToParamType<TParamVariant>]
+          : ResolveRoute<TRouter, TFrom, TTo>['types'][ResolveToParamType<TParamVariant>]
     : never
 
 type ResolveRelativeToParams<
@@ -533,10 +483,7 @@ type ResolveRelativeToParams<
   ? TToParams
   : string extends TFrom
     ? TToParams
-    : MakeDifferenceOptional<
-        ResolveFromParams<TRouter, TParamVariant, TFrom>,
-        TToParams
-      >
+    : MakeDifferenceOptional<ResolveFromParams<TRouter, TParamVariant, TFrom>, TToParams>
 
 export interface MakeOptionalSearchParams<
   in out TRouter extends AnyRouter,
@@ -562,11 +509,12 @@ type MakeRequiredParamsReducer<
 > =
   | (string extends TFrom
       ? never
-      : ResolveFromParams<
+      : ResolveFromParams<TRouter, TParamVariant, TFrom> extends ResolveRelativeToParams<
             TRouter,
             TParamVariant,
-            TFrom
-          > extends ResolveRelativeToParams<TRouter, TParamVariant, TFrom, TTo>
+            TFrom,
+            TTo
+          >
         ? true
         : never)
   | (ParamsReducer<TRouter, TParamVariant, TFrom, TTo> & {})
@@ -587,20 +535,13 @@ export interface MakeRequiredSearchParams<
   search: MakeRequiredParamsReducer<TRouter, 'SEARCH', TFrom, TTo> & {}
 }
 
-export type IsRequired<
-  TRouter extends AnyRouter,
-  TParamVariant extends ParamVariant,
-  TFrom,
-  TTo,
-> =
+export type IsRequired<TRouter extends AnyRouter, TParamVariant extends ParamVariant, TFrom, TTo> =
   ResolveRelativePath<TFrom, TTo> extends infer TPath
     ? undefined extends TPath
       ? never
       : TPath extends CatchAllPaths<TRouter>
         ? never
-        : IsRequiredParams<
-            ResolveRelativeToParams<TRouter, TParamVariant, TFrom, TTo>
-          >
+        : IsRequiredParams<ResolveRelativeToParams<TRouter, TParamVariant, TFrom, TTo>>
     : never
 
 export type SearchParamOptions<TRouter extends AnyRouter, TFrom, TTo> =

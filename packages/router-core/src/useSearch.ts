@@ -7,9 +7,7 @@ export type UseSearchResult<
   TFrom,
   TStrict extends boolean,
   TSelected,
-> = unknown extends TSelected
-  ? ResolveUseSearch<TRouter, TFrom, TStrict>
-  : TSelected
+> = unknown extends TSelected ? ResolveUseSearch<TRouter, TFrom, TStrict> : TSelected
 
 export type ResolveUseSearch<
   TRouter extends AnyRouter,

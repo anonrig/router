@@ -60,7 +60,5 @@ test('onRendered fires for a same-href navigation with a new history key', async
   expect(event.fromLocation?.state.__TSR_key).toBe(initialHistoryKey)
   expect(event.toLocation.state.__TSR_key).toBeDefined()
   expect(event.toLocation.state.__TSR_key).not.toBe(initialHistoryKey)
-  expect(router.state.resolvedLocation?.state.__TSR_key).toBe(
-    event.toLocation.state.__TSR_key,
-  )
+  expect(router.state.resolvedLocation?.state.__TSR_key).toBe(event.toLocation.state.__TSR_key)
 })

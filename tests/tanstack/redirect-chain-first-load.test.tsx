@@ -102,9 +102,7 @@ test('chained layout beforeLoad redirects on first load render the final target 
 
   render(<RouterProvider router={router} />)
 
-  expect(
-    await screen.findByTestId('intro-step', undefined, { timeout: 5_000 }),
-  ).toBeInTheDocument()
+  expect(await screen.findByTestId('intro-step', undefined, { timeout: 5_000 })).toBeInTheDocument()
   expect(router.state.location.pathname).toBe('/intro/step')
   expect(consoleError).not.toHaveBeenCalled()
 })

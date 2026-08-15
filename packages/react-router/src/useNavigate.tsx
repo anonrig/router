@@ -35,13 +35,9 @@ export function Navigate<
   const TMaskTo extends string = '',
 >(props: NavigateOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>): null {
   const navigate = useNavigate()
-  const previousPropsRef = useRef<NavigateOptions<
-    TRouter,
-    TFrom,
-    TTo,
-    TMaskFrom,
-    TMaskTo
-  > | null>(null)
+  const previousPropsRef = useRef<NavigateOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> | null>(
+    null,
+  )
   useLayoutEffect(() => {
     if (previousPropsRef.current !== props) {
       navigate(props)

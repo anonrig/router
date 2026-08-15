@@ -49,9 +49,7 @@ test('when setting a default from', () => {
     .parameter(0)
     .exclude<undefined>()
     .toHaveProperty('from')
-    .toEqualTypeOf<
-      '/invoices' | '/' | '/invoices/$invoiceId' | '/invoices/' | undefined
-    >()
+    .toEqualTypeOf<'/invoices' | '/' | '/invoices/$invoiceId' | '/invoices/' | undefined>()
 })
 
 test('when setting an invalid default from', () => {
@@ -59,7 +57,5 @@ test('when setting an invalid default from', () => {
     .parameter(0)
     .exclude<undefined>()
     .toHaveProperty('from')
-    .toEqualTypeOf<
-      '/invoices' | '/' | '/invoices/$invoiceId' | '/invoices/' | undefined
-    >()
+    .toEqualTypeOf<'/invoices' | '/' | '/invoices/$invoiceId' | '/invoices/' | undefined>()
 })

@@ -15,10 +15,7 @@ const noop = () => {}
 // Bot responses wait for `allReady` so crawlers receive complete HTML.
 // If the request disconnects during that wait, React may not settle quickly;
 // unblock the wait so the response pipeline can abort and clean up.
-async function waitForReadyOrAbort(
-  ready: Promise<unknown>,
-  signal: AbortSignal,
-) {
+async function waitForReadyOrAbort(ready: Promise<unknown>, signal: AbortSignal) {
   let cleanup = noop
   try {
     await Promise.race([
@@ -79,10 +76,7 @@ export const renderRouterToStream = async ({
     return createSsrStreamResponse(
       router,
       new Response(responseStream as any, {
-        status:
-          router._serverResult?.type === 'render'
-            ? router._serverResult.status
-            : 200,
+        status: router._serverResult?.type === 'render' ? router._serverResult.status : 200,
         headers: responseHeaders,
       }),
     )
@@ -91,32 +85,22 @@ export const renderRouterToStream = async ({
   if (typeof ReactDOMServer.renderToPipeableStream === 'function') {
     const reactAppPassthrough = new PassThrough()
 
-    let pipeable:
-      | ReturnType<typeof ReactDOMServer.renderToPipeableStream>
-      | undefined
+    let pipeable: ReturnType<typeof ReactDOMServer.renderToPipeableStream> | undefined
     let responseAttached = false
     let aborted = false
     let endedBeforeAttach = false
     let pendingAbortReason: unknown
     const toError = (reason: unknown) =>
-      reason instanceof Error
-        ? reason
-        : new Error(String(reason ?? 'SSR aborted'))
-    const destroyError = (reason: unknown) =>
-      reason === undefined ? undefined : toError(reason)
+      reason instanceof Error ? reason : new Error(String(reason ?? 'SSR aborted'))
+    const destroyError = (reason: unknown) => (reason === undefined ? undefined : toError(reason))
     const pendingDestroyError = () =>
       pendingAbortReason === undefined
         ? toError(pendingAbortReason)
         : destroyError(pendingAbortReason)
-    const finishPassThrough = (
-      reason: unknown,
-      opts?: { defaultError?: boolean },
-    ) => {
+    const finishPassThrough = (reason: unknown, opts?: { defaultError?: boolean }) => {
       if (reactAppPassthrough.destroyed) return
       if (responseAttached) {
-        reactAppPassthrough.destroy(
-          opts?.defaultError ? toError(reason) : destroyError(reason),
-        )
+        reactAppPassthrough.destroy(opts?.defaultError ? toError(reason) : destroyError(reason))
       } else {
         endedBeforeAttach = true
         // onError can fire synchronously before React returns the pipeable
@@ -124,10 +108,7 @@ export const renderRouterToStream = async ({
         // PassThrough until after the router transform can observe the error.
       }
     }
-    const abortPipeable = (
-      reason?: unknown,
-      opts?: { defaultError?: boolean },
-    ) => {
+    const abortPipeable = (reason?: unknown, opts?: { defaultError?: boolean }) => {
       if (aborted) return
       aborted = true
       pendingAbortReason = reason
@@ -180,11 +161,10 @@ export const renderRouterToStream = async ({
       throw e
     }
 
-    const responseStream = transformPipeableStreamWithRouter(
-      router,
-      reactAppPassthrough,
-      { signal: request.signal, onAbort: abortPipeable },
-    )
+    const responseStream = transformPipeableStreamWithRouter(router, reactAppPassthrough, {
+      signal: request.signal,
+      onAbort: abortPipeable,
+    })
     responseAttached = true
 
     if (endedBeforeAttach) {
@@ -205,10 +185,7 @@ export const renderRouterToStream = async ({
     return createSsrStreamResponse(
       router,
       new Response(responseStream as any, {
-        status:
-          router._serverResult?.type === 'render'
-            ? router._serverResult.status
-            : 200,
+        status: router._serverResult?.type === 'render' ? router._serverResult.status : 200,
         headers: responseHeaders,
       }),
     )

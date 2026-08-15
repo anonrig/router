@@ -24,9 +24,7 @@ test('should have the types for a ParsedLocation in useLocation', () => {
   const location = useLocation<DefaultRouter>()
 
   expectTypeOf(location).toEqualTypeOf<ParsedLocation>()
-  expectTypeOf(location)
-    .toHaveProperty('pathname')
-    .toEqualTypeOf<ParsedLocation['pathname']>()
+  expectTypeOf(location).toHaveProperty('pathname').toEqualTypeOf<ParsedLocation['pathname']>()
 })
 
 test('should have the type of string for selecting the pathname in useLocation', () => {

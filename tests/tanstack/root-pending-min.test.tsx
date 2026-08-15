@@ -33,9 +33,7 @@ test('a post-hydration root reload keeps its fallback through pendingMinMs', asy
     pendingComponent: () => <div data-testid="root-pending">Pending</div>,
     loader: rootLoader,
     component: () => (
-      <div data-testid="root-content">
-        Generation {rootRoute.useLoaderData().generation}
-      </div>
+      <div data-testid="root-content">Generation {rootRoute.useLoaderData().generation}</div>
     ),
   })
   const router = createRouter({

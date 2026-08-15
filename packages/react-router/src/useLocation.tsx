@@ -1,13 +1,6 @@
 import { useRouterState } from './useRouterState'
-import type {
-  StructuralSharingOption,
-  ValidateSelected,
-} from './structuralSharing'
-import type {
-  AnyRouter,
-  RegisteredRouter,
-  RouterState,
-} from '@anonrig/router-core'
+import type { StructuralSharingOption, ValidateSelected } from './structuralSharing'
+import type { AnyRouter, RegisteredRouter, RouterState } from '@anonrig/router-core'
 
 export interface UseLocationBaseOptions<
   TRouter extends AnyRouter,
@@ -19,10 +12,7 @@ export interface UseLocationBaseOptions<
   ) => ValidateSelected<TRouter, TSelected, TStructuralSharing>
 }
 
-export type UseLocationResult<
-  TRouter extends AnyRouter,
-  TSelected,
-> = unknown extends TSelected
+export type UseLocationResult<TRouter extends AnyRouter, TSelected> = unknown extends TSelected
   ? RouterState<TRouter['routeTree']>['location']
   : TSelected
 

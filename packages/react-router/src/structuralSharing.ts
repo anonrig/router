@@ -37,11 +37,7 @@ export type StructuralSharingEnabled<
   ? DefaultStructuralSharingEnabled<TRouter>
   : TStructuralSharing
 
-export type ValidateSelected<
-  TRouter extends AnyRouter,
-  TSelected,
-  TStructuralSharing,
-> =
+export type ValidateSelected<TRouter extends AnyRouter, TSelected, TStructuralSharing> =
   StructuralSharingEnabled<TRouter, TStructuralSharing> extends true
     ? ValidateJSON<TSelected>
     : TSelected

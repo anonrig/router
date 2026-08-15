@@ -1,10 +1,5 @@
 import { expectTypeOf, test } from 'vitest'
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  useRouterState,
-} from '@tanstack/react-router'
+import { createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterState } from '@tanstack/react-router'
 
 const rootRoute = createRootRoute({
@@ -91,9 +86,7 @@ test('can select router state', () => {
     defaultStructuralSharing: true,
   })
 
-  expectTypeOf(
-    useRouterState<typeof routerWithStructuralSharing, { func: () => void }>,
-  )
+  expectTypeOf(useRouterState<typeof routerWithStructuralSharing, { func: () => void }>)
     .parameter(0)
     .exclude<undefined>()
     .toHaveProperty('select')
@@ -104,9 +97,7 @@ test('can select router state', () => {
       | undefined
     >()
 
-  expectTypeOf(
-    useRouterState<typeof routerWithStructuralSharing, { func: () => void }>,
-  )
+  expectTypeOf(useRouterState<typeof routerWithStructuralSharing, { func: () => void }>)
     .parameter(0)
     .exclude<undefined>()
     .toHaveProperty('structuralSharing')

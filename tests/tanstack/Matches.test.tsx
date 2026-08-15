@@ -43,31 +43,20 @@ const invoicesRoute = createRoute({
 const InvoicesIndex = () => {
   const matches = useMatches<DefaultRouter>()
 
-  const loaderDataMatches = matches.filter((match) =>
-    isMatch(match, 'loaderData.0.id'),
-  )
+  const loaderDataMatches = matches.filter((match) => isMatch(match, 'loaderData.0.id'))
 
-  const contextMatches = matches.filter((match) =>
-    isMatch(match, 'context.permissions'),
-  )
+  const contextMatches = matches.filter((match) => isMatch(match, 'context.permissions'))
 
-  const incorrectMatches = matches.filter((match) =>
-    isMatch(match, 'loaderData.6.id'),
-  )
+  const incorrectMatches = matches.filter((match) => isMatch(match, 'loaderData.6.id'))
 
   return (
     <div>
       <section>
-        Loader Matches -{' '}
-        {loaderDataMatches.map((match) => match.fullPath).join(',')}
+        Loader Matches - {loaderDataMatches.map((match) => match.fullPath).join(',')}
       </section>
+      <section>Context Matches - {contextMatches.map((match) => match.fullPath).join(',')}</section>
       <section>
-        Context Matches -{' '}
-        {contextMatches.map((match) => match.fullPath).join(',')}
-      </section>
-      <section>
-        Incorrect Matches -{' '}
-        {incorrectMatches.map((match) => match.fullPath).join(',')}
+        Incorrect Matches - {incorrectMatches.map((match) => match.fullPath).join(',')}
       </section>
     </div>
   )
@@ -100,8 +89,7 @@ const commentsRoute = createRoute({
     page: 0,
     search: '',
   }),
-  loader: () =>
-    [{ comment: 'one comment' }, { comment: 'two comment' }] as const,
+  loader: () => [{ comment: 'one comment' }, { comment: 'two comment' }] as const,
 })
 
 const routeTree = rootRoute.addChildren([
@@ -123,13 +111,9 @@ test('when filtering useMatches by loaderData', async () => {
 
   fireEvent.click(searchLink)
 
-  expect(
-    await screen.findByText('Loader Matches - /invoices'),
-  ).toBeInTheDocument()
+  expect(await screen.findByText('Loader Matches - /invoices')).toBeInTheDocument()
 
-  expect(
-    await screen.findByText('Context Matches - /invoices/'),
-  ).toBeInTheDocument()
+  expect(await screen.findByText('Context Matches - /invoices/')).toBeInTheDocument()
 
   expect(await screen.findByText('Incorrect Matches -')).toBeInTheDocument()
 })
@@ -495,53 +479,46 @@ describe('matching on different param types', () => {
   ]
 
   afterEach(() => cleanup())
-  test.each(testCases)(
-    '$name',
-    async ({ name, path, params, matchParams, nav }) => {
-      const rootRoute = createRootRoute()
+  test.each(testCases)('$name', async ({ name, path, params, matchParams, nav }) => {
+    const rootRoute = createRootRoute()
 
-      const Route = createRoute({
-        getParentRoute: () => rootRoute,
-        path,
-        component: RouteComponent,
+    const Route = createRoute({
+      getParentRoute: () => rootRoute,
+      path,
+      component: RouteComponent,
+    })
+
+    function RouteComponent() {
+      const routeParams = Route.useParams()
+      const matchRoute = useMatchRoute()
+      const matchRouteMatch = matchRoute({
+        to: path,
       })
 
-      function RouteComponent() {
-        const routeParams = Route.useParams()
-        const matchRoute = useMatchRoute()
-        const matchRouteMatch = matchRoute({
-          to: path,
-        })
-
-        return (
+      return (
+        <div>
+          <h1 data-testid="heading">{name}</h1>
           <div>
-            <h1 data-testid="heading">{name}</h1>
-            <div>
-              Params{' '}
-              <span data-testid="params">{JSON.stringify(routeParams)}</span>
-              Matches{' '}
-              <span data-testid="matches">
-                {JSON.stringify(matchRouteMatch)}
-              </span>
-            </div>
+            Params <span data-testid="params">{JSON.stringify(routeParams)}</span>
+            Matches <span data-testid="matches">{JSON.stringify(matchRouteMatch)}</span>
           </div>
-        )
-      }
+        </div>
+      )
+    }
 
-      const router = createRouter({
-        routeTree: rootRoute.addChildren([Route]),
-        history: createMemoryHistory({ initialEntries: ['/'] }),
-      })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([Route]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
 
-      await act(() => render(<RouterProvider router={router} />))
+    await act(() => render(<RouterProvider router={router} />))
 
-      act(() => router.history.push(nav))
+    act(() => router.history.push(nav))
 
-      const paramsToCheck = await screen.findByTestId('params')
-      const matchesToCheck = await screen.findByTestId('matches')
+    const paramsToCheck = await screen.findByTestId('params')
+    const matchesToCheck = await screen.findByTestId('matches')
 
-      expect(JSON.parse(paramsToCheck.textContent)).toEqual(params)
-      expect(JSON.parse(matchesToCheck.textContent)).toEqual(matchParams)
-    },
-  )
+    expect(JSON.parse(paramsToCheck.textContent)).toEqual(params)
+    expect(JSON.parse(matchesToCheck.textContent)).toEqual(matchParams)
+  })
 })

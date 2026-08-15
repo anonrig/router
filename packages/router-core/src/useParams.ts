@@ -15,6 +15,4 @@ export type UseParamsResult<
   TFrom,
   TStrict extends boolean,
   TSelected,
-> = unknown extends TSelected
-  ? ResolveUseParams<TRouter, TFrom, TStrict>
-  : TSelected
+> = unknown extends TSelected ? ResolveUseParams<TRouter, TFrom, TStrict> : TSelected

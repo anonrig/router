@@ -1,8 +1,5 @@
 import { useMatch } from './useMatch'
-import type {
-  StructuralSharingOption,
-  ValidateSelected,
-} from './structuralSharing'
+import type { StructuralSharingOption, ValidateSelected } from './structuralSharing'
 import type {
   AnyRouter,
   RegisteredRouter,
@@ -35,14 +32,7 @@ export type UseParamsOptions<
   TSelected,
   TStructuralSharing,
 > = StrictOrFrom<TRouter, TFrom, TStrict> &
-  UseParamsBaseOptions<
-    TRouter,
-    TFrom,
-    TStrict,
-    TThrow,
-    TSelected,
-    TStructuralSharing
-  > &
+  UseParamsBaseOptions<TRouter, TFrom, TStrict, TThrow, TSelected, TStructuralSharing> &
   StructuralSharingOption<TRouter, TSelected, TStructuralSharing>
 
 export type UseParamsRoute<out TFrom> = <
@@ -77,10 +67,7 @@ export function useParams<
     TSelected,
     TStructuralSharing
   >,
-): ThrowOrOptional<
-  UseParamsResult<TRouter, TFrom, TStrict, TSelected>,
-  TThrow
-> {
+): ThrowOrOptional<UseParamsResult<TRouter, TFrom, TStrict, TSelected>, TThrow> {
   return useMatch({
     from: opts?.from as any,
     shouldThrow: opts?.shouldThrow,

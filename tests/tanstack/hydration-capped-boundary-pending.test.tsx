@@ -115,150 +115,131 @@ describe('hydrating a server-capped boundary lane', () => {
     ['notFound', 'parent'],
     ['error', 'root'],
     ['notFound', 'root'],
-  ] as const)(
-    'keeps the server-rendered %s %s boundary visible',
-    async (outcome, boundary) => {
-      const childLoader = vi.fn(() => 'child data')
-      const boundaryCommits = vi.fn()
+  ] as const)('keeps the server-rendered %s %s boundary visible', async (outcome, boundary) => {
+    const childLoader = vi.fn(() => 'child data')
+    const boundaryCommits = vi.fn()
 
-      function BoundaryError() {
-        React.useEffect(() => {
-          boundaryCommits()
-        }, [])
-        return <div data-testid="boundary-error">Boundary error</div>
-      }
+    function BoundaryError() {
+      React.useEffect(() => {
+        boundaryCommits()
+      }, [])
+      return <div data-testid="boundary-error">Boundary error</div>
+    }
 
-      function BoundaryNotFound() {
-        React.useEffect(() => {
-          boundaryCommits()
-        }, [])
-        return <div data-testid="boundary-not-found">Boundary not found</div>
-      }
+    function BoundaryNotFound() {
+      React.useEffect(() => {
+        boundaryCommits()
+      }, [])
+      return <div data-testid="boundary-not-found">Boundary not found</div>
+    }
 
-      const makeRouteTree = () => {
-        const boundaryOptions = {
-          beforeLoad: () => {
-            throw outcome === 'notFound'
-              ? notFound()
-              : new Error('server route failure')
-          },
-          pendingComponent: () => (
-            <div data-testid="boundary-pending">Boundary pending</div>
-          ),
-          errorComponent: BoundaryError,
-          notFoundComponent: BoundaryNotFound,
-        }
-        const rootRoute = createRootRoute({
-          component: Outlet,
-          ...(boundary === 'root' ? boundaryOptions : {}),
-        })
-        const parentRoute = createRoute({
-          getParentRoute: () => rootRoute,
-          path: '/parent',
-          component: Outlet,
-          ...(boundary === 'parent' ? boundaryOptions : {}),
-        })
-        const childRoute = createRoute({
-          getParentRoute: () => parentRoute,
-          path: '/child',
-          loader: childLoader,
-          component: () => <div>Child</div>,
-        })
-        return {
-          routeTree: rootRoute.addChildren([
-            parentRoute.addChildren([childRoute]),
-          ]),
-        }
-      }
-
-      const serverRouter = createRouter({
-        ...makeRouteTree(),
-        history: createMemoryHistory({
-          initialEntries: ['/parent/child'],
-        }),
-      })
-      serverRouter.isServer = true
-      await serverRouter.load()
-
-      const serverMatches = serverRouter.stores.matches.get()
-      expect(serverMatches).toHaveLength(3)
-      const serverBoundary = serverMatches[boundary === 'root' ? 0 : 1]!
-      if (outcome === 'notFound' && boundary === 'root') {
-        expect(serverBoundary).toMatchObject({
-          status: 'success',
-          _notFound: true,
-        })
-      } else {
-        expect(serverBoundary.status).toBe(outcome)
-      }
-      const serverHtml = renderToString(
-        <RouterProvider router={serverRouter} />,
-      )
-      expect(serverHtml).toContain(
-        outcome === 'notFound' ? 'Boundary not found' : 'Boundary error',
-      )
-      expect(boundaryCommits).not.toHaveBeenCalled()
-
-      const clientRouter = createRouter({
-        ...makeRouteTree(),
-        history: createMemoryHistory({
-          initialEntries: ['/parent/child'],
-        }),
-      })
-
-      window.$_TSR = {
-        router: {
-          manifest: { routes: {} },
-          dehydratedData: {},
-          matches: serverMatches
-            .slice(0, boundary === 'root' ? 1 : 2)
-            .map((match) => ({
-              i: dehydrateSsrMatchId(match.id),
-              u: match.updatedAt,
-              s: match.status,
-              l: match.loaderData,
-              e: match.error,
-              ssr: match.ssr,
-              ...(match._notFound ? { g: true } : {}),
-            })),
+    const makeRouteTree = () => {
+      const boundaryOptions = {
+        beforeLoad: () => {
+          throw outcome === 'notFound' ? notFound() : new Error('server route failure')
         },
-        h: vi.fn(),
-        e: vi.fn(),
-        c: vi.fn(),
-        p: vi.fn(),
-        buffer: [],
-        initialized: false,
+        pendingComponent: () => <div data-testid="boundary-pending">Boundary pending</div>,
+        errorComponent: BoundaryError,
+        notFoundComponent: BoundaryNotFound,
       }
-
-      await hydrate(clientRouter)
-
-      const container = document.createElement('div')
-      container.innerHTML = serverHtml
-      document.body.appendChild(container)
-      const consoleError = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {})
-      let root!: ReturnType<typeof hydrateRoot>
-      await act(async () => {
-        root = hydrateRoot(container, <RouterProvider router={clientRouter} />)
-        testCleanups.push(async () => {
-          await act(() => root.unmount())
-        })
-        await Promise.resolve()
+      const rootRoute = createRootRoute({
+        component: Outlet,
+        ...(boundary === 'root' ? boundaryOptions : {}),
       })
+      const parentRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/parent',
+        component: Outlet,
+        ...(boundary === 'parent' ? boundaryOptions : {}),
+      })
+      const childRoute = createRoute({
+        getParentRoute: () => parentRoute,
+        path: '/child',
+        loader: childLoader,
+        component: () => <div>Child</div>,
+      })
+      return {
+        routeTree: rootRoute.addChildren([parentRoute.addChildren([childRoute])]),
+      }
+    }
 
-      // A shorter dehydrated lane means SPA mode only for an actual shell.
-      // Here it is shorter because the server already rendered a terminal
-      // boundary, so hydration must not replace that boundary with pending UI.
-      expect(boundaryCommits).toHaveBeenCalledTimes(1)
-      expect(container).toHaveTextContent(
-        outcome === 'notFound' ? 'Boundary not found' : 'Boundary error',
-      )
-      expect(container).not.toHaveTextContent('Boundary pending')
-      expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(
-        /hydration|did not match/i,
-      )
-      expect(childLoader).not.toHaveBeenCalled()
-    },
-  )
+    const serverRouter = createRouter({
+      ...makeRouteTree(),
+      history: createMemoryHistory({
+        initialEntries: ['/parent/child'],
+      }),
+    })
+    serverRouter.isServer = true
+    await serverRouter.load()
+
+    const serverMatches = serverRouter.stores.matches.get()
+    expect(serverMatches).toHaveLength(3)
+    const serverBoundary = serverMatches[boundary === 'root' ? 0 : 1]!
+    if (outcome === 'notFound' && boundary === 'root') {
+      expect(serverBoundary).toMatchObject({
+        status: 'success',
+        _notFound: true,
+      })
+    } else {
+      expect(serverBoundary.status).toBe(outcome)
+    }
+    const serverHtml = renderToString(<RouterProvider router={serverRouter} />)
+    expect(serverHtml).toContain(outcome === 'notFound' ? 'Boundary not found' : 'Boundary error')
+    expect(boundaryCommits).not.toHaveBeenCalled()
+
+    const clientRouter = createRouter({
+      ...makeRouteTree(),
+      history: createMemoryHistory({
+        initialEntries: ['/parent/child'],
+      }),
+    })
+
+    window.$_TSR = {
+      router: {
+        manifest: { routes: {} },
+        dehydratedData: {},
+        matches: serverMatches.slice(0, boundary === 'root' ? 1 : 2).map((match) => ({
+          i: dehydrateSsrMatchId(match.id),
+          u: match.updatedAt,
+          s: match.status,
+          l: match.loaderData,
+          e: match.error,
+          ssr: match.ssr,
+          ...(match._notFound ? { g: true } : {}),
+        })),
+      },
+      h: vi.fn(),
+      e: vi.fn(),
+      c: vi.fn(),
+      p: vi.fn(),
+      buffer: [],
+      initialized: false,
+    }
+
+    await hydrate(clientRouter)
+
+    const container = document.createElement('div')
+    container.innerHTML = serverHtml
+    document.body.appendChild(container)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    let root!: ReturnType<typeof hydrateRoot>
+    await act(async () => {
+      root = hydrateRoot(container, <RouterProvider router={clientRouter} />)
+      testCleanups.push(async () => {
+        await act(() => root.unmount())
+      })
+      await Promise.resolve()
+    })
+
+    // A shorter dehydrated lane means SPA mode only for an actual shell.
+    // Here it is shorter because the server already rendered a terminal
+    // boundary, so hydration must not replace that boundary with pending UI.
+    expect(boundaryCommits).toHaveBeenCalledTimes(1)
+    expect(container).toHaveTextContent(
+      outcome === 'notFound' ? 'Boundary not found' : 'Boundary error',
+    )
+    expect(container).not.toHaveTextContent('Boundary pending')
+    expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/hydration|did not match/i)
+    expect(childLoader).not.toHaveBeenCalled()
+  })
 })

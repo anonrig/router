@@ -1,18 +1,8 @@
 import { act, useEffect, useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { z } from 'zod'
-import {
-  composeRewrites,
-  createControlledPromise,
-  notFound,
-} from '@tanstack/router-core'
+import { composeRewrites, createControlledPromise, notFound } from '@tanstack/router-core'
 import {
   Link,
   Outlet,
@@ -68,9 +58,10 @@ const URISyntaxCharacters = [
   ['%', '%25'],
 ] as const
 
-export function validateSearchParams<
-  TExpected extends Partial<Record<string, string>>,
->(expected: TExpected, router: AnyRouter) {
+export function validateSearchParams<TExpected extends Partial<Record<string, string>>>(
+  expected: TExpected,
+  router: AnyRouter,
+) {
   const parsedSearch = new URLSearchParams(window.location.search)
   expect(parsedSearch.size).toBe(Object.keys(expected).length)
   for (const [key, value] of Object.entries(expected)) {
@@ -153,17 +144,11 @@ function createTestRouter(
   const protectedLayoutRoute = createRoute({
     getParentRoute: () => protectedRoute,
     id: '/_layout',
-  }).lazy(() =>
-    import('./lazy/normal').then((f) => f.Route('/_protected/_layout')),
-  )
+  }).lazy(() => import('./lazy/normal').then((f) => f.Route('/_protected/_layout')))
   const protectedFileBasedLayoutRoute = createRoute({
     getParentRoute: () => protectedRoute,
     id: '/_fileBasedLayout',
-  }).lazy(() =>
-    import('./lazy/normal').then((f) =>
-      f.FileRoute('/_protected/_fileBasedLayout'),
-    ),
-  )
+  }).lazy(() => import('./lazy/normal').then((f) => f.FileRoute('/_protected/_fileBasedLayout')))
   const protectedFileBasedLayoutParentRoute = createRoute({
     getParentRoute: () => protectedFileBasedLayoutRoute,
     path: '/fileBasedParent',
@@ -175,17 +160,11 @@ function createTestRouter(
   const protectedLayoutParentRoute = createRoute({
     getParentRoute: () => protectedLayoutRoute,
     path: '/parent',
-  }).lazy(() =>
-    import('./lazy/normal').then((f) => f.Route('/_protected/_layout/parent')),
-  )
+  }).lazy(() => import('./lazy/normal').then((f) => f.Route('/_protected/_layout/parent')))
   const protectedLayoutParentChildRoute = createRoute({
     getParentRoute: () => protectedLayoutParentRoute,
     path: '/child',
-  }).lazy(() =>
-    import('./lazy/normal').then((f) =>
-      f.Route('/_protected/_layout/parent/child'),
-    ),
-  )
+  }).lazy(() => import('./lazy/normal').then((f) => f.Route('/_protected/_layout/parent/child')))
   const protectedFileBasedLayoutParentChildRoute = createRoute({
     getParentRoute: () => protectedFileBasedLayoutParentRoute,
     path: '/child',
@@ -263,9 +242,7 @@ function createTestRouter(
       return (
         <>
           <div data-testid="search-default">{search.default}</div>
-          <div data-testid="search-optional">
-            {search.optional ?? '$undefined'}
-          </div>
+          <div data-testid="search-optional">{search.optional ?? '$undefined'}</div>
         </>
       )
     },
@@ -312,21 +289,14 @@ function createTestRouter(
     ]),
     protectedRoute.addChildren([
       protectedLayoutRoute.addChildren([
-        protectedLayoutParentRoute.addChildren([
-          protectedLayoutParentChildRoute,
-        ]),
+        protectedLayoutParentRoute.addChildren([protectedLayoutParentChildRoute]),
       ]),
       protectedFileBasedLayoutRoute.addChildren([
-        protectedFileBasedLayoutParentRoute.addChildren([
-          protectedFileBasedLayoutParentChildRoute,
-        ]),
+        protectedFileBasedLayoutParentRoute.addChildren([protectedFileBasedLayoutParentChildRoute]),
       ]),
     ]),
     searchRoute,
-    searchWithDefaultRoute.addChildren([
-      searchWithDefaultIndexRoute,
-      searchWithDefaultCheckRoute,
-    ]),
+    searchWithDefaultRoute.addChildren([searchWithDefaultIndexRoute, searchWithDefaultCheckRoute]),
     nestedSearchRoute.addChildren([nestedSearchChildRoute]),
     linksToItselfRoute,
   ])
@@ -366,9 +336,7 @@ describe('encoding: path params', () => {
 
     await act(() => router.load())
 
-    expect(router.state.location.href.endsWith('/posts/%F0%9F%9A%80')).toBe(
-      true,
-    )
+    expect(router.state.location.href.endsWith('/posts/%F0%9F%9A%80')).toBe(true)
     expect(router.state.location.href).toBe('/posts/%F0%9F%9A%80')
     expect(router.state.location.pathname).toBe('/posts/🚀')
   })
@@ -393,33 +361,26 @@ describe('encoding: path params', () => {
   })
 
   describe('pathname and URI syntax characters', () => {
-    it.each(URISyntaxCharacters)(
-      'pathname should encode $0',
-      async (character, encodedValue) => {
-        const { router } = createTestRouter({
-          history: createMemoryHistory({
-            initialEntries: [`/`],
-          }),
-        })
+    it.each(URISyntaxCharacters)('pathname should encode $0', async (character, encodedValue) => {
+      const { router } = createTestRouter({
+        history: createMemoryHistory({
+          initialEntries: [`/`],
+        }),
+      })
 
-        await act(() => router.load())
+      await act(() => router.load())
 
-        await act(() =>
-          router.navigate({
-            to: '/posts/$slug',
-            params: { slug: `${character}jane%` },
-          }),
-        )
+      await act(() =>
+        router.navigate({
+          to: '/posts/$slug',
+          params: { slug: `${character}jane%` },
+        }),
+      )
 
-        expect(
-          router.state.location.href.endsWith(`/posts/${encodedValue}jane%25`),
-        ).toBe(true)
-        expect(router.state.location.href).toBe(`/posts/${encodedValue}jane%25`)
-        expect(router.state.location.pathname).toBe(
-          `/posts/${encodedValue}jane%25`,
-        )
-      },
-    )
+      expect(router.state.location.href.endsWith(`/posts/${encodedValue}jane%25`)).toBe(true)
+      expect(router.state.location.href).toBe(`/posts/${encodedValue}jane%25`)
+      expect(router.state.location.pathname).toBe(`/posts/${encodedValue}jane%25`)
+    })
 
     it.each(
       URISyntaxCharacters.filter((c) => {
@@ -446,9 +407,7 @@ describe('encoding: path params', () => {
         }),
       )
 
-      expect(
-        router.state.location.href.endsWith(`/posts/${character}jane%25`),
-      ).toBe(true)
+      expect(router.state.location.href.endsWith(`/posts/${character}jane%25`)).toBe(true)
       expect(router.state.location.href).toBe(`/posts/${character}jane%25`)
       expect(router.state.location.pathname).toBe(`/posts/${character}jane%25`)
     })
@@ -461,9 +420,7 @@ describe('encoding: path params', () => {
 
     await act(() => router.load())
 
-    expect(router.state.location.href.endsWith('/posts/%F0%9F%9A%80')).toBe(
-      true,
-    )
+    expect(router.state.location.href.endsWith('/posts/%F0%9F%9A%80')).toBe(true)
     expect(router.state.location.href).toBe('/posts/%F0%9F%9A%80')
     expect(router.state.location.pathname).toBe('/posts/🚀')
   })
@@ -471,9 +428,7 @@ describe('encoding: path params', () => {
   it('pathname params should decode combination of encoded characters', async () => {
     const { router } = createTestRouter({
       history: createMemoryHistory({
-        initialEntries: [
-          '/posts/framework%2Freact%2Fguide%2Ffile-based-routing%20tanstack',
-        ],
+        initialEntries: ['/posts/framework%2Freact%2Fguide%2Ffile-based-routing%20tanstack'],
       }),
     })
 
@@ -499,9 +454,7 @@ describe('encoding: path params', () => {
 
     await act(() => router.load())
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.postIdRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.postIdRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -517,9 +470,7 @@ describe('encoding: path params', () => {
 
     await act(() => router.load())
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.postIdRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.postIdRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -535,9 +486,7 @@ describe('encoding: path params', () => {
 
     await act(() => router.load())
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.postIdRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.postIdRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -554,13 +503,9 @@ describe('encoding: path params', () => {
 
     await act(() => router.load())
 
-    await act(() =>
-      router.navigate({ to: '/posts/$slug', params: { slug: '100%25' } }),
-    )
+    await act(() => router.navigate({ to: '/posts/$slug', params: { slug: '100%25' } }))
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.postIdRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.postIdRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -581,9 +526,7 @@ describe('encoding: path params', () => {
 
         await act(() => router.load())
 
-        const match = router.state.matches.find(
-          (r) => r.routeId === routes.postIdRoute.id,
-        )
+        const match = router.state.matches.find((r) => r.routeId === routes.postIdRoute.id)
 
         if (!match) {
           throw new Error('No match found')
@@ -597,17 +540,13 @@ describe('encoding: path params', () => {
   it('path params should decode combination of encoded characters', async () => {
     const { router, routes } = createTestRouter({
       history: createMemoryHistory({
-        initialEntries: [
-          '/posts/framework%2Freact%2Fguide%2Ffile-based-routing%20tanstack',
-        ],
+        initialEntries: ['/posts/framework%2Freact%2Fguide%2Ffile-based-routing%20tanstack'],
       }),
     })
 
     await act(() => router.load())
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.postIdRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.postIdRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -656,9 +595,7 @@ describe('encoding/decoding: wildcard routes/params', () => {
 
         await router.load()
 
-        expect(
-          router.state.location.href.endsWith(`/100${encodedValue}100`),
-        ).toBe(true)
+        expect(router.state.location.href.endsWith(`/100${encodedValue}100`)).toBe(true)
         expect(router.state.location.href).toBe(`/100${encodedValue}100`)
         expect(router.state.location.pathname).toBe(`/100${encodedValue}100`)
       },
@@ -680,9 +617,7 @@ describe('encoding/decoding: wildcard routes/params', () => {
   it('decode only non URI syntax characters in path', async () => {
     const { router } = createTestRouter({
       history: createMemoryHistory({
-        initialEntries: [
-          '/framework%2Freact%2Fguide%2Ffile-based-routing%20tanstack',
-        ],
+        initialEntries: ['/framework%2Freact%2Fguide%2Ffile-based-routing%20tanstack'],
       }),
     })
 
@@ -710,9 +645,7 @@ describe('encoding/decoding: wildcard routes/params', () => {
 
     await router.load()
 
-    expect(router.state.location.href).toBe(
-      '/framework/react/guide/file-based-routing%20tanstack',
-    )
+    expect(router.state.location.href).toBe('/framework/react/guide/file-based-routing%20tanstack')
 
     expect(router.state.location.pathname).toBe(
       '/framework/react/guide/file-based-routing tanstack',
@@ -726,9 +659,7 @@ describe('encoding/decoding: wildcard routes/params', () => {
 
     await router.load()
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.topLevelSplatRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.topLevelSplatRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -744,9 +675,7 @@ describe('encoding/decoding: wildcard routes/params', () => {
 
     await router.load()
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.topLevelSplatRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.topLevelSplatRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -762,9 +691,7 @@ describe('encoding/decoding: wildcard routes/params', () => {
 
     await router.load()
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.topLevelSplatRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.topLevelSplatRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -782,9 +709,7 @@ describe('encoding/decoding: wildcard routes/params', () => {
 
     await router.load()
 
-    const match = router.state.matches.find(
-      (r) => r.routeId === routes.topLevelSplatRoute.id,
-    )
+    const match = router.state.matches.find((r) => r.routeId === routes.topLevelSplatRoute.id)
 
     if (!match) {
       throw new Error('No match found')
@@ -842,8 +767,7 @@ describe('encoding/decoding: URL path segment', () => {
     },
     {
       test: 'should decode/encode combination of excluded, URI syntax and unicode characters correctly in the path, url and href',
-      input:
-        '/path-segment/%F0%9F%9A%80to%2Fthe%2Fmoon%25%F0%9F%9A%80to%2Fthe%2Fmoon%25',
+      input: '/path-segment/%F0%9F%9A%80to%2Fthe%2Fmoon%25%F0%9F%9A%80to%2Fthe%2Fmoon%25',
       path: '/path-segment/🚀to%2Fthe%2Fmoon%25🚀to%2Fthe%2Fmoon%25',
       url: '/path-segment/%F0%9F%9A%80to%2Fthe%2Fmoon%25%F0%9F%9A%80to%2Fthe%2Fmoon%25',
     },
@@ -905,23 +829,15 @@ describe('router emits events during rendering', () => {
     await waitFor(() => expect(mockOnRendered).toBeCalledTimes(1))
     expect(mockOnRendered.mock.calls[0]?.[0]?.toLocation.pathname).toBe('/')
 
-    await act(() =>
-      router.navigate({ to: '/posts/$slug', params: { slug: 'first' } }),
-    )
+    await act(() => router.navigate({ to: '/posts/$slug', params: { slug: 'first' } }))
 
     await waitFor(() => expect(mockOnRendered).toBeCalledTimes(2))
-    expect(mockOnRendered.mock.calls[1]?.[0]?.toLocation.pathname).toBe(
-      '/posts/first',
-    )
+    expect(mockOnRendered.mock.calls[1]?.[0]?.toLocation.pathname).toBe('/posts/first')
 
-    await act(() =>
-      router.navigate({ to: '/posts/$slug', params: { slug: 'second' } }),
-    )
+    await act(() => router.navigate({ to: '/posts/$slug', params: { slug: 'second' } }))
 
     await waitFor(() => expect(mockOnRendered).toBeCalledTimes(3))
-    expect(mockOnRendered.mock.calls[2]?.[0]?.toLocation.pathname).toBe(
-      '/posts/second',
-    )
+    expect(mockOnRendered.mock.calls[2]?.[0]?.toLocation.pathname).toBe('/posts/second')
 
     await act(() =>
       router.navigate({
@@ -932,9 +848,7 @@ describe('router emits events during rendering', () => {
     )
 
     await waitFor(() => expect(mockOnRendered).toBeCalledTimes(4))
-    expect(mockOnRendered.mock.calls[3]?.[0]?.toLocation.search.root).toBe(
-      'search-change',
-    )
+    expect(mockOnRendered.mock.calls[3]?.[0]?.toLocation.search.root).toBe('search-change')
 
     unsub()
   })
@@ -948,10 +862,7 @@ describe('router emits events during rendering', () => {
     })
 
     // Subscribe to the events
-    const unsubBeforeRouteMount = router.subscribe(
-      'onBeforeRouteMount',
-      mockOnBeforeRouteMount,
-    )
+    const unsubBeforeRouteMount = router.subscribe('onBeforeRouteMount', mockOnBeforeRouteMount)
     const unsubResolved = router.subscribe('onResolved', mockOnResolved)
 
     await act(() => router.load())
@@ -964,8 +875,7 @@ describe('router emits events during rendering', () => {
     await waitFor(() => expect(mockOnResolved).toBeCalledTimes(1))
 
     // Check if the invocation call orders are defined before comparing
-    const beforeRouteMountOrder =
-      mockOnBeforeRouteMount.mock.invocationCallOrder[0]
+    const beforeRouteMountOrder = mockOnBeforeRouteMount.mock.invocationCallOrder[0]
     const onResolvedOrder = mockOnResolved.mock.invocationCallOrder[0]
 
     if (beforeRouteMountOrder !== undefined && onResolvedOrder !== undefined) {
@@ -1003,18 +913,10 @@ describe('router rendering stability', () => {
           <div>
             <p>Root</p>
             <div>
-              <Link
-                data-testid="link-foo-1"
-                to="/foo/$fooId"
-                params={{ fooId: '1' }}
-              >
+              <Link data-testid="link-foo-1" to="/foo/$fooId" params={{ fooId: '1' }}>
                 Foo1
               </Link>
-              <Link
-                data-testid="link-foo-2"
-                to="/foo/$fooId"
-                params={{ fooId: '2' }}
-              >
+              <Link data-testid="link-foo-2" to="/foo/$fooId" params={{ fooId: '2' }}>
                 Foo2
               </Link>
               <Link
@@ -1127,8 +1029,7 @@ describe('router rendering stability', () => {
 
       return (
         <div data-testid="foo2Id-page">
-          RenderCount:{' '}
-          <span data-testid="foo2Id-Render-Count">{renderCounter.current}</span>
+          RenderCount: <span data-testid="foo2Id-Render-Count">{renderCounter.current}</span>
           Foo page <span data-testid="foo2Id-value">{foo2Id}</span>
           <Outlet />
         </div>
@@ -1294,10 +1195,7 @@ describe('router matches URLs to route definitions', () => {
 
     await act(() => router.load())
 
-    expect(router.state.matches.map((d) => d.routeId)).toEqual([
-      '__root__',
-      '/solo-splat/$',
-    ])
+    expect(router.state.matches.map((d) => d.routeId)).toEqual(['__root__', '/solo-splat/$'])
   })
 
   it('solo splat route matches with splat', async () => {
@@ -1307,10 +1205,7 @@ describe('router matches URLs to route definitions', () => {
 
     await act(() => router.load())
 
-    expect(router.state.matches.map((d) => d.routeId)).toEqual([
-      '__root__',
-      '/solo-splat/$',
-    ])
+    expect(router.state.matches.map((d) => d.routeId)).toEqual(['__root__', '/solo-splat/$'])
   })
 
   it('layout splat route matches with splat', async () => {
@@ -1363,13 +1258,9 @@ describe('matches', () => {
         '/users/$userId/files/$fileId': { userId: '5678', fileId: '123' },
       }
 
-      expect(router.state.matches.length).toEqual(
-        Object.entries(expectedStrictParams).length,
-      )
+      expect(router.state.matches.length).toEqual(Object.entries(expectedStrictParams).length)
       router.state.matches.forEach((match) => {
-        expect(match.params).toEqual(
-          expectedStrictParams['/users/$userId/files/$fileId'],
-        )
+        expect(match.params).toEqual(expectedStrictParams['/users/$userId/files/$fileId'])
       })
       router.state.matches.forEach((match) => {
         expect(match._strictParams).toEqual(expectedStrictParams[match.routeId])
@@ -1393,13 +1284,9 @@ describe('matches', () => {
         '/nested-search/child': { foo: 'hello', bar: 'world' },
       }
 
-      expect(router.state.matches.length).toEqual(
-        Object.entries(expectedStrictSearch).length,
-      )
+      expect(router.state.matches.length).toEqual(Object.entries(expectedStrictSearch).length)
       router.state.matches.forEach((match) => {
-        expect(match.search).toEqual(
-          expectedStrictSearch['/nested-search/child'],
-        )
+        expect(match.search).toEqual(expectedStrictSearch['/nested-search/child'])
       })
       router.state.matches.forEach((match) => {
         expect(match._strictSearch).toEqual(expectedStrictSearch[match.routeId])
@@ -1450,9 +1337,7 @@ describe('invalidate', () => {
       path: '/hmr-not-found',
       loader,
       component: () => <div data-testid="hmr-route">Route</div>,
-      notFoundComponent: () => (
-        <div data-testid="hmr-route-not-found">Route Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="hmr-route-not-found">Route Not Found</div>,
     })
 
     const router = createRouter({
@@ -1500,9 +1385,7 @@ describe('invalidate', () => {
       path: '/loader-not-found',
       loader,
       component: () => <div data-testid="loader-route">Route</div>,
-      notFoundComponent: () => (
-        <div data-testid="loader-not-found-component">Route Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="loader-not-found-component">Route Not Found</div>,
     })
 
     const router = createRouter({
@@ -1514,9 +1397,7 @@ describe('invalidate', () => {
 
     await act(() => router.load())
 
-    const notFoundElement = await screen.findByTestId(
-      'loader-not-found-component',
-    )
+    const notFoundElement = await screen.findByTestId('loader-not-found-component')
     expect(notFoundElement).toBeInTheDocument()
     const initialCalls = loader.mock.calls.length
     expect(initialCalls).toBeGreaterThan(0)
@@ -1524,9 +1405,7 @@ describe('invalidate', () => {
     await act(() => router.invalidate())
 
     expect(loader).toHaveBeenCalledTimes(initialCalls + 1)
-    expect(
-      await screen.findByTestId('loader-not-found-component'),
-    ).toBeInTheDocument()
+    expect(await screen.findByTestId('loader-not-found-component')).toBeInTheDocument()
     expect(screen.queryByTestId('loader-route')).not.toBeInTheDocument()
   })
 
@@ -1548,18 +1427,14 @@ describe('invalidate', () => {
 
     const rootRoute = createRootRoute({
       component: () => <Outlet />,
-      notFoundComponent: () => (
-        <div data-testid="root-not-found">Root Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="root-not-found">Root Not Found</div>,
     })
 
     const parentRoute = createRoute({
       getParentRoute: () => rootRoute,
       path: '/parent',
       component: () => <Outlet />,
-      notFoundComponent: () => (
-        <div data-testid="parent-not-found">Parent Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="parent-not-found">Parent Not Found</div>,
     })
 
     const childRoute = createRoute({
@@ -1569,11 +1444,7 @@ describe('invalidate', () => {
         await Promise.resolve()
         throw notFound()
       },
-      component: () => (
-        <div data-testid="child-component">
-          Child component should not render
-        </div>
-      ),
+      component: () => <div data-testid="child-component">Child component should not render</div>,
     })
 
     const grandchildRoute = createRoute({
@@ -1589,9 +1460,7 @@ describe('invalidate', () => {
       ]),
       history,
       defaultPendingMs: 0,
-      defaultPendingComponent: () => (
-        <div data-testid="pending">Loading...</div>
-      ),
+      defaultPendingComponent: () => <div data-testid="pending">Loading...</div>,
     })
 
     render(<RouterProvider router={router} />)
@@ -1636,30 +1505,27 @@ describe('search params in URL', () => {
   describe.each([undefined, false])(
     'does not modify the search params in the URL when search.strict=%s',
     (strict) => {
-      it.each(testCases)(
-        'at $route with search params $search',
-        async ({ route, search }) => {
-          const { router } = createTestRouter({ search: { strict }, history })
-          window.history.replaceState(
-            null,
-            '',
-            `${route}?${new URLSearchParams(search as Record<string, string>).toString()}`,
-          )
+      it.each(testCases)('at $route with search params $search', async ({ route, search }) => {
+        const { router } = createTestRouter({ search: { strict }, history })
+        window.history.replaceState(
+          null,
+          '',
+          `${route}?${new URLSearchParams(search as Record<string, string>).toString()}`,
+        )
 
-          render(<RouterProvider router={router} />)
-          await act(() => router.load())
+        render(<RouterProvider router={router} />)
+        await act(() => router.load())
 
-          expect(await screen.findByTestId('search-root')).toHaveTextContent(
-            search.root ?? '$undefined',
+        expect(await screen.findByTestId('search-root')).toHaveTextContent(
+          search.root ?? '$undefined',
+        )
+        if (route === '/search') {
+          expect(await screen.findByTestId('search-search')).toHaveTextContent(
+            search.search ?? '$undefined',
           )
-          if (route === '/search') {
-            expect(
-              await screen.findByTestId('search-search'),
-            ).toHaveTextContent(search.search ?? '$undefined')
-          }
-          validateSearchParams(search, router)
-        },
-      )
+        }
+        validateSearchParams(search, router)
+      })
     },
   )
 
@@ -1695,13 +1561,8 @@ describe('search params in URL', () => {
       router = result.router
     })
 
-    async function checkSearch(expectedSearch: {
-      default: string
-      optional?: string
-    }) {
-      expect(await screen.findByTestId('search-default')).toHaveTextContent(
-        expectedSearch.default,
-      )
+    async function checkSearch(expectedSearch: { default: string; optional?: string }) {
+      expect(await screen.findByTestId('search-default')).toHaveTextContent(expectedSearch.default)
       expect(await screen.findByTestId('search-optional')).toHaveTextContent(
         expectedSearch.optional ?? '$undefined',
       )
@@ -1719,11 +1580,7 @@ describe('search params in URL', () => {
     })
 
     it('should have the correct `default` search param upon initial load when the `default` param is present', async () => {
-      window.history.replaceState(
-        null,
-        '',
-        `/searchWithDefault/check?default=d2`,
-      )
+      window.history.replaceState(null, '', `/searchWithDefault/check?default=d2`)
 
       render(<RouterProvider router={router} />)
       await act(() => router.load())
@@ -1732,11 +1589,7 @@ describe('search params in URL', () => {
     })
 
     it('should add the default search param upon initial load when only the optional search param is present', async () => {
-      window.history.replaceState(
-        null,
-        '',
-        `/searchWithDefault/check?optional=o1`,
-      )
+      window.history.replaceState(null, '', `/searchWithDefault/check?optional=o1`)
 
       render(<RouterProvider router={router} />)
       await act(() => router.load())
@@ -1745,11 +1598,7 @@ describe('search params in URL', () => {
     })
 
     it('should keep the search param upon initial load when both search params are present', async () => {
-      window.history.replaceState(
-        null,
-        '',
-        `/searchWithDefault/check?default=d2&optional=o1`,
-      )
+      window.history.replaceState(null, '', `/searchWithDefault/check?default=d2&optional=o1`)
 
       render(<RouterProvider router={router} />)
       await act(() => router.load())
@@ -1837,18 +1686,14 @@ describe('search params in URL', () => {
       },
       ({ search }) => {
         if (typeof search !== 'string') {
-          throw new TestValidationError([
-            { message: 'search must be a string' },
-          ])
+          throw new TestValidationError([{ message: 'search must be a string' }])
         }
         return { search }
       },
       {
         parse: ({ search }) => {
           if (typeof search !== 'string') {
-            throw new TestValidationError([
-              { message: 'search must be a string' },
-            ])
+            throw new TestValidationError([{ message: 'search must be a string' }])
           }
           return { search }
         },
@@ -1971,9 +1816,7 @@ const createHistoryRouter = () => {
         <h1>Index</h1>
         <button onClick={() => navigate({ to: '/' })}>Index</button>
         <button onClick={() => navigate({ to: '/posts' })}>Posts</button>
-        <button onClick={() => navigate({ to: '/posts', replace: true })}>
-          Replace
-        </button>
+        <button onClick={() => navigate({ to: '/posts', replace: true })}>Replace</button>
       </>
     )
   }
@@ -2013,9 +1856,8 @@ describe('history: History gives correct notifcations and state', () => {
 
     type Router = typeof router
 
-    const results: Array<
-      Parameters<Parameters<Router['history']['subscribe']>[0]>[0]['action']
-    > = []
+    const results: Array<Parameters<Parameters<Router['history']['subscribe']>[0]>[0]['action']> =
+      []
 
     render(<RouterProvider router={router} />)
 
@@ -2027,17 +1869,13 @@ describe('history: History gives correct notifcations and state', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Posts' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/posts')
 
     act(() => router.history.back())
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
 
@@ -2051,9 +1889,8 @@ describe('history: History gives correct notifcations and state', () => {
 
     type Router = typeof router
 
-    const results: Array<
-      Parameters<Parameters<Router['history']['subscribe']>[0]>[0]['action']
-    > = []
+    const results: Array<Parameters<Parameters<Router['history']['subscribe']>[0]>[0]['action']> =
+      []
 
     render(<RouterProvider router={router} />)
 
@@ -2065,9 +1902,7 @@ describe('history: History gives correct notifcations and state', () => {
 
     fireEvent.click(replaceButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Posts' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/posts')
 
@@ -2075,9 +1910,7 @@ describe('history: History gives correct notifcations and state', () => {
 
     fireEvent.click(indexButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
 
@@ -2085,25 +1918,19 @@ describe('history: History gives correct notifcations and state', () => {
 
     fireEvent.click(postsButton)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Posts' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/posts')
 
     act(() => router.history.back())
 
-    expect(
-      await screen.findByRole('heading', { name: 'Index' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Index' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/')
 
     act(() => router.history.go(1))
 
-    expect(
-      await screen.findByRole('heading', { name: 'Posts' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Posts' })).toBeInTheDocument()
 
     expect(window.location.pathname).toBe('/posts')
 
@@ -2214,9 +2041,7 @@ describe('navigation outcomes', () => {
     const history = createMemoryHistory({ initialEntries: ['/'] })
 
     const rootRoute = createRootRoute({
-      notFoundComponent: () => (
-        <div data-testid="root-not-found">Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="root-not-found">Not Found</div>,
     })
 
     const indexRoute = createRoute({
@@ -2272,9 +2097,7 @@ describe('navigation outcomes', () => {
         const history = createMemoryHistory({ initialEntries: ['/'] })
 
         const rootRoute = createRootRoute({
-          notFoundComponent: () => (
-            <div data-testid="root-not-found">Root Not Found</div>
-          ),
+          notFoundComponent: () => <div data-testid="root-not-found">Root Not Found</div>,
         })
 
         const indexRoute = createRoute({
@@ -2287,12 +2110,8 @@ describe('navigation outcomes', () => {
           getParentRoute: () => rootRoute,
           path: '/loader-throws-not-found',
           loader: throwNotFound,
-          component: () => (
-            <div data-testid="route-component">loader will throw</div>
-          ),
-          notFoundComponent: () => (
-            <div data-testid="route-not-found">Route Not Found</div>
-          ),
+          component: () => <div data-testid="route-component">loader will throw</div>,
+          notFoundComponent: () => <div data-testid="route-not-found">Route Not Found</div>,
         })
 
         const routeTree = rootRoute.addChildren([indexRoute, loaderThrowsRoute])
@@ -2312,9 +2131,7 @@ describe('navigation outcomes', () => {
         const history = createMemoryHistory({ initialEntries: ['/'] })
 
         const rootRoute = createRootRoute({
-          notFoundComponent: () => (
-            <div data-testid="root-not-found">Root Not Found</div>
-          ),
+          notFoundComponent: () => <div data-testid="root-not-found">Root Not Found</div>,
         })
 
         const indexRoute = createRoute({
@@ -2327,18 +2144,11 @@ describe('navigation outcomes', () => {
           getParentRoute: () => rootRoute,
           path: '/beforeload-throws-not-found',
           beforeLoad: throwNotFound,
-          component: () => (
-            <div data-testid="route-component">beforeLoad will throw</div>
-          ),
-          notFoundComponent: () => (
-            <div data-testid="route-not-found">Route Not Found</div>
-          ),
+          component: () => <div data-testid="route-component">beforeLoad will throw</div>,
+          notFoundComponent: () => <div data-testid="route-not-found">Route Not Found</div>,
         })
 
-        const routeTree = rootRoute.addChildren([
-          indexRoute,
-          beforeLoadThrowsRoute,
-        ])
+        const routeTree = rootRoute.addChildren([indexRoute, beforeLoadThrowsRoute])
         const router = createRouter({ routeTree, history })
 
         render(<RouterProvider router={router} />)
@@ -2366,9 +2176,7 @@ describe('navigation outcomes', () => {
           getParentRoute: () => rootRoute,
           path: '/loader-throws-error',
           loader: throwError,
-          component: () => (
-            <div data-testid="route-component">loader will throw</div>
-          ),
+          component: () => <div data-testid="route-component">loader will throw</div>,
           errorComponent: () => <div data-testid="error-component">Error</div>,
         })
 
@@ -2397,16 +2205,11 @@ describe('navigation outcomes', () => {
           getParentRoute: () => rootRoute,
           path: '/beforeload-throws-error',
           beforeLoad: throwError,
-          component: () => (
-            <div data-testid="route-component">beforeLoad will throw</div>
-          ),
+          component: () => <div data-testid="route-component">beforeLoad will throw</div>,
           errorComponent: () => <div data-testid="error-component">Error</div>,
         })
 
-        const routeTree = rootRoute.addChildren([
-          indexRoute,
-          beforeLoadThrowsRoute,
-        ])
+        const routeTree = rootRoute.addChildren([indexRoute, beforeLoadThrowsRoute])
         const router = createRouter({ routeTree, history })
 
         render(<RouterProvider router={router} />)
@@ -2425,9 +2228,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
 
     const rootRoute = createRootRoute({
       component: () => <Outlet />,
-      notFoundComponent: () => (
-        <div data-testid="root-not-found">Root Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="root-not-found">Root Not Found</div>,
     })
 
     const indexRoute = createRoute({
@@ -2444,18 +2245,14 @@ describe('notFound in beforeLoad with pendingComponent', () => {
       getParentRoute: () => rootRoute,
       path: '/parent',
       pendingMs: 0,
-      pendingComponent: () => (
-        <div data-testid="pending-component">Loading...</div>
-      ),
+      pendingComponent: () => <div data-testid="pending-component">Loading...</div>,
       component: () => (
         <div data-testid="parent-component">
           Parent
           <Outlet />
         </div>
       ),
-      notFoundComponent: () => (
-        <div data-testid="parent-not-found">Parent Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="parent-not-found">Parent Not Found</div>,
     })
 
     const childRoute = createRoute({
@@ -2467,10 +2264,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
       component: () => <div data-testid="child-component">Child</div>,
     })
 
-    const routeTree = rootRoute.addChildren([
-      indexRoute,
-      parentRoute.addChildren([childRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])])
     const router = createRouter({ routeTree, history })
 
     render(<RouterProvider router={router} />)
@@ -2479,9 +2273,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
 
     await act(() => router.navigate({ to: '/parent/child' }))
 
-    expect(await screen.findByTestId('parent-not-found')).toHaveTextContent(
-      'Parent Not Found',
-    )
+    expect(await screen.findByTestId('parent-not-found')).toHaveTextContent('Parent Not Found')
     expect(screen.queryByTestId('root-not-found')).not.toBeInTheDocument()
     expect(screen.queryByTestId('pending-component')).not.toBeInTheDocument()
     expect(screen.queryByTestId('child-component')).not.toBeInTheDocument()
@@ -2498,9 +2290,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
     const history = createMemoryHistory({ initialEntries: ['/'] })
 
     const rootRoute = createRootRoute({
-      notFoundComponent: () => (
-        <div data-testid="root-not-found">Root Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="root-not-found">Root Not Found</div>,
     })
 
     const indexRoute = createRoute({
@@ -2517,9 +2307,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
         throw notFound()
       },
       component: () => <div data-testid="child-component">Child</div>,
-      notFoundComponent: () => (
-        <div data-testid="child-not-found">Child Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="child-not-found">Child Not Found</div>,
     })
 
     const routeTree = rootRoute.addChildren([indexRoute, childRoute])
@@ -2531,9 +2319,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
 
     await act(() => router.navigate({ to: '/child' }))
 
-    expect(await screen.findByTestId('child-not-found')).toHaveTextContent(
-      'Child Not Found',
-    )
+    expect(await screen.findByTestId('child-not-found')).toHaveTextContent('Child Not Found')
     expect(screen.queryByTestId('root-not-found')).not.toBeInTheDocument()
     expect(screen.queryByTestId('child-component')).not.toBeInTheDocument()
     expect(screen.queryByTestId('home-page')).not.toBeInTheDocument()
@@ -2545,9 +2331,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
 
     const rootRoute = createRootRoute({
       component: () => <Outlet />,
-      notFoundComponent: () => (
-        <div data-testid="root-not-found">Root Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="root-not-found">Root Not Found</div>,
     })
 
     const indexRoute = createRoute({
@@ -2565,9 +2349,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
           <Outlet />
         </div>
       ),
-      notFoundComponent: () => (
-        <div data-testid="parent-not-found">Parent Not Found</div>
-      ),
+      notFoundComponent: () => <div data-testid="parent-not-found">Parent Not Found</div>,
     })
 
     const childRoute = createRoute({
@@ -2579,10 +2361,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
       component: () => <div data-testid="child-component">Child</div>,
     })
 
-    const routeTree = rootRoute.addChildren([
-      indexRoute,
-      parentRoute.addChildren([childRoute]),
-    ])
+    const routeTree = rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])])
     const router = createRouter({ routeTree, history })
 
     render(<RouterProvider router={router} />)
@@ -2591,9 +2370,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
 
     await act(() => router.navigate({ to: '/parent/child' }))
 
-    expect(await screen.findByTestId('parent-not-found')).toHaveTextContent(
-      'Parent Not Found',
-    )
+    expect(await screen.findByTestId('parent-not-found')).toHaveTextContent('Parent Not Found')
     expect(screen.queryByTestId('root-not-found')).not.toBeInTheDocument()
     expect(screen.queryByTestId('parent-component')).not.toBeInTheDocument()
     expect(screen.queryByTestId('child-component')).not.toBeInTheDocument()
@@ -2614,9 +2391,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
 
       const rootRoute = createRootRoute({
         component: () => <Outlet />,
-        notFoundComponent: () => (
-          <div data-testid="root-not-found">Root Not Found</div>
-        ),
+        notFoundComponent: () => <div data-testid="root-not-found">Root Not Found</div>,
       })
 
       const indexRoute = createRoute({
@@ -2632,9 +2407,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
           ? {
               beforeLoad: () => beforeLoad,
               pendingMs: 0,
-              pendingComponent: () => (
-                <div data-testid="ancestor-pending">Loading ancestor...</div>
-              ),
+              pendingComponent: () => <div data-testid="ancestor-pending">Loading ancestor...</div>,
             }
           : {}),
         component: () => (
@@ -2643,9 +2416,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
             <Outlet />
           </div>
         ),
-        notFoundComponent: () => (
-          <div data-testid="parent-not-found">Parent Not Found</div>
-        ),
+        notFoundComponent: () => <div data-testid="parent-not-found">Parent Not Found</div>,
       })
 
       const childRoute = createRoute({
@@ -2654,9 +2425,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
         ...(pendingOwner === 'child'
           ? {
               pendingMs: 0,
-              pendingComponent: () => (
-                <div data-testid="child-pending">Loading child...</div>
-              ),
+              pendingComponent: () => <div data-testid="child-pending">Loading child...</div>,
             }
           : {}),
         beforeLoad: async () => {
@@ -2668,10 +2437,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
         component: () => <div data-testid="child-component">Child</div>,
       })
 
-      const routeTree = rootRoute.addChildren([
-        indexRoute,
-        parentRoute.addChildren([childRoute]),
-      ])
+      const routeTree = rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])])
       const router = createRouter({
         routeTree,
         history,
@@ -2693,9 +2459,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
 
         expect(screen.getByTestId(pendingTestId)).toBeInTheDocument()
         if (pendingOwner === 'ancestor') {
-          expect(
-            screen.queryByTestId('parent-component'),
-          ).not.toBeInTheDocument()
+          expect(screen.queryByTestId('parent-component')).not.toBeInTheDocument()
         } else {
           expect(screen.getByTestId('parent-component')).toBeInTheDocument()
         }
@@ -2710,9 +2474,7 @@ describe('notFound in beforeLoad with pendingComponent', () => {
         }
       }
 
-      expect(screen.getByTestId('parent-not-found')).toHaveTextContent(
-        'Parent Not Found',
-      )
+      expect(screen.getByTestId('parent-not-found')).toHaveTextContent('Parent Not Found')
       expect(screen.queryByTestId('root-not-found')).not.toBeInTheDocument()
       expect(screen.queryByTestId(pendingTestId)).not.toBeInTheDocument()
       expect(screen.queryByTestId('parent-component')).not.toBeInTheDocument()
@@ -2906,9 +2668,7 @@ describe('Router rewrite functionality', () => {
     const apiRoute = createRoute({
       getParentRoute: () => rootRoute,
       path: '/$stage/users',
-      component: () => (
-        <div data-testid="component">{apiRoute.useParams().stage} Users</div>
-      ),
+      component: () => <div data-testid="component">{apiRoute.useParams().stage} Users</div>,
     })
 
     const routeTree = rootRoute.addChildren([apiRoute])
@@ -3056,10 +2816,7 @@ describe('Router rewrite functionality', () => {
       }),
       rewrite: {
         input: ({ url }) => {
-          if (
-            url.hostname === 'legacy.example.com' &&
-            url.pathname === '/api/v1'
-          ) {
+          if (url.hostname === 'legacy.example.com' && url.pathname === '/api/v1') {
             return 'https://api.example.com/api/v2'
           }
           return undefined
@@ -3092,16 +2849,11 @@ describe('Router rewrite functionality', () => {
     const router = createRouter({
       routeTree,
       history: createMemoryHistory({
-        initialEntries: [
-          'https://old-api.company.com/users?limit=10&offset=20',
-        ],
+        initialEntries: ['https://old-api.company.com/users?limit=10&offset=20'],
       }),
       rewrite: {
         input: ({ url }) => {
-          if (
-            url.hostname === 'old-api.company.com' &&
-            url.pathname === '/users'
-          ) {
+          if (url.hostname === 'old-api.company.com' && url.pathname === '/users') {
             url.hostname = 'api.company.com'
             url.pathname = '/api/v3/users'
             url.searchParams.set('version', '3')
@@ -3142,9 +2894,7 @@ describe('Router rewrite functionality', () => {
     const router = createRouter({
       routeTree,
       history: createMemoryHistory({
-        initialEntries: [
-          'https://blog.oldsite.com/posts?category=tech&year=2024#top',
-        ],
+        initialEntries: ['https://blog.oldsite.com/posts?category=tech&year=2024#top'],
       }),
       rewrite: {
         input: ({ url }) => {
@@ -3198,15 +2948,9 @@ describe('Router rewrite functionality', () => {
         input: ({ url }) => {
           // Alternative pattern: create new URL instance and return it
 
-          if (
-            url.hostname === 'store.example.com' &&
-            url.pathname === '/items'
-          ) {
+          if (url.hostname === 'store.example.com' && url.pathname === '/items') {
             const newUrl = new URL('https://example.com/shop/products')
-            newUrl.searchParams.set(
-              'productId',
-              url.searchParams.get('id') || '',
-            )
+            newUrl.searchParams.set('productId', url.searchParams.get('id') || '')
             newUrl.searchParams.set('migrated', 'true')
             return newUrl
           }
@@ -3233,10 +2977,7 @@ describe('Router rewrite functionality', () => {
     const Navigate = () => {
       const navigate = useNavigate()
       return (
-        <button
-          data-testid="navigate-btn"
-          onClick={() => navigate({ to: '/dashboard' })}
-        >
+        <button data-testid="navigate-btn" onClick={() => navigate({ to: '/dashboard' })}>
           Navigate to Dashboard
         </button>
       )
@@ -3678,54 +3419,51 @@ describe('basepath', () => {
   it.each([
     { description: 'with trailing slash', basepath: '/my-app/' },
     { description: 'without trailing slash', basepath: '/my-app' },
-  ])(
-    'should handle basepath $description when navigating to root path',
-    async ({ basepath }) => {
-      const rootRoute = createRootRoute({
-        component: () => <Outlet />,
-      })
+  ])('should handle basepath $description when navigating to root path', async ({ basepath }) => {
+    const rootRoute = createRootRoute({
+      component: () => <Outlet />,
+    })
 
-      const homeRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/',
-        component: () => (
-          <div>
-            <Link to="/about" data-testid="about-link">
-              About
-            </Link>
-          </div>
-        ),
-      })
+    const homeRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => (
+        <div>
+          <Link to="/about" data-testid="about-link">
+            About
+          </Link>
+        </div>
+      ),
+    })
 
-      const aboutRoute = createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/about',
-        component: () => <div data-testid="about">About</div>,
-      })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <div data-testid="about">About</div>,
+    })
 
-      const routeTree = rootRoute.addChildren([homeRoute, aboutRoute])
+    const routeTree = rootRoute.addChildren([homeRoute, aboutRoute])
 
-      const history = createMemoryHistory({ initialEntries: ['/my-app/'] })
+    const history = createMemoryHistory({ initialEntries: ['/my-app/'] })
 
-      const router = createRouter({
-        routeTree,
-        history,
-        basepath,
-      })
+    const router = createRouter({
+      routeTree,
+      history,
+      basepath,
+    })
 
-      render(<RouterProvider router={router} />)
+    render(<RouterProvider router={router} />)
 
-      const aboutLink = await screen.findByTestId('about-link')
-      fireEvent.click(aboutLink)
+    const aboutLink = await screen.findByTestId('about-link')
+    fireEvent.click(aboutLink)
 
-      await waitFor(() => {
-        expect(screen.getByTestId('about')).toBeInTheDocument()
-      })
+    await waitFor(() => {
+      expect(screen.getByTestId('about')).toBeInTheDocument()
+    })
 
-      expect(router.state.location.pathname).toBe('/about')
-      expect(history.location.pathname).toBe('/my-app/about')
-    },
-  )
+    expect(router.state.location.pathname).toBe('/about')
+    expect(history.location.pathname).toBe('/my-app/about')
+  })
 
   it('should handle empty basepath gracefully', async () => {
     const rootRoute = createRootRoute({

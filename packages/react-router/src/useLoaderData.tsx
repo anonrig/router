@@ -1,8 +1,5 @@
 import { useMatch } from './useMatch'
-import type {
-  StructuralSharingOption,
-  ValidateSelected,
-} from './structuralSharing'
+import type { StructuralSharingOption, ValidateSelected } from './structuralSharing'
 import type {
   AnyRouter,
   RegisteredRouter,
@@ -30,13 +27,7 @@ export type UseLoaderDataOptions<
   TSelected,
   TStructuralSharing,
 > = StrictOrFrom<TRouter, TFrom, TStrict> &
-  UseLoaderDataBaseOptions<
-    TRouter,
-    TFrom,
-    TStrict,
-    TSelected,
-    TStructuralSharing
-  > &
+  UseLoaderDataBaseOptions<TRouter, TFrom, TStrict, TSelected, TStructuralSharing> &
   StructuralSharingOption<TRouter, TSelected, TStructuralSharing>
 
 export type UseLoaderDataRoute<out TId> = <
@@ -44,13 +35,7 @@ export type UseLoaderDataRoute<out TId> = <
   TSelected = unknown,
   TStructuralSharing extends boolean = boolean,
 >(
-  opts?: UseLoaderDataBaseOptions<
-    TRouter,
-    TId,
-    true,
-    TSelected,
-    TStructuralSharing
-  > &
+  opts?: UseLoaderDataBaseOptions<TRouter, TId, true, TSelected, TStructuralSharing> &
     StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
 ) => UseLoaderDataResult<TRouter, TId, true, TSelected>
 
@@ -61,13 +46,7 @@ export function useLoaderData<
   TSelected = unknown,
   TStructuralSharing extends boolean = boolean,
 >(
-  opts: UseLoaderDataOptions<
-    TRouter,
-    TFrom,
-    TStrict,
-    TSelected,
-    TStructuralSharing
-  >,
+  opts: UseLoaderDataOptions<TRouter, TFrom, TStrict, TSelected, TStructuralSharing>,
 ): UseLoaderDataResult<TRouter, TFrom, TStrict, TSelected> {
   return useMatch({
     from: opts?.from as any,

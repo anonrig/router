@@ -1,11 +1,5 @@
 import * as React from 'react'
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test } from 'vitest'
 import {
   Link,
@@ -59,10 +53,7 @@ test('#5778: intent preload sees a RouterProvider context update before the firs
     component: () => <div>Foo page</div>,
   })
   const router = createRouter({
-    routeTree: rootRoute.addChildren([
-      indexRoute,
-      authRoute.addChildren([fooRoute]),
-    ]),
+    routeTree: rootRoute.addChildren([indexRoute, authRoute.addChildren([fooRoute])]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
     context: { foo: null! },
     defaultPreload: 'intent',
@@ -91,9 +82,7 @@ test('#5778: intent preload sees a RouterProvider context update before the firs
   expect(screen.getByLabelText('Current context')).toHaveTextContent('foo')
 
   fireEvent.click(screen.getByRole('button', { name: 'Update context' }))
-  await waitFor(() =>
-    expect(screen.getByLabelText('Current context')).toHaveTextContent('baz'),
-  )
+  await waitFor(() => expect(screen.getByLabelText('Current context')).toHaveTextContent('baz'))
 
   expect(seen).toEqual([])
   const link = screen.getByRole('link', { name: 'Foo' })

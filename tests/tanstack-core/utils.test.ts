@@ -456,40 +456,31 @@ describe('deepEqual', () => {
 
   // This might not be what we want, but this test documents how things are now
   describe('symbol and non-enumerable properties are not handled', () => {
-    it.fails(
-      'should return `false` for unequal objects with symbol properties',
-      () => {
-        const key = Symbol('foo')
-        const a = { [key]: 1 }
-        const b = { [key]: 2 }
-        expect(deepEqual(a, b)).toEqual(false)
-      },
-    )
+    it.fails('should return `false` for unequal objects with symbol properties', () => {
+      const key = Symbol('foo')
+      const a = { [key]: 1 }
+      const b = { [key]: 2 }
+      expect(deepEqual(a, b)).toEqual(false)
+    })
 
-    it.fails(
-      'should return `false` for unequal objects with non-enumerable properties',
-      () => {
-        const a = {}
-        Object.defineProperty(a, 'prop', { value: 1, enumerable: false })
-        const b = {}
-        Object.defineProperty(b, 'prop', { value: 2, enumerable: false })
-        expect(deepEqual(a, b)).toEqual(false)
-      },
-    )
+    it.fails('should return `false` for unequal objects with non-enumerable properties', () => {
+      const a = {}
+      Object.defineProperty(a, 'prop', { value: 1, enumerable: false })
+      const b = {}
+      Object.defineProperty(b, 'prop', { value: 2, enumerable: false })
+      expect(deepEqual(a, b)).toEqual(false)
+    })
   })
 
   // We voluntarily fail in this case, because users should not do it, and ignoring it enables some performance improvements
   describe('augmented object prototype fail case (no one should do this anyway)', () => {
-    it.fails(
-      'should not compare objects with augmented prototype properties',
-      () => {
-        // @ts-expect-error -- typescript is right to complain here, don't do this!
-        Object.prototype.x = 'x'
-        const a = { a: 1 }
-        const b = { a: 1 }
-        expect(deepEqual(a, b, { ignoreUndefined: false })).toEqual(true)
-      },
-    )
+    it.fails('should not compare objects with augmented prototype properties', () => {
+      // @ts-expect-error -- typescript is right to complain here, don't do this!
+      Object.prototype.x = 'x'
+      const a = { a: 1 }
+      const b = { a: 1 }
+      expect(deepEqual(a, b, { ignoreUndefined: false })).toEqual(true)
+    })
 
     afterEach(() => {
       // it's probably not necessary to clean this up because vitest isolates tests
@@ -502,8 +493,7 @@ describe('deepEqual', () => {
 
 describe('decodePath', () => {
   it('should decode a path segment, ignoring `%` and `\\` by default, with multiple ignored items existing', () => {
-    const stringToCheck =
-      'https://mozilla.org/?x=%25%D1%88%D0%B5%5C%D0%BB%D0%BB%D1%8B%2F'
+    const stringToCheck = 'https://mozilla.org/?x=%25%D1%88%D0%B5%5C%D0%BB%D0%BB%D1%8B%2F'
     const expectedResult = 'https://mozilla.org/?x=%25ше%5Cллы%2F'
 
     const result = decodePath(stringToCheck).path
@@ -539,11 +529,8 @@ describe('decodePath', () => {
     expect(decodePath(stringToCheck).path).toBe(expectedResult)
 
     const stringToCheckWithLowerCase = '/params-ps/named/foo%2Fabc/c%5C%2f%5cAh'
-    const expectedResultWithLowerCase =
-      '/params-ps/named/foo%2Fabc/c%5C%2f%5cAh'
-    expect(decodePath(stringToCheckWithLowerCase).path).toBe(
-      expectedResultWithLowerCase,
-    )
+    const expectedResultWithLowerCase = '/params-ps/named/foo%2Fabc/c%5C%2f%5cAh'
+    expect(decodePath(stringToCheckWithLowerCase).path).toBe(expectedResultWithLowerCase)
   })
 
   describe('open redirect prevention', () => {
@@ -593,9 +580,7 @@ describe('decodePath', () => {
 
     it('should handle normal paths unchanged', () => {
       expect(decodePath('/users/profile/').path).toBe('/users/profile/')
-      expect(decodePath('/users/profile/').handledProtocolRelativeURL).toBe(
-        false,
-      )
+      expect(decodePath('/users/profile/').handledProtocolRelativeURL).toBe(false)
       expect(decodePath('/api/v1/data').path).toBe('/api/v1/data')
       expect(decodePath('/api/v1/data').handledProtocolRelativeURL).toBe(false)
     })
@@ -1052,9 +1037,7 @@ describe('escapeHtml', () => {
   })
 
   it('should handle mixed content', () => {
-    expect(escapeHtml('a<b>c&d\u2028e\u2029f')).toBe(
-      'a\\u003cb\\u003ec\\u0026d\\u2028e\\u2029f',
-    )
+    expect(escapeHtml('a<b>c&d\u2028e\u2029f')).toBe('a\\u003cb\\u003ec\\u0026d\\u2028e\\u2029f')
   })
 })
 
@@ -1075,22 +1058,16 @@ describe('encodePathLikeUrl', () => {
 
   it('should encode spaces but preserve other ASCII special characters', () => {
     // encodePathLikeUrl encodes whitespace and non-ASCII, but not other ASCII special chars
-    expect(encodePathLikeUrl('/path/file name.pdf')).toBe(
-      '/path/file%20name.pdf',
-    )
+    expect(encodePathLikeUrl('/path/file name.pdf')).toBe('/path/file%20name.pdf')
     expect(encodePathLikeUrl('/path/file[1].pdf')).toBe('/path/file[1].pdf')
     expect(encodePathLikeUrl('/path#section')).toBe('/path#section')
   })
 
   it('should handle mixed ASCII and non-ASCII characters', () => {
-    expect(encodePathLikeUrl('/path/caf\u00e9 (copy).pdf')).toBe(
-      '/path/caf%C3%A9%20(copy).pdf',
-    )
+    expect(encodePathLikeUrl('/path/caf\u00e9 (copy).pdf')).toBe('/path/caf%C3%A9%20(copy).pdf')
   })
 
   it('should handle emoji characters', () => {
-    expect(encodePathLikeUrl('/path/\u{1F600}/file')).toBe(
-      '/path/%F0%9F%98%80/file',
-    )
+    expect(encodePathLikeUrl('/path/\u{1F600}/file')).toBe('/path/%F0%9F%98%80/file')
   })
 })

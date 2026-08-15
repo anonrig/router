@@ -1,11 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   Link,
   Outlet,
@@ -98,9 +92,7 @@ function setup({
 async function back() {
   const link = await waitFor(() => screen.getByRole('link', { name: 'Back' }))
   fireEvent.click(link)
-  const title = await waitFor(() =>
-    screen.getByRole('heading', { name: /Index/ }),
-  )
+  const title = await waitFor(() => screen.getByRole('heading', { name: /Index/ }))
   expect(title).toBeInTheDocument()
 }
 
@@ -205,16 +197,12 @@ describe("Store doesn't update *too many* times during navigation", () => {
       loader: () => resolveAfter(100, { hello: 'world' }),
     })
 
-    const link = await waitFor(() =>
-      screen.getByRole('link', { name: 'Posts' }),
-    )
+    const link = await waitFor(() => screen.getByRole('link', { name: 'Posts' }))
     const before = select.mock.calls.length
     fireEvent.focus(link)
     await new Promise((resolve) => setTimeout(resolve, 100))
     fireEvent.click(link)
-    const title = await waitFor(() =>
-      screen.getByRole('heading', { name: /Title$/ }),
-    )
+    const title = await waitFor(() => screen.getByRole('heading', { name: /Title$/ }))
     expect(title).toBeInTheDocument()
     const after = select.mock.calls.length
     const updates = after - before

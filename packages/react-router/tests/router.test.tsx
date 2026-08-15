@@ -67,7 +67,11 @@ describe('RouterProvider', () => {
       loader: ({ context }) => ({ hello: 'world', ...context }),
       component: () => {
         const data = indexRoute.useLoaderData()
-        return <div>{data.hello}-{String(data.fromBefore)}</div>
+        return (
+          <div>
+            {data.hello}-{String(data.fromBefore)}
+          </div>
+        )
       },
     })
     const router = createRouter({

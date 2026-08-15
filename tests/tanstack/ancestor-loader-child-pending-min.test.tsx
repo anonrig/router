@@ -45,10 +45,7 @@ test('a child fallback revealed after a fresh ancestor loader keeps its own pend
     component: () => <div>Child content</div>,
   })
   const router = createRouter({
-    routeTree: rootRoute.addChildren([
-      indexRoute,
-      parentRoute.addChildren([childRoute]),
-    ]),
+    routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
     defaultPendingMs: 0,
   })
@@ -121,10 +118,7 @@ test('advancing from a parent loader to a parallel child loader does not restart
     component: () => <div>Child content</div>,
   })
   const router = createRouter({
-    routeTree: rootRoute.addChildren([
-      indexRoute,
-      parentRoute.addChildren([childRoute]),
-    ]),
+    routeTree: rootRoute.addChildren([indexRoute, parentRoute.addChildren([childRoute])]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
 
