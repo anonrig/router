@@ -1513,11 +1513,9 @@ export class RouterCore<
 
   getMatchedRoutes = (pathname: string) => {
     const path = trimPathRight(pathname || '/')
-    const exact = findRouteMatch(
-      this.processedTree,
-      path,
-      this.options.caseSensitive ?? false,
-    ) as RouteMatchResult[] | null
+    const exact = findRouteMatch(this.processedTree, path, this.options.caseSensitive ?? false) as
+      | RouteMatchResult[]
+      | null
     if (exact?.length) {
       const last = exact[exact.length - 1]!
       const branch = new Array(exact.length)

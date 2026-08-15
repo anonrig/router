@@ -118,11 +118,7 @@ function waitFor<T>(value: Promise<T>, signal?: AbortSignal): Promise<T> {
   return signal ? waitForReason(value, signal) : value
 }
 
-async function resolveSsr(
-  router: AnyRouter,
-  lane: MatchedLane,
-  index: number,
-): Promise<SSROption> {
+async function resolveSsr(router: AnyRouter, lane: MatchedLane, index: number): Promise<SSROption> {
   const match = lane.matches[index]!
   const route = getRoute(router, match)
   const parentSsr = lane.matches[index - 1]?.ssr
@@ -169,10 +165,7 @@ async function resolveSsr(
   return inherit((await option(context)) ?? defaultSsr)
 }
 
-function stampNotFound(
-  match: AnyRouteMatch,
-  outcome: LoaderOutcome,
-): LoaderOutcome {
+function stampNotFound(match: AnyRouteMatch, outcome: LoaderOutcome): LoaderOutcome {
   if (outcome[0] === NOT_FOUND && !outcome[1].routeId) {
     outcome[1].routeId = match.routeId
   }
@@ -211,13 +204,7 @@ async function contextualize(
     try {
       let routeContext
       if (route.options.context) {
-        const routeContextOptions: RouteContextOptions<
-          any,
-          any,
-          any,
-          any,
-          any
-        > = {
+        const routeContextOptions: RouteContextOptions<any, any, any, any, any> = {
           deps: match.loaderDeps,
           params: match.params,
           context: parentContext,
@@ -251,10 +238,7 @@ async function contextualize(
     }
     const validationError = match.paramsError ?? match.searchError
     if (validationError !== undefined) {
-      failure = [
-        index,
-        stampNotFound(match, normalizeError(route, validationError)),
-      ]
+      failure = [index, stampNotFound(match, normalizeError(route, validationError))]
       end = index
       break
     }
@@ -266,17 +250,7 @@ async function contextualize(
     }
 
     const abortController = match.abortController
-    const options: BeforeLoadContextOptions<
-      any,
-      any,
-      any,
-      any,
-      any,
-      any,
-      any,
-      any,
-      any
-    > = {
+    const options: BeforeLoadContextOptions<any, any, any, any, any, any, any, any, any> = {
       search: match.search,
       abortController,
       params: match.params,
@@ -360,15 +334,12 @@ function createLoaderTask(
     outcome = Promise.resolve<LoaderOutcome>([SKIPPED])
   } else {
     const routeLoader = route.options.loader
-    const loader =
-      typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
+    const loader = typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
     if (!loader) {
       outcome = Promise.resolve<LoaderOutcome>([SUCCESS, undefined])
     } else {
       outcome = Promise.resolve()
-        .then(() =>
-          loader(getLoaderContext(router, lane, match, route, index, tasks)),
-        )
+        .then(() => loader(getLoaderContext(router, lane, match, route, index, tasks)))
         .then(
           (result) => normalize(result, false),
           (cause) => normalize(cause, true),
@@ -441,11 +412,7 @@ async function getNotFoundBoundary(
   return cause?.routeId ? index : fallback
 }
 
-function abortMatches(
-  matches: Array<AnyRouteMatch>,
-  start = 0,
-  reason?: unknown,
-): void {
+function abortMatches(matches: Array<AnyRouteMatch>, start = 0, reason?: unknown): void {
   for (let index = start; index < matches.length; index++) {
     matches[index]!.abortController.abort(reason)
   }
@@ -486,9 +453,7 @@ async function applyFailure(
     return { status: 500, boundary: index, kind: ERROR }
   }
 
-  const boundary =
-    indexed[2] ??
-    (await getNotFoundBoundary(router, lane.matches, indexed, signal))
+  const boundary = indexed[2] ?? (await getNotFoundBoundary(router, lane.matches, indexed, signal))
   const match = lane.matches[boundary]!
   const cause = outcome[1] as NotFoundError
   cause.routeId = match.routeId
@@ -529,10 +494,7 @@ async function loadNormalChunks(
           },
           (cause) => {
             signal?.throwIfAborted()
-            return [
-              index,
-              stampNotFound(match, normalizeError(route, cause)),
-            ] as IndexedOutcome
+            return [index, stampNotFound(match, normalizeError(route, cause))] as IndexedOutcome
           },
         )
         // Route-order reduction can return before later chunks settle.
@@ -616,9 +578,7 @@ async function executeServerLane(
   signal?.addEventListener('abort', abortLane, { once: true })
 
   try {
-    const plannedGlobalBoundary = matched.matches.findIndex(
-      (match) => match._notFound,
-    )
+    const plannedGlobalBoundary = matched.matches.findIndex((match) => match._notFound)
     if (router.options.notFoundMode !== 'root' && plannedGlobalBoundary >= 0) {
       const boundary = await getNotFoundBoundary(
         router,
@@ -639,12 +599,7 @@ async function executeServerLane(
     if (lane.failure?.[1][0] === REDIRECTED) {
       loaderEnd = 0
     } else if (lane.failure?.[1][0] === NOT_FOUND) {
-      lane.failure[2] = await getNotFoundBoundary(
-        router,
-        lane.matches,
-        lane.failure,
-        signal,
-      )
+      lane.failure[2] = await getNotFoundBoundary(router, lane.matches, lane.failure, signal)
       loaderEnd = Math.min(loaderEnd, lane.failure[2] + 1)
     }
 
@@ -733,12 +688,7 @@ async function executeServerLane(
     } else {
       readinessEnd = plannedBoundary < 0 ? lane.matches.length : plannedBoundary
     }
-    const requiredFailure = await loadNormalChunks(
-      router,
-      lane,
-      readinessEnd,
-      signal,
-    )
+    const requiredFailure = await loadNormalChunks(router, lane, readinessEnd, signal)
     signal?.throwIfAborted()
     if (requiredFailure) {
       if (requiredFailure[1][0] === REDIRECTED) {
@@ -757,10 +707,7 @@ async function executeServerLane(
           if (terminal.kind === ERROR) {
             await loadRouteChunk(route, 'errorComponent')
           } else if (match._notFound) {
-            await Promise.all([
-              loadRouteChunk(route),
-              loadRouteChunk(route, 'notFoundComponent'),
-            ])
+            await Promise.all([loadRouteChunk(route), loadRouteChunk(route, 'notFoundComponent')])
           } else {
             await loadRouteChunk(route, 'notFoundComponent')
           }
@@ -790,180 +737,13 @@ type ServerLoadOptions = NonNullable<Parameters<AnyRouter['load']>[0]> & {
   _signal?: AbortSignal
 }
 
-function canUseSimpleServerLane(
-  router: AnyRouter,
-  matches: Array<AnyRouteMatch>,
-  opts?: ServerLoadOptions,
-): boolean {
-  if (opts?._signal) return false
-  if (router.rewrite) return false
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i]!
-    if (match._notFound || match.paramsError || match.searchError) return false
-    const route = getRoute(router, match)
-    if (route.lazyFn && route._lazy !== true) return false
-    if (route.options?.ssr === false) return false
-  }
-  return true
-}
-
-async function executeSimpleServerLane(
-  router: AnyRouter,
-  location: ParsedLocation,
-  matches: Array<AnyRouteMatch>,
-): Promise<ServerLoadResult> {
-  const routerContext = router.options.context
-  let context: Record<string, any> = routerContext ? { ...routerContext } : {}
-  let status: 200 | 404 | 500 = 200
-
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i]!
-    const route = getRoute(router, match)
-    match.abortController = match.abortController ?? new AbortController()
-    match.isFetching = false
-    match.__beforeLoadContext = undefined
-
-    if (route.options?.context) {
-      try {
-        const extra = route.options.context({
-          deps: match.loaderDeps,
-          params: match.params,
-          context,
-          location,
-          navigate: router.navigate,
-          buildLocation: router.buildLocation,
-          cause: match.cause,
-          abortController: match.abortController,
-          preload: false,
-          matches,
-          routeId: route.id,
-        })
-        const value = extra && typeof extra.then === 'function' ? await extra : extra
-        if (value && typeof value === 'object') context = { ...context, ...value }
-      } catch (cause) {
-        if (isRedirect(cause)) throw cause
-        if (isNotFound(cause)) {
-          match.status = 'notFound'
-          match.error = cause
-          match.updatedAt = Date.now()
-          status = 404
-          break
-        }
-        match.status = 'error'
-        match.error = cause
-        match.updatedAt = Date.now()
-        status = 500
-        break
-      }
-    }
-    match.context = context
-
-    if (route.options?.beforeLoad) {
-      try {
-        const before = route.options.beforeLoad({
-          search: match.search,
-          abortController: match.abortController,
-          params: match.params,
-          preload: false,
-          context,
-          location,
-          navigate: router.navigate,
-          buildLocation: router.buildLocation,
-          cause: match.cause,
-          matches,
-          routeId: route.id,
-          ...router.options.additionalContext,
-        })
-        const value = before && typeof before.then === 'function' ? await before : before
-        if (isRedirect(value)) throw value
-        if (isNotFound(value)) throw value
-        if (value && typeof value === 'object') {
-          context = { ...context, ...value }
-          match.__beforeLoadContext = value
-        }
-      } catch (cause) {
-        if (isRedirect(cause)) throw cause
-        if (isNotFound(cause)) {
-          match.status = 'notFound'
-          match.error = cause
-          match.updatedAt = Date.now()
-          status = 404
-          break
-        }
-        match.status = 'error'
-        match.error = cause
-        match.updatedAt = Date.now()
-        status = 500
-        break
-      }
-    }
-    match.context = context
-
-    const loader = route.options?.loader
-    const loaderFn = typeof loader === 'function' ? loader : loader?.handler
-    if (loaderFn) {
-      try {
-        const data = loaderFn({
-          params: match.params,
-          deps: match.loaderDeps,
-          preload: false,
-          parentMatchPromise: undefined,
-          abortController: match.abortController,
-          context,
-          location,
-          navigate: router.navigate,
-          cause: match.cause,
-          route,
-          ...router.options.additionalContext,
-        })
-        const value = data && typeof data.then === 'function' ? await data : data
-        if (isRedirect(value)) throw value
-        if (isNotFound(value)) throw value
-        match.loaderData = value
-      } catch (cause) {
-        if (isRedirect(cause)) throw cause
-        if (isNotFound(cause)) {
-          match.status = 'notFound'
-          match.error = cause
-          match.updatedAt = Date.now()
-          status = 404
-          break
-        }
-        match.status = 'error'
-        match.error = cause
-        match.updatedAt = Date.now()
-        status = 500
-        break
-      }
-    }
-
-    match.status = 'success'
-    match.invalid = false
-    match.error = undefined
-    match.updatedAt = Date.now()
-  }
-
-  await projectLane(
-    router,
-    {
-      location,
-      matches,
-    } as ReducedLane,
-    undefined,
-  )
-  return { type: 'render', status, matches }
-}
-
-export async function loadServerRoute(
-  router: AnyRouter,
-  opts?: ServerLoadOptions,
-): Promise<void> {
+export async function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): Promise<void> {
   router.updateLatestLocation()
   const next = router.latestLocation
   const previous = router._committed
   let result: ServerLoadResult
   try {
-    if (router._hasSearchWork || router.rewrite) {
+    if (router._hasSearchWork || router.rewrite || next.pathname.includes('$')) {
       const canonical = router.buildLocation({
         to: next.pathname,
         search: true,
@@ -985,11 +765,8 @@ export async function loadServerRoute(
     router.emit({ type: 'onBeforeNavigate', ...changeInfo })
     router.emit({ type: 'onBeforeLoad', ...changeInfo })
     opts?._signal?.throwIfAborted()
-    const matches = router.matchRoutes(next)
     result = await waitFor(
-      canUseSimpleServerLane(router, matches, opts)
-        ? executeSimpleServerLane(router, next, matches)
-        : executeServerLane(router, next, matches, opts?._signal),
+      executeServerLane(router, next, router.matchRoutes(next), opts?._signal),
       opts?._signal,
     )
     opts?._signal?.throwIfAborted()

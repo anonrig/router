@@ -1,4 +1,22 @@
-import { createLRUCache } from './lru-cache'
+function createMatchCache<V>(max = 1000) {
+  const map = new Map<string, V>()
+  return {
+    get(key: string): V | undefined {
+      return map.get(key)
+    },
+    set(key: string, value: V) {
+      if (map.has(key)) map.delete(key)
+      map.set(key, value)
+      if (map.size > max) {
+        const first = map.keys().next().value
+        if (first !== undefined) map.delete(first)
+      }
+    },
+    clear() {
+      map.clear()
+    },
+  }
+}
 
 export const SEGMENT_TYPE_PATHNAME = 0
 export const SEGMENT_TYPE_PARAM = 1
@@ -183,7 +201,7 @@ export type ProcessedTree = {
   routesById: Record<string, AnyRouteLike>
   routesByPath: Record<string, AnyRouteLike>
   flatRoutes: AnyRouteLike[]
-  matchCache: ReturnType<typeof createLRUCache<string, RouteMatchResult[] | null>>
+  matchCache: ReturnType<typeof createMatchCache<RouteMatchResult[] | null>>
   masks?: Array<{ from: string; [key: string]: any }>
   masksTree?: MaskTreeNode | null
 }
@@ -287,7 +305,11 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
 
 const processedTreeCache = new WeakMap<
   AnyRouteLike,
-  { caseSensitive: boolean; children: unknown; tree: ProcessedTree & { processedTree: ProcessedTree } }
+  {
+    caseSensitive: boolean
+    children: unknown
+    tree: ProcessedTree & { processedTree: ProcessedTree }
+  }
 >()
 
 export function processRouteTree<T extends AnyRouteLike>(
@@ -327,7 +349,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     routesById,
     routesByPath,
     flatRoutes,
-    matchCache: createLRUCache<string, RouteMatchResult[] | null>(1000),
+    matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
   }
   const result = { ...processedTree, processedTree }
   processedTreeCache.set(routeTree, { caseSensitive, children, tree: result })
@@ -512,7 +534,10 @@ function findRouteMatchOrdered(
   caseSensitive = false,
   fuzzy = false,
 ): RouteMatchResult[] | null {
-  const cacheKey = caseSensitive || fuzzy ? `${caseSensitive ? '1' : '0'}:${fuzzy ? '1' : '0'}:${pathname}` : pathname
+  const cacheKey =
+    caseSensitive || fuzzy
+      ? `${caseSensitive ? '1' : '0'}:${fuzzy ? '1' : '0'}:${pathname}`
+      : pathname
   const cached = tree.matchCache.get(cacheKey)
   if (cached !== undefined) return cached
 

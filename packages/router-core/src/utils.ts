@@ -681,7 +681,12 @@ export function createLRUCache<K, V>(max = 1000) {
   const map = new Map<K, V>()
   return {
     get(key: K): V | undefined {
-      return map.get(key)
+      const value = map.get(key)
+      if (value !== undefined) {
+        map.delete(key)
+        map.set(key, value)
+      }
+      return value
     },
     set(key: K, value: V) {
       if (map.has(key)) map.delete(key)

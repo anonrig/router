@@ -21,35 +21,21 @@ import type {
 import type { AnyRedirect } from './redirect'
 import type { AnyRouter } from './router'
 
-type RouteComponentType =
-  | 'component'
-  | 'pendingComponent'
-  | 'errorComponent'
-  | 'notFoundComponent'
+type RouteComponentType = 'component' | 'pendingComponent' | 'errorComponent' | 'notFoundComponent'
 
-export function replaceRouteChunk(
-  route: AnyRoute,
-  lazyFn: AnyRoute['lazyFn'],
-): void {
+export function replaceRouteChunk(route: AnyRoute, lazyFn: AnyRoute['lazyFn']): void {
   route.lazyFn = lazyFn ?? route.lazyFn
   route._lazy = undefined
 }
 
-function preloadComponent(
-  route: AnyRoute,
-  type: RouteComponentType,
-): Promise<void> | undefined {
+function preloadComponent(route: AnyRoute, type: RouteComponentType): Promise<void> | undefined {
   return (route.options[type] as any)?.preload?.()
 }
 
-function loadComponents(
-  route: AnyRoute,
-  onPendingReady?: () => void,
-): Promise<void> | undefined {
+function loadComponents(route: AnyRoute, onPendingReady?: () => void): Promise<void> | undefined {
   const component = preloadComponent(route, 'component')
   const pending = preloadComponent(route, 'pendingComponent')
-  const pendingReady =
-    onPendingReady && pending ? pending.then(onPendingReady) : pending
+  const pendingReady = onPendingReady && pending ? pending.then(onPendingReady) : pending
   if (onPendingReady && !pending) {
     onPendingReady()
   }
@@ -100,20 +86,13 @@ export function loadRouteChunk(
 }
 
 /** Return the structural lane through the first terminal render boundary. */
-export function _getRenderedMatches(
-  matches: Array<AnyRouteMatch>,
-): Array<AnyRouteMatch> {
-  const end =
-    matches.findIndex(
-      (match) => match.status !== 'success' || match._notFound,
-    ) + 1
+export function _getRenderedMatches(matches: Array<AnyRouteMatch>): Array<AnyRouteMatch> {
+  const end = matches.findIndex((match) => match.status !== 'success' || match._notFound) + 1
   return end && end < matches.length ? matches.slice(0, end) : matches
 }
 
 /** Return the lane whose document assets belong to the current presentation. */
-export function _getAssetMatches(
-  matches: Array<AnyRouteMatch>,
-): Array<AnyRouteMatch> {
+export function _getAssetMatches(matches: Array<AnyRouteMatch>): Array<AnyRouteMatch> {
   let end = matches.length
   for (let index = 0; index < end; index++) {
     const match = matches[index]!
@@ -266,22 +245,15 @@ type ExecuteLaneOptions = [
   onReady?: () => void,
 ]
 
-type ControlOutcome =
-  | [kind: typeof REDIRECTED, redirect: AnyRedirect]
-  | [kind: typeof CANCELED]
+type ControlOutcome = [kind: typeof REDIRECTED, redirect: AnyRedirect] | [kind: typeof CANCELED]
 
 type LaneResult = ProjectedLane | ControlOutcome
 
-function isControl(
-  result: Lane<any> | ControlOutcome,
-): result is ControlOutcome {
+function isControl(result: Lane<any> | ControlOutcome): result is ControlOutcome {
   return typeof result[0 /* location or kind */] === 'number'
 }
 
-export function waitFor<T>(
-  value: T | PromiseLike<T>,
-  signal: AbortSignal,
-): Promise<T> {
+export function waitFor<T>(value: T | PromiseLike<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) {
     return Promise.race([Promise.reject(signal), value])
   }
@@ -298,11 +270,7 @@ export function getRoute(router: AnyRouter, match: WorkMatch): AnyRoute {
   return (router.routesById as Record<string, AnyRoute>)[match.routeId]!
 }
 
-function normalize(
-  value: unknown,
-  rejected: boolean,
-  routeId?: string,
-): LoaderOutcome {
+function normalize(value: unknown, rejected: boolean, routeId?: string): LoaderOutcome {
   if (isRedirect(value)) {
     return [REDIRECTED, value]
   }
@@ -334,10 +302,7 @@ function normalizeLaneError(
   cause: unknown,
   options: ExecuteLaneOptions,
 ): LoaderOutcome {
-  if (
-    options[0 /* controller */].signal.aborted ||
-    !options[2 /* isCurrent */]()
-  ) {
+  if (options[0 /* controller */].signal.aborted || !options[2 /* isCurrent */]()) {
     options[0 /* controller */].abort()
     return [CANCELED]
   }
@@ -370,8 +335,7 @@ async function contextualize(
     match.abortController = options[0 /* controller */]
     // Contextualization is serial, so the previous match already contains the
     // complete parent context for this route.
-    const parentContext =
-      matches[index - 1]?.context ?? router.options.context ?? {}
+    const parentContext = matches[index - 1]?.context ?? router.options.context ?? {}
     const common = {
       params: match.params,
       location,
@@ -417,22 +381,13 @@ async function contextualize(
       continue
     }
 
-    const beforeLoadContext: BeforeLoadContextOptions<
-      any,
-      any,
-      any,
-      any,
-      any,
-      any,
-      any,
-      any,
-      any
-    > = {
-      ...common,
-      search: match.search,
-      context,
-      ...router.options.additionalContext,
-    }
+    const beforeLoadContext: BeforeLoadContextOptions<any, any, any, any, any, any, any, any, any> =
+      {
+        ...common,
+        search: match.search,
+        context,
+        ...router.options.additionalContext,
+      }
 
     const previousStatus = match.status
     // Retain only a success that is mounted through the same valid prefix.
@@ -488,9 +443,7 @@ function releaseOwnedFlight(
       !(process.env.NODE_ENV !== 'production' && current[6 /* refresh */]) &&
       !current[3 /* matches */].includes(match) &&
       current[3 /* matches */].some((candidate) => candidate.id === match.id) &&
-      current[3 /* matches */].some(
-        (candidate) => candidate.isFetching === 'beforeLoad',
-      )
+      current[3 /* matches */].some((candidate) => candidate.isFetching === 'beforeLoad')
     ) {
       // Keep work discoverable only while the current lane is still running
       // beforeLoad. Loader planning performs the matching zero-owner sweep.
@@ -525,9 +478,7 @@ function transferMatchResources(
         deferSameIdFlight &&
         flight?.[2 /* leases */] === 1 &&
         router._flights?.get(match.id) === flight &&
-        !(
-          process.env.NODE_ENV !== 'production' && router._tx?.[6 /* refresh */]
-        ) &&
+        !(process.env.NODE_ENV !== 'production' && router._tx?.[6 /* refresh */]) &&
         next?.some((candidate) => candidate.id === match.id)
       ) {
         // The successor has not made its same-ID reload decision yet.
@@ -623,15 +574,7 @@ async function loadResource(
         Promise.resolve()
           .then(() =>
             loader(
-              getLoaderContext(
-                router,
-                lane,
-                match,
-                route,
-                controller,
-                parentMatchPromise,
-                preload,
-              ),
+              getLoaderContext(router, lane, match, route, controller, parentMatchPromise, preload),
             ),
           )
           .then(
@@ -641,10 +584,7 @@ async function loadResource(
           .then((result): LoaderOutcome => {
             // The registry controls discovery; leases keep current consumers
             // sharing the same terminal outcome.
-            if (
-              result[0 /* kind */] !== SUCCESS &&
-              router._flights?.get(match.id) === flight
-            ) {
+            if (result[0 /* kind */] !== SUCCESS && router._flights?.get(match.id) === flight) {
               router._flights!.delete(match.id)
               if (!flight![2 /* leases */]) {
                 controller.abort()
@@ -704,8 +644,7 @@ export function cacheLoaderMatch(
     current !== planned ||
     router._committed.some(
       (candidate) =>
-        candidate.id === match.id &&
-        (candidate as WorkMatch)._flight === match._flight,
+        candidate.id === match.id && (candidate as WorkMatch)._flight === match._flight,
     )
   ) {
     return
@@ -724,10 +663,7 @@ export function cacheLoaderMatch(
   }
 }
 
-function getParentSnapshot(
-  match: WorkMatch,
-  outcome: LoaderOutcome,
-): WorkMatch {
+function getParentSnapshot(match: WorkMatch, outcome: LoaderOutcome): WorkMatch {
   if (outcome[0 /* kind */] === ERROR || outcome[0 /* kind */] === NOT_FOUND) {
     return {
       ...match,
@@ -782,9 +718,7 @@ function createLoaderTask(
       } else {
         const staleAge =
           options[4 /* preload */] || match.preload
-            ? (route.options.preloadStaleTime ??
-              router.options.defaultPreloadStaleTime ??
-              30_000)
+            ? (route.options.preloadStaleTime ?? router.options.defaultPreloadStaleTime ?? 30_000)
             : (route.options.staleTime ?? router.options.defaultStaleTime ?? 0)
         reload = !!(
           match.invalid ||
@@ -794,9 +728,7 @@ function createLoaderTask(
             (options[6 /* forceStaleReload */] ||
               match.cause === 'enter' ||
               options[3 /* base */].some(
-                (candidate) =>
-                  candidate.routeId === match.routeId &&
-                  candidate.id !== match.id,
+                (candidate) => candidate.routeId === match.routeId && candidate.id !== match.id,
               )))
         )
       }
@@ -807,8 +739,7 @@ function createLoaderTask(
     reloadFailure = normalizeLaneError(route, cause, options)
   }
   const routeLoader = route.options.loader
-  const loader =
-    typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
+  const loader = typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
   let donor =
     (!preload || route.options.preload !== false) &&
     routeLoader &&
@@ -830,16 +761,12 @@ function createLoaderTask(
     match.status === 'success' &&
     !preload &&
     !options[5 /* sync */] &&
-    ((typeof routeLoader === 'function'
-      ? undefined
-      : routeLoader?.staleReloadMode) ??
+    ((typeof routeLoader === 'function' ? undefined : routeLoader?.staleReloadMode) ??
       router.options.defaultStaleReloadMode) !== 'blocking'
   )
   const loaded = reload && (!preload || route.options.preload !== false)
-  const blocking =
-    loaded && !background && (match.status !== 'success' || !!routeLoader)
-  const onLazyReady =
-    route.lazyFn && route._lazy !== true ? options[8 /* onReady */] : undefined
+  const blocking = loaded && !background && (match.status !== 'success' || !!routeLoader)
+  const onLazyReady = route.lazyFn && route._lazy !== true ? options[8 /* onReady */] : undefined
   if (loaded && !routeLoader) {
     match.invalid = false
     match.updatedAt = Date.now()
@@ -884,11 +811,7 @@ function createLoaderTask(
         if (
           routeLoader &&
           !options[0 /* controller */].signal.aborted &&
-          !(
-            process.env.NODE_ENV !== 'production' &&
-            !preload &&
-            router._tx?.[6 /* refresh */]
-          )
+          !(process.env.NODE_ENV !== 'production' && !preload && router._tx?.[6 /* refresh */])
         ) {
           cacheLoaderMatch(router, match, plannedCacheMatch)
         }
@@ -905,10 +828,7 @@ function createLoaderTask(
     options[0 /* controller */].signal,
   ).then(
     () => undefined,
-    (cause): IndexedOutcome => [
-      index,
-      normalizeLaneError(route, cause, options),
-    ],
+    (cause): IndexedOutcome => [index, normalizeLaneError(route, cause, options)],
   )
   const chunkFailure = rawChunkFailure.then((failure) =>
     outcome.then((result) => {
@@ -951,15 +871,8 @@ function createLoaderTask(
     settleInto(candidate, result, false)
     return result
   })
-  ;(lane[2 /* background */] ??= []).push([
-    index,
-    backgroundOutcome,
-    chunkFailure,
-    candidate,
-  ])
-  return backgroundOutcome.then((result) =>
-    getParentSnapshot(candidate, result),
-  )
+  ;(lane[2 /* background */] ??= []).push([index, backgroundOutcome, chunkFailure, candidate])
+  return backgroundOutcome.then((result) => getParentSnapshot(candidate, result))
 }
 
 async function getNotFoundBoundary(
@@ -969,9 +882,7 @@ async function getNotFoundBoundary(
   signal: AbortSignal,
   fallback = 0,
 ): Promise<number> {
-  const cause = indexed?.[1 /* outcome */][1 /* error or redirect */] as
-    | NotFoundError
-    | undefined
+  const cause = indexed?.[1 /* outcome */][1 /* error or redirect */] as NotFoundError | undefined
   let index = cause?.routeId
     ? matches.findIndex((match) => match.routeId === cause.routeId)
     : (indexed?.[0 /* index */] ?? matches.length - 1)
@@ -1037,10 +948,7 @@ async function settleTasks(
                 }
                 return nextTask[1 /* outcome */].then((nextOutcome) => {
                   if (nextOutcome[0 /* kind */] === REDIRECTED) {
-                    throw [
-                      nextTask[0 /* index */],
-                      nextOutcome,
-                    ] as IndexedOutcome
+                    throw [nextTask[0 /* index */], nextOutcome] as IndexedOutcome
                   }
                 })
               }),
@@ -1154,15 +1062,9 @@ async function reduceLane(
       await waitFor<unknown>(
         outcome
           ? Promise.resolve().then(() =>
-              loadRouteChunk(
-                route,
-                kind === ERROR ? 'errorComponent' : 'notFoundComponent',
-              ),
+              loadRouteChunk(route, kind === ERROR ? 'errorComponent' : 'notFoundComponent'),
             )
-          : Promise.all([
-              loadRouteChunk(route),
-              loadRouteChunk(route, 'notFoundComponent'),
-            ]),
+          : Promise.all([loadRouteChunk(route), loadRouteChunk(route, 'notFoundComponent')]),
         controller.signal,
       )
     } catch (cause) {
@@ -1179,9 +1081,7 @@ async function reduceLane(
       await Promise.all([
         ...tasks.map((task) => task[1 /* outcome */]),
         ...tasks.map((task) => task[2 /* chunkFailure */]),
-        ...(lane[2 /* background */] ?? []).map(
-          (task) => task[1 /* outcome */],
-        ),
+        ...(lane[2 /* background */] ?? []).map((task) => task[1 /* outcome */]),
       ])
       discardBackground(router, lane)
       transferMatchResources(router, matches)
@@ -1213,10 +1113,7 @@ export async function projectLane(
           loaderData: match.loaderData,
         }
         const [head, scripts] = await waitFor(
-          Promise.all([
-            routeOptions.head?.(context),
-            routeOptions.scripts?.(context),
-          ]),
+          Promise.all([routeOptions.head?.(context), routeOptions.scripts?.(context)]),
           signal,
         )
         match.meta = head?.meta
@@ -1282,9 +1179,7 @@ async function executeClientLane(
   }
   const tasks: Array<LoaderTask> = []
   const start = options[7 /* resolvedPrefix */] ?? 0
-  let semanticParent = start
-    ? Promise.resolve(matched[1 /* matches */][start - 1]!)
-    : undefined
+  let semanticParent = start ? Promise.resolve(matched[1 /* matches */][start - 1]!) : undefined
   const planSuccessfulLane = () => {
     for (let index = start; index < end; index++) {
       if (options[0 /* controller */].signal.aborted) {
@@ -1358,9 +1253,7 @@ async function executeClientLane(
         undefined,
         reduction.then(
           (foreground) =>
-            isControl(foreground)
-              ? 0
-              : _getRenderedMatches(foreground[1 /* matches */]).length,
+            isControl(foreground) ? 0 : _getRenderedMatches(foreground[1 /* matches */]).length,
           () => 0,
         ),
       )
@@ -1395,13 +1288,9 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
   }
   let session = router._pending
   let tookOver = false
-  const sessionMatchId =
-    session?.[0 /* owner */][3 /* matches */][session[1 /* boundary */]]?.id
+  const sessionMatchId = session?.[0 /* owner */][3 /* matches */][session[1 /* boundary */]]?.id
   if (session?.[0 /* owner */] !== tx) {
-    if (
-      session &&
-      tx[3 /* matches */][session[1 /* boundary */]]?.id === sessionMatchId
-    ) {
+    if (session && tx[3 /* matches */][session[1 /* boundary */]]?.id === sessionMatchId) {
       session[0 /* owner */] = tx
       tookOver = true
     } else {
@@ -1419,9 +1308,7 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
   for (let index = 0; index < matches.length; index++) {
     const match = matches[index]!
     const success = match.status === 'success'
-    presentedPending =
-      presented[index]?.id === match.id &&
-      presented[index]?.status === 'pending'
+    presentedPending = presented[index]?.id === match.id && presented[index]?.status === 'pending'
     if (success && !presentedPending) {
       continue
     }
@@ -1430,9 +1317,7 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
       (success && presentedPending) || match.invalid
         ? 0
         : (route.options.pendingMs ?? router.options.defaultPendingMs)
-    component =
-      route.options.pendingComponent ??
-      (router.options as any).defaultPendingComponent
+    component = route.options.pendingComponent ?? (router.options as any).defaultPendingComponent
     if (!component || typeof delay !== 'number' || delay === Infinity) {
       return
     }
@@ -1444,11 +1329,7 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
     return
   }
   const matchId = matches[boundary]!.id
-  if (
-    !session ||
-    session[1 /* boundary */] !== boundary ||
-    sessionMatchId !== matchId
-  ) {
+  if (!session || session[1 /* boundary */] !== boundary || sessionMatchId !== matchId) {
     // Hydration and redirects can preserve pending presentation without a session.
     // Do not delay it again; conservatively start pendingMinMs from now.
     clearTimeout(session?.[3 /* timer */])
@@ -1461,11 +1342,7 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
       component,
     ]
   }
-  if (
-    session[4 /* ack */] &&
-    !tookOver &&
-    session[5 /* component */] === component
-  ) {
+  if (session[4 /* ack */] && !tookOver && session[5 /* component */] === component) {
     return
   }
   session[5 /* component */] = component
@@ -1473,10 +1350,7 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
     clearTimeout(session[3 /* timer */])
     const remaining = session[2 /* deadline */] - Date.now()
     if (remaining > 0) {
-      session[3 /* timer */] = setTimeout(
-        () => offerPending(router, tx),
-        remaining,
-      )
+      session[3 /* timer */] = setTimeout(() => offerPending(router, tx), remaining)
       return
     }
     session[2 /* deadline */] = 0
@@ -1514,10 +1388,7 @@ function finishPending(router: CoordinatorRouter, tx: LoadTransaction): void {
   }
 }
 
-function publishMatches(
-  router: CoordinatorRouter,
-  matches: Array<AnyRouteMatch>,
-): void {
+function publishMatches(router: CoordinatorRouter, matches: Array<AnyRouteMatch>): void {
   router._committed = matches
   router.stores.setMatches(matches)
 }
@@ -1553,8 +1424,7 @@ function commitMatches(
       match.status !== 'success' ||
       matches.some(
         (candidate, index) =>
-          candidate.id === match.id &&
-          (index < cut || candidate.status === 'success'),
+          candidate.id === match.id && (index < cut || candidate.status === 'success'),
       )
     ) {
       continue
@@ -1565,9 +1435,7 @@ function commitMatches(
       !route.options.loader ||
       now - match.updatedAt >=
         (match.preload
-          ? (route.options.preloadGcTime ??
-            router.options.defaultPreloadGcTime ??
-            300_000)
+          ? (route.options.preloadGcTime ?? router.options.defaultPreloadGcTime ?? 300_000)
           : (route.options.gcTime ?? router.options.defaultGcTime ?? 300_000))
     ) {
       continue
@@ -1622,10 +1490,7 @@ function commitRefreshMatches(
   runRouteLifecycle(router, previous, matches, () => router._tx === tx)
 }
 
-function settlePublication(
-  router: CoordinatorRouter,
-  checkpoint: PublicationCheckpoint,
-): void {
+function settlePublication(router: CoordinatorRouter, checkpoint: PublicationCheckpoint): void {
   if (!checkpoint.published) {
     return
   }
@@ -1643,20 +1508,13 @@ function rollbackPublication(
   lane: ProjectedLane,
   checkpoint: PublicationCheckpoint,
 ): boolean {
-  if (
-    !checkpoint.published ||
-    router._tx !== tx ||
-    router._committed !== lane[1 /* matches */]
-  ) {
+  if (!checkpoint.published || router._tx !== tx || router._committed !== lane[1 /* matches */]) {
     settlePublication(router, checkpoint)
     return false
   }
 
   const discarded = [...router._cache.values(), ...router._committed]
-  const restored = [
-    ...checkpoint.previousCache.values(),
-    ...checkpoint.previousMatches,
-  ]
+  const restored = [...checkpoint.previousCache.values(), ...checkpoint.previousMatches]
   router._cache = checkpoint.previousCache
   router._committed = checkpoint.previousMatches
   checkpoint.published = false
@@ -1744,10 +1602,7 @@ async function transitionRefresh(
   }
 }
 
-async function awaitCurrent(
-  router: CoordinatorRouter,
-  owner?: LoadTransaction,
-): Promise<void> {
+async function awaitCurrent(router: CoordinatorRouter, owner?: LoadTransaction): Promise<void> {
   let current = router._tx
   while (current && current !== owner) {
     await current[5 /* done */]
@@ -1771,10 +1626,7 @@ async function followRedirect(
   } as any)
 }
 
-function restoreCommitted(
-  router: CoordinatorRouter,
-  tx: LoadTransaction,
-): void {
+function restoreCommitted(router: CoordinatorRouter, tx: LoadTransaction): void {
   finishPending(router, tx)
   tx[0 /* controller */].abort()
   transferMatchResources(router, tx[3 /* matches */])
@@ -1824,20 +1676,12 @@ async function runBackground(
   }
   if (isControl(reduced)) {
     transferMatchResources(router, next)
-    if (
-      reduced[0 /* kind */] === REDIRECTED &&
-      router._tx === tx &&
-      router._committed === base
-    ) {
+    if (reduced[0 /* kind */] === REDIRECTED && router._tx === tx && router._committed === base) {
       await followRedirect(router, tx, reduced[1 /* redirect */])
     }
     return
   }
-  const projected = await projectLane(
-    router,
-    reduced,
-    tx[0 /* controller */].signal,
-  )
+  const projected = await projectLane(router, reduced, tx[0 /* controller */].signal)
   if (router._tx !== tx || router._committed !== base) {
     transferMatchResources(router, projected[1 /* matches */])
     return
@@ -1872,12 +1716,7 @@ async function runClientTransaction(
     resolvedPrefix,
     onReady,
   ]
-  const result = await executeClientLane(
-    router,
-    tx[2 /* location */],
-    tx[3 /* matches */],
-    options,
-  )
+  const result = await executeClientLane(router, tx[2 /* location */], tx[3 /* matches */], options)
 
   if (isControl(result)) {
     if (result[0 /* kind */] === REDIRECTED && router._tx === tx) {
@@ -1914,11 +1753,7 @@ async function runClientTransaction(
           throw cause
         }
       }
-      if (
-        rendered &&
-        router._pending === pending &&
-        pending[0 /* owner */] === tx
-      ) {
+      if (rendered && router._pending === pending && pending[0 /* owner */] === tx) {
         const remaining = pending[2 /* deadline */] - Date.now()
         if (remaining > 0) {
           try {
@@ -1940,10 +1775,7 @@ async function runClientTransaction(
     return
   }
   const toLocation = tx[2 /* location */]
-  const changeInfo = getLocationChangeInfo(
-    toLocation,
-    router.stores.resolvedLocation.get(),
-  )
+  const changeInfo = getLocationChangeInfo(toLocation, router.stores.resolvedLocation.get())
   const background = result[2 /* background */]
   await router.startViewTransition(async () => {
     if (router._tx !== tx) {
@@ -1965,11 +1797,7 @@ async function runClientTransaction(
       process.env.NODE_ENV !== 'production' && tx[6 /* refresh */]
         ? await transitionRefresh(router, tx, result, changeInfo)
         : await router.startTransition(commit, result[1 /* matches */])
-    if (
-      process.env.NODE_ENV !== 'production' &&
-      tx[6 /* refresh */] &&
-      rendered === undefined
-    ) {
+    if (process.env.NODE_ENV !== 'production' && tx[6 /* refresh */] && rendered === undefined) {
       return
     }
     if (router._tx !== tx) {
@@ -2048,9 +1876,7 @@ export async function loadClientRoute(
     router._tx?.[6 /* refresh */]?.[2 /* rollback */]?.()
     rematerialize = !!router._refreshNextLoad || !!router._tx?.[6 /* refresh */]
   }
-  const refreshPresentation = rematerialize
-    ? router.stores.matches.get()
-    : undefined
+  const refreshPresentation = rematerialize ? router.stores.matches.get() : undefined
   const previousOwner = router._tx
   const resolvedLocation = router.stores.resolvedLocation.get()
   const previousLocation = resolvedLocation ?? router.stores.location.get()
@@ -2058,14 +1884,9 @@ export async function loadClientRoute(
   const pendingLocation = router._pendingLocation as
     | (ParsedLocation & { _redirects?: number })
     | undefined
-  const redirects =
-    pendingLocation?.href === location.href
-      ? (pendingLocation._redirects ?? 0)
-      : 0
+  const redirects = pendingLocation?.href === location.href ? (pendingLocation._redirects ?? 0) : 0
   const handoff = router._handoff
-  const hydrationController = rematerialize
-    ? undefined
-    : handoff?.[0 /* claim */]()
+  const hydrationController = rematerialize ? undefined : handoff?.[0 /* claim */]()
   const preflight = new AbortController()
   const previousPreflight = router._preflight
   router._preflight = preflight
@@ -2120,9 +1941,7 @@ export async function loadClientRoute(
     await awaitCurrent(router, previousOwner)
     return
   }
-  const resolvedPrefix = hydrationController
-    ? handoff![1 /* finish */](matches)
-    : undefined
+  const resolvedPrefix = hydrationController ? handoff![1 /* finish */](matches) : undefined
   if (resolvedPrefix) {
     controller = hydrationController!
   } else {
@@ -2174,12 +1993,7 @@ export async function loadClientRoute(
       }
     }
     previousOwner[0 /* controller */].abort()
-    transferMatchResources(
-      router,
-      previousOwner[3 /* matches */],
-      tx[3 /* matches */],
-      true,
-    )
+    transferMatchResources(router, previousOwner[3 /* matches */], tx[3 /* matches */], true)
   }
   if (router._tx !== tx) {
     transferMatchResources(router, tx[3 /* matches */])
@@ -2203,16 +2017,10 @@ export async function loadClientRoute(
   }
 }
 
-export async function refreshClientRoute(
-  router: CoordinatorRouter,
-): Promise<void> {
+export async function refreshClientRoute(router: CoordinatorRouter): Promise<void> {
   router._tx?.[6 /* refresh */]?.[2 /* rollback */]?.()
   const pending = router._tx
-  if (
-    pending &&
-    !pending[6 /* refresh */] &&
-    router.stores.status.get() === 'pending'
-  ) {
+  if (pending && !pending[6 /* refresh */] && router.stores.status.get() === 'pending') {
     await pending[5 /* done */]
     if (router._tx !== pending) {
       await awaitCurrent(router, pending)
@@ -2320,9 +2128,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
     | Array<AnySerializationAdapter>
     | undefined
   if (adapters?.length) {
-    tsr.t = new Map(
-      adapters.map((adapter) => [adapter.key, adapter.fromSerializable]),
-    )
+    tsr.t = new Map(adapters.map((adapter) => [adapter.key, adapter.fromSerializable]))
     tsr.buffer.forEach((script) => script())
   }
   tsr.initialized = true
@@ -2335,11 +2141,8 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   }
   router.ssr = { manifest: dehydratedRouter!.manifest }
   router.options.ssr = {
-    nonce: (
-      document.querySelector('meta[property="csp-nonce"]') as
-        | HTMLMetaElement
-        | undefined
-    )?.content,
+    nonce: (document.querySelector('meta[property="csp-nonce"]') as HTMLMetaElement | undefined)
+      ?.content,
   }
 
   const dehydratedMatches = dehydratedRouter!.matches
@@ -2357,10 +2160,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   let handoffHistoryHref!: string
   let handoffHistoryState: unknown
   try {
-    await waitFor(
-      router.options.hydrate?.(dehydratedRouter!.dehydratedData),
-      controller.signal,
-    )
+    await waitFor(router.options.hydrate?.(dehydratedRouter!.dehydratedData), controller.signal)
     if (!isCurrent()) {
       return
     }
@@ -2397,8 +2197,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
     for (const match of removed) {
       if (
         getRoute(router, match).options.loader &&
-        (match.status === 'success' ||
-          (!match.invalid && 'loaderData' in match))
+        (match.status === 'success' || (!match.invalid && 'loaderData' in match))
       ) {
         cacheLoaderMatch(
           router,
@@ -2429,10 +2228,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   for (let index = 0; index < shared; index++) {
     const candidate = candidates[index]!
     const dehydrated = dehydratedMatches[index]!
-    if (
-      typeof dehydrated.i !== 'string' ||
-      hydrateSsrMatchId(dehydrated.i) !== candidate.id
-    ) {
+    if (typeof dehydrated.i !== 'string' || hydrateSsrMatchId(dehydrated.i) !== candidate.id) {
       pendingBoundary ??= index
       break
     }
@@ -2440,9 +2236,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
     const route = getRoute(router, candidate)
     if (
       'l' in dehydrated ||
-      (dehydrated.s === 'success' &&
-        dehydrated.e === undefined &&
-        route.options.loader)
+      (dehydrated.s === 'success' && dehydrated.e === undefined && route.options.loader)
     ) {
       candidate.loaderData = dehydrated.l
     }
@@ -2453,9 +2247,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
     candidate.error = dehydrated.e
     candidate._notFound ||= dehydrated.g
     const terminal =
-      candidate.status === 'error' ||
-      candidate.status === 'notFound' ||
-      candidate._notFound
+      candidate.status === 'error' || candidate.status === 'notFound' || candidate._notFound
     if (terminal) {
       isTerminal = true
       committed.push(candidate)
@@ -2474,11 +2266,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
       pendingBoundary ??= index
     }
   }
-  if (
-    !isTerminal &&
-    committed.length === shared &&
-    shared < candidates.length
-  ) {
+  if (!isTerminal && committed.length === shared && shared < candidates.length) {
     pendingBoundary = shared
   }
 
@@ -2488,10 +2276,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
     try {
       const route = getRoute(router, match)
       if (match._notFound) {
-        await Promise.all([
-          loadRouteChunk(route),
-          loadRouteChunk(route, 'notFoundComponent'),
-        ])
+        await Promise.all([loadRouteChunk(route), loadRouteChunk(route, 'notFoundComponent')])
       } else {
         await loadRouteChunk(
           route,
@@ -2528,9 +2313,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   // The first pending match is already visible, so prepare its route context
   // without granting its beforeLoad or loader any hydration authority.
   const contextEnd = Math.max(
-    pendingBoundary === committed.length
-      ? committed.length + 1
-      : committed.length,
+    pendingBoundary === committed.length ? committed.length + 1 : committed.length,
     // `chunks.length` keeps the pre-retry committed length, so a smaller
     // `chunkFailure` is the exclusive bound of the verified context prefix.
     chunkFailure < chunks.length ? chunkFailure : verifiedAssetEnd,
@@ -2538,8 +2321,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   for (let index = 0; index < contextEnd; index++) {
     const match = candidates[index]!
     const route = getRoute(router, match)
-    const parentContext =
-      candidates[index - 1]?.context ?? router.options.context ?? {}
+    const parentContext = candidates[index - 1]?.context ?? router.options.context ?? {}
     let routeContext
     if (route.options.context) {
       try {
@@ -2561,11 +2343,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
         if (!isCurrent()) {
           return
         }
-        if (
-          match.status !== 'error' &&
-          match.status !== 'notFound' &&
-          !match._notFound
-        ) {
+        if (match.status !== 'error' && match.status !== 'notFound' && !match._notFound) {
           retryFrom(index)
           break
         }
@@ -2581,20 +2359,12 @@ export async function hydrate(router: AnyRouter): Promise<void> {
     }
   }
 
-  await projectLane(
-    router,
-    [location, candidates] as any,
-    controller.signal,
-    0,
-    verifiedAssetEnd,
-  )
+  await projectLane(router, [location, candidates] as any, controller.signal, 0, verifiedAssetEnd)
   if (!isCurrent()) {
     return
   }
-  const needsClientLoad =
-    pendingBoundary !== undefined || committed.length < shared
-  const committedMatches =
-    isTerminal && committed.length === shared ? candidates : committed
+  const needsClientLoad = pendingBoundary !== undefined || committed.length < shared
+  const committedMatches = isTerminal && committed.length === shared ? candidates : committed
   let presented = needsClientLoad ? candidates : committedMatches
   let dataOnlyAssetEnd: number | undefined
   if (needsClientLoad && pendingBoundary !== undefined) {
@@ -2679,4 +2449,3 @@ export async function hydrate(router: AnyRouter): Promise<void> {
     }
   })
 }
-
