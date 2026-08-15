@@ -149,26 +149,26 @@ export const tanstackAliases = [
     find: '@anonrig/router-core/qss',
     replacement: resolve(root, 'packages/router-core/src/qss.ts'),
   },
-  { find: '@anonrig/history', replacement: resolve(root, 'packages/history/src/index.ts') },
+  { find: /^@anonrig\/history$/, replacement: resolve(root, 'packages/history/src/index.ts') },
   {
-    find: '@anonrig/router-core',
+    find: /^@anonrig\/router-core$/,
     replacement: resolve(root, 'packages/router-core/src/index.ts'),
   },
   {
-    find: '@anonrig/react-router',
+    find: /^@anonrig\/react-router$/,
     replacement: resolve(root, 'packages/react-router/src/index.ts'),
   },
-  { find: '@tanstack/history', replacement: resolve(root, 'packages/history/src/index.ts') },
+  { find: /^@tanstack\/history$/, replacement: resolve(root, 'packages/history/src/index.ts') },
   {
-    find: '@tanstack/router-core',
+    find: /^@tanstack\/router-core$/,
     replacement: resolve(root, 'packages/router-core/src/index.ts'),
   },
   {
-    find: '@tanstack/react-router',
+    find: /^@tanstack\/react-router$/,
     replacement: resolve(root, 'packages/react-router/src/index.ts'),
   },
   {
-    find: '@tanstack/react-store',
+    find: /^@tanstack\/react-store$/,
     replacement: resolve(root, 'packages/react-router/src/react-store.ts'),
   },
 ]
