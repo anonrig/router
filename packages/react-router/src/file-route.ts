@@ -176,7 +176,7 @@ export function FileRouteLoader<
       TRoute['types']['id'],
       TRoute['types']['params'],
       TRoute['types']['loaderDeps'],
-      TRoute['types']['router-context'],
+      TRoute['types']['routerContext'],
       TRoute['types']['routeContextFn'],
       TRoute['types']['beforeLoadFn']
     >
