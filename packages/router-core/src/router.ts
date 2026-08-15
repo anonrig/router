@@ -1301,14 +1301,25 @@ export class RouterCore<
       }
     }
 
-    this.stores.state.set({
-      ...this.state,
-      status: 'pending',
-      isLoading: true,
-      isTransitioning: true,
-      pendingMatches: matches,
-      location,
-    })
+    let needsAsync = false
+    for (let i = 0; i < matches.length; i++) {
+      const route = this.routesById[matches[i]!.routeId]!
+      const options = route.options
+      if ((route.lazyFn && !route._lazy) || options.beforeLoad || options.loader) {
+        needsAsync = true
+        break
+      }
+    }
+    if (needsAsync) {
+      this.stores.state.set({
+        ...this.state,
+        status: 'pending',
+        isLoading: true,
+        isTransitioning: true,
+        pendingMatches: matches,
+        location,
+      })
+    }
 
     const routerContext = this.options.context
     let context: Record<string, any> = routerContext ? { ...routerContext } : EMPTY_OBJ

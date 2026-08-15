@@ -737,6 +737,102 @@ type ServerLoadOptions = NonNullable<Parameters<AnyRouter['load']>[0]> & {
   _signal?: AbortSignal
 }
 
+function canUseFastServerLane(router: AnyRouter, matches: Array<AnyRouteMatch>): boolean {
+  if (router.rewrite) return false
+  let loaders = 0
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]!
+    if (match._notFound || match.paramsError || match.searchError) return false
+    const route = getRoute(router, match)
+    const options = route.options
+    if (route.lazyFn && route._lazy !== true) return false
+    if (options?.ssr === false || options?.ssr === 'data-only') return false
+    if (options?.beforeLoad || options?.context || options?.onError) return false
+    if (options?.notFoundComponent || options?.errorComponent) return false
+    if (options?.head || options?.scripts || options?.headers) return false
+    if (typeof options?.component?.preload === 'function') return false
+    if (typeof options?.pendingComponent?.preload === 'function') return false
+    if (options?.loader) loaders++
+  }
+  return loaders <= 1
+}
+
+async function executeFastServerLane(
+  router: AnyRouter,
+  location: ParsedLocation,
+  matches: Array<AnyRouteMatch>,
+): Promise<ServerLoadResult> {
+  const abortLane = () => {
+    for (let i = 0; i < matches.length; i++) {
+      matches[i]!.abortController?.abort()
+    }
+  }
+  router.serverSsr?.onCleanup(abortLane)
+
+  const routerContext = router.options.context
+  let context: Record<string, any> = routerContext ? { ...routerContext } : {}
+  let parentMatch: AnyRouteMatch | undefined
+  let status: 200 | 404 | 500 = 200
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]!
+    const route = getRoute(router, match)
+    match.context = context
+    match.isFetching = false
+    match.__beforeLoadContext = undefined
+    const loader = route.options?.loader
+    const loaderFn = typeof loader === 'function' ? loader : loader?.handler
+    if (loaderFn) {
+      try {
+        const data = loaderFn({
+          params: match.params,
+          deps: match.loaderDeps,
+          preload: false,
+          parentMatchPromise: parentMatch ? Promise.resolve(parentMatch) : undefined,
+          abortController: match.abortController,
+          context,
+          location,
+          navigate: router.navigate,
+          cause: match.cause,
+          route,
+          ...router.options.additionalContext,
+        })
+        const value = data && typeof data.then === 'function' ? await data : data
+        if (isRedirect(value)) {
+          abortLane()
+          throw value
+        }
+        if (isNotFound(value)) throw value
+        match.loaderData = value
+      } catch (cause) {
+        if (isRedirect(cause)) {
+          abortLane()
+          throw cause
+        }
+        if (isNotFound(cause)) {
+          match.status = 'notFound'
+          match.error = cause
+          match.updatedAt = Date.now()
+          status = 404
+          break
+        }
+        match.status = 'error'
+        match.error = cause
+        match.updatedAt = Date.now()
+        status = 500
+        break
+      }
+    }
+    match.status = 'success'
+    match.invalid = false
+    match.error = undefined
+    match.updatedAt = Date.now()
+    parentMatch = match
+  }
+
+  return { type: 'render', status, matches }
+}
+
 export async function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): Promise<void> {
   router.updateLatestLocation()
   const next = router.latestLocation
@@ -765,10 +861,10 @@ export async function loadServerRoute(router: AnyRouter, opts?: ServerLoadOption
     router.emit({ type: 'onBeforeNavigate', ...changeInfo })
     router.emit({ type: 'onBeforeLoad', ...changeInfo })
     opts?._signal?.throwIfAborted()
-    result = await waitFor(
-      executeServerLane(router, next, router.matchRoutes(next), opts?._signal),
-      opts?._signal,
-    )
+    const matches = router.matchRoutes(next)
+    result = canUseFastServerLane(router, matches)
+      ? await executeFastServerLane(router, next, matches)
+      : await waitFor(executeServerLane(router, next, matches, opts?._signal), opts?._signal)
     opts?._signal?.throwIfAborted()
   } catch (cause) {
     opts?._signal?.throwIfAborted()
