@@ -1,10 +1,28 @@
-import { useEffect } from 'react'
-import { rootRouteId } from '@anonrig/router-core'
+import { useEffect, type ReactNode } from 'react'
+import {
+  rootRouteId,
+  type AnyRouter,
+  type DeepPartial,
+  type Expand,
+  type MakeOptionalPathParams,
+  type MakeOptionalSearchParams,
+  type MakeRouteMatchUnion,
+  type MaskOptions,
+  type MatchRouteOptions,
+  type RegisteredRouter,
+  type ResolveRoute,
+  type ToSubOptionsProps,
+} from '@anonrig/router-core'
+import { CatchBoundary } from './CatchBoundary'
 import { Match } from './Match'
 import { useRouter } from './useRouter'
 import { useRouterState } from './useRouterState'
 import { useMatch } from './useMatch'
 import { deepEqual } from '@anonrig/router-core'
+import type {
+  StructuralSharingOption,
+  ValidateSelected,
+} from './structuralSharing'
 
 export function Matches() {
   const router = useRouter()
@@ -16,64 +34,150 @@ export function Matches() {
   const ready = useRouterState({
     select: (s) => s.matches.length > 0 || !!s.pendingMatches?.length,
   })
+  const resetKey = useRouterState({
+    select: (s) => s.matches[0]?.id ?? s.location?.href,
+  })
 
   if (!ready) {
     const Pending = router.options.defaultPendingComponent
     return Pending ? <Pending /> : null
   }
-
   const inner = <Match routeId={rootRouteId} />
-  return router.options.InnerWrap ? (
-    <router.options.InnerWrap>{inner}</router.options.InnerWrap>
-  ) : (
+  const wrapped = router.options.disableGlobalCatchBoundary ? (
     inner
+  ) : (
+    <CatchBoundary
+      getResetKey={() => resetKey}
+      onCatch={router.options.defaultOnCatch}
+    >
+      {inner}
+    </CatchBoundary>
+  )
+  return router.options.InnerWrap ? (
+    <router.options.InnerWrap>{wrapped}</router.options.InnerWrap>
+  ) : (
+    wrapped
   )
 }
 
-export function useMatches<T = any>(opts?: { select?: (matches: any[]) => T }) {
-  return useRouterState({
-    select: (s) => (opts?.select ? opts.select(s.matches) : (s.matches as T)),
-  })
+export interface UseMatchesBaseOptions<
+  TRouter extends AnyRouter,
+  TSelected,
+  TStructuralSharing,
+> {
+  select?: (
+    matches: Array<MakeRouteMatchUnion<TRouter>>,
+  ) => ValidateSelected<TRouter, TSelected, TStructuralSharing>
 }
 
-export function useParentMatches<T = any>(opts?: { select?: (matches: any[]) => T }) {
-  const routeId = useMatch({ select: (m) => m?.routeId })
+export type UseMatchesResult<
+  TRouter extends AnyRouter,
+  TSelected,
+> = unknown extends TSelected ? Array<MakeRouteMatchUnion<TRouter>> : TSelected
+
+export function useMatches<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TSelected = unknown,
+  TStructuralSharing extends boolean = boolean,
+>(
+  opts?: UseMatchesBaseOptions<TRouter, TSelected, TStructuralSharing> &
+    StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
+): UseMatchesResult<TRouter, TSelected> {
+  return useRouterState({
+    select: (s) =>
+      opts?.select ? opts.select(s.matches as any) : (s.matches as any),
+  }) as UseMatchesResult<TRouter, TSelected>
+}
+
+export function useParentMatches<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TSelected = unknown,
+  TStructuralSharing extends boolean = boolean,
+>(
+  opts?: UseMatchesBaseOptions<TRouter, TSelected, TStructuralSharing> &
+    StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
+): UseMatchesResult<TRouter, TSelected> {
+  const routeId = useMatch({ select: (m: any) => m?.routeId } as any)
   return useRouterState({
     select: (s) => {
-      const index = s.matches.findIndex((m) => m.routeId === routeId)
+      const index = s.matches.findIndex((m: any) => m.routeId === routeId)
       const parents = s.matches.slice(0, Math.max(index, 0))
-      return opts?.select ? opts.select(parents) : (parents as T)
+      return opts?.select ? opts.select(parents as any) : (parents as any)
     },
-  })
+  }) as UseMatchesResult<TRouter, TSelected>
 }
 
-export function useChildMatches<T = any>(opts?: { select?: (matches: any[]) => T }) {
-  const routeId = useMatch({ select: (m) => m?.routeId })
+export function useChildMatches<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TSelected = unknown,
+  TStructuralSharing extends boolean = boolean,
+>(
+  opts?: UseMatchesBaseOptions<TRouter, TSelected, TStructuralSharing> &
+    StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
+): UseMatchesResult<TRouter, TSelected> {
+  const routeId = useMatch({ select: (m: any) => m?.routeId } as any)
   return useRouterState({
     select: (s) => {
-      const index = s.matches.findIndex((m) => m.routeId === routeId)
+      const index = s.matches.findIndex((m: any) => m.routeId === routeId)
       const children = s.matches.slice(index + 1)
-      return opts?.select ? opts.select(children) : (children as T)
+      return opts?.select ? opts.select(children as any) : (children as any)
     },
-  })
+  }) as UseMatchesResult<TRouter, TSelected>
 }
 
-export function useMatchRoute() {
+export type UseMatchRouteOptions<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TFrom extends string = string,
+  TTo extends string | undefined = undefined,
+  TMaskFrom extends string = TFrom,
+  TMaskTo extends string = '',
+> = ToSubOptionsProps<TRouter, TFrom, TTo> &
+  DeepPartial<MakeOptionalSearchParams<TRouter, TFrom, TTo>> &
+  DeepPartial<MakeOptionalPathParams<TRouter, TFrom, TTo>> &
+  MaskOptions<TRouter, TMaskFrom, TMaskTo> &
+  MatchRouteOptions
+
+export function useMatchRoute<TRouter extends AnyRouter = RegisteredRouter>(): <
+  const TFrom extends string = string,
+  const TTo extends string | undefined = undefined,
+  const TMaskFrom extends string = TFrom,
+  const TMaskTo extends string = '',
+>(
+  opts: UseMatchRouteOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>,
+) => false | Expand<ResolveRoute<TRouter, TFrom, TTo>['types']['allParams']> {
   const router = useRouter()
-  return (opts: any = {}) => router.matchRoute(opts)
+  return ((opts: any = {}) => router.matchRoute(opts)) as any
 }
 
-export function MatchRoute({
-  children,
-  ...opts
-}: any) {
+export type MakeMatchRouteOptions<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TFrom extends string = string,
+  TTo extends string | undefined = undefined,
+  TMaskFrom extends string = TFrom,
+  TMaskTo extends string = '',
+> = UseMatchRouteOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & {
+  children?:
+    | ((
+        params?: Expand<
+          ResolveRoute<TRouter, TFrom, TTo>['types']['allParams']
+        >,
+      ) => ReactNode)
+    | ReactNode
+}
+
+export function MatchRoute<
+  TRouter extends AnyRouter = RegisteredRouter,
+  const TFrom extends string = string,
+  const TTo extends string | undefined = undefined,
+  const TMaskFrom extends string = TFrom,
+  const TMaskTo extends string = '',
+>(props: MakeMatchRouteOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>): any {
   const matchRoute = useMatchRoute()
-  const match = matchRoute(opts)
-  if (typeof children === 'function') return children(match)
-  return match ? children : null
+  const params = matchRoute(props as any) as boolean
+  if (typeof props.children === 'function') {
+    return (props.children as any)(params)
+  }
+  return params ? props.children : null
 }
-
-export type UseMatchRouteOptions = any
-export type MakeMatchRouteOptions = any
 
 void deepEqual

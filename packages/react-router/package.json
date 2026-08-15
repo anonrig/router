@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./ssr/server": "./src/ssr/server.ts",
-    "./ssr/client": "./src/ssr/client.ts"
+    "./ssr/client": "./src/ssr/client.ts",
+    "./ssr/RouterClient": "./src/ssr/RouterClient.tsx"
   },
   "scripts": {
     "build": "echo 'source package'"

@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:tanstack": "vitest run --config vitest.tanstack.config.ts",
     "bench": "vitest bench --run benches",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "test:types": "tsc -p tsconfig.types.json --pretty false && tsc -p tsconfig.types.core.json --pretty false"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

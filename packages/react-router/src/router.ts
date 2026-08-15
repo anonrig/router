@@ -1,18 +1,54 @@
 import { RouterCore, type CreateRouterFn } from '@anonrig/router-core'
 import type { RouterHistory } from '@anonrig/history'
+import type {
+  AnyRoute,
+  RouterConstructorOptions,
+  TrailingSlashOption,
+} from '@anonrig/router-core'
+import type {
+  ErrorRouteComponent,
+  NotFoundRouteComponent,
+  RouteComponent,
+} from './route'
 
-export const createRouter: CreateRouterFn = (options) => new Router(options)
+declare module '@anonrig/router-core' {
+  export interface RouterOptionsExtensions {
+    defaultComponent?: RouteComponent
+    defaultErrorComponent?: ErrorRouteComponent
+    defaultPendingComponent?: RouteComponent
+    defaultNotFoundComponent?: NotFoundRouteComponent
+    Wrap?: (props: { children: any }) => React.JSX.Element
+    InnerWrap?: (props: { children: any }) => React.JSX.Element
+    defaultOnCatch?: (error: Error, errorInfo: React.ErrorInfo) => void
+  }
+}
+
+export const createRouter: CreateRouterFn = (options) => {
+  return new Router(options)
+}
 
 export class Router<
-  TRouteTree = any,
-  TTrailingSlashOption extends string = 'never',
-  TDefaultStructuralSharingOption extends boolean = false,
-  TRouterHistory extends RouterHistory = RouterHistory,
-  TDehydrated extends Record<string, any> = Record<string, any>,
+  in out TRouteTree extends AnyRoute,
+  in out TTrailingSlashOption extends TrailingSlashOption = 'never',
+  in out TDefaultStructuralSharingOption extends boolean = false,
+  in out TRouterHistory extends RouterHistory = RouterHistory,
+  in out TDehydrated extends Record<string, any> = Record<string, any>,
 > extends RouterCore<
-  TRouteTree extends import('@anonrig/router-core').AnyRoute ? TRouteTree : any,
-  any,
+  TRouteTree,
+  TTrailingSlashOption,
   TDefaultStructuralSharingOption,
   TRouterHistory,
   TDehydrated
-> {}
+> {
+  constructor(
+    options: RouterConstructorOptions<
+      TRouteTree,
+      TTrailingSlashOption,
+      TDefaultStructuralSharingOption,
+      TRouterHistory,
+      TDehydrated
+    >,
+  ) {
+    super(options)
+  }
+}

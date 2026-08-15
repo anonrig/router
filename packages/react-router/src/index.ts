@@ -175,13 +175,87 @@ export { lazyRouteComponent } from './lazyRouteComponent'
 
 export { useLinkProps, createLink, Link, linkOptions } from './link'
 export type {
+  InferDescendantToPaths,
+  RelativeToPath,
+  RelativeToParentPath,
+  RelativeToCurrentPath,
+  AbsoluteToPath,
+  RelativeToPathAutoComplete,
+  NavigateOptions,
+  ToOptions,
+  ToMaskOptions,
+  ToSubOptions,
+  ResolveRoute,
+  SearchParamOptions,
+  PathParamOptions,
+  ToPathOption,
+  LinkOptions,
+  MakeOptionalPathParams,
+  FileRouteTypes,
+  RouteContextParameter,
+  BeforeLoadContextParameter,
+  ResolveAllContext,
+  ResolveAllParamsFromParent,
+  ResolveFullSearchSchema,
+  ResolveFullSearchSchemaInput,
+  RouteIds,
+  NavigateFn,
+  BuildLocationFn,
+  FullSearchSchemaOption,
+  MakeRemountDepsOptionsUnion,
+  RemountDepsOptions,
+  ResolveFullPath,
+  AnyRouteWithContext,
+  AnyRouterWithContext,
+  CommitLocationOptions,
+  MatchLocation,
+  UseNavigateResult,
+  AnyRedirect,
+  Redirect,
+  RedirectOptions,
+  ResolvedRedirect,
+  MakeRouteMatch,
+  MakeRouteMatchUnion,
+  RouteMatch,
+  AnyRouteMatch,
+  RouteContextFn,
+  RouteContextOptions,
+  BeforeLoadContextOptions,
+  ContextOptions,
+  RouteOptions,
+  FileBaseRouteOptions,
+  BaseRouteOptions,
+  UpdatableRouteOptions,
+  RouteLoaderFn,
+  LoaderFnContext,
+  LazyRouteOptions,
+  AnyRouter,
+  RegisteredRouter,
+  RouterContextOptions,
+  ControllablePromise,
+  InjectedHtmlEntry,
+  RouterOptions,
+  RouterState,
+  ListenerFn,
+  BuildNextOptions,
+  RouterConstructorOptions,
+  RouterEvents,
+  RouterEvent,
+  RouterListener,
+  RouteConstraints,
+  RouteMask,
+  MatchRouteOptions,
+  CreateLazyFileRoute,
+} from '@anonrig/router-core'
+export type {
   UseLinkPropsOptions,
   ActiveLinkOptions,
   LinkProps,
   LinkComponent,
   LinkComponentProps,
   CreateLinkProps,
-} from './link'
+  LinkComponentRoute,
+} from './link-types'
 
 export {
   Matches,
@@ -242,10 +316,17 @@ export { useCanGoBack } from './useCanGoBack'
 
 export { CatchNotFound, DefaultGlobalNotFound } from './not-found'
 
-export { ScriptOnce } from './HeadContent'
-export { Asset } from './HeadContent'
-export { HeadContent } from './HeadContent'
-export { useTags } from './HeadContent'
-export { Scripts } from './HeadContent'
+export type {
+  ValidateLinkOptions,
+  InferStructuralSharing,
+  ValidateUseSearchOptions,
+  ValidateUseParamsOptions,
+  ValidateLinkOptionsArray,
+} from './typePrimitives'
 
+export { ScriptOnce } from './ScriptOnce'
+export { Asset } from './Asset'
+export { HeadContent } from './HeadContent'
+export { useTags } from './headContentUtils'
+export { Scripts } from './Scripts'
 export type * from './ssr/serializer'

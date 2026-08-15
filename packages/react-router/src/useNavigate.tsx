@@ -1,20 +1,52 @@
-import { useCallback } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import { useRouter } from './useRouter'
-import type { NavigateOptions } from '@anonrig/router-core'
+import type {
+  AnyRouter,
+  FromPathOption,
+  NavigateOptions,
+  RegisteredRouter,
+  UseNavigateResult,
+} from '@anonrig/router-core'
 
-export function useNavigate(opts?: { from?: string }) {
+export function useNavigate<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TDefaultFrom extends string = string,
+>(_defaultOpts?: {
+  from?: FromPathOption<TRouter, TDefaultFrom>
+}): UseNavigateResult<TDefaultFrom> {
   const router = useRouter()
+
   return useCallback(
-    (options: NavigateOptions = {}) =>
-      router.navigate({ from: opts?.from, ...options }),
-    [router, opts?.from],
-  )
+    (options: NavigateOptions) => {
+      return router.navigate({
+        ...options,
+        from: options.from ?? _defaultOpts?.from,
+      })
+    },
+    [_defaultOpts?.from, router],
+  ) as UseNavigateResult<TDefaultFrom>
 }
 
-export function Navigate(props: NavigateOptions) {
+export function Navigate<
+  TRouter extends AnyRouter = RegisteredRouter,
+  const TFrom extends string = string,
+  const TTo extends string | undefined = undefined,
+  const TMaskFrom extends string = TFrom,
+  const TMaskTo extends string = '',
+>(props: NavigateOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>): null {
   const navigate = useNavigate()
-  navigate(props)
+  const previousPropsRef = useRef<NavigateOptions<
+    TRouter,
+    TFrom,
+    TTo,
+    TMaskFrom,
+    TMaskTo
+  > | null>(null)
+  useLayoutEffect(() => {
+    if (previousPropsRef.current !== props) {
+      navigate(props)
+      previousPropsRef.current = props
+    }
+  }, [props, navigate])
   return null
 }
-
-export type UseNavigateResult<T = any> = ReturnType<typeof useNavigate>

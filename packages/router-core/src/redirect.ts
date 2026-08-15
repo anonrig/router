@@ -1,19 +1,23 @@
+import type { NavigateOptions } from './link'
+import type { AnyRouter, RegisteredRouter } from './router'
+import type { ParsedLocation } from './location'
+
 export type AnyRedirect = Redirect<any, any, any, any, any>
 
 export type Redirect<
-  TRouter = any,
+  TRouter extends AnyRouter = RegisteredRouter,
   TFrom extends string = string,
   TTo extends string | undefined = undefined,
   TMaskFrom extends string = TFrom,
   TMaskTo extends string = '.',
 > = Response & {
-  options: Record<string, any> & {
-    _builtLocation?: any
+  options: NavigateOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & {
+    _builtLocation?: ParsedLocation
   }
 }
 
 export type RedirectOptions<
-  TRouter = any,
+  TRouter extends AnyRouter = RegisteredRouter,
   TFrom extends string = string,
   TTo extends string | undefined = undefined,
   TMaskFrom extends string = TFrom,
@@ -24,15 +28,53 @@ export type RedirectOptions<
   statusCode?: number
   throw?: any
   headers?: HeadersInit
-  _builtLocation?: any
-} & Record<string, any>
+  _builtLocation?: ParsedLocation
+} & NavigateOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>
 
-export type ResolvedRedirect = Redirect
+export type ResolvedRedirect<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TFrom extends string = string,
+  TTo extends string = '',
+  TMaskFrom extends string = TFrom,
+  TMaskTo extends string = '',
+> = Redirect<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>
 
-export function redirect(opts: RedirectOptions): AnyRedirect {
+export type RedirectOptionsRoute<
+  TDefaultFrom extends string = string,
+  TRouter extends AnyRouter = RegisteredRouter,
+  TTo extends string | undefined = undefined,
+  TMaskTo extends string = '',
+> = Omit<
+  RedirectOptions<TRouter, TDefaultFrom, TTo, TDefaultFrom, TMaskTo>,
+  'from'
+>
+
+export interface RedirectFnRoute<in out TDefaultFrom extends string = string> {
+  <
+    TRouter extends AnyRouter = RegisteredRouter,
+    const TTo extends string | undefined = undefined,
+    const TMaskTo extends string = '',
+  >(
+    opts: RedirectOptionsRoute<TDefaultFrom, TRouter, TTo, TMaskTo>,
+  ): Redirect<TRouter, TDefaultFrom, TTo, TDefaultFrom, TMaskTo>
+}
+
+export function redirect<
+  TRouter extends AnyRouter = RegisteredRouter,
+  const TTo extends string | undefined = '.',
+  const TFrom extends string = string,
+  const TMaskFrom extends string = TFrom,
+  const TMaskTo extends string = '',
+>(
+  opts: RedirectOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>,
+): Redirect<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> {
   opts.statusCode = opts.statusCode || opts.code || 307
 
-  if (!opts._builtLocation && !opts.reloadDocument && typeof opts.href === 'string') {
+  if (
+    !opts._builtLocation &&
+    !opts.reloadDocument &&
+    typeof opts.href === 'string'
+  ) {
     try {
       new URL(opts.href)
       opts.reloadDocument = true
@@ -50,10 +92,10 @@ export function redirect(opts: RedirectOptions): AnyRedirect {
     status: opts.statusCode,
     headers,
   })
-  ;(response as AnyRedirect).options = opts
+  ;(response as Redirect<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>).options = opts
 
   if (opts.throw) throw response
-  return response as AnyRedirect
+  return response as Redirect<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>
 }
 
 export function isRedirect(obj: any): obj is AnyRedirect {
@@ -72,9 +114,3 @@ export function parseRedirect(obj: any) {
   }
   return undefined
 }
-
-export type RedirectFnRoute<TDefaultFrom extends string = string> = (
-  opts: any,
-) => AnyRedirect
-
-export type RedirectOptionsRoute = any

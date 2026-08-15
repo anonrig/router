@@ -1,2 +1,3 @@
-export const isServer =
-  typeof document === 'undefined' ? true : undefined
+export const isServer = typeof document === 'undefined'
+
+export const loadServerRoute: any = undefined

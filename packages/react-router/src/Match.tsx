@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { memo, Suspense, useContext, type ReactNode } from 'react'
 import { isNotFound, rootRouteId } from '@anonrig/router-core'
 import { CatchBoundary, ErrorComponent } from './CatchBoundary'

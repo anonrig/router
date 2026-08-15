@@ -249,7 +249,7 @@ export function processRouteTree<T extends AnyRouteLike>(
   const flatRoutes: AnyRouteLike[] = []
 
   const walk = (route: AnyRouteLike, index: number) => {
-    route.init?.({ originalIndex: index })
+    ;(route as any).init?.({ originalIndex: index })
     if (route.id) routesById[route.id] = route
     if (route.fullPath && route.fullPath !== '/') {
       routesByPath[route.fullPath] = route
@@ -465,6 +465,130 @@ export function findRouteMatch(
   return matches
 }
 
+type PatternPart = {
+  kind: number
+  raw: string
+  name: string
+  prefix: string
+  suffix: string
+}
+
+function extractPrefixed(
+  value: string,
+  prefix: string,
+  suffix: string,
+): string | null {
+  if (prefix && !value.startsWith(prefix)) return null
+  if (suffix && !value.endsWith(suffix)) return null
+  let inner = value
+  if (prefix) inner = inner.slice(prefix.length)
+  if (suffix) inner = inner.slice(0, Math.max(0, inner.length - suffix.length))
+  return inner
+}
+
+function withParams(
+  params: Record<string, string>,
+  extra?: Record<string, string>,
+): Record<string, string> {
+  return Object.assign(Object.create(null), params, extra)
+}
+
+function matchPatternParts(
+  parts: PatternPart[],
+  pi: number,
+  pathSegs: string[],
+  si: number,
+  params: Record<string, string>,
+  caseSensitive: boolean,
+  fuzzy: boolean,
+): Record<string, string> | null {
+  const norm = (s: string) => (caseSensitive ? s : s.toLowerCase())
+
+  if (pi >= parts.length) {
+    if (si === pathSegs.length || fuzzy) return withParams(params)
+    return null
+  }
+
+  const part = parts[pi]!
+
+  if (part.kind === SEGMENT_TYPE_WILDCARD) {
+    const rest = pathSegs.slice(si)
+    if (rest.length === 0) {
+      if (part.prefix || part.suffix) return null
+      const next = withParams(params, { _splat: '', '*': '' })
+      return matchPatternParts(parts, pi + 1, pathSegs, si, next, caseSensitive, fuzzy)
+    }
+    const first = rest[0]!
+    const lastSeg = rest[rest.length - 1]!
+    if (part.prefix && !first.startsWith(part.prefix)) return null
+    if (part.suffix && !lastSeg.endsWith(part.suffix)) return null
+    const stripped = rest.slice()
+    if (part.prefix) stripped[0] = first.slice(part.prefix.length)
+    if (part.suffix) {
+      const idx = stripped.length - 1
+      stripped[idx] = stripped[idx]!.slice(0, stripped[idx]!.length - part.suffix.length)
+    }
+    const splat = stripped.join('/')
+    const next = withParams(params, { _splat: splat, '*': splat })
+    return matchPatternParts(
+      parts,
+      pi + 1,
+      pathSegs,
+      pathSegs.length,
+      next,
+      caseSensitive,
+      fuzzy,
+    )
+  }
+
+  if (part.kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
+    if (si < pathSegs.length) {
+      const decoded = decodeSeg(pathSegs[si]!)
+      const inner = extractPrefixed(decoded, part.prefix, part.suffix)
+      if (inner !== null) {
+        const consumed = matchPatternParts(
+          parts,
+          pi + 1,
+          pathSegs,
+          si + 1,
+          withParams(params, { [part.name]: inner }),
+          caseSensitive,
+          fuzzy,
+        )
+        if (consumed) return consumed
+      }
+    }
+    return matchPatternParts(parts, pi + 1, pathSegs, si, params, caseSensitive, fuzzy)
+  }
+
+  if (si >= pathSegs.length) {
+    return fuzzy ? withParams(params) : null
+  }
+
+  const value = pathSegs[si]!
+  if (part.kind === SEGMENT_TYPE_PATHNAME) {
+    if (norm(value) !== norm(part.raw)) return null
+    return matchPatternParts(parts, pi + 1, pathSegs, si + 1, params, caseSensitive, fuzzy)
+  }
+
+  if (part.kind === SEGMENT_TYPE_PARAM) {
+    const decoded = decodeSeg(value)
+    const inner = extractPrefixed(decoded, part.prefix, part.suffix)
+    if (inner === null) return null
+    return matchPatternParts(
+      parts,
+      pi + 1,
+      pathSegs,
+      si + 1,
+      withParams(params, { [part.name]: inner }),
+      caseSensitive,
+      fuzzy,
+    )
+  }
+
+  return null
+}
+
 /**
  * Match a path pattern (`pattern`) against an actual pathname.
  * Compatible with TanStack's findSingleMatch(from, caseSensitive, fuzzy, path, tree).
@@ -477,29 +601,23 @@ export function findSingleMatch(
   _tree?: ProcessedTree,
 ): { rawParams: Record<string, string>; params: Record<string, string> } | null {
   if (typeof pattern !== 'string' && pattern && typeof pattern === 'object') {
-    // legacy (tree, from, pathname) call
     return null
   }
   const path = pathname ?? ''
-  const params: Record<string, string> = Object.create(null)
   const pathSegs = splitSegments(path === '/' ? '' : path)
-
-  let si = 0
-  let segment: ParsedSegment | undefined
   const fullPattern = pattern.charCodeAt(0) === 47 ? pattern.slice(1) : pattern
 
-  // Re-parse from the original pattern string to keep prefix/suffix info
   let cursor = 0
-  const parts: { kind: number; raw: string; name: string; prefix: string; suffix: string }[] = []
+  let segment: ParsedSegment | undefined
+  const parts: PatternPart[] = []
   while (cursor < fullPattern.length) {
     const start = cursor
     segment = parseSegment(fullPattern, start, segment)
     const end = segment[5]
     cursor = end + 1
     if (start === end) continue
-    const kind = segment[0]
     parts.push({
-      kind,
+      kind: segment[0],
       raw: fullPattern.substring(start, end),
       name: fullPattern.substring(segment[2], segment[3]),
       prefix: fullPattern.substring(start, segment[1]),
@@ -507,44 +625,18 @@ export function findSingleMatch(
     })
   }
 
-  const norm = (s: string) => (caseSensitive ? s : s.toLowerCase())
-
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i]!
-    if (part.kind === SEGMENT_TYPE_WILDCARD) {
-      params._splat = pathSegs.slice(si).join('/')
-      params['*'] = params._splat
-      si = pathSegs.length
-      break
-    }
-    if (part.kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      if (si < pathSegs.length) {
-        params[part.name] = decodeSeg(pathSegs[si]!)
-        si++
-      }
-      continue
-    }
-    if (si >= pathSegs.length) {
-      if (fuzzy) break
-      return null
-    }
-    const value = pathSegs[si]!
-    if (part.kind === SEGMENT_TYPE_PATHNAME) {
-      if (norm(value) !== norm(part.raw)) return null
-    } else if (part.kind === SEGMENT_TYPE_PARAM) {
-      const decoded = decodeSeg(value)
-      if (part.prefix && !decoded.startsWith(part.prefix)) return null
-      if (part.suffix && !decoded.endsWith(part.suffix)) return null
-      let inner = decoded
-      if (part.prefix) inner = inner.slice(part.prefix.length)
-      if (part.suffix) inner = inner.slice(0, inner.length - part.suffix.length)
-      params[part.name] = inner
-    }
-    si++
-  }
-
-  if (!fuzzy && si !== pathSegs.length) return null
-  return { rawParams: params, params }
+  const params = matchPatternParts(
+    parts,
+    0,
+    pathSegs,
+    0,
+    Object.create(null),
+    caseSensitive,
+    fuzzy,
+  )
+  if (!params) return null
+  const rawParams = Object.assign(Object.create(null), params)
+  return { rawParams, params: rawParams }
 }
 
 function decodeSeg(value: string) {

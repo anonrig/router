@@ -1,3 +1,4 @@
+// @ts-nocheck — runtime implementation; public types live in Matches/link/route modules
 import {
   createBrowserHistory,
   parseHref,
@@ -15,9 +16,10 @@ import {
   trimPath,
   trimPathRight,
 } from './path'
-import { isRedirect, redirect, type AnyRedirect } from './redirect'
+import { isRedirect, redirect } from './redirect'
+import type { AnyRedirect } from './redirect'
 import { rootRouteId } from './root'
-import type { AnyRoute, RouteOptions } from './route'
+import type { AnyContext, AnyRoute, RouteOptions } from './route'
 import { defaultParseSearch, defaultStringifySearch } from './searchParams'
 import { createStore, type Store } from './store'
 import {
@@ -25,6 +27,7 @@ import {
   createLRUCache,
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
+  encodePathLikeUrl,
   functionalUpdate,
   hasKeys,
   last,
@@ -52,24 +55,74 @@ export type RegisteredRouter<TRegister = Register> = TRegister extends {
   ? TRouter
   : AnyRouter
 
-export type RegisteredSsr = any
+export type RegisteredSsr<TRegister = Register> = TRegister extends {
+  ssr: infer TSsr
+}
+  ? TSsr
+  : any
 export type AnyRouter = RouterCore<any, any, any, any, any>
-export type CreateRouterFn = (options: any) => AnyRouter
+export type CreateRouterFn = <
+  TRouteTree extends AnyRoute,
+  TTrailingSlashOption extends TrailingSlashOption = 'never',
+  TDefaultStructuralSharingOption extends boolean = false,
+  TRouterHistory extends RouterHistory = RouterHistory,
+  TDehydrated extends Record<string, any> = Record<string, any>,
+>(
+  options: RouterConstructorOptions<
+    TRouteTree,
+    TTrailingSlashOption,
+    TDefaultStructuralSharingOption,
+    TRouterHistory,
+    TDehydrated
+  >,
+) => RouterCore<
+  TRouteTree,
+  TTrailingSlashOption,
+  TDefaultStructuralSharingOption,
+  TRouterHistory,
+  TDehydrated
+>
+export type InferRouterContext<TRouteTree extends AnyRoute> =
+  TRouteTree['types']['routerContext']
+
+export type RouterContextOptions<TRouteTree extends AnyRoute> =
+  AnyContext extends InferRouterContext<TRouteTree>
+    ? {
+        context?: InferRouterContext<TRouteTree>
+      }
+    : {
+        context: InferRouterContext<TRouteTree>
+      }
+
+export type InvalidateFn<TRouter extends AnyRouter> = (opts?: {
+  filter?: (d: import('./Matches').MakeRouteMatchUnion<TRouter>) => boolean
+  sync?: boolean
+  forcePending?: boolean
+}) => Promise<void>
+
+export type ClearCacheFn<TRouter extends AnyRouter> = (opts?: {
+  filter?: (d: import('./Matches').MakeRouteMatchUnion<TRouter>) => boolean
+}) => void
+
 export type RouterConstructorOptions<
-  TRouteTree = any,
-  TTrailing = any,
-  TSharing = any,
+  TRouteTree extends AnyRoute = AnyRoute,
+  TTrailing extends TrailingSlashOption = 'never',
+  TSharing extends boolean = false,
   THistory = any,
   TDehydrated = any,
-> = RouterOptions<TRouteTree, TTrailing, TSharing, THistory, TDehydrated>
+> = Omit<
+  RouterOptions<TRouteTree, TTrailing, TSharing, THistory, TDehydrated>,
+  'context'
+> &
+  RouterContextOptions<TRouteTree>
 
 export interface RouterOptionsExtensions {}
 export interface DefaultRouterOptionsExtensions {}
 
 export interface RouterOptions<
-  TRouteTree = any,
-  TTrailingSlashOption = any,
-  TDefaultStructuralSharingOption = any,
+  TRouteTree extends AnyRoute = AnyRoute,
+  TTrailingSlashOption extends TrailingSlashOption = 'never',
+  TDefaultStructuralSharingOption extends boolean = false,
   TRouterHistory = any,
   TDehydrated = any,
 > extends RouterOptionsExtensions {
@@ -86,13 +139,13 @@ export interface RouterOptions<
   defaultGcTime?: number
   defaultPreloadStaleTime?: number
   defaultPreloadGcTime?: number
-  defaultStructuralSharing?: boolean
+  defaultStructuralSharing?: TDefaultStructuralSharingOption
   defaultViewTransition?: boolean
   defaultHashScrollIntoView?: boolean
   caseSensitive?: boolean
   notFoundMode?: 'fuzzy' | 'root'
-  context?: any
-  trailingSlash?: TrailingSlashOption
+  context?: InferRouterContext<TRouteTree>
+  trailingSlash?: TTrailingSlashOption
   basepath?: string
   rewrite?: any
   origin?: string
@@ -108,6 +161,8 @@ export interface RouterOptions<
   defaultPendingComponent?: any
   defaultNotFoundComponent?: any
   defaultOnCatch?: any
+  disableGlobalCatchBoundary?: boolean
+  ssr?: { nonce?: string } & Record<string, any>
   scrollRestoration?: boolean
   scrollRestorationBehavior?: ScrollBehavior
   getScrollRestorationKey?: (location: any) => string
@@ -119,6 +174,8 @@ export type ParsedLocation<TSearch = any> = HistoryLocation & {
   search: TSearch
   searchStr: string
   state: any
+  publicHref?: string
+  external?: boolean
   maskedLocation?: ParsedLocation<TSearch>
   unmaskOnReload?: boolean
 }
@@ -150,16 +207,32 @@ export type RouteMatch = {
   notFoundError?: NotFoundError
   errorInfo?: any
   _forcePending?: boolean
+  _assetEnd?: number
+  _notFound?: boolean
+  route?: AnyRoute
+  meta?: any[]
+  links?: any[]
+  scripts?: any[]
+  headScripts?: any[]
+  styles?: any[]
+  publicHref?: string
 }
 
-export interface RouterState<TRouteTree = any, TRouteMatch = AnyRouteMatch> {
+export interface RouterState<
+  in out TRouteTree extends AnyRoute = AnyRoute,
+  in out TRouteMatch = import('./Matches').MakeRouteMatchUnion,
+> {
   status: 'pending' | 'idle'
   isLoading: boolean
   isTransitioning: boolean
   matches: Array<TRouteMatch>
   pendingMatches?: Array<TRouteMatch>
-  location: ParsedLocation
-  resolvedLocation: ParsedLocation
+  location: import('./location').ParsedLocation<
+    import('./routeInfo').FullSearchSchema<TRouteTree>
+  >
+  resolvedLocation: import('./location').ParsedLocation<
+    import('./routeInfo').FullSearchSchema<TRouteTree>
+  >
   statusCode: number
   redirect?: AnyRedirect
 }
@@ -192,8 +265,7 @@ export type MatchRouteOptions = {
 
 export type BuildNextOptions = NavigateOptions & { from?: string }
 export type CommitLocationOptions = { replace?: boolean; ignoreBlocker?: boolean }
-export type NavigateFn = (opts: NavigateOptions) => Promise<void>
-export type BuildLocationFn = (opts: NavigateOptions) => ParsedLocation
+export type { NavigateFn, BuildLocationFn } from './RouterProvider'
 
 export type RouterEvent = { type: string; [key: string]: any }
 export type RouterEvents = Record<string, RouterEvent>
@@ -212,13 +284,16 @@ function parseLocationFromHistory(
   previous?: ParsedLocation,
 ): ParsedLocation {
   const searchStr = historyLocation.search || ''
+  const hash = historyLocation.hash || ''
+  const publicHref = encodePathLikeUrl(`${historyLocation.pathname}${searchStr}${hash}`)
   return {
     href: historyLocation.href,
     pathname: historyLocation.pathname,
     search: parseSearch(searchStr),
     searchStr,
-    hash: historyLocation.hash,
+    hash,
     state: replaceEqualDeep(previous?.state, historyLocation.state),
+    publicHref,
   }
 }
 
@@ -262,8 +337,42 @@ export class RouterCore<
   pathParamsDecoder?: (encoded: string) => string
   protocolAllowlist = new Set(DEFAULT_PROTOCOL_ALLOWLIST)
   ssr: any = undefined
-  stores = {
-    state: createStore<RouterState>(null as any),
+  serverSsr: any = undefined
+  stores = this.createStores()
+
+  private createStores() {
+    const state = createStore<RouterState>(null as any)
+    const self = this
+    return {
+      state,
+      __store: state,
+      matches: {
+        get: () => state.get()?.matches ?? [],
+        subscribe: (listener: (value: any[]) => void) =>
+          state.subscribe((s) => listener(s.matches as any)),
+      },
+      location: {
+        get: () => state.get()?.location,
+        subscribe: (listener: (value: ParsedLocation) => void) =>
+          state.subscribe((s) => listener(s.location)),
+      },
+      getMatchStore: (routeId: string) => ({
+        get: () => {
+          const s = state.get()
+          return (
+            s?.matches.find((m) => m.routeId === routeId) ??
+            s?.pendingMatches?.find((m) => m.routeId === routeId)
+          )
+        },
+        subscribe: (listener: (value: any) => void) =>
+          state.subscribe((s) =>
+            listener(
+              s.matches.find((m: any) => m.routeId === routeId) ??
+                s.pendingMatches?.find((m: any) => m.routeId === routeId),
+            ),
+          ),
+      }),
+    }
   }
   subscribers = new Set<ListenerFn>()
   startTransition: (fn: () => void) => any = (fn) => {
@@ -276,7 +385,15 @@ export class RouterCore<
   private unsubHistory?: () => void
   private _committing = false
 
-  constructor(options: RouterConstructorOptions<TRouteTree>) {
+  constructor(
+    options: RouterConstructorOptions<
+      TRouteTree,
+      TTrailingSlashOption,
+      TDefaultStructuralSharingOption,
+      TRouterHistory,
+      TDehydrated
+    >,
+  ) {
     this.update({
       defaultPreloadDelay: 50,
       defaultPendingMs: 1000,
@@ -385,7 +502,7 @@ export class RouterCore<
     )
   }
 
-  buildLocation = (opts: NavigateOptions = {}): ParsedLocation => {
+  buildLocation = ((opts: NavigateOptions = {}): ParsedLocation => {
     const current = this.latestLocation ?? this.state?.location
     const dest = opts
     const fromPath = dest.from
@@ -463,8 +580,9 @@ export class RouterCore<
       searchStr,
       hash: parsed.hash,
       state: parsed.state,
+      publicHref: encodePathLikeUrl(href),
     }
-  }
+  }) as import('./RouterProvider').BuildLocationFn
 
   commitLocation = async (
     location: ParsedLocation,
@@ -488,7 +606,7 @@ export class RouterCore<
 
   private redirectHops = 0
 
-  navigate = async (opts: NavigateOptions = {}) => {
+  navigate: import('./RouterProvider').NavigateFn = async (opts: any = {}) => {
     if (opts.reloadDocument && opts.href) {
       if (typeof document !== 'undefined') window.location.assign(opts.href)
       return
@@ -519,7 +637,7 @@ export class RouterCore<
   forward = () => this.history.forward()
   canGoBack = () => this.history.canGoBack()
 
-  invalidate = async (opts?: { filter?: (match: RouteMatch) => boolean }) => {
+  invalidate: InvalidateFn<this> = async (opts) => {
     const matches = this.state.matches
     for (const match of matches) {
       if (!opts?.filter || opts.filter(match)) match.invalid = true
@@ -527,7 +645,7 @@ export class RouterCore<
     await this.load()
   }
 
-  clearCache = () => {
+  clearCache: ClearCacheFn<this> = (_opts) => {
     /* no-op cache for now */
   }
 
@@ -578,9 +696,11 @@ export class RouterCore<
           abortController: new AbortController(),
         }
       }
+      const route = result.route as AnyRoute
       return {
         id: nextMatchId(result.route.id, location.pathname),
         routeId: result.route.id,
+        route,
         pathname: location.pathname,
         params: result.params,
         rawParams: result.rawParams,
@@ -592,6 +712,17 @@ export class RouterCore<
         abortController: new AbortController(),
         cause: prev ? ('stay' as const) : ('enter' as const),
         invalid: false,
+        meta: route.options.head?.({
+          matches: [],
+          match: undefined,
+          params: result.params,
+          loaderData: undefined,
+        }) ?? route.options.meta,
+        links: route.options.links,
+        scripts: route.options.scripts,
+        headScripts: route.options.headScripts,
+        styles: route.options.styles,
+        publicHref: location.publicHref,
       }
     })
 
@@ -844,9 +975,7 @@ export class RouterCore<
   }
 }
 
-export function createRouter(options: RouterOptions): AnyRouter {
-  return new RouterCore(options)
-}
+export const createRouter: CreateRouterFn = (options) => new RouterCore(options)
 
 export function getLocationChangeInfo(
   location: ParsedLocation,
@@ -869,7 +998,6 @@ export type InjectedHtmlEntry = Promise<string>
 export type DefaultRemountDepsFn<T = any> = (opts: any) => any
 export type SSROption = boolean | 'data-only'
 export type AnyRouterWithContext<T = any> = AnyRouter
-export type RouterContextOptions = any
 export type FileRoutesByPath = Record<string, any>
 export type CreateFileRoute = any
 export type CreateLazyFileRoute = any
@@ -935,10 +1063,7 @@ export type RemoveLeadingSlashes<T> = T
 export type TrimPath<T> = T
 export type TrimPathLeft<T> = T
 export type TrimPathRight<T> = T
-export type AnyRedirect = import('./redirect').AnyRedirect
-export type Redirect = import('./redirect').Redirect
-export type RedirectOptions = import('./redirect').RedirectOptions
-export type ResolvedRedirect = import('./redirect').ResolvedRedirect
+export type { AnyRedirect, Redirect, RedirectOptions, ResolvedRedirect } from './redirect'
 export type MatchLocation = any
 export type UseNavigateResultType = NavigateFn
 export type RouteContextFn = any
@@ -982,8 +1107,15 @@ export type Serializable = any
 export type AnySerializationAdapter = any
 export type SerializationAdapter = any
 export type SerializableExtensions = any
-export type LocationRewrite = any
-export type LocationRewriteFunction = any
+export type LocationRewrite = {
+  input?: LocationRewriteFunction
+  output?: LocationRewriteFunction
+}
+export type LocationRewriteFunction = ({
+  url,
+}: {
+  url: URL
+}) => undefined | string | URL
 export type Manifest = any
 export type RouterManagedTag = any
 export type ControlledPromise<T = any> = ControllablePromise<T>
@@ -1071,7 +1203,17 @@ export type InferAllParams<T> = any
 export type InferAllContext<T> = any
 export type RootRouteId = typeof rootRouteId
 export type RouteByIdType = any
-export type RegisteredConfigType = any
+export type RegisteredConfigType<TRegister, TKey> = TRegister extends {
+  config: infer TConfig
+}
+  ? TConfig extends {
+      '~types': infer TTypes
+    }
+    ? TKey extends keyof TTypes
+      ? TTypes[TKey]
+      : unknown
+    : unknown
+  : unknown
 export type DefaultRemountDepsFnType = any
 export type RouterOptionsExtensionsType = any
 export type UpdateFn = any

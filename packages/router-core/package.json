@@ -7,7 +7,11 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./isServer": "./src/isServer.ts"
+    "./isServer": "./src/isServer.ts",
+    "./ssr/server": "./src/ssr/server.ts",
+    "./ssr/client": "./src/ssr/client.ts",
+    "./ssr/serializer/transformer": "./src/ssr/serializer/transformer-types.ts",
+    "./utils": "./src/utils.ts"
   },
   "scripts": {
     "build": "echo 'source package'"

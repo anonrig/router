@@ -102,10 +102,10 @@ export function useLinkProps(props: LinkProps): AnchorHTMLAttributes<HTMLAnchorE
     onMouseEnter,
     onMouseLeave,
     'data-status': isActive ? 'active' : undefined,
-  }
+  } as AnchorHTMLAttributes<HTMLAnchorElement>
 }
 
-export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
+export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(
   props,
   ref,
 ) {
@@ -134,97 +134,27 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
   const linkProps = useLinkProps(props)
   const resolvedChildren =
     typeof children === 'function'
-      ? children({ isActive: linkProps['data-status'] === 'active' })
+      ? children({ isActive: (linkProps as any)['data-status'] === 'active' })
       : children
   return createElement('a', { ...rest, ...linkProps, ref, children: resolvedChildren })
-})
+}) as unknown as import('./link-types').LinkComponent<'a'>
 
-export function createLink(Comp: any) {
+export const createLink = ((Comp: any) => {
   return forwardRef((props: any, ref) => {
     const linkProps = useLinkProps(props)
     return createElement(Comp, { ...props, ...linkProps, ref })
   })
-}
+}) as typeof import('./link-types').createLink
 
-export function linkOptions<T extends NavigateOptions>(opts: T): T {
-  return opts
-}
+export const linkOptions = ((opts: any) => opts) as typeof import('./link-types').linkOptions
 
-export type InferDescendantToPaths = any
-export type RelativeToPath = any
-export type RelativeToParentPath = any
-export type RelativeToCurrentPath = any
-export type AbsoluteToPath = any
-export type RelativeToPathAutoComplete = any
-export type ToOptions = NavigateOptions
-export type ToMaskOptions = any
-export type ToSubOptions = any
-export type ResolveRoute = any
-export type SearchParamOptions = any
-export type PathParamOptions = any
-export type ToPathOption = any
-export type LinkOptions = NavigateOptions
-export type MakeOptionalPathParams = any
-export type FileRouteTypes = any
-export type RouteContextParameter = any
-export type BeforeLoadContextParameter = any
-export type ResolveAllContext = any
-export type ResolveAllParamsFromParent = any
-export type ResolveFullSearchSchema = any
-export type ResolveFullSearchSchemaInput = any
-export type RouteIds = any
-export type NavigateFn = any
-export type BuildLocationFn = any
-export type FullSearchSchemaOption = any
-export type MakeRemountDepsOptionsUnion = any
-export type RemountDepsOptions = any
-export type ResolveFullPath = any
-export type AnyRouteWithContext = any
-export type AnyRouterWithContext = any
-export type CommitLocationOptions = any
-export type MatchLocation = any
-export type UseNavigateResult = any
-export type AnyRedirect = any
-export type Redirect = any
-export type RedirectOptions = any
-export type ResolvedRedirect = any
-export type MakeRouteMatch = any
-export type MakeRouteMatchUnion = any
-export type RouteMatch = any
-export type AnyRouteMatch = any
-export type RouteContextFn = any
-export type RouteContextOptions = any
-export type BeforeLoadContextOptions = any
-export type ContextOptions = any
-export type RouteOptions = any
-export type FileBaseRouteOptions = any
-export type BaseRouteOptions = any
-export type UpdatableRouteOptions = any
-export type RouteLoaderFn = any
-export type LoaderFnContext = any
-export type LazyRouteOptions = any
-export type AnyRouter = any
-export type RegisteredRouter = any
-export type RouterContextOptions = any
-export type ControllablePromise = any
-export type InjectedHtmlEntry = any
-export type RouterOptions = any
-export type RouterState = any
-export type ListenerFn = any
-export type BuildNextOptions = any
-export type RouterConstructorOptions = any
-export type RouterEvents = any
-export type RouterEvent = any
-export type RouterListener = any
-export type RouteConstraints = any
-export type RouteMask = any
-export type MatchRouteOptions = any
-export type CreateLazyFileRoute = any
-export type UseLinkPropsOptions = LinkProps
-export type ActiveLinkOptions = LinkProps
-export type LinkComponent = typeof Link
-export type LinkComponentProps = LinkProps
-export type CreateLinkProps = LinkProps
-export type LinkComponentRoute<T = any> = typeof Link
+export type {
+  UseLinkPropsOptions,
+  ActiveLinkOptions,
+  LinkComponent,
+  LinkComponentProps,
+  CreateLinkProps,
+  LinkComponentRoute,
+} from './link-types'
 
 void functionalUpdate

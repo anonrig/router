@@ -1,3 +1,2 @@
-export function hydrate(_opts?: any) {
-  return undefined
-}
+export { RouterClient } from './RouterClient'
+export * from '@anonrig/router-core/ssr/client'

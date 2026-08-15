@@ -1,12 +1,20 @@
-import { hasKeys, type AnyRouter } from '@anonrig/router-core'
+import {
+  hasKeys,
+  type AnyRouter,
+  type RegisteredRouter,
+  type RouterOptions,
+} from '@anonrig/router-core'
 import { Matches } from './Matches'
 import { routerContext } from './routerContext'
 
-export function RouterContextProvider({
+export function RouterContextProvider<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TDehydrated extends Record<string, any> = Record<string, any>,
+>({
   router,
   children,
   ...rest
-}: RouterProps & { children: any }) {
+}: RouterProps<TRouter, TDehydrated> & { children: any }) {
   if (hasKeys(rest as any)) {
     router.update({
       ...router.options,
@@ -28,7 +36,10 @@ export function RouterContextProvider({
   return provider
 }
 
-export function RouterProvider({ router, ...rest }: RouterProps) {
+export function RouterProvider<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TDehydrated extends Record<string, any> = Record<string, any>,
+>({ router, ...rest }: RouterProps<TRouter, TDehydrated>) {
   return (
     <RouterContextProvider router={router} {...rest}>
       <Matches />
@@ -36,8 +47,27 @@ export function RouterProvider({ router, ...rest }: RouterProps) {
   )
 }
 
-export type RouterProps<TRouter extends AnyRouter = AnyRouter> = {
+export type RouterProps<
+  TRouter extends AnyRouter = RegisteredRouter,
+  TDehydrated extends Record<string, any> = Record<string, any>,
+> = Omit<
+  RouterOptions<
+    TRouter['routeTree'],
+    NonNullable<TRouter['options']['trailingSlash']>,
+    NonNullable<TRouter['options']['defaultStructuralSharing']>,
+    TRouter['history'],
+    TDehydrated
+  >,
+  'context'
+> & {
   router: TRouter
-  context?: any
-  [key: string]: any
+  context?: Partial<
+    RouterOptions<
+      TRouter['routeTree'],
+      NonNullable<TRouter['options']['trailingSlash']>,
+      NonNullable<TRouter['options']['defaultStructuralSharing']>,
+      TRouter['history'],
+      TDehydrated
+    >['context']
+  >
 }

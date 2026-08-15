@@ -1,19 +1,29 @@
-export function HeadContent() {
-  return null
+'use client'
+
+import * as React from 'react'
+import { Asset } from './Asset'
+import { useRouter } from './useRouter'
+import { useTags } from './headContentUtils'
+import type { AssetCrossOriginConfig } from '@anonrig/router-core'
+
+export interface HeadContentProps {
+  assetCrossOrigin?: AssetCrossOriginConfig
 }
 
-export function useTags() {
-  return []
-}
-
-export function Scripts() {
-  return null
-}
-
-export function ScriptOnce(_props: { children?: string; log?: boolean }) {
-  return null
-}
-
-export function Asset(_props: any) {
-  return null
+/**
+ * Render route-managed head tags (title, meta, links, styles, head scripts).
+ * Place inside the document head of your app shell.
+ * @link https://tanstack.com/router/latest/docs/framework/react/guide/document-head-management
+ */
+export function HeadContent(props: HeadContentProps) {
+  const tags = useTags(props.assetCrossOrigin)
+  const router = useRouter()
+  const nonce = router.options.ssr?.nonce
+  return (
+    <>
+      {tags.map((tag) => (
+        <Asset {...tag} key={`tsr-meta-${JSON.stringify(tag)}`} nonce={nonce} />
+      ))}
+    </>
+  )
 }

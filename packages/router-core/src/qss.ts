@@ -8,8 +8,12 @@
 
 function encodeComponent(str: string): string {
   if (typeof str !== 'string') str = String(str)
-  // Match URLSearchParams: encodeURIComponent + space as `+`
-  return encodeURIComponent(str).replace(/%20/g, '+')
+  // encodeURIComponent plus always-encode `()` so alien values like `()`
+  // re-serialize differently from the raw query string.
+  return encodeURIComponent(str)
+    .replace(/%20/g, '+')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
 }
 
 function decodeComponent(str: string): string {
@@ -40,7 +44,8 @@ export function encode(
     if (val === undefined) continue
     if (!first) out += '&'
     else first = false
-    out += encodeComponent(key) + '=' + encodeComponent(stringify(val))
+    const encodedVal = encodeComponent(stringify(val))
+    out += encodeComponent(key) + '=' + encodedVal
   }
   return out
 }
