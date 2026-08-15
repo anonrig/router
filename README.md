@@ -10,10 +10,11 @@ This is a from-scratch implementation. Public names match `@tanstack/react-route
 
 The compatibility surface is the TanStack Router API. The internals are not a fork.
 
-- **Query strings** are parsed and serialized with a single-pass scanner. There is no `URLSearchParams` constructor, iterator, or `toString` on every navigation.
-- **Path utilities** (`cleanPath`, `trimPath`, `parseHref`, `sanitizePath`) walk character codes instead of allocating with regex replace.
-- **Route matching** compiles the route tree into a segment trie once. Matching is O(segments), not O(routes).
-- **Path interpolation** reuses a `Uint16Array` segment parser and avoids regex for `$param`, `{$param}`, `{-$optional}`, and `$` splat segments.
+Head-to-head numbers against published TanStack Router are in [Benchmarks](#benchmarks). The wins that show up there are on the full request path, not every micro-primitive:
+
+- **Navigation and SSR load** skip work TanStack still does per request (store setup, match-object construction, search parsing). Warm `navigate` and cold `router.load` / `createRequestHandler` are the operations that matter for req/s.
+- **`cleanPath`** walks character codes instead of allocating with regex replace.
+- **Query-string and trie matching** are still custom scanners in this repo. On Node 22 they lose to TanStack's native `URLSearchParams` helpers and published matcher; they are kept because they avoid jsdom/`URLSearchParams` costs in the browser test environment and keep the hot path allocation-light. That tradeoff is deliberate and visible in the table.
 
 ## Deliberate differences from TanStack Router
 
@@ -81,7 +82,7 @@ Alias `@tanstack/react-router` to `@anonrig/react-router` if you want to keep ex
 - `pnpm test` runs this repo's unit tests (path, query string, matcher, React navigation).
 - `pnpm test:tanstack` runs the vendored TanStack Router runtime tests against this implementation.
 - `pnpm bench` runs first-party plus copied TanStack router-core benches.
-- `pnpm bench:rps` prints a timed ops/sec and req/s report.
+- `pnpm bench:compare` / `pnpm bench:rps` times the same operations on this router and on published TanStack Router.
 - `pnpm bench:all` also runs the copied TanStack Link and closing-tag detection benches.
 
 Current status:
@@ -95,42 +96,36 @@ Current status:
 
 ## Benchmarks
 
-Measured on a 4-core Intel Xeon (Linux, Node 22). Numbers are single-process, in-memory, no HTTP server. Re-run with `pnpm bench:rps` and `pnpm bench`.
+Measured on a 4-core Intel Xeon (Linux, Node 22). Same process, same timed loops, in-memory, no HTTP server. Re-run with `pnpm bench:compare`.
 
-### Throughput
+TanStack side is the published packages, not this repo's `@tanstack/*` test aliases:
 
-Timed loops from `pnpm bench:rps`. **req/s** is one `router.load()` per request on a fresh router (SSR-style). Warm navigate/load reuse one router.
+- `@tanstack/router-core@1.171.24`
+- `@tanstack/history@1.162.1`
+- `@tanstack/react-router@1.170.29`
 
-| Operation                        |      ops/s |
-| -------------------------------- | ---------: |
-| Query-string encode              |    879,070 |
-| Query-string decode              |  1,097,790 |
-| `parseHref`                      |  1,422,887 |
-| Route match (large tree)         |  1,898,766 |
-| History `push`                   |  1,086,665 |
-| Warm `navigate`                  |    169,359 |
-| Warm `router.load`               |    497,568 |
-| **SSR cold `router.load` req/s** | **66,237** |
+**req/s** is one `router.load()` (or one `createRequestHandler`) per request on a fresh router. Warm navigate/load reuse one router. `vs` is `@anonrig` ops/s ÷ TanStack ops/s.
 
-Vitest bench (`pnpm bench`) on the same machine:
-
-| Operation                    |        hz | vs baseline                          |
-| ---------------------------- | --------: | ------------------------------------ |
-| Query-string encode          |   848,499 | **17.1×** `URLSearchParams` (49,645) |
-| Query-string decode          | 1,060,482 | **12.8×** `URLSearchParams` (82,925) |
-| `cleanPath`                  | 7,766,307 | **1.35×** regex replace (5,756,092)  |
-| `resolvePath`                | 3,077,283 | —                                    |
-| `interpolatePath`            | 1,212,374 | —                                    |
-| Route match (large tree)     | 1,878,811 | —                                    |
-| `parseHref`                  | 1,411,010 | —                                    |
-| History `push` / `replace`   |     ~1.0M | —                                    |
-| Warm navigate                |   136,969 | —                                    |
-| Warm `load`                  |   189,029 | —                                    |
-| `buildLocation`              |   533,759 | —                                    |
-| Cold `router.load` req/s     |    50,832 | —                                    |
-| `createRequestHandler` req/s |     6,826 | includes SSR attach + dehydrate      |
+| Operation                        |   @anonrig |   TanStack | vs TanStack |
+| -------------------------------- | ---------: | ---------: | ----------: |
+| Query-string encode              |    892,070 |  2,921,693 |       0.31× |
+| Query-string decode              |  1,099,244 |  1,420,655 |       0.77× |
+| `defaultStringifySearch` (×1000) |      910.2 |      3,049 |       0.30× |
+| `parseHref`                      |  1,525,611 |  2,980,266 |       0.51× |
+| `cleanPath`                      |  7,945,612 |  6,289,894 |       1.26× |
+| `resolvePath`                    |  3,362,085 |  4,024,584 |       0.84× |
+| `interpolatePath`                |  1,490,983 |  2,130,015 |       0.70× |
+| Route match (large tree)         |  1,934,010 | 20,633,624 |       0.09× |
+| Encode 100 typical SSR match IDs |     28,489 |     29,981 |       0.95× |
+| History `push`                   |  1,105,272 |  1,189,807 |       0.93× |
+| Warm `navigate`                  |    166,275 |     46,583 |       3.57× |
+| Warm `router.load`               |    186,323 |    171,826 |       1.08× |
+| **SSR cold `router.load` req/s** | **61,681** | **38,842** |   **1.59×** |
+| **`createRequestHandler` req/s** | **27,541** | **15,422** |   **1.79×** |
 
 `createRequestHandler` is the full server entry (normalize URL, attach SSR utils, load, dehydrate). Cold `router.load` is the match + loader path only.
+
+TanStack's query-string helpers use Node's native `URLSearchParams`, which wins the microbenches here. Earlier “17× `URLSearchParams`” numbers were against jsdom's polyfill in `pnpm bench`, not against TanStack on Node. The trie matcher in published `@tanstack/router-core` is also faster on a large static tree. This router is ahead on the full navigation and SSR request path: warm `navigate`, cold `load`, and `createRequestHandler`.
 
 ### Copied TanStack benches
 
@@ -143,12 +138,10 @@ Every **router-core** and **react-router** unit bench from TanStack Router is in
 
 TanStack's Nx Start apps (SSR/client-nav/memory/bundle-size for React/Vue/Solid) are not copied. They need `@tanstack/react-start`, generated route trees, and a built server bundle.
 
-Selected copied-bench results:
+`defaultStringifySearch` and SSR match-ID encode are in the comparison table above (those copied files still alias `@tanstack/*` to this repo). Closing-tag and Link numbers below are this implementation only; they are algorithm / React-render benches, not a second TanStack package run.
 
 | Bench                                       |         hz |
 | ------------------------------------------- | ---------: |
-| Stringify ordinary search (×1000)           |        893 |
-| Encode 100 typical SSR match IDs            |     31,039 |
 | Closing-tag scan, 13KB chunk (`charCodeAt`) | 12,823,515 |
 | Same chunk, regex                           |     59,388 |
 | Link, small router, hardcoded `<a href>`    |       12.8 |

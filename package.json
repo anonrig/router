@@ -15,7 +15,8 @@
     "test:tanstack-history": "vitest run --config vitest.tanstack.config.ts tests/tanstack-history",
     "bench": "vitest bench --run benches/hotpath.bench.ts benches/history.bench.ts benches/navigation.bench.ts benches/ssr-rps.bench.ts benches/tanstack/search-params.bench.ts benches/tanstack/ssr-match-id.bench.ts",
     "bench:all": "vitest bench --run benches",
-    "bench:rps": "vite-node scripts/bench-rps.ts",
+    "bench:rps": "vite-node --config scripts/bench-compare.config.ts scripts/bench-compare.ts",
+    "bench:compare": "vite-node --config scripts/bench-compare.config.ts scripts/bench-compare.ts",
     "typecheck": "tsc -b --pretty false",
     "test:types": "tsc -p tsconfig.types.json --pretty false && tsc -p tsconfig.types.core.json --pretty false",
     "lint": "oxlint",
@@ -24,7 +25,10 @@
     "fmt:check": "oxfmt --check"
   },
   "devDependencies": {
+    "@tanstack/history": "^1.162.1",
     "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-router": "^1.170.29",
+    "@tanstack/router-core": "^1.171.24",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.13.10",
