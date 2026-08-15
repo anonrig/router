@@ -18,7 +18,7 @@ export default defineConfig({
       'node_modules/**',
     ],
     benchmark: {
-      include: ['benches/**/*.bench.ts'],
+      include: ['benches/**/*.{bench,bench.ts,bench.tsx}', 'benches/**/*.bench.{ts,tsx}'],
     },
   },
 })

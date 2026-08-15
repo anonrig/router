@@ -13,7 +13,8 @@
     "tests/tanstack-history",
     "tests/tanstack-types",
     "tests/tanstack-core-types",
-    "benches"
+    "benches",
+    "scripts"
   ],
   "categories": {
     "correctness": "error",

@@ -85,4 +85,7 @@ describe('match', () => {
   bench('anonrig findRouteMatch large tree', () => {
     findRouteMatch(processed, needle)
   })
+  bench('anonrig findRouteMatch 1000 lookups', () => {
+    for (let i = 0; i < 1000; i++) findRouteMatch(processed, needle)
+  })
 })
