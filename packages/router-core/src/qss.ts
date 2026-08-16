@@ -8,6 +8,32 @@ import { encodeURIComponentWellFormed } from './utils'
  * a pre-sized string join.
  */
 
+function replaceCode(str: string, from: number, to: string): string {
+  const len = str.length
+  let out = ''
+  let last = 0
+  for (let i = 0; i < len; i++) {
+    if (str.charCodeAt(i) !== from) continue
+    out += str.slice(last, i) + to
+    last = i + 1
+  }
+  return last === 0 ? str : out + str.slice(last)
+}
+
+function replaceNeedle(str: string, needle: string, to: string): string {
+  let idx = str.indexOf(needle)
+  if (idx === -1) return str
+  let out = ''
+  let last = 0
+  const nlen = needle.length
+  while (idx !== -1) {
+    out += str.slice(last, idx) + to
+    last = idx + nlen
+    idx = str.indexOf(needle, last)
+  }
+  return out + str.slice(last)
+}
+
 function encodeString(str: string): string {
   const len = str.length
   let space = false
@@ -34,13 +60,13 @@ function encodeString(str: string): string {
     const hasClose = encoded.indexOf(')') !== -1
     if (!hasSpace && !hasOpen && !hasClose) return encoded
     let out = encoded
-    if (hasSpace) out = out.replaceAll('%20', '+')
-    if (hasOpen) out = out.replaceAll('(', '%28')
-    if (hasClose) out = out.replaceAll(')', '%29')
+    if (hasSpace) out = replaceNeedle(out, '%20', '+')
+    if (hasOpen) out = replaceCode(out, 40, '%28')
+    if (hasClose) out = replaceCode(out, 41, '%29')
     return out
   }
   if (!space) return str
-  return str.replaceAll(' ', '+')
+  return replaceCode(str, 32, '+')
 }
 
 function encodeComponent(str: string): string {
@@ -52,8 +78,8 @@ function decodeComponent(str: string): string {
   const plus = str.indexOf('+')
   const pct = str.indexOf('%')
   if (plus === -1 && pct === -1) return str
-  if (pct === -1) return str.replaceAll('+', ' ')
-  const input = (plus === -1 ? str : str.replaceAll('+', ' ')).toWellFormed()
+  if (pct === -1) return replaceCode(str, 43, ' ')
+  const input = (plus === -1 ? str : replaceCode(str, 43, ' ')).toWellFormed()
   try {
     return decodeURIComponent(input)
   } catch {
