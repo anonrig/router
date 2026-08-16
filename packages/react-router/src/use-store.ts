@@ -1,8 +1,14 @@
 import { useRef, useSyncExternalStore } from 'react'
+import { deepEqual } from '@anonrig/router-core'
 import type { Store } from '@anonrig/router-core'
 
 function defaultSelect<T, U>(state: T): U {
   return state as unknown as U
+}
+
+function snapshotEqual<U>(left: U, right: U, isEqual: (a: U, b: U) => boolean): boolean {
+  if (isEqual(left, right)) return true
+  return typeof left === 'object' && left !== null && deepEqual(left, right)
 }
 
 export function useStore<T, U = T>(
@@ -15,7 +21,7 @@ export function useStore<T, U = T>(
 
   const getSnapshot = () => {
     const next = select(store.get())
-    if (hasCache.current && isEqual(cache.current as U, next)) {
+    if (hasCache.current && snapshotEqual(cache.current as U, next, isEqual)) {
       return cache.current as U
     }
     cache.current = next

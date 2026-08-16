@@ -604,7 +604,11 @@ function isRouteAncestor(route: AnyRouteLike, of: AnyRouteLike): boolean {
   return !of.parentRoute
 }
 
-function toMatchResults(chain: AnyRouteLike[], params: Record<string, string>): RouteMatchResult[] {
+function toMatchResults(
+  chain: AnyRouteLike[],
+  params: Record<string, string>,
+  rawParams: Record<string, string> = params,
+): RouteMatchResult[] {
   const concrete = lastNonPathless(chain)
   const matches: RouteMatchResult[] = []
   for (let i = 0; i < chain.length; i++) {
@@ -620,7 +624,7 @@ function toMatchResults(chain: AnyRouteLike[], params: Record<string, string>): 
       }
     }
     if (seen) continue
-    matches.push({ route, params, rawParams: params })
+    matches.push({ route, params, rawParams })
   }
   return matches
 }
@@ -713,6 +717,7 @@ type WalkFrame = {
   node: SegmentNode
   index: number
   params: Record<string, string>
+  rawParams?: Record<string, string>
   chain: AnyRouteLike[]
   depth: number
   parsed: number
@@ -721,7 +726,8 @@ type WalkFrame = {
 }
 
 function applyParamsParse(frame: WalkFrame): boolean {
-  const params = Object.assign(Object.create(null), frame.params)
+  const rawParams = frame.rawParams ?? frame.params
+  const params = Object.assign(Object.create(null), rawParams)
   for (let i = 0; i < frame.chain.length; i++) {
     const route = frame.chain[i]!
     const parse = route.options?.params?.parse ?? route.options?.parseParams
@@ -734,6 +740,7 @@ function applyParamsParse(frame: WalkFrame): boolean {
       // thrown parsers do not skip the route
     }
   }
+  frame.rawParams = rawParams
   frame.params = params
   return true
 }
@@ -1171,12 +1178,15 @@ function findRouteMatchDynamic(
     }
   }
 
-  if (best) return toMatchResults(best.chain, best.params)
+  if (best) return toMatchResults(best.chain, best.params, best.rawParams ?? best.params)
   if (fuzzy && bestFuzzy !== null) {
     const leftover = decoded.slice((bestFuzzy as WalkFrame).index).join('/')
-    const params = Object.assign(Object.create(null), (bestFuzzy as WalkFrame).params)
-    params['**'] = leftover
-    return toMatchResults((bestFuzzy as WalkFrame).chain, params)
+    const rawParams = Object.assign(
+      Object.create(null),
+      (bestFuzzy as WalkFrame).rawParams ?? (bestFuzzy as WalkFrame).params,
+    )
+    rawParams['**'] = leftover
+    return toMatchResults((bestFuzzy as WalkFrame).chain, rawParams, rawParams)
   }
   return null
 }
