@@ -433,6 +433,11 @@ export function processRouteTree<T extends AnyRouteLike>(
 
   walk(routeTree, 0)
 
+  // Build the official segment tree from declared `children` before we rewrite
+  // those arrays from `parentRoute`. Some TanStack tests attach a route via
+  // `addChildren` on a different parent than `getParentRoute`.
+  const segmentTree = buildSegmentTree(routeTree, caseSensitive)
+
   const childLists = new Map<AnyRouteLike, AnyRouteLike[]>()
   for (let i = 0; i < flatRoutes.length; i++) {
     const route = flatRoutes[i]!
@@ -472,7 +477,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     routesByPath,
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
-    segmentTree: buildSegmentTree(routeTree, caseSensitive),
+    segmentTree,
     singleCache: createLRUCache<string, SegmentTreeNode>(1000),
     segmentMatchCache: createLRUCache<string, SegmentMatch | null>(1000),
     flatCache: null,
