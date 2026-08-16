@@ -1627,12 +1627,6 @@ export class BaseRoute<
   _warmLoad?: 0 | 1
   /** @internal Generated route stubs load options through `.lazy()`. */
   _lazyOptions?: boolean
-  /** @internal Parallel-route slot name when this route belongs to a slot tree. */
-  _slotName?: string
-  /** @internal True when this route is the root of a named slot tree. */
-  _slotRoot?: boolean
-  /** @internal Named slot roots attached to this route. */
-  _slots?: Record<string, AnyRoute>
   constructor(
     options?: RouteOptions<
       TRegister,

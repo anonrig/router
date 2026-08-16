@@ -45,7 +45,6 @@ import {
   validateSearch,
 } from './router-search'
 import { defaultParseSearch, defaultStringifySearch } from './search-params'
-import { slotRuntime } from './slot-runtime'
 import { createStore } from './store'
 import {
   createNonReactiveMutableStore,
@@ -365,12 +364,30 @@ const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 const RESOLVED: Promise<void> = Promise.resolve()
 let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 
+/** Registered only when `createSlotRoute` is imported. Short keys keep the default graph small. */
+type SlotRuntime = {
+  o: WeakSet<object>
+  s(routeTree: any): void
+  i(
+    routeTree: any,
+    routesById: Record<string, any>,
+    routesByPath: Record<string, any>,
+    caseSensitive: boolean,
+  ): boolean
+  m(router: any, location: any, matches: any[]): any[]
+  d(router: any, dest: any, current: any): any
+  a(router: any, dest: any, currentSearch: any, nextSearch: any): any
+  l(matches: any[]): any
+}
+
+let slotRuntime: SlotRuntime | undefined
+export function setSlotRuntime(runtime: SlotRuntime) {
+  slotRuntime ??= runtime
+}
+
 function lastMatch(matches: RouteMatch[] | undefined) {
   if (!matches?.length) return undefined
-  for (let i = matches.length - 1; i >= 0; i--) {
-    if (!matches[i]!.slot) return matches[i]
-  }
-  return matches[matches.length - 1]
+  return slotRuntime?.l?.(matches) ?? matches[matches.length - 1]
 }
 
 function collectSimpleParamKeys(path: string): string[] | null {
@@ -551,7 +568,6 @@ export class RouterCore<
   _tx?: any
   _flights?: ReturnType<typeof createStringMap<any>>
   _preloads?: Map<AbortController, any[]>
-  _hasSlots = false
   _refreshNextLoad?: boolean
   declare _replaceRouteChunk?: typeof replaceRouteChunk
   declare _refreshRoute?: () => Promise<void>
@@ -840,7 +856,7 @@ export class RouterCore<
 
     if (this.options.routeTree && this.options.routeTree !== prevTree) {
       this.routeTree = this.options.routeTree as TRouteTree
-      this.bindSlotTrees()
+      this.processRouteTree()
     }
     const notFoundRoute = this.options.notFoundRoute
     if (notFoundRoute && this.routesById) {
@@ -904,26 +920,32 @@ export class RouterCore<
 
   buildRouteTree() {
     if (!this.routeTree) return this
-    this.bindSlotTrees()
+    this.processRouteTree()
     this._hasSearchWork = !!this.processedTree.hasSearchWork
     return this
   }
 
-  private bindSlotTrees() {
-    slotRuntime?.split(this.routeTree)
+  private processRouteTree() {
+    const runtime = slotRuntime
+    runtime?.s(this.routeTree)
     this.processedTree = processRouteTree(
       this.routeTree as any,
       this.options.caseSensitive ?? false,
     )
     this.routesById = this.processedTree.routesById as any
     this.routesByPath = this.processedTree.routesByPath as any
-    this._hasSlots =
-      slotRuntime?.install(
-        this.routeTree,
-        this.routesById,
-        this.routesByPath,
-        this.options.caseSensitive ?? false,
-      ) ?? false
+    if (runtime) {
+      runtime.o[
+        runtime.i(
+          this.routeTree,
+          this.routesById,
+          this.routesByPath,
+          this.options.caseSensitive ?? false,
+        )
+          ? 'add'
+          : 'delete'
+      ](this)
+    }
   }
 
   parseLocation(locationToParse: HistoryLocation, previous?: ParsedLocation): ParsedLocation {
@@ -959,7 +981,7 @@ export class RouterCore<
   private executeBuildLocation(opts: NavigateOptions = {}): ParsedLocation {
     const current =
       opts._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
-    const dest = slotRuntime?.resolveDest(this, opts, current) ?? opts
+    const dest = slotRuntime?.d(this, opts, current) ?? opts
     const matches = this.stores?.matches?.get?.()?.length
       ? this.stores.matches.get()
       : this.state?.matches?.length
@@ -1115,8 +1137,7 @@ export class RouterCore<
       rest.hash == null &&
       rest.mask == null &&
       rest.from == null &&
-      rest.slots == null &&
-      !this._hasSlots &&
+      !slotRuntime?.o.has(this) &&
       !rest._isRedirect
     ) {
       return this.navigateHrefFast(href, rest)
@@ -1142,8 +1163,7 @@ export class RouterCore<
       rest.params !== true &&
       rest.params !== false &&
       typeof rest.params !== 'function' &&
-      rest.slots == null &&
-      !this._hasSlots
+      !slotRuntime?.o.has(this)
     ) {
       const fast = this.tryNavigateToFast(to, rest)
       if (fast) return fast
@@ -1464,7 +1484,7 @@ export class RouterCore<
 
   private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
     if (this._forcePending || this._handoff || this._tx || this._refreshNextLoad) return false
-    if (this.subscribers.size || this.options.hydrate || this._hasSlots) return false
+    if (this.subscribers.size || this.options.hydrate || slotRuntime?.o.has(this)) return false
 
     const cacheKey = location.searchStr
       ? `${location.pathname}\0${location.searchStr}`
@@ -1848,12 +1868,15 @@ export class RouterCore<
             opts,
           )
         : this.matchRoutesInternal(pathnameOrNext, locationSearchOrOpts)
-    if (!this._hasSlots || !slotRuntime) return matches
-    const location =
+    const runtime = slotRuntime
+    if (!runtime?.o.has(this)) return matches
+    return runtime.m(
+      this,
       typeof pathnameOrNext === 'string'
         ? ({ pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation)
-        : pathnameOrNext
-    return slotRuntime.match(this, location, matches)
+        : pathnameOrNext,
+      matches,
+    )
   }
 
   private matchRoutesInternal(next: ParsedLocation, opts?: any): RouteMatch[] {
@@ -2273,9 +2296,9 @@ function resolveBuildSearch(
         // matchRoutes reports the error
       }
     }
-    return slotRuntime?.applySearch(router, dest, currentSearch, validatedSearch) ?? validatedSearch
+    nextSearch = validatedSearch
   }
-  return slotRuntime?.applySearch(router, dest, currentSearch, nextSearch) ?? nextSearch
+  return slotRuntime?.a(router, dest, currentSearch, nextSearch) ?? nextSearch
 }
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {

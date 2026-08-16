@@ -2,7 +2,7 @@ import { findRouteMatchFromTree, processRouteTree, type ProcessedTree } from './
 import { interpolatePath, trimPathRight } from './path'
 import { BaseRoute } from './route'
 import { validateSearch } from './router-search'
-import { setSlotRuntime } from './slot-runtime'
+import { setSlotRuntime } from './router'
 import { functionalUpdate } from './utils'
 import type { AnyRoute } from './route'
 import type { ParsedLocation } from './location'
@@ -353,11 +353,31 @@ export function appendSlotMatches(
   for (let i = 0; i < mainMatches.length; i++) {
     consider(mainMatches[i]!.route as SlotRoute, mainMatches[i], [])
   }
-  return extra.length ? mainMatches.concat(extra) : mainMatches
+  if (!extra.length) return mainMatches
+  const out: AnyRouteMatch[] = []
+  const flush = (parentId: string | undefined) => {
+    for (let i = 0; i < extra.length; i++) {
+      const match = extra[i]!
+      if (match.slotParentId !== parentId) continue
+      out.push(match)
+      flush(match.routeId)
+    }
+  }
+  for (let i = 0; i < mainMatches.length; i++) {
+    const match = mainMatches[i]!
+    out.push(match)
+    flush(match.routeId)
+  }
+  return out
 }
 
-function resolveSlotNavigateDest(router: any, dest: any, current: ParsedLocation | undefined) {
-  if (!router._hasSlots) return dest
+function resolveSlotNavigateDest(
+  router: any,
+  dest: any,
+  current: ParsedLocation | undefined,
+  on: WeakSet<object>,
+) {
+  if (!on.has(router)) return dest
   const qualified = typeof dest.to === 'string' ? parseQualifiedSlotTo(dest.to) : undefined
   if (!qualified && dest.slots == null) return dest
   return {
@@ -380,8 +400,9 @@ function applySlotSearchUpdates(
   dest: any,
   currentSearch: Record<string, any>,
   nextSearch: Record<string, any>,
+  on: WeakSet<object>,
 ) {
-  if (!router._hasSlots) return nextSearch
+  if (!on.has(router)) return nextSearch
   const prefix = router.options.slotPrefix ?? '@'
   const result = retainSlotSearch(currentSearch, { ...nextSearch }, prefix)
   const nav = dest._slotNav
@@ -423,13 +444,27 @@ export function listParentSlots(
   return infos
 }
 
+function lastNonSlotMatch(matches: any[]) {
+  for (let i = matches.length - 1; i >= 0; i--) {
+    if (!matches[i].slot) return matches[i]
+  }
+  return matches[matches.length - 1]
+}
+
+let slotRuntimeInstalled = false
 function ensureSlotRuntime() {
+  if (slotRuntimeInstalled) return
+  slotRuntimeInstalled = true
+  const on = new WeakSet<object>()
   setSlotRuntime({
-    split: splitSlotChildren,
-    install: installSlotTrees,
-    match: appendSlotMatches,
-    resolveDest: resolveSlotNavigateDest,
-    applySearch: applySlotSearchUpdates,
+    o: on,
+    s: splitSlotChildren,
+    i: installSlotTrees,
+    m: appendSlotMatches,
+    d: (router, dest, current) => resolveSlotNavigateDest(router, dest, current, on),
+    a: (router, dest, currentSearch, nextSearch) =>
+      applySlotSearchUpdates(router, dest, currentSearch, nextSearch, on),
+    l: lastNonSlotMatch,
   })
 }
 

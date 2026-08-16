@@ -200,13 +200,20 @@ export const MatchInner = memo(function MatchInnerImpl({ match }: { match: AnyRo
   return out
 })
 
-export const Outlet = memo(function OutletImpl({
-  slot,
-  fallback = null,
-}: {
-  slot?: string
-  fallback?: ReactNode
-} = {}) {
+let outletSlot:
+  | ((
+      matches: AnyRouteMatch[],
+      parentIndex: number,
+      routeId: string,
+      props?: { slot?: string; fallback?: ReactNode },
+    ) => { id?: string; e?: ReactNode })
+  | undefined
+
+export function setOutletSlot(fn: NonNullable<typeof outletSlot>) {
+  outletSlot ??= fn
+}
+
+export const Outlet = memo(function OutletImpl(props?: { slot?: string; fallback?: ReactNode }) {
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const nonRouteComponent = useContext(nonRouteComponentContext!)
@@ -229,19 +236,14 @@ export const Outlet = memo(function OutletImpl({
   const parentMatch = matches[parentIndex]
   const parentGlobalNotFound = !!parentMatch?._notFound
   const parentNotFoundError = parentMatch?.error
-  const childRouteId = slot
-    ? matches.find((item: AnyRouteMatch) => item.slot === slot && item.slotParentId === routeId)
-        ?.routeId
-    : parentMatch?.slot
-      ? matches.slice(parentIndex + 1).find((item: AnyRouteMatch) => item.slot === parentMatch.slot)
-          ?.routeId
-      : matches.slice(parentIndex + 1).find((item: AnyRouteMatch) => !item.slot)?.routeId
+  const slotted = outletSlot?.(matches, parentIndex, routeId, props)
+  const childRouteId = slotted ? slotted.id : matches[parentIndex + 1]?.routeId
 
   if (parentGlobalNotFound) {
     return renderRouteNotFound(router, router.routesById[routeId]!, parentNotFoundError)
   }
 
-  if (!childRouteId) return slot ? fallback : null
+  if (!childRouteId) return slotted?.e ?? null
 
   const nextMatch = <Match routeId={childRouteId} />
   if (routeId === rootRouteId) {

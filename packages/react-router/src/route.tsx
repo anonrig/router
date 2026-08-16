@@ -288,7 +288,7 @@ export class Route<
 
   Outlet = Outlet
 
-  Slots!: (props: { children: (slots: any[]) => React.ReactNode }) => React.ReactNode
+  declare Slots: (props: { children: (slots: any[]) => React.ReactNode }) => React.ReactNode
 }
 
 /**

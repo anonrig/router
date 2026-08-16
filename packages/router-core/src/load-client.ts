@@ -343,12 +343,7 @@ async function contextualize(
     match.abortController = options[0 /* controller */]
     // Contextualization is serial, so the previous match already contains the
     // complete parent context for this route.
-    const parentContext =
-      (match.slotParentId
-        ? matches.find((candidate) => candidate.routeId === match.slotParentId)?.context
-        : matches[index - 1]?.context) ??
-      router.options.context ??
-      {}
+    const parentContext = matches[index - 1]?.context ?? router.options.context ?? {}
     const common = {
       params: match.params,
       location,

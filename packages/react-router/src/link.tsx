@@ -44,7 +44,7 @@ const STATIC_ACTIVE_OBJECT = { className: 'active' }
 const STATIC_DISABLED_PROPS = { role: 'link', 'aria-disabled': true }
 const STATIC_ACTIVE_PROPS = { 'data-status': 'active', 'aria-current': 'page' }
 
-const INTERNAL_LINK_KEYS = new Set([
+export const INTERNAL_LINK_KEYS = new Set([
   'to',
   'from',
   'params',
@@ -69,7 +69,6 @@ const INTERNAL_LINK_KEYS = new Set([
   'ignoreBlocker',
   'children',
   'href',
-  'slots',
 ])
 
 function resolveIsActive(
