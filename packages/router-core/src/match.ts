@@ -377,6 +377,11 @@ export type ProcessedTree = {
   /** One-entry last hit (find-my-way `_treeGET`: fixed-offset, not a map). */
   lastPath?: string
   lastMatch?: RouteMatchResult[] | null
+  /** Cached getMatchedRoutes tuples keyed by trimmed pathname. */
+  matchedRoutesCache?: Map<
+    string,
+    readonly [AnyRouteLike[], Record<string, any>, AnyRouteLike | undefined]
+  >
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -525,6 +530,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
     hasDynamic: nodeHasDynamic(root),
+    matchedRoutesCache: new Map(),
   }
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
   const result = { ...processedTree, processedTree }

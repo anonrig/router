@@ -132,7 +132,10 @@ export function createRequestHandler<TRouter extends AnyRouter>({
         return result.redirect
       }
 
-      await waitForRequest(router.serverSsr?.dehydrate(), request.signal)
+      const dehydrated = router.serverSsr?.dehydrate()
+      if (dehydrated != null) {
+        await waitForRequest(dehydrated, request.signal)
+      }
       request.signal.throwIfAborted()
 
       const responseHeaders = getRequestHeaders({

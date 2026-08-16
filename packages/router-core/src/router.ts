@@ -367,6 +367,21 @@ export { SearchParamError, PathParamError }
 
 let tempLocationKeySeq = 0
 
+const noopAbortController = {
+  signal: {
+    aborted: false,
+    reason: undefined,
+    onabort: null,
+    throwIfAborted() {},
+    addEventListener() {},
+    removeEventListener() {},
+    dispatchEvent() {
+      return false
+    },
+  },
+  abort() {},
+} as unknown as AbortController
+
 export class RouterCore<
   TRouteTree extends AnyRoute = AnyRoute,
   TTrailingSlashOption extends TrailingSlashOption = 'never',
@@ -1365,26 +1380,29 @@ export class RouterCore<
 
   getMatchedRoutes(pathname: string) {
     const path = trimPathRight(pathname || '/')
+    const cache = this.processedTree.matchedRoutesCache
+    const cached = cache?.get(path)
+    if (cached) return cached
+
     const exact = findRouteMatchFromTree(
       this.processedTree,
       path,
       this.options.caseSensitive ?? false,
     )
+    let result: readonly [any[], Record<string, any>, any]
     if (exact?.length) {
       const last = exact[exact.length - 1]!
       const branch = new Array(exact.length)
       for (let i = 0; i < exact.length; i++) branch[i] = exact[i]!.route
-      return [branch, last.rawParams, last.route] as const
+      result = [branch, last.rawParams, last.route]
+    } else {
+      const match = findRouteMatch(path, this.processedTree, true)
+      result = match
+        ? [match.branch || [this.routesById[rootRouteId]!], match.rawParams, match.route]
+        : [[this.routesById[rootRouteId]!], Object.create(null), undefined]
     }
-    const match = findRouteMatch(path, this.processedTree, true)
-    if (match) {
-      return [
-        match.branch || [this.routesById[rootRouteId]!],
-        match.rawParams,
-        match.route,
-      ] as const
-    }
-    return [[this.routesById[rootRouteId]!], Object.create(null), undefined] as const
+    cache?.set(path, result)
+    return result
   }
 
   resolveRedirect(redirect: AnyRedirect): AnyRedirect {
@@ -1573,6 +1591,7 @@ export class RouterCore<
       }
 
       const cause = previousMatch ? 'stay' : 'enter'
+      const needsLoad = routeNeedsLoad(route)
       let match: RouteMatch
       if (existingMatch) {
         match = {
@@ -1595,7 +1614,7 @@ export class RouterCore<
           rawParams,
           _strictParams: strictParams,
           _strictSearch: preMatchSearch,
-          status: routeNeedsLoad(route) ? 'pending' : 'success',
+          status: needsLoad ? 'pending' : 'success',
           isFetching: false,
           error: undefined,
           context: {},
@@ -1605,7 +1624,8 @@ export class RouterCore<
           searchError,
           paramsError,
           updatedAt: Date.now(),
-          abortController: opts?._controller ?? new AbortController(),
+          abortController:
+            opts?._controller ?? (needsLoad ? new AbortController() : noopAbortController),
           cause,
           loaderDeps: previousMatch
             ? replaceEqualDeep(previousMatch.loaderDeps, loaderDeps)

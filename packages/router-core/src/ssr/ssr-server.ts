@@ -466,7 +466,7 @@ export function attachRouterServerSsrUtils({
       const html = `<script${router.options.ssr?.nonce ? ` nonce='${router.options.ssr.nonce}'` : ''}>${script}</script>`
       serverSsr.injectHtml(html)
     },
-    dehydrate: async (opts?: { requestAssets?: ManifestRouteAssets }) => {
+    dehydrate: (opts?: { requestAssets?: ManifestRouteAssets }) => {
       if (_dehydrated) {
         if (process.env.NODE_ENV !== 'production') {
           throw new Error('Invariant failed: router is already dehydrated!')
@@ -480,7 +480,10 @@ export function attachRouterServerSsrUtils({
         // In SPA mode we only want to dehydrate the root match
         matchesToDehydrate = matchesToDehydrate.slice(0, 1)
       }
-      const matches = matchesToDehydrate.map(dehydrateMatch)
+      const matches = new Array(matchesToDehydrate.length)
+      for (let i = 0; i < matchesToDehydrate.length; i++) {
+        matches[i] = dehydrateMatch(matchesToDehydrate[i]!)
+      }
 
       let manifestToDehydrate: Manifest | undefined = undefined
       // Only currently matched routes are dehydrated. Other route assets are
@@ -515,75 +518,83 @@ export function attachRouterServerSsrUtils({
         manifest: manifestToDehydrate,
         matches,
       }
-      const dehydratedData = await router.options.dehydrate?.()
-      if (cleanupStarted) {
-        return
-      }
-      if (dehydratedData) {
-        dehydratedRouter.dehydratedData = dehydratedData
-      }
-      _dehydrated = true
 
-      const trackPlugins = { didRun: false }
-      const serializationAdapters = router.options.serializationAdapters as
-        | Array<AnySerializationAdapter>
-        | undefined
-      const plugins = serializationAdapters
-        ? serializationAdapters
-            .map((t) => makeSsrSerovalPlugin(t, trackPlugins))
-            .concat(defaultSerovalPlugins)
-        : defaultSerovalPlugins
+      const finish = (dehydratedData?: unknown) => {
+        if (cleanupStarted) {
+          return
+        }
+        if (dehydratedData) {
+          dehydratedRouter.dehydratedData = dehydratedData
+        }
+        _dehydrated = true
 
-      let serializationCompleteSignaled = false
-      const signalSerializationComplete = () => {
-        if (serializationCompleteSignaled || cleanupStarted) return
-        serializationCompleteSignaled = true
-        _serializationFinished = true
+        const trackPlugins = { didRun: false }
+        const serializationAdapters = router.options.serializationAdapters as
+          | Array<AnySerializationAdapter>
+          | undefined
+        const plugins = serializationAdapters
+          ? serializationAdapters
+              .map((t) => makeSsrSerovalPlugin(t, trackPlugins))
+              .concat(defaultSerovalPlugins)
+          : defaultSerovalPlugins
 
-        const listeners = serializationFinishedListeners.slice()
-        serializationFinishedListeners.length = 0
+        let serializationCompleteSignaled = false
+        const signalSerializationComplete = () => {
+          if (serializationCompleteSignaled || cleanupStarted) return
+          serializationCompleteSignaled = true
+          _serializationFinished = true
 
-        for (const l of listeners) {
-          try {
-            l()
-          } catch (err) {
-            console.error('Serialization listener error:', err)
+          const listeners = serializationFinishedListeners.slice()
+          serializationFinishedListeners.length = 0
+
+          for (const l of listeners) {
+            try {
+              l()
+            } catch (err) {
+              console.error('Serialization listener error:', err)
+            }
           }
         }
+
+        const finishScriptSerialization = () => {
+          if (serializationCompleteSignaled || cleanupStarted) return
+          scriptBuffer.enqueue(GLOBAL_TSR + '.e()')
+          // Must synchronously notify injected HTML listeners before signaling
+          // completion; otherwise the held </body> tail could flush ahead of the
+          // end script.
+          scriptBuffer.flush()
+          signalSerializationComplete()
+        }
+
+        crossSerializeStream(dehydratedRouter, {
+          refs: new Map(),
+          plugins,
+          onSerialize: (data, initial) => {
+            let serialized = initial ? TSR_PREFIX + data : data
+            if (trackPlugins.didRun) {
+              serialized = P_PREFIX + serialized + P_SUFFIX
+            }
+            scriptBuffer.enqueue(serialized)
+          },
+          onError: (err: unknown) => {
+            console.error('Serialization error:', err)
+            if (err && (err as any).stack) {
+              console.error((err as any).stack)
+            }
+            finishScriptSerialization()
+          },
+          scopeId: SCOPE_ID,
+          onDone: () => {
+            finishScriptSerialization()
+          },
+        })
       }
 
-      const finishScriptSerialization = () => {
-        if (serializationCompleteSignaled || cleanupStarted) return
-        scriptBuffer.enqueue(GLOBAL_TSR + '.e()')
-        // Must synchronously notify injected HTML listeners before signaling
-        // completion; otherwise the held </body> tail could flush ahead of the
-        // end script.
-        scriptBuffer.flush()
-        signalSerializationComplete()
+      const extra = router.options.dehydrate?.()
+      if (extra != null && typeof (extra as Promise<unknown>).then === 'function') {
+        return (extra as Promise<unknown>).then(finish)
       }
-
-      crossSerializeStream(dehydratedRouter, {
-        refs: new Map(),
-        plugins,
-        onSerialize: (data, initial) => {
-          let serialized = initial ? TSR_PREFIX + data : data
-          if (trackPlugins.didRun) {
-            serialized = P_PREFIX + serialized + P_SUFFIX
-          }
-          scriptBuffer.enqueue(serialized)
-        },
-        onError: (err: unknown) => {
-          console.error('Serialization error:', err)
-          if (err && (err as any).stack) {
-            console.error((err as any).stack)
-          }
-          finishScriptSerialization()
-        },
-        scopeId: SCOPE_ID,
-        onDone: () => {
-          finishScriptSerialization()
-        },
-      })
+      finish(extra)
     },
     isDehydrated() {
       return _dehydrated
@@ -733,38 +744,31 @@ export function getOrigin(request: Request) {
 // Another anomaly is that in Node new URLSearchParams and new URL also decode/encode characters differently.
 // new URLSearchParams() encodes "|" while new URL() does not, and in this instance
 // chromium treats search params differently than paths, i.e. "|" is not encoded in search params.
-const normalizedUrlCache = new Map<string, { url: URL; handledProtocolRelativeURL: boolean }>()
-const NORMALIZED_URL_CACHE_MAX = 16
-
 export function getNormalizedURL(url: string | URL, base?: string | URL) {
-  const cacheKey =
-    typeof url === 'string' && (base === undefined || typeof base === 'string')
-      ? (base ?? '') + '\0' + url
-      : undefined
-  if (cacheKey) {
-    const cached = normalizedUrlCache.get(cacheKey)
-    if (cached) return cached
+  // ensure backslashes are encoded correctly in the URL
+  if (typeof url === 'string') {
+    if (url.indexOf('\\') !== -1) url = url.replace('\\', '%5C')
   }
 
-  // ensure backslashes are encoded correctly in the URL
-  if (typeof url === 'string') url = url.replace('\\', '%5C')
-
   const rawUrl = new URL(url, base)
-  const { path: decodedPathname, handledProtocolRelativeURL } = decodePath(rawUrl.pathname)
+  const pathname = rawUrl.pathname
+  if (
+    !rawUrl.search &&
+    !rawUrl.hash &&
+    pathname.charCodeAt(0) === 47 &&
+    pathname.charCodeAt(1) !== 47 &&
+    pathname.indexOf('%') === -1
+  ) {
+    return { url: rawUrl, handledProtocolRelativeURL: false }
+  }
+
+  const { path: decodedPathname, handledProtocolRelativeURL } = decodePath(pathname)
   const searchParams = new URLSearchParams(rawUrl.search)
   const normalizedHref =
     decodedPathname + (searchParams.size > 0 ? '?' : '') + searchParams.toString() + rawUrl.hash
 
-  const result = {
+  return {
     url: new URL(normalizedHref, rawUrl.origin),
     handledProtocolRelativeURL,
   }
-  if (cacheKey) {
-    if (normalizedUrlCache.size >= NORMALIZED_URL_CACHE_MAX) {
-      const first = normalizedUrlCache.keys().next().value
-      if (first !== undefined) normalizedUrlCache.delete(first)
-    }
-    normalizedUrlCache.set(cacheKey, result)
-  }
-  return result
 }
