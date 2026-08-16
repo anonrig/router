@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { Suspense, useState, type ReactNode } from 'react'
 import {
   rootRouteId,
   type AnyRouter,
@@ -13,9 +13,13 @@ import {
   type ResolveRoute,
   type ToSubOptionsProps,
 } from '@anonrig/router-core'
+import { isServer } from '@anonrig/router-core/is-server'
 import { CatchBoundary } from './catch-boundary'
-import { Match } from './match'
-import { Transitioner } from './transitioner'
+import { Match, renderPending } from './match'
+import { matchContext } from './match-context'
+import { SafeFragment } from './safe-fragment'
+import { settleOwner, Transitioner } from './transitioner'
+import { useLayoutEffect } from './utils'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import { useMatch } from './use-match'
@@ -24,44 +28,70 @@ import type { StructuralSharingOption, ValidateSelected } from './structural-sha
 
 export function Matches() {
   const router = useRouter()
+  const rootRoute = router.routesById[rootRouteId]
+  const pendingElement = renderPending(router, rootRoute)
+  const ResolvedSuspense = (isServer ?? router.isServer) || router.ssr ? SafeFragment : Suspense
+  const setRouter = useState<AnyRouter>()[1]
 
-  useEffect(() => {
-    void router.load()
-  }, [router])
-
-  const ready = useRouterState({
-    select: (s) => s.matches.length > 0 || !!s.pendingMatches?.length,
-  })
-  const resetKey = useRouterState({
-    select: (s) => s.matches[0]?.id ?? s.location?.href,
-  })
-
-  if (!ready) {
-    const Pending = router.options.defaultPendingComponent
-    return (
-      <>
-        <Transitioner />
-        {Pending ? <Pending /> : null}
-      </>
-    )
-  }
   const inner = (
     <>
-      <Transitioner />
-      <Match routeId={rootRouteId} />
+      {!(isServer ?? router.isServer) && <Transitioner t={setRouter} />}
+      <ResolvedSuspense fallback={pendingElement}>
+        <MatchesInner />
+      </ResolvedSuspense>
     </>
   )
-  const wrapped = router.options.disableGlobalCatchBoundary ? (
-    inner
-  ) : (
-    <CatchBoundary getResetKey={() => resetKey} onCatch={router.options.defaultOnCatch}>
-      {inner}
-    </CatchBoundary>
-  )
+
   return router.options.InnerWrap ? (
-    <router.options.InnerWrap>{wrapped}</router.options.InnerWrap>
+    <router.options.InnerWrap>{inner}</router.options.InnerWrap>
   ) : (
-    wrapped
+    inner
+  )
+}
+
+function MatchesInner() {
+  const router = useRouter()
+  const acknowledgement = (router._rendered ??= [])
+  const matches =
+    (isServer ?? router.isServer)
+      ? router.stores.matches.get()
+      : // eslint-disable-next-line react-hooks/rules-of-hooks
+        useRouterState({
+          select: (state) => acknowledgement[0 /* offered */] ?? state.matches,
+        })
+  const match = matches[0]
+  const routeId = match?.routeId
+
+  useLayoutEffect(() => {
+    if (acknowledgement[0 /* offered */] === matches) {
+      settleOwner(acknowledgement, true)
+    }
+  }, [acknowledgement, matches])
+
+  const matchComponent = routeId ? <Match routeId={routeId} /> : null
+
+  return (
+    <matchContext.Provider value={routeId}>
+      {router.options.disableGlobalCatchBoundary ? (
+        matchComponent
+      ) : (
+        <CatchBoundary
+          getResetKey={() => match}
+          onCatch={
+            process.env.NODE_ENV !== 'production'
+              ? (error) => {
+                  console.warn(
+                    `Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!`,
+                  )
+                  console.warn(`Warning: ${error.message || error.toString()}`)
+                }
+              : undefined
+          }
+        >
+          {matchComponent}
+        </CatchBoundary>
+      )}
+    </matchContext.Provider>
   )
 }
 

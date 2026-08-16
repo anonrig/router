@@ -1,8 +1,8 @@
-import { useStore } from '@tanstack/react-store'
 import { _getAssetMatches, deepEqual } from '@anonrig/router-core'
 import { isServer } from '@anonrig/router-core/is-server'
 import { Asset } from './asset'
 import { useRouter } from './use-router'
+import { useStore } from './react-store'
 import type { RouterManagedTag } from '@anonrig/router-core'
 
 type ScriptRenderAsset = RouterManagedTag & {
@@ -66,8 +66,10 @@ export const Scripts = () => {
     return renderScripts(router, scripts)
   }
 
+  // `stores.matches` is a non-reactive derived view. Subscribe to the
+  // compatibility state store, which notifies after `setMatches`.
   // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static
-  const scripts = useStore(router.stores.matches, getScripts, deepEqual)
+  const scripts = useStore(router.stores.state, (state) => getScripts(state.matches), deepEqual)
 
   return renderScripts(router, scripts)
 }

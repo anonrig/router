@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useStore } from '@tanstack/react-store'
+import { useStore } from './react-store'
 import {
   _getAssetMatches,
   appendUniqueUserTags,
@@ -199,6 +199,8 @@ export const useTags = (assetCrossOrigin?: AssetCrossOriginConfig) => {
       buildTagsFromMatches(router, nonce, matches, assetCrossOrigin),
     [assetCrossOrigin, nonce, router],
   )
+  // `stores.matches` is a non-reactive derived view. Subscribe to the
+  // compatibility state store, which notifies after `setMatches`.
   // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static
-  return useStore(router.stores.matches, selectTags, deepEqual)
+  return useStore(router.stores.state, (state) => selectTags(state.matches), deepEqual)
 }

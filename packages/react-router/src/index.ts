@@ -267,7 +267,7 @@ export {
 } from './matches'
 export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './matches'
 
-export { Match, Outlet } from './match'
+export { Match, MatchInner, Outlet, renderPending } from './match'
 
 export { useMatch } from './use-match'
 export { useLoaderDeps } from './use-loader-deps'

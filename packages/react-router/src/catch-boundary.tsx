@@ -11,7 +11,7 @@ export function ErrorComponent({ error }: { error: unknown; reset?: () => void; 
 
 export class CatchBoundary extends Component<
   {
-    getResetKey?: () => string
+    getResetKey?: () => unknown
     errorComponent?: any
     onCatch?: (error: Error, info: ErrorInfo) => void
     children: ReactNode
