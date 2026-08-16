@@ -482,6 +482,33 @@ export class RouterCore<
     const config = defaultGetStoreConfig()
     const stores = createRouterStores(location, config)
     const setMatches = stores.setMatches.bind(stores)
+    if (isServer ?? this.isServer) {
+      this.batch = config.batch
+      const state = createStore<RouterState>({
+        status: 'pending',
+        isLoading: true,
+        isTransitioning: false,
+        matches: [],
+        location,
+        resolvedLocation: undefined,
+        statusCode: 200,
+      })
+      return Object.assign(stores, {
+        state,
+        setMatches: (nextMatches: any[]) => {
+          setMatches(nextMatches)
+          const current = state.get()
+          if (current) {
+            state.set({
+              ...current,
+              matches: nextMatches,
+              status: stores.status.get(),
+              isLoading: stores.status.get() === 'pending',
+            })
+          }
+        },
+      })
+    }
     let batchDepth = 0
     let pendingNotify: (() => void) | undefined
     const scheduleStateNotify = (notify: () => void) => {
