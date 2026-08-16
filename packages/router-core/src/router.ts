@@ -467,6 +467,18 @@ export class RouterCore<
       resolvedLocation: undefined,
       statusCode: 200,
     })
+    const locationStore = stores.location
+    const setLocation = locationStore.set.bind(locationStore)
+    locationStore.set = ((next: any) => {
+      setLocation(next)
+      const current = state.get()
+      if (current && current.location !== locationStore.get()) {
+        state.set({
+          ...current,
+          location: locationStore.get(),
+        })
+      }
+    }) as typeof locationStore.set
     return Object.assign(stores, {
       state,
       setMatches: (nextMatches: any[]) => {
@@ -476,6 +488,8 @@ export class RouterCore<
           state.set({
             ...current,
             matches: nextMatches,
+            location: locationStore.get(),
+            resolvedLocation: stores.resolvedLocation.get(),
             status: stores.status.get(),
             isLoading: stores.status.get() === 'pending',
           })
@@ -664,6 +678,18 @@ export class RouterCore<
     return this
   }
 
+  buildRouteTree() {
+    if (!this.routeTree) return this
+    this.processedTree = processRouteTree(
+      this.routeTree as any,
+      this.options.caseSensitive ?? false,
+    )
+    this.routesById = this.processedTree.routesById as any
+    this.routesByPath = this.processedTree.routesByPath as any
+    this._hasSearchWork = !!this.processedTree.hasSearchWork
+    return this
+  }
+
   parseLocation(locationToParse: HistoryLocation, previous?: ParsedLocation): ParsedLocation {
     const parseSearch = this.options.parseSearch ?? defaultParseSearch
     const stringifySearch = this.options.stringifySearch ?? defaultStringifySearch
@@ -698,7 +724,12 @@ export class RouterCore<
     const dest = opts
     const current =
       dest._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
-    const currentMatch = lastMatch(this.state?.matches)
+    const matches = this.stores?.matches?.get?.()?.length
+      ? this.stores.matches.get()
+      : this.state?.matches?.length
+        ? this.state.matches
+        : this._committed
+    const currentMatch = lastMatch(matches)
     const { resolved, destRouteHint } = resolveBuildPath(this, dest, current, currentMatch)
     const nextSearch = resolveBuildSearch(this, dest, current, resolved)
     const searchStr = (this.options.stringifySearch ?? defaultStringifySearch)(
@@ -2054,11 +2085,17 @@ function resolveBuildPath(
   }
   if (typeof to !== 'string') to = current?.pathname ?? '/'
 
-  const currentParams = currentMatch?.params ?? EMPTY_OBJ
-  const nextParams =
-    dest.params === true || dest.params === undefined
-      ? currentParams
-      : functionalUpdate(dest.params, currentParams)
+  const currentParams = Object.assign(Object.create(null), currentMatch?.params ?? EMPTY_OBJ)
+  if (!hasOwnParams(currentParams) && current?.pathname && router.processedTree) {
+    const found = findRouteMatch(
+      router.processedTree,
+      current.pathname,
+      router.options.caseSensitive ?? false,
+    )
+    const foundParams = found?.[found.length - 1]?.params
+    if (foundParams) Object.assign(currentParams, foundParams)
+  }
+  const nextParams = resolveNextParams(dest.params, currentParams)
 
   const destRouteHint =
     typeof to === 'string' ? router.routesByPath?.[trimPathRight(to)] : undefined
@@ -2267,12 +2304,14 @@ function parseHistoryLocation(
   if (!router.rewrite && isPlainAsciiPath(location.pathname)) {
     const hash = location.hash
     const hashValue = !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
+    const pathname = decodePath(location.pathname).path
+    const encodedPath = encodePathLikeUrl(pathname)
     if (!location.search && parseSearch === defaultParseSearch) {
-      const href = hash ? location.pathname + hash : location.pathname
+      const href = hash ? encodedPath + hash : encodedPath
       return {
         href,
         publicHref: href,
-        pathname: location.pathname,
+        pathname,
         external: false,
         searchStr: '',
         search: Object.create(null),
@@ -2283,9 +2322,9 @@ function parseHistoryLocation(
     const parsedSearch = parseSearch(location.search)
     const searchStr = stringifySearch(parsedSearch)
     return {
-      href: location.pathname + searchStr + hash,
-      publicHref: location.pathname + searchStr + hash,
-      pathname: location.pathname,
+      href: encodedPath + searchStr + hash,
+      publicHref: encodedPath + searchStr + hash,
+      pathname,
       external: false,
       searchStr,
       search: nullReplaceEqualDeep(previous?.search, parsedSearch),
@@ -2297,16 +2336,17 @@ function parseHistoryLocation(
   const url = executeRewriteInput(router.rewrite, fullUrl)
   const parsedSearch = parseSearch(url.search)
   const searchStr = stringifySearch(parsedSearch)
-  url.search = searchStr
-  const fullPath = url.href.replace(url.origin, '')
+  const pathname = decodePath(url.pathname).path
+  const hashValue = decodePath(url.hash.replace(/^#/, '')).path
+  const href = encodePathLikeUrl(pathname) + searchStr + (hashValue ? `#${hashValue}` : '')
   return {
-    href: fullPath,
-    publicHref: location.href,
-    pathname: decodePath(url.pathname).path,
+    href,
+    publicHref: href,
+    pathname,
     external: !!router.rewrite && url.origin !== router.origin,
     searchStr,
     search: nullReplaceEqualDeep(previous?.search, parsedSearch),
-    hash: decodePath(url.hash.replace(/^#/, '')).path,
+    hash: hashValue,
     state: replaceEqualDeep(previous?.state, location.state),
   }
 }
@@ -2331,6 +2371,11 @@ function rememberWarmMatches(
     if (first !== undefined) cache.delete(first)
   }
   cache.set(key, matches)
+}
+
+function hasOwnParams(params: Record<string, unknown>) {
+  for (const _key in params) return true
+  return false
 }
 
 function resolveNextParams(spec: unknown, base: Record<string, unknown>): Record<string, unknown> {

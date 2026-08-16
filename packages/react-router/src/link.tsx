@@ -11,11 +11,17 @@ import {
   type ReactNode,
   type TouchEvent,
 } from 'react'
-import { exactPathTest, preloadWarning } from '@anonrig/router-core'
+import {
+  deepEqual,
+  exactPathTest,
+  functionalUpdate,
+  preloadWarning,
+  removeTrailingSlash,
+} from '@anonrig/router-core'
 import { useIntersectionObserver } from './utils'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
-import type { ActiveOptions, NavigateOptions } from '@anonrig/router-core'
+import type { ActiveOptions, NavigateOptions, ParsedLocation } from '@anonrig/router-core'
 
 export type LinkProps = NavigateOptions &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
@@ -34,6 +40,78 @@ export type LinkProps = NavigateOptions &
     children?: ReactNode | ((state: { isActive: boolean }) => ReactNode)
   }
 
+const STATIC_ACTIVE_OBJECT = { className: 'active' }
+const STATIC_DISABLED_PROPS = { role: 'link', 'aria-disabled': true }
+const STATIC_ACTIVE_PROPS = { 'data-status': 'active', 'aria-current': 'page' }
+
+const INTERNAL_LINK_KEYS = new Set([
+  'to',
+  'from',
+  'params',
+  'search',
+  'hash',
+  'state',
+  'mask',
+  'reloadDocument',
+  'unsafeRelative',
+  '_fromLocation',
+  'activeProps',
+  'inactiveProps',
+  'activeOptions',
+  'preload',
+  'preloadDelay',
+  'preloadIntentProximity',
+  'hashScrollIntoView',
+  'replace',
+  'startTransition',
+  'resetScroll',
+  'viewTransition',
+  'ignoreBlocker',
+  'disabled',
+  'children',
+  'href',
+])
+
+function resolveIsActive(
+  location: ParsedLocation,
+  next: ParsedLocation,
+  activeOptions: ActiveOptions | undefined,
+  basepath: string,
+): boolean {
+  if (activeOptions?.exact) {
+    if (!exactPathTest(location.pathname, next.pathname, basepath)) return false
+  } else {
+    const currentPathSplit = removeTrailingSlash(location.pathname, basepath)
+    const nextPathSplit = removeTrailingSlash(next.pathname, basepath)
+    const pathIsFuzzyEqual =
+      currentPathSplit.startsWith(nextPathSplit) &&
+      (currentPathSplit.length === nextPathSplit.length ||
+        currentPathSplit[nextPathSplit.length] === '/')
+    if (!pathIsFuzzyEqual) return false
+  }
+
+  if (activeOptions?.includeSearch ?? true) {
+    const searchTest = deepEqual(location.search, next.search, {
+      partial: !activeOptions?.exact,
+      ignoreUndefined: !activeOptions?.explicitUndefined,
+    })
+    if (!searchTest) return false
+  }
+
+  if (activeOptions?.includeHash) {
+    return location.hash === next.hash
+  }
+  return true
+}
+
+function omitInternalProps(props: Record<string, unknown>) {
+  const out: Record<string, unknown> = {}
+  for (const key in props) {
+    if (!INTERNAL_LINK_KEYS.has(key)) out[key] = props[key]
+  }
+  return out
+}
+
 export function useLinkProps(
   props: LinkProps,
   forwardedRef?: { current: HTMLAnchorElement | null },
@@ -48,11 +126,13 @@ export function useLinkProps(
   const next = useMemo(
     () => router.buildLocation(props),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [router, props.to, props.params, props.search, props.hash, props.from, props.href],
+    [router, props.to, props.params, props.search, props.hash, props.from, props.href, location],
   )
 
-  const href = router.history.createHref(`${next.pathname}${next.searchStr}${next.hash}`)
-  const isActive = exactPathTest(location.pathname, next.pathname, router.basepath)
+  const href = router.history.createHref(
+    next.publicHref || `${next.pathname}${next.searchStr}${next.hash}`,
+  )
+  const isActive = resolveIsActive(location, next, props.activeOptions, router.basepath)
   const preload =
     props.reloadDocument || props.disabled
       ? false
@@ -151,31 +231,47 @@ export function useLinkProps(
     if (preload === 'intent') doPreload()
   }
 
-  const activeProps = isActive
-    ? typeof props.activeProps === 'function'
-      ? props.activeProps()
-      : props.activeProps
-    : typeof props.inactiveProps === 'function'
-      ? props.inactiveProps()
-      : props.inactiveProps
+  const resolvedActiveProps = isActive
+    ? (functionalUpdate(props.activeProps as any, {}) ?? STATIC_ACTIVE_OBJECT)
+    : {}
+  const resolvedInactiveProps = isActive
+    ? {}
+    : (functionalUpdate(props.inactiveProps as any, {}) ?? {})
+
+  const className = [
+    props.className,
+    resolvedActiveProps.className,
+    resolvedInactiveProps.className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const style =
+    props.style || resolvedActiveProps.style || resolvedInactiveProps.style
+      ? { ...props.style, ...resolvedActiveProps.style, ...resolvedInactiveProps.style }
+      : undefined
 
   return {
-    ...activeProps,
+    ...omitInternalProps(props as Record<string, unknown>),
+    ...resolvedActiveProps,
+    ...resolvedInactiveProps,
     href,
     ref,
+    className: className || undefined,
+    style,
+    target: props.target,
     onClick: handleClick,
     onMouseEnter,
     onMouseLeave,
     onFocus,
     onBlur,
     onTouchStart,
-    'data-status': isActive ? 'active' : undefined,
+    ...(props.disabled ? STATIC_DISABLED_PROPS : undefined),
+    ...(isActive ? STATIC_ACTIVE_PROPS : undefined),
   } as AnchorHTMLAttributes<HTMLAnchorElement>
 }
 
 export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(props, ref) {
-  const { children, href: _href, ...rest } = props
-  void _href
+  const { children } = props
   const innerRef = useRef<HTMLAnchorElement | null>(null)
   const setRefs = useCallback(
     (node: HTMLAnchorElement | null) => {
@@ -193,13 +289,23 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(p
     typeof children === 'function'
       ? children({ isActive: (linkProps as any)['data-status'] === 'active' })
       : children
-  return createElement('a', { ...rest, ...linkProps, ref: setRefs, children: resolvedChildren })
+  const { disabled: _disabled, ...anchorProps } =
+    linkProps as AnchorHTMLAttributes<HTMLAnchorElement> & {
+      disabled?: boolean
+    }
+  void _disabled
+  return createElement('a', { ...anchorProps, ref: setRefs, children: resolvedChildren })
 }) as unknown as import('./link-types').LinkComponent<'a'>
 
 export const createLink = /*#__PURE__*/ ((Comp: any) => {
   return forwardRef((props: any, forwardedRef) => {
-    const linkProps = useLinkProps(props)
-    return createElement(Comp, { ...props, ...linkProps, ref: forwardedRef })
+    const { children, ...rest } = props
+    const linkProps = useLinkProps(rest)
+    const resolvedChildren =
+      typeof children === 'function'
+        ? children({ isActive: (linkProps as any)['data-status'] === 'active' })
+        : children
+    return createElement(Comp, { ...linkProps, ref: forwardedRef, children: resolvedChildren })
   })
 }) as typeof import('./link-types').createLink
 

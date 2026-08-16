@@ -455,10 +455,8 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
       next.suffix = trimmed.substring(segment[4], end)
       current.paramChildren ??= []
       current.paramChildren.push(next)
-      if (!current.paramChild) {
-        current.paramChild = next
-        current.paramName = name
-      }
+      if (!current.paramChild) current.paramChild = next
+      if (!current.paramName) current.paramName = name
       current = next
     } else if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
       const next = createNode()
@@ -467,10 +465,8 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
       next.suffix = trimmed.substring(segment[4], end)
       current.optionalChildren ??= []
       current.optionalChildren.push(next)
-      if (!current.optionalChild) {
-        current.optionalChild = next
-        current.optionalName = next.optionalName
-      }
+      if (!current.optionalChild) current.optionalChild = next
+      if (!current.optionalName) current.optionalName = next.optionalName
       current = next
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
       if (!current.wildcardChild) current.wildcardChild = createNode()
