@@ -16,12 +16,7 @@ import {
 } from './match'
 import { isNotFound } from './not-found'
 import { isServer } from './is-server'
-import {
-  loadClientRoute,
-  loadRouteChunk,
-  preloadClientRoute,
-  replaceRouteChunk,
-} from './load-client'
+import { loadRouteChunk, replaceRouteChunk } from './load-chunk'
 import { PathParamError, SearchParamError } from './misc'
 import { compileDecodeCharMap, interpolatePath, resolvePath, trimPath, trimPathRight } from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
@@ -363,6 +358,24 @@ export type ListenerFn = RouterListener
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 const RESOLVED: Promise<void> = Promise.resolve()
 let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let loadClientRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let preloadClientRouteCached: ((router: any, opts?: any) => Promise<any>) | undefined
+
+function importLoadClient(router: any, opts?: any) {
+  if (loadClientRouteCached) return loadClientRouteCached(router, opts)
+  return import('./load-client').then(({ loadClientRoute }) => {
+    loadClientRouteCached = loadClientRoute
+    return loadClientRoute(router, opts)
+  })
+}
+
+function importPreloadClient(router: any, opts?: any) {
+  if (preloadClientRouteCached) return preloadClientRouteCached(router, opts)
+  return import('./load-client').then(({ preloadClientRoute }) => {
+    preloadClientRouteCached = preloadClientRoute
+    return preloadClientRoute(router, opts)
+  })
+}
 
 /** Registered only when `createSlotRoute` is imported. Short keys keep the default graph small. */
 type SlotRuntime = {
@@ -1328,7 +1341,7 @@ export class RouterCore<
       this._commitPromise = undefined
       return
     }
-    await loadClientRoute(this, opts)
+    await importLoadClient(this, opts)
   }
 
   private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
@@ -1484,7 +1497,7 @@ export class RouterCore<
     const warm = this.tryWarmLoad(location, id)
     if (warm === true) return
     if (warm) return warm
-    return loadClientRoute(this)
+    return importLoadClient(this)
   }
 
   private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
@@ -1624,11 +1637,11 @@ export class RouterCore<
         matches,
       }
       const data = callWarmLoader(opts.loader, loaderContext)
-      if (data === WARM_LOADER_THREW) return loadClientRoute(this)
+      if (data === WARM_LOADER_THREW) return importLoadClient(this)
       if (data instanceof Promise) {
         return Promise.resolve(data).then((value) => {
           if (isRedirect(value) || isNotFound(value)) {
-            return loadClientRoute(this)
+            return importLoadClient(this)
           }
           match.loaderData = value
           match.status = 'success'
@@ -1638,7 +1651,7 @@ export class RouterCore<
           return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
         })
       }
-      if (isRedirect(data) || isNotFound(data)) return loadClientRoute(this)
+      if (isRedirect(data) || isNotFound(data)) return importLoadClient(this)
       match.loaderData = data
       match.status = 'success'
       match.isFetching = false
@@ -1848,7 +1861,7 @@ export class RouterCore<
   }
 
   preloadRoute(opts: NavigateOptions = {}) {
-    return preloadClientRoute(this, opts)
+    return importPreloadClient(this, opts)
   }
 
   loadRouteChunk = loadRouteChunk

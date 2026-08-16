@@ -1,5 +1,5 @@
 import { createMemoryHistory } from '@anonrig/history'
-import { _getRenderedMatches } from '../load-client'
+import { _getRenderedMatches } from '../load-chunk'
 import { mergeHeaders } from './headers'
 import { attachRouterServerSsrUtils, getNormalizedURL } from './ssr-server'
 import { bindSsrResponseToRequest, disposeSsrResponseDetached } from './handler-callback'

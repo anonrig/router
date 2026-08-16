@@ -1,8 +1,8 @@
 import { hydrateSsrMatchId } from './ssr/ssr-match-id'
+import { loadRouteChunk } from './load-chunk'
 import {
   cacheLoaderMatch,
   getRoute,
-  loadRouteChunk,
   navigateFrom,
   projectLane,
   transferMatchResources,

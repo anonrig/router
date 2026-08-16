@@ -107,10 +107,9 @@ export {
   _getAssetMatches,
   _getRenderedMatches,
   loadRouteChunk,
-  loadClientRoute,
-  preloadClientRoute,
   replaceRouteChunk,
-} from './load-client'
+} from './load-chunk'
+export { loadClientRoute, preloadClientRoute } from './load-client'
 export { refreshClientRoute } from './load-hmr'
 export { hydrate } from './load-hydrate'
 export type {
