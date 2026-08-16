@@ -19,6 +19,7 @@ function createApp(opts: {
   return createRouter({
     routeTree: root,
     history: createMemoryHistory({ initialEntries: [opts.initial ?? '/about'] }),
+    isServer: true,
   })
 }
 
@@ -110,6 +111,7 @@ describe('warm-path TanStack behavior parity', () => {
       routeTree: root,
       history: createMemoryHistory({ initialEntries: ['/'] }),
       additionalContext: { extra: 'from-router' },
+      isServer: true,
     } as any)
 
     await router.navigate({ href: '/posts' } as any)
@@ -168,5 +170,68 @@ describe('warm-path TanStack behavior parity', () => {
     expect(onError.n).toBe(1)
     expect(match?.status).toBe('error')
     expect(match?.error).toBe(boom)
+  })
+
+  test('cached warm matches keep validateSearch defaults', async () => {
+    const router = createApp({
+      posts: {
+        validateSearch: (search: { page?: number }) => ({ page: search.page ?? 1 }),
+        loader: ({ search }: { search: { page?: number } }) => search,
+      },
+    })
+
+    await router.navigate({ href: '/posts' } as any)
+    expect(router.state.matches.at(-1)?.search).toEqual({ page: 1 })
+
+    await router.navigate({ href: '/about' } as any)
+    await router.navigate({ href: '/posts' } as any)
+
+    const match = router.state.matches.at(-1)
+    expect(match?.search).toEqual({ page: 1 })
+    expect(match?.loaderData).toEqual({ page: 1 })
+  })
+
+  test('warm _strictSearch only includes validateSearch output', async () => {
+    const router = createApp({
+      posts: {
+        validateSearch: (search: { foo?: string }) => ({ foo: search.foo }),
+        loader: () => 'posts',
+      },
+    })
+
+    await router.navigate({ href: '/posts?foo=hello&extra=1' } as any)
+
+    const [root, posts] = router.state.matches
+    expect(root?._strictSearch).toEqual({})
+    expect(posts?._strictSearch).toEqual({ foo: 'hello' })
+    expect(posts?.search).toMatchObject({ foo: 'hello', extra: 1 })
+    expect(root?._strictSearch).not.toBe(posts?._strictSearch)
+  })
+
+  test('a parent loader throw does not leave child matches fetching', async () => {
+    const boom = new Error('root-boom')
+    let postsCalls = 0
+    const router = createApp({
+      root: {
+        loader: () => {
+          throw boom
+        },
+      },
+      posts: {
+        loader: () => {
+          postsCalls++
+          return 'posts'
+        },
+      },
+    })
+
+    await expect(router.navigate({ href: '/posts' } as any)).resolves.toBeUndefined()
+
+    const [root, posts] = router.state.matches
+    expect(root?.status).toBe('error')
+    expect(root?.error).toBe(boom)
+    expect(root?.isFetching).toBe(false)
+    expect(postsCalls).toBe(0)
+    expect(posts?.isFetching).toBe(false)
   })
 })

@@ -631,6 +631,7 @@ export class RouterCore<
   _scrollReady?: Promise<void>
   rewrite?: any
   _hasSearchWork = false
+  _hasSearchMiddleware = false
 
   private createStores(location: ParsedLocation) {
     const config = defaultGetStoreConfig()
@@ -1005,6 +1006,7 @@ export class RouterCore<
     }
 
     this._hasSearchWork = !!this.processedTree?.hasSearchWork
+    this._hasSearchMiddleware = !!this.processedTree?.hasSearchMiddleware
 
     const nextBasepath = this.options.basepath
     if (!nextBasepath || nextBasepath === '/') {
@@ -1064,6 +1066,7 @@ export class RouterCore<
     this.routesById = this.processedTree.routesById as any
     this.routesByPath = this.processedTree.routesByPath as any
     this._hasSearchWork = !!this.processedTree.hasSearchWork
+    this._hasSearchMiddleware = !!this.processedTree.hasSearchMiddleware
     return this
   }
 
@@ -1249,7 +1252,7 @@ export class RouterCore<
       !hrefIsUrl &&
       !publicHref &&
       !this.rewrite &&
-      !this._hasSearchWork &&
+      !this._hasSearchMiddleware &&
       !this.options.routeMasks?.length &&
       rest.search == null &&
       rest.params == null &&
@@ -1267,7 +1270,7 @@ export class RouterCore<
       !reloadDocument &&
       !publicHref &&
       !this.rewrite &&
-      !this._hasSearchWork &&
+      !this._hasSearchMiddleware &&
       !this.options.routeMasks?.length &&
       rest.search == null &&
       rest.hash == null &&
@@ -1671,6 +1674,7 @@ export class RouterCore<
 
     const matches: RouteMatch[] = new Array(found.length)
     let search = location.search
+    let strictSearch: Record<string, any> = {}
 
     for (let i = 0; i < found.length; i++) {
       const result = found[i]!
@@ -1679,10 +1683,12 @@ export class RouterCore<
         try {
           const strict = validateSearch(route.options.validateSearch, { ...search }) ?? {}
           search = { ...search, ...strict }
+          strictSearch = { ...strictSearch, ...strict }
         } catch {
           return false
         }
       }
+      const matchStrictSearch = { ...strictSearch }
       const deps = warmLoaderDeps(route, search)
       if (!deps) return false
       let interpolatedPath = route.fullPath || location.pathname
@@ -1710,6 +1716,7 @@ export class RouterCore<
       if (reusable) {
         reusable.index = i
         reusable.search = search
+        reusable._strictSearch = matchStrictSearch
         reusable.loaderDeps = deps.deps
         reusable.cause = prev ? 'stay' : 'enter'
         reusable.publicHref = location.publicHref
@@ -1728,7 +1735,7 @@ export class RouterCore<
         params: result.params,
         rawParams: result.rawParams,
         _strictParams: result.params,
-        _strictSearch: search,
+        _strictSearch: matchStrictSearch,
         status: needsLoad ? 'pending' : 'success',
         isFetching: needsLoad ? 'loader' : false,
         error: undefined,
@@ -1789,7 +1796,7 @@ export class RouterCore<
             } as any) || {}
           context = { ...context, ...routeContext }
         } catch (cause) {
-          return this.settleWarmFailure(location, id, matches, cacheKey, match, route, cause)
+          return this.settleWarmFailure(location, id, matches, match, route, cause)
         }
       } else {
         context = { ...context }
@@ -1820,7 +1827,7 @@ export class RouterCore<
         ),
       )
       if (!data.ok) {
-        return this.settleWarmFailure(location, id, matches, cacheKey, match, route, data.value)
+        return this.settleWarmFailure(location, id, matches, match, route, data.value)
       }
       if (data.value instanceof Promise) {
         return Promise.resolve(data.value).then(
@@ -1836,7 +1843,7 @@ export class RouterCore<
             this._cache[match.id] = match
             return this.finishWarmMatches(location, id, matches, cacheKey, i + 1)
           },
-          (cause) => this.settleWarmFailure(location, id, matches, cacheKey, match, route, cause),
+          (cause) => this.settleWarmFailure(location, id, matches, match, route, cause),
         )
       }
       if (isRedirect(data.value) || isNotFound(data.value)) return loadClientRoute(this)
@@ -1858,7 +1865,6 @@ export class RouterCore<
     location: ParsedLocation,
     id: number,
     matches: RouteMatch[],
-    cacheKey: string,
     match: RouteMatch,
     route: AnyRoute,
     cause: unknown,
@@ -1875,10 +1881,13 @@ export class RouterCore<
     match.error = error
     match.isFetching = false
     match.updatedAt = Date.now()
+    for (let i = matches.indexOf(match) + 1; i < matches.length; i++) {
+      const child = matches[i]!
+      child.isFetching = false
+    }
     if (id !== this.loadId) return
     this.leaveWarmMatches(matches)
     this.completeWarmLoad(location, matches)
-    rememberWarmMatches(this, cacheKey, matches)
   }
 
   private prepareCachedWarmMatches(
@@ -1904,7 +1913,6 @@ export class RouterCore<
       const route = this.routesById[match.routeId]
       if (route === undefined || !routeCanWarmLoad(route)) return
       match.cause = allStay || findPrevMatch(prevMatches, match.routeId) ? 'stay' : 'enter'
-      match.search = location.search
       match.publicHref = location.publicHref
       if (warmMatchNeedsLoader(match, route, this, prevMatches, now)) needsLoader = true
     }
