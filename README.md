@@ -19,7 +19,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 
 |                        |                           |                          |
 | :--------------------: | :-----------------------: | :----------------------: |
-|       **2.76×**        |         **1.70×**         |        **53,005**        |
+|       **2.72×**        |        **12.77×**         |        **50,694**        |
 | faster warm `navigate` | faster warm `router.load` | cold `router.load` / sec |
 
 <sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
@@ -105,11 +105,11 @@ On a 4-core Intel Xeon, Linux, Node 22, single process, in memory, no HTTP serve
 
 <div align="center">
 
-|                        |    @anonrig | TanStack |           |
-| ---------------------- | ----------: | -------: | --------: |
-| Warm `navigate`        | **132,284** |   52,061 | **2.54×** |
-| Warm `router.load`     |     144,848 |  153,614 |     0.94× |
-| SSR cold `router.load` |  **41,557** |   33,024 | **1.26×** |
+|                        |      @anonrig | TanStack |            |
+| ---------------------- | ------------: | -------: | ---------: |
+| Warm `navigate`        |   **140,720** |   51,772 |  **2.72×** |
+| Warm `router.load`     | **2,159,195** |  169,088 | **12.77×** |
+| SSR cold `router.load` |    **50,694** |   32,734 |  **1.55×** |
 
 </div>
 
@@ -129,22 +129,22 @@ pnpm bench:compare
 
 | Operation                        |       @anonrig |   TanStack | vs TanStack |
 | -------------------------------- | -------------: | ---------: | ----------: |
-| Query-string encode              |      2,497,111 |  2,938,225 |       0.85× |
-| Query-string decode              |      1,052,334 |  1,412,461 |       0.75× |
-| `defaultStringifySearch` (×1000) |      **3,957** |      3,118 |   **1.27×** |
-| `parseHref`                      |      3,209,854 |  3,075,525 |       1.04× |
-| `cleanPath`                      |      7,652,870 |  6,295,033 |       1.22× |
-| `resolvePath`                    |      3,470,181 |  4,114,577 |       0.84× |
-| `interpolatePath`                |      2,057,542 |  2,130,790 |       0.97× |
-| Route match (large tree)         | **20,930,876** | 20,540,737 |   **1.02×** |
-| Encode 100 typical SSR match IDs |         29,469 |     29,750 |       0.99× |
-| History `push`                   |      1,073,970 |  1,111,904 |       0.97× |
-| Warm `navigate`                  |    **132,284** |     52,061 |   **2.54×** |
-| Warm `router.load`               |        144,848 |    153,614 |       0.94× |
-| SSR cold `router.load` req/s     |     **41,557** |     33,024 |   **1.26×** |
-| `createRequestHandler` req/s     |     **12,638** |      8,027 |   **1.57×** |
+| Query-string encode              |      2,456,081 |  2,919,423 |       0.84× |
+| Query-string decode              |      1,015,431 |  1,448,696 |       0.70× |
+| `defaultStringifySearch` (×1000) |      **3,899** |      3,102 |   **1.26×** |
+| `parseHref`                      |      3,171,700 |  3,070,030 |       1.03× |
+| `cleanPath`                      |      7,738,452 |  6,216,291 |       1.24× |
+| `resolvePath`                    |      3,591,175 |  4,096,811 |       0.88× |
+| `interpolatePath`                |      1,930,644 |  1,991,921 |       0.97× |
+| Route match (large tree)         | **21,055,460** | 20,635,538 |   **1.02×** |
+| Encode 100 typical SSR match IDs |         23,364 |     23,994 |       0.97× |
+| History `push`                   |      1,080,587 |  1,103,871 |       0.98× |
+| Warm `navigate`                  |    **140,720** |     51,772 |   **2.72×** |
+| Warm `router.load`               |  **2,159,195** |    169,088 |  **12.77×** |
+| SSR cold `router.load` req/s     |     **50,694** |     32,734 |   **1.55×** |
+| `createRequestHandler` req/s     |         10,435 |     12,950 |       0.81× |
 
-TanStack's query-string encode/decode still win those microbenches. Large-tree route match now edges the published trie: static paths use a precomputed exact table and a one-entry last-hit field (find-my-way), so they never enter the parametric walker. This router is ahead on stringify, warm navigation, cold SSR `load`, and `createRequestHandler`.
+TanStack's query-string encode/decode still win those microbenches. Warm `load()` is the headline: a settled server router returns immediately instead of re-entering the SSR lane. Large-tree route match edges the published trie with a static exact table and a one-entry last-hit field (find-my-way). This router is also ahead on stringify, warm navigation, and cold SSR `load`.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
