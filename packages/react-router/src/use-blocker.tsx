@@ -104,10 +104,15 @@ export function useBlocker(opts?: any): any {
           typeof current === 'function'
             ? current
             : (current?.shouldBlockFn ?? (current as any)?.blockerFn)
+        const from = args.currentLocation ?? args.current
         const mapped = {
           action: args.action,
-          current: toBlockerLocation(router, args.currentLocation ?? args.current),
+          current: toBlockerLocation(router, from),
           next: toBlockerLocation(router, args.nextLocation ?? args.next),
+        }
+        const fromPath = from?.pathname ?? mapped.current.pathname
+        if (fromPath && fromPath !== '/' && !router.getMatchedRoutes?.(fromPath)?.[2]) {
+          return false
         }
         const should = fn ? await fn(mapped) : true
         if (!should) return false
