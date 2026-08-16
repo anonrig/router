@@ -333,6 +333,19 @@ export function isPlainArray(value: unknown): value is Array<unknown> {
  * Perform a deep equality check with options for partial comparison and
  * ignoring `undefined` values. Optimized for router state comparisons.
  */
+function ownComparableKeys(obj: object, ignoreUndefined: boolean) {
+  const keys: Array<string | symbol> = Object.getOwnPropertyNames(obj)
+  const symbols = Object.getOwnPropertySymbols(obj)
+  for (let i = 0; i < symbols.length; i++) keys.push(symbols[i]!)
+  if (!ignoreUndefined) return keys
+  let n = 0
+  for (let i = 0; i < keys.length; i++) {
+    if ((obj as any)[keys[i]!] !== undefined) keys[n++] = keys[i]!
+  }
+  keys.length = n
+  return keys
+}
+
 export function deepEqual(
   a: any,
   b: any,
@@ -358,32 +371,22 @@ export function deepEqual(
     const ignoreUndefined = opts?.ignoreUndefined ?? true
 
     if (opts?.partial) {
-      for (const k in b) {
-        if (!ignoreUndefined || b[k] !== undefined) {
-          if (!deepEqual(a[k], b[k], opts)) return false
-        }
+      const keys = ownComparableKeys(b, ignoreUndefined)
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i]!
+        if (!deepEqual(a[k], b[k], opts)) return false
       }
       return true
     }
 
-    let aCount = 0
-    if (!ignoreUndefined) {
-      aCount = Object.keys(a).length
-    } else {
-      for (const k in a) {
-        if (a[k] !== undefined) aCount++
-      }
+    const aKeys = ownComparableKeys(a, ignoreUndefined)
+    const bKeys = ownComparableKeys(b, ignoreUndefined)
+    if (aKeys.length !== bKeys.length) return false
+    for (let i = 0; i < bKeys.length; i++) {
+      const k = bKeys[i]!
+      if (!deepEqual(a[k], b[k], opts)) return false
     }
-
-    let bCount = 0
-    for (const k in b) {
-      if (!ignoreUndefined || b[k] !== undefined) {
-        bCount++
-        if (bCount > aCount || !deepEqual(a[k], b[k], opts)) return false
-      }
-    }
-
-    return aCount === bCount
+    return true
   }
 
   return false

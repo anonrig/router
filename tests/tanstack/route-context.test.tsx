@@ -1792,8 +1792,7 @@ describe('loader in the route definition', () => {
     expect(mock).toHaveBeenCalledTimes(1)
   })
 
-  // disabled test due to flakiness
-  test.skip("on navigate (with preload using router methods), loader isn't invoked with undefined context if beforeLoad is pending when navigation happens", async () => {
+  test("on navigate (with preload using router methods), loader isn't invoked with undefined context if beforeLoad is pending when navigation happens", async () => {
     const mock = vi.fn()
 
     const rootRoute = createRootRoute()
@@ -1826,10 +1825,9 @@ describe('loader in the route definition', () => {
     await router.load()
 
     // Don't await, simulate user clicking before preload is done
-    router.preloadRoute(aboutRoute)
+    void router.preloadRoute({ to: '/about' })
 
-    await router.navigate(aboutRoute)
-    await router.invalidate()
+    await router.navigate({ to: '/about' })
 
     // Expect only a single call as the one from preload and the one from navigate are deduped
     expect(mock).toHaveBeenCalledOnce()
