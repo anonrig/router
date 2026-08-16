@@ -290,7 +290,7 @@ function encodePathParam(value: string, decoder?: InterpolatePathOptions['decode
   const encoded = encodeURIComponent(value)
   const decoded = decoder?.(encoded) ?? encoded
   // Browsers leave these in pathnames; encodeURIComponent is stricter.
-  return decoded.replace(/%5B/gi, '[').replace(/%5D/gi, ']').replace(/%21/gi, '!')
+  return decoded.replace(/%21/gi, '!')
 }
 
 type SimplePart = { t: 0; s: string } | { t: 1; k: string }

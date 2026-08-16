@@ -2271,7 +2271,7 @@ function resolveBuildSearch(
       currentSearch,
       dest,
       destRoutes as AnyRoute[],
-      dest._includeValidateSearch,
+      dest._includeValidateSearch && !router.options.search?.strict,
     ) as Record<string, any>
   } else if (dest.search === true) {
     nextSearch = currentSearch
