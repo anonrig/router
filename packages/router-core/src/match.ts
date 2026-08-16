@@ -694,12 +694,7 @@ export function findRouteMatch(
       branch: matches.map((item) => item.route),
     }
   }
-  return findRouteMatchOrdered(
-    treeOrPathname,
-    pathnameOrTree as string,
-    caseSensitiveOrFuzzy,
-    false,
-  )
+  return findRouteMatchOrdered(treeOrPathname, '', caseSensitiveOrFuzzy, false)
 }
 
 function rememberMatch(

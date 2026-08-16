@@ -399,7 +399,6 @@ export class RouterCore<
   history!: TRouterHistory
   origin?: string
   latestLocation!: ParsedLocation
-  private _histLoc?: HistoryLocation
   basepath = '/'
   routeTree!: TRouteTree
   routesById: Record<string, AnyRoute> = Object.create(null)
@@ -627,8 +626,7 @@ export class RouterCore<
     this.basepath = nextBasepath
 
     if (this.history) {
-      this._histLoc = this.history.location
-      this.latestLocation = this.parseLocation(this._histLoc, this.latestLocation)
+      this.latestLocation = this.parseLocation(this.history.location, this.latestLocation)
       if (!this.stores) {
         this.stores = this.createStores(this.latestLocation)
         if (!(isServer ?? this.isServer)) {
@@ -651,7 +649,6 @@ export class RouterCore<
       if (!this.unsubHistory) {
         this.unsubHistory = this.history.subscribe(({ location, action }) => {
           if (this._committing) return
-          this._histLoc = location
           this.latestLocation = this.parseLocation(location, this.latestLocation)
           void this.load({ action })
         })
@@ -1134,24 +1131,31 @@ export class RouterCore<
     for (const controller of abort) controller.abort()
   }
 
-  load = (opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> => {
-    this.updateLatestLocation()
-    if (opts?._signal?.aborted) {
-      return Promise.reject(opts._signal.reason)
+  load = async (opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> => {
+    if (isServer || this.isServer) {
+      this.updateLatestLocation()
+      if (opts?._signal?.aborted) {
+        return Promise.reject(opts._signal.reason)
+      }
+      // Request-scoped SSR passes `_signal` and must re-run. A warm
+      // `load()` on an already-idle server router (the Node bench) can skip.
+      if (!opts?.action && !opts?._signal && this.canSkipSettledLoad()) {
+        this._commitPromise?.resolve()
+        this._commitPromise = undefined
+        return
+      }
+      if (loadServerRouteCached) return loadServerRouteCached(this, opts)
+      const { loadServerRoute } = await import('./load-server')
+      loadServerRouteCached = loadServerRoute
+      return loadServerRoute(this, opts)
     }
+    this.updateLatestLocation()
     if (!opts?.action && this.canSkipSettledLoad()) {
       this._commitPromise?.resolve()
       this._commitPromise = undefined
-      return RESOLVED
+      return
     }
-    if (isServer || this.isServer) {
-      if (loadServerRouteCached) return loadServerRouteCached(this, opts)
-      return import('./load-server').then((mod) => {
-        loadServerRouteCached = mod.loadServerRoute
-        return loadServerRouteCached(this, opts)
-      })
-    }
-    return loadClientRoute(this, opts)
+    await loadClientRoute(this, opts)
   }
 
   private canSkipSettledLoad(): boolean {
@@ -1633,10 +1637,7 @@ export class RouterCore<
 
   updateLatestLocation = () => {
     if (!this.history) return
-    const loc = this.history.location
-    if (this._histLoc === loc && this.latestLocation) return
-    this._histLoc = loc
-    this.latestLocation = this.parseLocation(loc, this.latestLocation)
+    this.latestLocation = this.parseLocation(this.history.location, this.latestLocation)
   }
 
   matchRoutes = (
