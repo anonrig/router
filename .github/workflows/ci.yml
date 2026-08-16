@@ -60,3 +60,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm test:tanstack-history
+      - name: TanStack React runtime
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm test:tanstack-react:ci

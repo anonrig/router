@@ -13,6 +13,7 @@
     "test:tanstack-core": "vitest run --config vitest.tanstack.config.ts tests/tanstack-core",
     "test:tanstack-core:ci": "NODE_OPTIONS='--max-old-space-size=4096' vitest run --config vitest.tanstack.config.ts --pool=forks --maxWorkers=1 tests/tanstack-core",
     "test:tanstack-history": "vitest run --config vitest.tanstack.config.ts tests/tanstack-history",
+    "test:tanstack-react:ci": "node scripts/test-tanstack-react.mjs",
     "bench": "vitest bench --run benches/hotpath.bench.ts benches/history.bench.ts benches/navigation.bench.ts benches/ssr-rps.bench.ts benches/tanstack/search-params.bench.ts benches/tanstack/ssr-match-id.bench.ts",
     "bench:all": "vitest bench --run benches",
     "bench:rps": "node --expose-gc --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/bench-compare.ts",

@@ -20,7 +20,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 
 |                        |                           |                          |
 | :--------------------: | :-----------------------: | :----------------------: |
-|       **27.18×**       |        **29.07×**         |       **123,481**        |
+|       **28.16×**       |        **26.76×**         |       **501,553**        |
 | faster warm `navigate` | faster warm `router.load` | cold `router.load` / sec |
 
 <sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
@@ -110,9 +110,9 @@ On a 4-core Intel Xeon, Linux, Node 24, in memory, no HTTP server:
 
 |                        |      @anonrig | TanStack |            |
 | ---------------------- | ------------: | -------: | ---------: |
-| Warm `navigate`        | **1,355,017** |   49,847 | **27.18×** |
-| Warm `router.load`     | **4,416,687** |  151,958 | **29.07×** |
-| SSR cold `router.load` |   **123,481** |   54,942 |  **2.25×** |
+| Warm `navigate`        | **1,328,057** |   47,159 | **28.16×** |
+| Warm `router.load`     | **3,610,609** |  134,933 | **26.76×** |
+| SSR cold `router.load` |   **501,553** |   57,213 |  **8.77×** |
 
 </div>
 
@@ -132,20 +132,20 @@ pnpm bench:compare
 
 | Operation                        |       @anonrig |  TanStack | vs TanStack |
 | -------------------------------- | -------------: | --------: | ----------: |
-| Query-string encode              | **24,462,411** | 2,677,308 |   **9.14×** |
-| Query-string decode              |  **3,283,361** | 1,351,331 |   **2.43×** |
-| `defaultStringifySearch` (×1000) |  **1,348,945** |     2,801 | **481.64×** |
-| `parseHref`                      | **13,654,453** | 3,619,469 |   **3.77×** |
-| `cleanPath`                      | **22,362,134** | 7,061,008 |   **3.17×** |
-| `resolvePath`                    | **21,585,167** | 4,228,838 |   **5.10×** |
-| `interpolatePath`                |  **6,448,786** | 2,228,050 |   **2.89×** |
-| Route match (large tree)         | **14,047,251** | 5,550,993 |   **2.53×** |
-| Encode 100 typical SSR match IDs |  **1,297,525** |    28,168 |  **46.06×** |
-| History `push`                   |  **2,983,322** | 1,209,684 |   **2.47×** |
-| Warm `navigate`                  |  **1,355,017** |    49,847 |  **27.18×** |
-| Warm `router.load`               |  **4,416,687** |   151,958 |  **29.07×** |
-| SSR cold `router.load` req/s     |    **123,481** |    54,942 |   **2.25×** |
-| `createRequestHandler` req/s     |     **32,121** |    15,207 |   **2.11×** |
+| Query-string encode              | **24,454,532** | 2,654,111 |   **9.21×** |
+| Query-string decode              |  **3,302,245** | 1,406,121 |   **2.35×** |
+| `defaultStringifySearch` (×1000) |  **1,348,724** |     2,851 | **473.09×** |
+| `parseHref`                      | **13,594,507** | 3,643,602 |   **3.73×** |
+| `cleanPath`                      | **21,669,585** | 7,416,528 |   **2.92×** |
+| `resolvePath`                    | **21,850,027** | 4,406,993 |   **4.96×** |
+| `interpolatePath`                |  **6,243,783** | 2,236,603 |   **2.79×** |
+| Route match (large tree)         | **14,042,683** | 5,640,987 |   **2.49×** |
+| Encode 100 typical SSR match IDs |  **1,837,904** |    29,356 |  **62.61×** |
+| History `push`                   |  **2,992,554** | 1,046,976 |   **2.86×** |
+| Warm `navigate`                  |  **1,328,057** |    47,159 |  **28.16×** |
+| Warm `router.load`               |  **3,610,609** |   134,933 |  **26.76×** |
+| SSR cold `router.load` req/s     |    **501,553** |    57,213 |   **8.77×** |
+| `createRequestHandler` req/s     |     **53,881** |    15,430 |   **3.49×** |
 
 Every row is at least 2× published TanStack Router. Warm `navigate({ href })` reuses matches for already-visited paths and finishes synchronously when loaders are sync. Query-string encode/decode intern the last object or string. `cleanPath` / `resolvePath` / `interpolatePath` keep small result caches and compile simple `$param` templates. Large-tree match walks many static leaves through `staticExact` instead of one repeated LRU key. SSR match IDs replace slashes in one pass and intern the result. Cold `createRouter().load()` reuses processed trees, empty-search match templates, a prototype `createMemoryHistory`, and a synchronous fast SSR lane when loaders are sync. `createRequestHandler` dehydrates synchronously and reuses the seroval payload for the same matches.
 
