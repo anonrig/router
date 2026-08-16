@@ -116,12 +116,12 @@ const RESOLVE_CACHE_MAX = 64
 const defaultResolveCacheSize = { n: 0 }
 
 function rememberResolved(
-  cache: ResolvePathOptions['cache'] | Record<string, string> | undefined,
+  cache: ResolvePathOptions['cache'] | undefined,
   key: string | undefined,
   result: string,
 ) {
-  if (!key || !cache) return result
-  if (cache === defaultResolveCache) {
+  if (!key) return result
+  if (!cache) {
     setBounded(defaultResolveCache, defaultResolveCacheSize, key, result, RESOLVE_CACHE_MAX)
     return result
   }
@@ -145,7 +145,6 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
   }
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
-  const store = cache ?? defaultResolveCache
 
   let key: string | undefined
   key = isAbsolute ? to : isBase ? base : base + '\0' + to
@@ -167,7 +166,7 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
       result.length > 1 && result.charCodeAt(result.length - 1) === 47
         ? result.slice(0, -1)
         : result
-    return finishResolve(store, key, trimmed, base, to, trailingSlash, !cache)
+    return finishResolve(cache, key, trimmed, base, to, trailingSlash, !cache)
   }
 
   let baseSegments: Array<string>
@@ -205,11 +204,11 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
   }
 
   const result = cleanPath(baseSegments.join('/')) || '/'
-  return finishResolve(store, key, result, base, to, trailingSlash, !cache)
+  return finishResolve(cache, key, result, base, to, trailingSlash, !cache)
 }
 
 function finishResolve(
-  store: ResolvePathOptions['cache'] | Record<string, string>,
+  cache: ResolvePathOptions['cache'] | undefined,
   key: string | undefined,
   result: string,
   base: string,
@@ -217,7 +216,7 @@ function finishResolve(
   trailingSlash: ResolvePathOptions['trailingSlash'],
   rememberLast: boolean,
 ) {
-  const stored = rememberResolved(store, key, result)
+  const stored = rememberResolved(cache, key, result)
   if (rememberLast) {
     lastResolveBase = base
     lastResolveTo = to
