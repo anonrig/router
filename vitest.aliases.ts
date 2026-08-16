@@ -153,7 +153,7 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
   },
   {
-    find: '@tanstack/router-core/scroll-restoration-script',
+    find: /^@tanstack\/router-core\/scroll-restoration-script$/,
     replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
   },
   {
@@ -161,7 +161,7 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
   },
   {
-    find: '@anonrig/router-core/scroll-restoration-script',
+    find: /^@anonrig\/router-core\/scroll-restoration-script$/,
     replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
   },
   {
