@@ -1,9 +1,8 @@
-import { globSync, statSync } from 'node:fs'
-import { basename, extname, join, relative, sep } from 'node:path'
+import { readdirSync } from 'node:fs'
+import { basename, join, relative, sep } from 'node:path'
 
 const ROUTE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx'])
 const SPLIT_FILE = /[.-](lazy|component|errorComponent|pendingComponent|notFoundComponent|loader)$/
-const IGNORE_PREFIX = /^-/
 
 export type ScannedRoute = {
   /** Absolute file path of the route module. */
@@ -30,23 +29,46 @@ function toPosix(value: string) {
   return value.split(sep).join('/')
 }
 
-function isRouteFile(name: string) {
-  const ext = extname(name)
-  if (!ROUTE_EXTS.has(ext)) return false
-  const stem = name.slice(0, -ext.length)
-  if (stem.startsWith('.')) return false
-  if (IGNORE_PREFIX.test(stem)) return false
+export function isRouteFile(name: string) {
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0) return false
+  if (!ROUTE_EXTS.has(name.slice(dot))) return false
+  const stem = name.slice(0, dot)
+  if (stem.charCodeAt(0) === 46 /* . */ || stem.charCodeAt(0) === 45 /* - */) return false
   if (SPLIT_FILE.test(stem)) return false
   return true
 }
 
 function listRouteFiles(rootDir: string) {
-  return globSync('**/*.{ts,tsx,js,jsx}', {
-    cwd: rootDir,
-    exclude: (name) => name.startsWith('.') || name === 'node_modules',
-  })
-    .filter((file) => isRouteFile(basename(file)))
-    .map((file) => join(rootDir, file))
+  const files: Array<string> = []
+  const stack = [rootDir]
+  while (stack.length) {
+    const dir = stack.pop()!
+    let entries
+    try {
+      // Dirents come from getdents; no per-file stat unless d_type is unknown.
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (dir === rootDir && (code === 'ENOENT' || code === 'ENOTDIR')) {
+        throw new Error(`routesDirectory does not exist: ${rootDir}`)
+      }
+      throw error
+    }
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!
+      const name = entry.name
+      if (name === 'node_modules' || name.charCodeAt(0) === 46 /* . */) continue
+      if (entry.isDirectory()) {
+        stack.push(join(dir, name))
+        continue
+      }
+      if ((entry.isFile() || entry.isSymbolicLink()) && isRouteFile(name)) {
+        files.push(join(dir, name))
+      }
+    }
+  }
+  return files
 }
 
 function stripRouteToken(segments: Array<string>) {
@@ -118,10 +140,6 @@ function relativeId(key: string, parentId: string) {
 
 export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
   const rootDir = options.routesDirectory
-  if (!statSync(rootDir, { throwIfNoEntry: false })?.isDirectory()) {
-    throw new Error(`routesDirectory does not exist: ${rootDir}`)
-  }
-
   const files = listRouteFiles(rootDir)
 
   const pending: Array<Omit<ScannedRoute, 'id' | 'path' | 'parentId' | 'isPathless'>> = []

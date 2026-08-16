@@ -1,8 +1,14 @@
-import { resolve } from 'node:path'
+import { basename, resolve, sep } from 'node:path'
 import { generateRouteTree, type GenerateRouteTreeOptions } from './generate'
+import { isRouteFile } from './scan'
 import type { Plugin } from 'vite'
 
 export type TanStackRouterPluginOptions = GenerateRouteTreeOptions
+
+function isInsideDirectory(file: string, directory: string) {
+  const resolved = resolve(file)
+  return resolved === directory || resolved.startsWith(directory + sep)
+}
 
 /**
  * Drop-in for `@tanstack/router-plugin/vite`.
@@ -19,6 +25,14 @@ export function tanstackRouter(options: TanStackRouterPluginOptions): Plugin {
     return result
   }
 
+  const onRouteTreeEvent = (file: string) => {
+    if (!isInsideDirectory(file, routesDirectory)) return
+    // Generated output is derived from route file names, not contents.
+    if (!isRouteFile(basename(file))) return
+    run()
+    return true
+  }
+
   return {
     name: '@anonrig/router-generator',
     buildStart() {
@@ -26,16 +40,16 @@ export function tanstackRouter(options: TanStackRouterPluginOptions): Plugin {
       this.addWatchFile(routesDirectory)
     },
     configureServer(server) {
-      const regen = () => {
-        run()
+      const regen = (file: string) => {
+        if (!onRouteTreeEvent(file)) return
         if (generated) {
           const module = server.moduleGraph.getModuleById(generated)
           if (module) void server.reloadModule(module)
         }
       }
       server.watcher.add(routesDirectory)
+      // `change` cannot alter ids/parents; skip the rescan and writes.
       server.watcher.on('add', regen)
-      server.watcher.on('change', regen)
       server.watcher.on('unlink', regen)
     },
   }

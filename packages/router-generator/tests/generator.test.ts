@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -52,6 +52,26 @@ describe('scanRoutes', () => {
     expect(byKey['/blog_/$slug']?.parentId).toBe('__root__')
     expect(byKey['/blog_/$slug']?.path).toBe('/blog/$slug')
   })
+
+  it('walks dirents once and skips node_modules, dot dirs, and split files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'anonrig-routes-skip-'))
+    write(dir, '__root.tsx')
+    write(dir, 'visible.tsx')
+    write(dir, 'node_modules/hidden.tsx')
+    write(dir, '.hidden/secret.tsx')
+    write(dir, 'nested/node_modules/pkg.tsx')
+    write(dir, 'about.lazy.tsx', 'export const Route = { lazy: true }\n')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const fileIds = scanned.map((route) => route.fileId).sort()
+    expect(fileIds).toEqual(['__root', 'visible'])
+  })
+
+  it('throws when the routes directory is missing', () => {
+    expect(() => scanRoutes({ routesDirectory: join(tmpdir(), 'anonrig-missing-routes') })).toThrow(
+      /routesDirectory does not exist/,
+    )
+  })
 })
 
 describe('generateRouteTree', () => {
@@ -87,6 +107,28 @@ describe('generateRouteTree', () => {
     expect(types).toContain('fullPaths: keyof FileRoutesByFullPath')
     expect(types).toContain("declare module '@anonrig/router-core'")
     expect(types).not.toContain('typeof ')
+  })
+
+  it('does not rewrite unchanged generated files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'anonrig-gen-idempotent-'))
+    const routes = join(dir, 'routes')
+    write(routes, '__root.tsx')
+    write(routes, 'index.tsx')
+    const generated = join(dir, 'routeTree.gen.ts')
+    const first = generateRouteTree({
+      routesDirectory: routes,
+      generatedRouteTree: generated,
+    })
+    const runtimeBefore = statSync(first.runtimePath)
+    const typesBefore = statSync(first.typesPath)
+    generateRouteTree({
+      routesDirectory: routes,
+      generatedRouteTree: generated,
+    })
+    expect(statSync(first.runtimePath).mtimeMs).toBe(runtimeBefore.mtimeMs)
+    expect(statSync(first.typesPath).mtimeMs).toBe(typesBefore.mtimeMs)
+    expect(statSync(first.runtimePath).ino).toBe(runtimeBefore.ino)
+    expect(statSync(first.typesPath).ino).toBe(typesBefore.ino)
   })
 
   it('keeps route module bodies out of the initial client chunk', async () => {

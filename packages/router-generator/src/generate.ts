@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { emitRouteTreeRuntime, emitRouteTreeTypes } from './emit'
 import { scanRoutes } from './scan'
@@ -25,6 +25,20 @@ function typesPathFor(runtimePath: string) {
     .replace(/routeTree\.ts$/, 'routeTree.types.ts')
 }
 
+function writeIfChanged(filePath: string, contents: string, ensuredDirs: Set<string>) {
+  try {
+    if (readFileSync(filePath, 'utf8') === contents) return
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    const dir = dirname(filePath)
+    if (!ensuredDirs.has(dir)) {
+      mkdirSync(dir, { recursive: true })
+      ensuredDirs.add(dir)
+    }
+  }
+  writeFileSync(filePath, contents)
+}
+
 export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedRouteTree {
   const routesDirectory = resolve(options.routesDirectory)
   const runtimePath = resolve(options.generatedRouteTree ?? './src/routeTree.gen.ts')
@@ -39,9 +53,9 @@ export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedR
   }
   const runtime = emitRouteTreeRuntime(payload)
   const types = emitRouteTreeTypes(payload)
-  mkdirSync(dirname(runtimePath), { recursive: true })
-  writeFileSync(runtimePath, runtime)
-  writeFileSync(typesPath, types)
+  const ensuredDirs = new Set<string>()
+  writeIfChanged(runtimePath, runtime, ensuredDirs)
+  writeIfChanged(typesPath, types, ensuredDirs)
   return {
     routesDirectory,
     runtimePath,
