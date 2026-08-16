@@ -105,6 +105,58 @@ function getOrCreateStatic(node: SegmentNode, key: string): SegmentNode {
   return child
 }
 
+function getOrCreateParam(
+  node: SegmentNode,
+  name: string,
+  prefix: string,
+  suffix: string,
+  parse: SegmentNode['parse'],
+  priority: number,
+): SegmentNode {
+  const existing = node.paramChildren
+  if (existing) {
+    for (let i = 0; i < existing.length; i++) {
+      const child = existing[i]!
+      if (child.paramName === name && child.prefix === prefix && child.suffix === suffix) {
+        return child
+      }
+    }
+  }
+  const next = createNode()
+  next.parse = parse
+  next.priority = priority
+  next.paramName = name
+  next.prefix = prefix
+  next.suffix = suffix
+  node.paramChildren ??= []
+  node.paramChildren.push(next)
+  if (!node.paramChild) node.paramChild = next
+  if (!node.paramName) node.paramName = name
+  return next
+}
+
+function getOrCreateOptional(node: SegmentNode, name: string, prefix: string, suffix: string) {
+  const existing = node.optionalChildren
+  if (existing) {
+    for (let i = 0; i < existing.length; i++) {
+      const child = existing[i]!
+      if (child.optionalName === name && child.prefix === prefix && child.suffix === suffix) {
+        return child
+      }
+    }
+  }
+  const next = createNode()
+  next.optionalName = name
+  next.prefix = prefix
+  next.suffix = suffix
+  node.optionalChildren ??= []
+  node.optionalChildren.push(next)
+  if (!node.optionalChild) node.optionalChild = next
+  if (!node.optionalName) node.optionalName = name
+  optionalNamesThisTree.push(name || '')
+  return next
+}
+
 function pathNeedsLowercase(value: string): boolean {
   for (let i = 0; i < value.length; i++) {
     const c = value.charCodeAt(i)
@@ -308,30 +360,7 @@ function isIndex(route: AnyRouteLike): boolean {
   return route.options?.path === '/' || route.path === '/'
 }
 
-function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: boolean) {
-  if (isPathless(route)) {
-    if (!node.pathless) node.pathless = []
-    node.pathless.push(route)
-    const kids = childrenOf(route)
-    for (let i = 0; i < kids.length; i++) insertRoute(node, kids[i]!, caseSensitive)
-    return
-  }
-
-  if (isIndex(route) && !route.isRoot) {
-    node.indexRoute = route
-    const kids = childrenOf(route)
-    for (let i = 0; i < kids.length; i++) insertRoute(node, kids[i]!, caseSensitive)
-    return
-  }
-
-  const path = route.path || ''
-  if (!path || path === '/' || route.isRoot) {
-    node.route = route
-    const kids = childrenOf(route)
-    for (let i = 0; i < kids.length; i++) insertRoute(node, kids[i]!, caseSensitive)
-    return
-  }
-
+function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route?: AnyRouteLike) {
   let cursor = 0
   let current = node
   let segment: ParsedSegment | undefined
@@ -350,31 +379,21 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
       if (!caseSensitive) key = key.toLowerCase()
       current = getOrCreateStatic(current, key)
     } else if (kind === SEGMENT_TYPE_PARAM) {
-      const name = trimmed.substring(segment[2], segment[3])
-      const parse = route.options?.params?.parse ?? route.options?.parseParams ?? null
-      const priority = route.options?.params?.priority ?? 0
-      const next = createNode()
-      next.parse = parse
-      next.priority = priority
-      next.paramName = name
-      next.prefix = trimmed.substring(start, segment[1])
-      next.suffix = trimmed.substring(segment[4], end)
-      current.paramChildren ??= []
-      current.paramChildren.push(next)
-      if (!current.paramChild) current.paramChild = next
-      if (!current.paramName) current.paramName = name
-      current = next
+      current = getOrCreateParam(
+        current,
+        trimmed.substring(segment[2], segment[3]),
+        trimmed.substring(start, segment[1]),
+        trimmed.substring(segment[4], end),
+        route?.options?.params?.parse ?? route?.options?.parseParams ?? null,
+        route?.options?.params?.priority ?? 0,
+      )
     } else if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      const next = createNode()
-      next.optionalName = trimmed.substring(segment[2], segment[3])
-      next.prefix = trimmed.substring(start, segment[1])
-      next.suffix = trimmed.substring(segment[4], end)
-      current.optionalChildren ??= []
-      current.optionalChildren.push(next)
-      if (!current.optionalChild) current.optionalChild = next
-      if (!current.optionalName) current.optionalName = next.optionalName
-      optionalNamesThisTree.push(next.optionalName || '')
-      current = next
+      current = getOrCreateOptional(
+        current,
+        trimmed.substring(segment[2], segment[3]),
+        trimmed.substring(start, segment[1]),
+        trimmed.substring(segment[4], end),
+      )
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
       if (!current.wildcardChild) current.wildcardChild = createNode()
       current.wildcardChild.prefix = trimmed.substring(start, segment[1])
@@ -382,10 +401,30 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
       current = current.wildcardChild
     }
   }
+  return current
+}
 
-  current.route = route
-  const kids = childrenOf(route)
-  for (let i = 0; i < kids.length; i++) insertRoute(current, kids[i]!, caseSensitive)
+function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: boolean) {
+  if (isPathless(route) || (isIndex(route) && !route.isRoot)) {
+    const parent = route.parentRoute
+    const parentPath = parent && !parent.isRoot ? parent.fullPath || parent.path || '' : ''
+    const parentNode = parentPath ? walkPath(node, parentPath, caseSensitive) : node
+    if (isPathless(route)) {
+      if (!parentNode.pathless) parentNode.pathless = []
+      parentNode.pathless.push(route)
+      return
+    }
+    parentNode.indexRoute = route
+    return
+  }
+
+  const path = route.fullPath || route.path || ''
+  if (!path || path === '/' || route.isRoot) {
+    node.route = route
+    return
+  }
+
+  walkPath(node, path, caseSensitive, route).route = route
 }
 
 const processedTreeCache = new WeakMap<
@@ -427,8 +466,11 @@ export function processRouteTree<T extends AnyRouteLike>(
   const root = createNode()
   root.route = routeTree
   optionalNamesThisTree = []
-  const kids = childrenOf(routeTree)
-  for (let i = 0; i < kids.length; i++) insertRoute(root, kids[i]!, caseSensitive)
+  for (let i = 0; i < flatRoutes.length; i++) {
+    const route = flatRoutes[i]!
+    if (route === routeTree || route.isRoot) continue
+    insertRoute(root, route, caseSensitive)
+  }
   finalizeParamChildren(root)
 
   let hasSearchWork = false
