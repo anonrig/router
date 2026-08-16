@@ -365,6 +365,9 @@ export type ProcessedTree = {
   staticExact?: Record<string, RouteMatchResult[]>
   /** True if any node has a param, optional, or wildcard child. */
   hasDynamic?: boolean
+  /** One-entry last hit (find-my-way `_treeGET`: fixed-offset, not a map). */
+  lastPath?: string
+  lastMatch?: RouteMatchResult[] | null
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -672,6 +675,13 @@ export function findRouteMatch(
   pathnameOrTree?: string | ProcessedTree,
   caseSensitiveOrFuzzy = false,
 ): any {
+  if (typeof pathnameOrTree === 'string') {
+    const tree = treeOrPathname as ProcessedTree
+    if (!caseSensitiveOrFuzzy && tree.lastPath === pathnameOrTree) {
+      return tree.lastMatch!
+    }
+    return findRouteMatchOrdered(tree, pathnameOrTree, caseSensitiveOrFuzzy, false)
+  }
   if (typeof treeOrPathname === 'string') {
     const tree = pathnameOrTree as ProcessedTree
     const matches = findRouteMatchOrdered(tree, treeOrPathname, false, caseSensitiveOrFuzzy)
@@ -692,15 +702,33 @@ export function findRouteMatch(
   )
 }
 
+function rememberMatch(
+  tree: ProcessedTree,
+  pathname: string,
+  result: RouteMatchResult[] | null,
+  caseSensitive: boolean,
+  fuzzy: boolean,
+): RouteMatchResult[] | null {
+  if (!fuzzy && !caseSensitive) {
+    tree.lastPath = pathname
+    tree.lastMatch = result
+  }
+  return result
+}
+
 function findRouteMatchOrdered(
   tree: ProcessedTree,
   pathname: string,
   caseSensitive = false,
   fuzzy = false,
 ): RouteMatchResult[] | null {
+  if (!fuzzy && !caseSensitive && tree.lastPath === pathname) {
+    return tree.lastMatch!
+  }
+
   if (!fuzzy && pathname.indexOf('%') === -1) {
     const exact = lookupStaticExact(tree, pathname, caseSensitive)
-    if (exact !== undefined) return exact
+    if (exact !== undefined) return rememberMatch(tree, pathname, exact, caseSensitive, fuzzy)
   }
 
   const cacheKey =
@@ -708,19 +736,19 @@ function findRouteMatchOrdered(
       ? `${caseSensitive ? '1' : '0'}:${fuzzy ? '1' : '0'}:${pathname}`
       : pathname
   const cached = tree.matchCache.get(cacheKey)
-  if (cached !== undefined) return cached
+  if (cached !== undefined) return rememberMatch(tree, pathname, cached, caseSensitive, fuzzy)
 
   if (!fuzzy) {
     const staticHit = findStaticMatch(tree, pathname, caseSensitive)
     if (staticHit !== undefined) {
       tree.matchCache.set(cacheKey, staticHit)
-      return staticHit
+      return rememberMatch(tree, pathname, staticHit, caseSensitive, fuzzy)
     }
   }
 
   const result = findRouteMatchDynamic(tree, pathname, caseSensitive, fuzzy)
   tree.matchCache.set(cacheKey, result)
-  return result
+  return rememberMatch(tree, pathname, result, caseSensitive, fuzzy)
 }
 
 function isBetterMatch(best: WalkFrame | null, candidate: WalkFrame): boolean {

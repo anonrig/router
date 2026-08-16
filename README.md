@@ -105,9 +105,9 @@ On a 4-core Intel Xeon, Linux, Node 22, single process, in memory, no HTTP serve
 
 |                        |    @anonrig | TanStack |           |
 | ---------------------- | ----------: | -------: | --------: |
-| Warm `navigate`        | **142,808** |   51,663 | **2.76×** |
-| Warm `router.load`     | **284,310** |  166,914 | **1.70×** |
-| SSR cold `router.load` |  **53,005** |   33,108 | **1.60×** |
+| Warm `navigate`        | **132,284** |   52,061 | **2.54×** |
+| Warm `router.load`     |     144,848 |  153,614 |     0.94× |
+| SSR cold `router.load` |  **41,557** |   33,024 | **1.26×** |
 
 </div>
 
@@ -125,24 +125,24 @@ pnpm bench:compare
 
 ### Full comparison
 
-| Operation                        |    @anonrig |   TanStack | vs TanStack |
-| -------------------------------- | ----------: | ---------: | ----------: |
-| Query-string encode              |   2,513,356 |  2,674,109 |       0.94× |
-| Query-string decode              |   1,068,061 |  1,417,974 |       0.75× |
-| `defaultStringifySearch` (×1000) |   **3,879** |      3,153 |   **1.23×** |
-| `parseHref`                      |   3,211,171 |  3,052,631 |       1.05× |
-| `cleanPath`                      |   7,509,700 |  6,025,514 |       1.25× |
-| `resolvePath`                    |   3,481,505 |  3,896,527 |       0.89× |
-| `interpolatePath`                |   2,020,721 |  2,135,413 |       0.95× |
-| Route match (large tree)         |  17,751,011 | 20,403,459 |       0.87× |
-| Encode 100 typical SSR match IDs |      23,350 |     23,903 |       0.98× |
-| History `push`                   |   1,115,602 |  1,121,745 |       0.99× |
-| Warm `navigate`                  | **142,808** |     51,663 |   **2.76×** |
-| Warm `router.load`               | **284,310** |    166,914 |   **1.70×** |
-| SSR cold `router.load` req/s     |  **53,005** |     33,108 |   **1.60×** |
-| `createRequestHandler` req/s     |      10,965 |     13,221 |       0.83× |
+| Operation                        |       @anonrig |   TanStack | vs TanStack |
+| -------------------------------- | -------------: | ---------: | ----------: |
+| Query-string encode              |      2,497,111 |  2,938,225 |       0.85× |
+| Query-string decode              |      1,052,334 |  1,412,461 |       0.75× |
+| `defaultStringifySearch` (×1000) |      **3,957** |      3,118 |   **1.27×** |
+| `parseHref`                      |      3,209,854 |  3,075,525 |       1.04× |
+| `cleanPath`                      |      7,652,870 |  6,295,033 |       1.22× |
+| `resolvePath`                    |      3,470,181 |  4,114,577 |       0.84× |
+| `interpolatePath`                |      2,057,542 |  2,130,790 |       0.97× |
+| Route match (large tree)         | **20,930,876** | 20,540,737 |   **1.02×** |
+| Encode 100 typical SSR match IDs |         29,469 |     29,750 |       0.99× |
+| History `push`                   |      1,073,970 |  1,111,904 |       0.97× |
+| Warm `navigate`                  |    **132,284** |     52,061 |   **2.54×** |
+| Warm `router.load`               |        144,848 |    153,614 |       0.94× |
+| SSR cold `router.load` req/s     |     **41,557** |     33,024 |   **1.26×** |
+| `createRequestHandler` req/s     |     **12,638** |      8,027 |   **1.57×** |
 
-TanStack's query-string encode/decode still win those microbenches. The published trie matcher is a bit faster on a large static tree. This router is ahead on stringify, warm navigation, warm load, and cold SSR `load`. The full `createRequestHandler` path (dehydrate + SSR utils) still trails.
+TanStack's query-string encode/decode still win those microbenches. Large-tree route match now edges the published trie: static paths use a precomputed exact table and a one-entry last-hit field (find-my-way), so they never enter the parametric walker. This router is ahead on stringify, warm navigation, cold SSR `load`, and `createRequestHandler`.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
