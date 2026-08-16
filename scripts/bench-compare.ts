@@ -9,6 +9,9 @@
  * reload, and per-request cold `load` / `createRequestHandler`. A settled
  * `router.load()` no-op is not a headline; that path skips lifecycle work
  * when matches are already valid.
+ *
+ * Each row also records allocated `heapUsed` per operation after warmup.
+ * Samples run under `--expose-gc`; the median of three timed windows is kept.
  */
 import { spawnSync } from 'node:child_process'
 import './bench-compare-self.ts'
@@ -57,10 +60,72 @@ import {
 } from '../node_modules/@tanstack/router-core/dist/esm/new-process-route-tree.js'
 import { dehydrateSsrMatchId as tsDehydrateSsrMatchId } from '../node_modules/@tanstack/router-core/dist/esm/ssr/ssr-match-id.js'
 
-type Row = { name: string; ours: number; tanstack: number }
+type Row = {
+  name: string
+  ours: number
+  tanstack: number
+  oursBytes: number
+  tanstackBytes: number
+}
 
 function now() {
   return performance.now()
+}
+
+function heapUsed() {
+  return process.memoryUsage().heapUsed
+}
+
+function collectHeap(fn: () => void, ms: number) {
+  const warmupEnd = now() + 40
+  while (now() < warmupEnd) fn()
+  globalThis.gc?.()
+  const before = heapUsed()
+  let ops = 0
+  const start = now()
+  const end = start + ms
+  while (now() < end) {
+    fn()
+    ops++
+  }
+  return ops > 0 ? (heapUsed() - before) / ops : 0
+}
+
+async function collectHeapAsync(fn: () => Promise<void>, ms: number) {
+  const warmupEnd = now() + 40
+  while (now() < warmupEnd) await fn()
+  globalThis.gc?.()
+  const before = heapUsed()
+  let ops = 0
+  const start = now()
+  const end = start + ms
+  while (now() < end) {
+    await fn()
+    ops++
+  }
+  return ops > 0 ? (heapUsed() - before) / ops : 0
+}
+
+function median(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2
+}
+
+function measureSyncHeap(fn: () => void, ms = 250) {
+  const samples = [collectHeap(fn, ms), collectHeap(fn, ms), collectHeap(fn, ms)]
+  const usable = samples.filter((value) => value >= 0)
+  return Math.max(0, median(usable.length ? usable : samples))
+}
+
+async function measureAsyncHeap(fn: () => Promise<void>, ms = 250) {
+  const samples = [
+    await collectHeapAsync(fn, ms),
+    await collectHeapAsync(fn, ms),
+    await collectHeapAsync(fn, ms),
+  ]
+  const usable = samples.filter((value) => value >= 0)
+  return Math.max(0, median(usable.length ? usable : samples))
 }
 
 function measureSync(fn: () => void, ms = 1500) {
@@ -200,20 +265,65 @@ function createTsRouter(path: string) {
 const microRows: Row[] = []
 const headlineRows: Row[] = []
 
-async function addSync(name: string, ours: () => void, tanstack: () => void) {
-  microRows.push({ name, ours: measureSync(ours), tanstack: measureSync(tanstack) })
+const syncJobs: Array<{ name: string; ours: () => void; tanstack: () => void }> = []
+const asyncJobs: Array<{
+  name: string
+  ours: () => Promise<void>
+  tanstack: () => Promise<void>
+}> = []
+
+function addSync(name: string, ours: () => void, tanstack: () => void) {
+  syncJobs.push({ name, ours, tanstack })
 }
 
-async function addAsync(name: string, ours: () => Promise<void>, tanstack: () => Promise<void>) {
-  headlineRows.push({
-    name,
-    ours: await measureAsync(ours),
-    tanstack: await measureAsync(tanstack),
-  })
+function addAsync(name: string, ours: () => Promise<void>, tanstack: () => Promise<void>) {
+  asyncJobs.push({ name, ours, tanstack })
+}
+
+async function finishRows() {
+  for (const job of syncJobs) {
+    microRows.push({
+      name: job.name,
+      ours: measureSync(job.ours),
+      tanstack: measureSync(job.tanstack),
+      oursBytes: 0,
+      tanstackBytes: 0,
+    })
+  }
+  for (const job of asyncJobs) {
+    headlineRows.push({
+      name: job.name,
+      ours: await measureAsync(job.ours),
+      tanstack: await measureAsync(job.tanstack),
+      oursBytes: 0,
+      tanstackBytes: 0,
+    })
+  }
+  globalThis.gc?.()
+  for (let i = 0; i < syncJobs.length; i++) {
+    const job = syncJobs[i]!
+    const row = microRows[i]!
+    row.oursBytes = measureSyncHeap(job.ours)
+    row.tanstackBytes = measureSyncHeap(job.tanstack)
+  }
+  for (let i = 0; i < asyncJobs.length; i++) {
+    const job = asyncJobs[i]!
+    const row = headlineRows[i]!
+    row.oursBytes = await measureAsyncHeap(job.ours)
+    row.tanstackBytes = await measureAsyncHeap(job.tanstack)
+  }
 }
 
 function fmt(n: number) {
   return n >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n.toFixed(1)
+}
+
+function fmtBytes(n: number) {
+  if (!Number.isFinite(n) || n < 0.05) return '0 B'
+  if (n < 10) return `${n.toFixed(1)} B`
+  if (n < 1024) return `${Math.round(n)} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} kB`
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`
 }
 
 function ratio(ours: number, tanstack: number) {
@@ -221,14 +331,15 @@ function ratio(ours: number, tanstack: number) {
   return `${(ours / tanstack).toFixed(2)}×`
 }
 
-function printRows(rows: Row[]) {
+function printTable(
+  title: string,
+  rows: Row[],
+  ours: (row: Row) => string,
+  tanstack: (row: Row) => string,
+  vs: (row: Row) => string,
+) {
   console.log('')
-  console.log('Same-machine comparison (higher ops/s is better)')
-  console.log(`Node ${process.version}`)
-  console.log(
-    'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
-  )
-  console.log('')
+  console.log(title)
   console.log(
     'Operation'.padEnd(38) +
       ' @anonrig'.padStart(14) +
@@ -239,12 +350,34 @@ function printRows(rows: Row[]) {
   for (const row of rows) {
     console.log(
       row.name.padEnd(38) +
-        fmt(row.ours).padStart(14) +
-        fmt(row.tanstack).padStart(14) +
-        ratio(row.ours, row.tanstack).padStart(14),
+        ours(row).padStart(14) +
+        tanstack(row).padStart(14) +
+        vs(row).padStart(14),
     )
   }
   console.log('')
+}
+
+function printRows(rows: Row[]) {
+  console.log('')
+  console.log(`Node ${process.version}`)
+  console.log(
+    'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
+  )
+  printTable(
+    'Same-machine comparison (higher ops/s is better)',
+    rows,
+    (row) => fmt(row.ours),
+    (row) => fmt(row.tanstack),
+    (row) => ratio(row.ours, row.tanstack),
+  )
+  printTable(
+    'Allocated heap per operation after warmup (lower is better)',
+    rows,
+    (row) => fmtBytes(row.oursBytes),
+    (row) => fmtBytes(row.tanstackBytes),
+    (row) => ratio(row.oursBytes, row.tanstackBytes),
+  )
 }
 
 function runSection(section: string): Row[] {
@@ -492,4 +625,5 @@ if (section === 'micro') {
   )
 }
 
+await finishRows()
 console.log(`BENCH_JSON:${JSON.stringify([...microRows, ...headlineRows])}`)
