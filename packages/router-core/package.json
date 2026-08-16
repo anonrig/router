@@ -9,11 +9,17 @@
   "exports": {
     ".": "./src/index.ts",
     "./is-server": "./src/is-server.ts",
+    "./isServer": "./src/is-server.ts",
+    "./scroll-restoration-script": {
+      "browser": "./src/scroll-restoration-script/client.ts",
+      "default": "./src/scroll-restoration-script/server.ts"
+    },
     "./ssr/server": "./src/ssr/server.ts",
     "./ssr/client": "./src/ssr/client.ts",
     "./ssr/ssr-match-id": "./src/ssr/ssr-match-id.ts",
     "./ssr/serializer/transformer": "./src/ssr/serializer/transformer-types.ts",
-    "./utils": "./src/utils.ts"
+    "./utils": "./src/utils.ts",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "build": "echo 'source package'"

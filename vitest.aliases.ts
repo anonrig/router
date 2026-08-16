@@ -33,6 +33,15 @@ const specialSubpaths: Record<string, string> = {
     'packages/router-core/src/match.ts',
   ),
   '@tanstack/router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
+  '@tanstack/router-core/scroll-restoration-script': resolve(
+    root,
+    'packages/router-core/src/scroll-restoration-script/server.ts',
+  ),
+  '@anonrig/router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
+  '@anonrig/router-core/scroll-restoration-script': resolve(
+    root,
+    'packages/router-core/src/scroll-restoration-script/server.ts',
+  ),
   '@tanstack/react-router/ssr/renderRouterToStream': resolve(
     root,
     'packages/react-router/src/ssr/render-router-to-stream.tsx',
@@ -142,6 +151,18 @@ export const tanstackAliases = [
   {
     find: '@tanstack/router-core/isServer',
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
+  },
+  {
+    find: '@tanstack/router-core/scroll-restoration-script',
+    replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
+  },
+  {
+    find: '@anonrig/router-core/isServer',
+    replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
+  },
+  {
+    find: '@anonrig/router-core/scroll-restoration-script',
+    replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
   },
   {
     find: '@tanstack/router-core/ssr/server',

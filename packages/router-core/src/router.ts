@@ -71,6 +71,29 @@ import {
   replaceEqualDeep,
 } from './utils'
 
+/**
+ * Convert an unknown error into a minimal, serializable object.
+ * Includes name and message (and stack in development).
+ */
+export function defaultSerializeError(err: unknown) {
+  if (err instanceof Error) {
+    const obj = {
+      name: err.name,
+      message: err.message,
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      ;(obj as { stack?: string }).stack = err.stack
+    }
+
+    return obj
+  }
+
+  return {
+    data: err,
+  }
+}
+
 export const trailingSlashOptions = {
   always: 'always',
   never: 'never',
@@ -138,6 +161,42 @@ export type InvalidateFn<TRouter extends AnyRouter> = (opts?: {
 export type ClearCacheFn<TRouter extends AnyRouter> = (opts?: {
   filter?: (d: import('./matches').MakeRouteMatchUnion<TRouter>) => boolean
 }) => void
+
+export interface MatchRoutesOpts {
+  throwOnError?: boolean
+}
+
+export type SubscribeFn = (eventType: string, fn: ListenerFn) => () => void
+export type PreloadRouteFn = (opts: NavigateOptions) => Promise<Array<PublicRouteMatch> | undefined>
+export type MatchRouteFn = (location: ToOptions, opts?: MatchRouteOptions) => any
+export type ParseLocationFn = (
+  locationToParse: HistoryLocation,
+  previousLocation?: ParsedLocation,
+) => ParsedLocation
+export type GetMatchRoutesFn = (
+  pathname: string,
+) => [
+  matchedRoutes: ReadonlyArray<AnyRoute>,
+  rawParams: Record<string, string>,
+  foundRoute: AnyRoute | undefined,
+]
+export type EmitFn = (routerEvent: RouterEvent) => void
+export type LoadFn = (opts?: {
+  sync?: boolean
+  action?: { type: string }
+  _signal?: AbortSignal
+}) => Promise<void>
+export type CommitLocationFn = (next: ParsedLocation & CommitLocationOptions) => Promise<void>
+export interface MatchRoutesFn {
+  (pathname: string, locationSearch?: any, opts?: MatchRoutesOpts): Array<PublicRouteMatch>
+  (next: ParsedLocation, opts?: MatchRoutesOpts): Array<PublicRouteMatch>
+  (
+    pathnameOrNext: string | ParsedLocation,
+    locationSearchOrOpts?: any,
+    opts?: MatchRoutesOpts,
+  ): Array<PublicRouteMatch>
+}
+export type LoadRouteChunkFn = (route: AnyRoute) => Promise<Array<void>>
 
 export type RouterConstructorOptions<
   TRouteTree extends AnyRoute = AnyRoute,
@@ -242,6 +301,19 @@ export interface RouterState<
   >
   statusCode: number
   redirect?: AnyRedirect
+}
+
+/** Create an initial RouterState from a parsed location. */
+export function getInitialRouterState(location: ParsedLocation): RouterState<any> {
+  return {
+    isLoading: false,
+    isTransitioning: false,
+    status: 'idle',
+    resolvedLocation: undefined,
+    location,
+    matches: [],
+    statusCode: 200,
+  }
 }
 
 export type NavigateOptions = {

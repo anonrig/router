@@ -130,6 +130,7 @@ export type {
   AnyRouteMatch,
   MakeRouteMatchFromRoute,
   MatchRouteOptions,
+  RouteMatchExtensions,
 } from './matches'
 export {
   joinPaths,
@@ -241,13 +242,24 @@ export type {
   ResolveRequiredParams,
   RootRoute,
   FilebaseRouteOptionsInterface,
+  LoaderStaleReloadMode,
 } from './route'
 export { createStore } from './store'
 export type { Store } from './store'
+export { createNonReactiveMutableStore, createNonReactiveReadonlyStore } from './stores'
+export type {
+  RouterBatchFn,
+  RouterReadableStore,
+  GetStoreConfig,
+  RouterStores,
+  RouterWritableStore,
+} from './stores'
 export {
   RouterCore,
   createRouter,
   trailingSlashOptions,
+  defaultSerializeError,
+  getInitialRouterState,
   getLocationChangeInfo,
   runRouteLifecycle,
   SearchParamError as RouterSearchParamError,
@@ -279,6 +291,19 @@ export type {
   InferRouterContext,
   InvalidateFn,
   ClearCacheFn,
+  MatchRoutesOpts,
+  PreloadRouteFn,
+  MatchRouteFn,
+  UpdateFn,
+  ParseLocationFn,
+  EmitFn,
+  LoadFn,
+  SubscribeFn,
+  CommitLocationFn,
+  GetMatchRoutesFn,
+  MatchRoutesFn,
+  StartTransitionFn,
+  LoadRouteChunkFn,
 } from './router'
 
 export * from './config'
@@ -463,11 +488,24 @@ export type {
   TSR_SERIALIZABLE,
   TsrSerializable,
   SerializationError,
+  DefaultSerializable,
 } from './ssr/serializer/transformer-types'
 export {
   createSerializationAdapter,
   createSerializationAdapter as createTypedSerializationAdapter,
 } from './ssr/serializer/transformer-types'
+export { makeSerovalPlugin, makeSsrSerovalPlugin } from './ssr/serializer/transformer'
+export { defaultSerovalPlugins } from './ssr/serializer/seroval-plugins'
+export {
+  RawStream,
+  createRawStreamRPCPlugin,
+  createRawStreamDeserializePlugin,
+} from './ssr/serializer/raw-stream'
+export type {
+  OnRawStreamCallback,
+  RawStreamHint,
+  RawStreamOptions,
+} from './ssr/serializer/raw-stream'
 
 export {
   processRouteTree,
