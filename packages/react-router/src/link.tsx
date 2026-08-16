@@ -163,8 +163,8 @@ export function useLinkProps(
 
   const [href, externalLink, isActive] = useStore(
     router.stores.state,
-    (state): LinkState => {
-      const location = state.location as ParsedLocation
+    (state: { location: ParsedLocation }): LinkState => {
+      const location = state.location
       if (typeof props.to === 'string' && !isSafeInternal(props.to) && props.to.indexOf(':') > -1) {
         const external = resolveExternalLink(undefined, props.to, router.protocolAllowlist)
         if (external) return [external, external, false]

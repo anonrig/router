@@ -782,7 +782,7 @@ export class RouterCore<
       if (dest.from) {
         const fromId = dest.from
         const hasFrom = matches?.some(
-          (match) => match.routeId === fromId || match.route?.fullPath === fromId,
+          (match: RouteMatch) => match.routeId === fromId || match.route?.fullPath === fromId,
         )
         if (!hasFrom) console.warn(`Could not find match for from: ${fromId}`)
       }
