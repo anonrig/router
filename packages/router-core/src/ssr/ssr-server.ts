@@ -5,7 +5,7 @@ import {
   createInlineCssStyleAsset,
   getStylesheetHref,
 } from '../manifest'
-import { decodePath, evictOldest } from '../utils'
+import { decodePath } from '../utils'
 import { createLRUCache } from '../lru-cache'
 import { rootRouteId } from '../root'
 import { _getRenderedMatches } from '../load-client'
@@ -59,22 +59,6 @@ export function dehydrateMatch(match: AnyRouteMatch): DehydratedMatch {
 }
 
 const INITIAL_SCRIPTS = [getCrossReferenceHeader(SCOPE_ID), minifiedTsrBootStrapScript]
-const dehydrateScriptCache: Record<string, string[]> = Object.create(null)
-const DEHYDRATE_SCRIPT_CACHE_MAX = 32
-let dehydrateScriptCacheSize = 0
-
-function dehydrateScriptCacheKey(matches: DehydratedMatch[]): string {
-  let key = ''
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i]!
-    if (i) key += '\n'
-    key += match.i + '\0' + match.s
-    if (match.l !== undefined) key += '\0l'
-    if (match.e !== undefined) key += '\0e'
-    if (match.b !== undefined) key += '\0b'
-  }
-  return key
-}
 
 class ScriptBuffer {
   private injectScript: ((script: string) => void) | undefined
@@ -587,20 +571,6 @@ export function attachRouterServerSsrUtils({
           signalSerializationComplete()
         }
 
-        const canCache =
-          !manifestToDehydrate &&
-          !dehydratedData &&
-          !serializationAdapters &&
-          !router.options.dehydrate
-        const cacheKey = canCache ? dehydrateScriptCacheKey(matches) : ''
-        const cachedScripts = cacheKey ? dehydrateScriptCache[cacheKey] : undefined
-        if (cachedScripts) {
-          for (let i = 0; i < cachedScripts.length; i++) scriptBuffer.enqueue(cachedScripts[i]!)
-          finishScriptSerialization()
-          return
-        }
-
-        const recordedScripts = cacheKey ? ([] as string[]) : undefined
         crossSerializeStream(dehydratedRouter, {
           refs: new Map(),
           plugins,
@@ -609,7 +579,6 @@ export function attachRouterServerSsrUtils({
             if (trackPlugins.didRun) {
               serialized = P_PREFIX + serialized + P_SUFFIX
             }
-            recordedScripts?.push(serialized)
             scriptBuffer.enqueue(serialized)
           },
           onError: (err: unknown) => {
@@ -620,19 +589,7 @@ export function attachRouterServerSsrUtils({
             finishScriptSerialization()
           },
           scopeId: SCOPE_ID,
-          onDone: () => {
-            if (cacheKey && recordedScripts) {
-              if (!(cacheKey in dehydrateScriptCache)) {
-                if (dehydrateScriptCacheSize >= DEHYDRATE_SCRIPT_CACHE_MAX) {
-                  evictOldest(dehydrateScriptCache)
-                } else {
-                  dehydrateScriptCacheSize++
-                }
-              }
-              dehydrateScriptCache[cacheKey] = recordedScripts
-            }
-            finishScriptSerialization()
-          },
+          onDone: finishScriptSerialization,
         })
       }
 
