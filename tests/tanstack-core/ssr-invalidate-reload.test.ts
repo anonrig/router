@@ -22,11 +22,13 @@ describe('server load after invalidation', () => {
     await router.load()
     expect(loader).toHaveBeenCalledTimes(1)
 
+    // Server loads never skip: a reused instance must not replay the previous
+    // request's loader data just because the URL and match ids still match.
     await router.load()
-    expect(loader).toHaveBeenCalledTimes(1)
+    expect(loader).toHaveBeenCalledTimes(2)
 
     await router.invalidate()
-    expect(loader).toHaveBeenCalledTimes(2)
+    expect(loader).toHaveBeenCalledTimes(3)
     expect(router.state.matches.at(-1)).toMatchObject({
       status: 'success',
       invalid: false,

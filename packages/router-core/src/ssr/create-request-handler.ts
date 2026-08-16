@@ -113,7 +113,14 @@ export function createRequestHandler<TRouter extends AnyRouter>({
       const href = url.href.replace(url.origin, '')
       const current = router.history?.location
       const currentHref = current ? current.pathname + current.search + current.hash : ''
-      if (!current || currentHref !== href || router.origin !== origin) {
+      // A reused router at the same URL still belongs to a new request. Fresh
+      // history avoids inheriting the previous request's location state.
+      if (
+        hasPriorServerRequestState(router) ||
+        !current ||
+        currentHref !== href ||
+        router.origin !== origin
+      ) {
         router.update({
           history: createMemoryHistory({
             initialEntries: [href],
@@ -167,6 +174,10 @@ export function createRequestHandler<TRouter extends AnyRouter>({
       }
     }
   }
+}
+
+function hasPriorServerRequestState(router: AnyRouter) {
+  return router._committed.length > 0
 }
 
 function getRequestHeaders(opts: { router: AnyRouter }): Headers {

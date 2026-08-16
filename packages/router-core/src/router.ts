@@ -1275,14 +1275,9 @@ export class RouterCore<
       if (opts?._signal?.aborted) {
         throw opts._signal.reason
       }
-      // Request-scoped SSR passes `_signal` and must re-run. A warm
-      // `load()` on an already-idle router can skip only when nothing is
-      // invalid or configured to reload.
-      if (!opts?.action && !opts?._signal && this.canSkipSettledLoad()) {
-        this._commitPromise?.resolve()
-        this._commitPromise = undefined
-        return
-      }
+      // A reused server router must never skip or replay another request's
+      // loader payloads. Client `load()` may still skip a settled session.
+      this.isolateServerRequest()
       return this.importLoadServer(opts)
     }
     if (!opts?.action && this.canSkipSettledLoad()) {
@@ -1299,6 +1294,20 @@ export class RouterCore<
       loadServerRouteCached = loadServerRoute
       return loadServerRoute(this, opts)
     })
+  }
+
+  private isolateServerRequest() {
+    this._cache = Object.create(null)
+    this._matchesByPath = undefined
+    this._flights = undefined
+    this._preloads = undefined
+    this._serverResult = undefined
+    this._tx = undefined
+    this._handoff = undefined
+    this._pending = undefined
+    this._pendingLocation = undefined
+    this._forcePending = false
+    this.stores?.setMatches?.([])
   }
 
   private canSkipSettledLoad(): boolean {
@@ -1893,6 +1902,7 @@ export class RouterCore<
 
     const matches: RouteMatch[] = new Array(matchedRoutes.length)
     const committed = this._committed
+    const reuseCachedMatches = !(isServer || this.isServer)
     let strictParams: Record<string, any> | undefined
 
     for (let index = 0; index < matchedRoutes.length; index++) {
@@ -1954,7 +1964,7 @@ export class RouterCore<
           ? committed[index]
           : committed.find((candidate) => candidate.routeId === route.id)
       const existingMatch =
-        process.env.NODE_ENV !== 'production' && opts?._rematerialize
+        !reuseCachedMatches || (process.env.NODE_ENV !== 'production' && opts?._rematerialize)
           ? undefined
           : (this._cache[matchId] ?? (previousMatch?.id === matchId ? previousMatch : undefined))
 
@@ -2040,7 +2050,7 @@ export class RouterCore<
       !opts?._controller
     ) {
       const snapshot = new Array(matches.length)
-      for (let i = 0; i < matches.length; i++) snapshot[i] = { ...matches[i] }
+      for (let i = 0; i < matches.length; i++) snapshot[i] = omitUserMatchFields(matches[i]!)
       templateCache[next.pathname] = snapshot
     }
 
@@ -2365,18 +2375,34 @@ function applyBuildRewrite(router: any, location: ParsedLocation) {
   }
 }
 
+function omitUserMatchFields(match: RouteMatch): RouteMatch {
+  return {
+    ...match,
+    loaderData: undefined,
+    error: undefined,
+    headers: undefined,
+    meta: undefined,
+    links: undefined,
+    scripts: undefined,
+    headScripts: undefined,
+    styles: undefined,
+    __beforeLoadContext: undefined,
+    context: {},
+    ssr: undefined,
+  }
+}
+
 function cloneCachedMatches(cached: RouteMatch[]): RouteMatch[] {
   const now = Date.now()
   const out = new Array(cached.length)
   for (let i = 0; i < cached.length; i++) {
-    const match = cached[i]!
+    const match = omitUserMatchFields(cached[i]!)
     out[i] = {
       ...match,
       updatedAt: now,
       abortController: routeNeedsLoad(match.route as AnyRoute)
         ? new AbortController()
         : noopAbortController,
-      context: {},
       isFetching: false,
     }
   }
