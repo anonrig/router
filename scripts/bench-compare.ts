@@ -4,6 +4,7 @@
  * `@anonrig/*` resolves through the workspace packages. `@tanstack/*` stays
  * on the published packages so the same operations can be timed head-to-head.
  */
+import { spawnSync } from 'node:child_process'
 import './bench-compare-self.ts'
 import {
   createMemoryHistory as oursCreateMemoryHistory,
@@ -205,176 +206,6 @@ async function addAsync(name: string, ours: () => Promise<void>, tanstack: () =>
   })
 }
 
-// Headline ops first so createRouter / load numbers are not taken after
-// half a minute of tight microbenchmarks on a shared 4-core box.
-globalThis.gc?.()
-
-await addAsync(
-  'SSR cold router.load req/s',
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    await createOursRouter(path).load()
-  },
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    await createTsRouter(path).load()
-  },
-)
-await addAsync(
-  'createRequestHandler req/s',
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    const handler = oursCreateRequestHandler({
-      createRouter: () => createOursRouter(path),
-      request: new Request(`http://localhost${path}`),
-    })
-    await handler(
-      async ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
-    )
-  },
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    const handler = tsCreateRequestHandler({
-      createRouter: () => createTsRouter(path),
-      request: new Request(`http://localhost${path}`),
-    })
-    await handler(
-      async ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
-    )
-  },
-)
-
-const oursRouter = oursCreateRouter({
-  routeTree: oursRouteTree,
-  history: oursCreateMemoryHistory({ initialEntries: ['/'] }),
-})
-const tsRouter = tsCreateRouter({
-  routeTree: tsRouteTree,
-  history: tsCreateMemoryHistory({ initialEntries: ['/'] }),
-})
-await addAsync(
-  'Warm navigate',
-  async () => {
-    await oursRouter.navigate({ href: paths[cursor++ % paths.length]! })
-  },
-  async () => {
-    await tsRouter.navigate({ href: paths[cursor++ % paths.length]! })
-  },
-)
-await addAsync(
-  'Warm router.load',
-  async () => {
-    await oursRouter.load()
-  },
-  async () => {
-    await tsRouter.load()
-  },
-)
-
-const oursProcessed = buildOursLargeTree(8, 3)
-const tsProcessed = buildTsLargeTree(8, 3)
-const oursHistory = oursCreateMemoryHistory({ initialEntries: ['/'] })
-const tsHistory = tsCreateMemoryHistory({ initialEntries: ['/'] })
-globalThis.gc?.()
-
-await addSync(
-  'Query-string encode',
-  () => {
-    oursEncode(sample)
-  },
-  () => {
-    tsEncode(sample)
-  },
-)
-await addSync(
-  'Query-string decode',
-  () => {
-    oursDecode(oursEncoded)
-  },
-  () => {
-    tsDecode(tsEncoded)
-  },
-)
-await addSync(
-  'defaultStringifySearch (×1000)',
-  () => {
-    for (let i = 0; i < 1000; i++) oursStringifySearch(ordinarySearch)
-  },
-  () => {
-    for (let i = 0; i < 1000; i++) tsStringifySearch(ordinarySearch)
-  },
-)
-await addSync(
-  'parseHref',
-  () => {
-    oursParseHref('/posts/abc?tab=specs&page=2#comments', undefined)
-  },
-  () => {
-    tsParseHref('/posts/abc?tab=specs&page=2#comments', undefined)
-  },
-)
-await addSync(
-  'cleanPath',
-  () => {
-    oursCleanPath('/a//b///c/d//e')
-  },
-  () => {
-    tsCleanPath('/a//b///c/d//e')
-  },
-)
-await addSync(
-  'resolvePath',
-  () => {
-    oursResolvePath({ base: '/a/b/c', to: '../../d/e' })
-  },
-  () => {
-    tsResolvePath({ base: '/a/b/c', to: '../../d/e' })
-  },
-)
-await addSync(
-  'interpolatePath',
-  () => {
-    oursInterpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
-  },
-  () => {
-    tsInterpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
-  },
-)
-await addSync(
-  'Route match (large tree)',
-  () => {
-    oursFindRouteMatch(oursProcessed, needles[matchCursor++ & 63]!)
-  },
-  () => {
-    tsFindRouteMatch(needles[matchCursor++ & 63]!, tsProcessed.processedTree)
-  },
-)
-await addSync(
-  'Encode 100 typical SSR match IDs',
-  () => {
-    for (const id of typicalIds) oursDehydrateSsrMatchId(id)
-  },
-  () => {
-    for (const id of typicalIds) tsDehydrateSsrMatchId(id)
-  },
-)
-await addSync(
-  'History push',
-  () => {
-    oursHistory.push(`/n/${cursor++}`)
-  },
-  () => {
-    tsHistory.push(`/n/${cursor++}`)
-  },
-)
-const rows = [
-  ...microRows,
-  ...headlineRows.filter((row) => row.name === 'Warm navigate'),
-  ...headlineRows.filter((row) => row.name === 'Warm router.load'),
-  ...headlineRows.filter((row) => row.name === 'SSR cold router.load req/s'),
-  ...headlineRows.filter((row) => row.name === 'createRequestHandler req/s'),
-]
-
 function fmt(n: number) {
   return n >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n.toFixed(1)
 }
@@ -384,26 +215,230 @@ function ratio(ours: number, tanstack: number) {
   return `${(ours / tanstack).toFixed(2)}×`
 }
 
-console.log('')
-console.log('Same-machine comparison (higher ops/s is better)')
-console.log(`Node ${process.version}`)
-console.log(
-  'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
-)
-console.log('')
-console.log(
-  'Operation'.padEnd(38) +
-    ' @anonrig'.padStart(14) +
-    ' TanStack'.padStart(14) +
-    ' vs TanStack'.padStart(14),
-)
-console.log(''.padEnd(80, '-'))
-for (const row of rows) {
+function printRows(rows: Row[]) {
+  console.log('')
+  console.log('Same-machine comparison (higher ops/s is better)')
+  console.log(`Node ${process.version}`)
   console.log(
-    row.name.padEnd(38) +
-      fmt(row.ours).padStart(14) +
-      fmt(row.tanstack).padStart(14) +
-      ratio(row.ours, row.tanstack).padStart(14),
+    'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
+  )
+  console.log('')
+  console.log(
+    'Operation'.padEnd(38) +
+      ' @anonrig'.padStart(14) +
+      ' TanStack'.padStart(14) +
+      ' vs TanStack'.padStart(14),
+  )
+  console.log(''.padEnd(80, '-'))
+  for (const row of rows) {
+    console.log(
+      row.name.padEnd(38) +
+        fmt(row.ours).padStart(14) +
+        fmt(row.tanstack).padStart(14) +
+        ratio(row.ours, row.tanstack).padStart(14),
+    )
+  }
+  console.log('')
+}
+
+function runSection(section: string): Row[] {
+  const result = spawnSync(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+    env: { ...process.env, BENCH_SECTION: section },
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
+  })
+  if (result.status !== 0) {
+    if (result.stderr) process.stderr.write(result.stderr)
+    if (result.stdout) process.stdout.write(result.stdout)
+    process.exit(result.status ?? 1)
+  }
+  const line = result.stdout.split('\n').find((entry) => entry.startsWith('BENCH_JSON:'))
+  if (!line) {
+    process.stderr.write(result.stdout)
+    throw new Error(`bench section ${section} did not print BENCH_JSON`)
+  }
+  return JSON.parse(line.slice('BENCH_JSON:'.length)) as Row[]
+}
+
+const section = process.env.BENCH_SECTION
+
+if (!section) {
+  const headlines = runSection('headline')
+  const micros = runSection('micro')
+  printRows([
+    ...micros,
+    ...headlines.filter((row) => row.name === 'Warm navigate'),
+    ...headlines.filter((row) => row.name === 'Warm router.load'),
+    ...headlines.filter((row) => row.name === 'SSR cold router.load req/s'),
+    ...headlines.filter((row) => row.name === 'createRequestHandler req/s'),
+  ])
+  process.exit(0)
+}
+
+// Headlines and micros run in separate processes so createRouter/load and
+// stringify/encode are not timed on each other's leftover heap.
+globalThis.gc?.()
+
+if (section === 'headline') {
+  await addAsync(
+    'createRequestHandler req/s',
+    async () => {
+      const path = paths[cursor++ % paths.length]!
+      const handler = oursCreateRequestHandler({
+        createRouter: () => createOursRouter(path),
+        request: new Request(`http://localhost${path}`),
+      })
+      await handler(
+        async ({ responseHeaders }) =>
+          new Response(null, { status: 200, headers: responseHeaders }),
+      )
+    },
+    async () => {
+      const path = paths[cursor++ % paths.length]!
+      const handler = tsCreateRequestHandler({
+        createRouter: () => createTsRouter(path),
+        request: new Request(`http://localhost${path}`),
+      })
+      await handler(
+        async ({ responseHeaders }) =>
+          new Response(null, { status: 200, headers: responseHeaders }),
+      )
+    },
+  )
+  await addAsync(
+    'SSR cold router.load req/s',
+    async () => {
+      const path = paths[cursor++ % paths.length]!
+      await createOursRouter(path).load()
+    },
+    async () => {
+      const path = paths[cursor++ % paths.length]!
+      await createTsRouter(path).load()
+    },
+  )
+  const oursRouter = oursCreateRouter({
+    routeTree: oursRouteTree,
+    history: oursCreateMemoryHistory({ initialEntries: ['/'] }),
+  })
+  const tsRouter = tsCreateRouter({
+    routeTree: tsRouteTree,
+    history: tsCreateMemoryHistory({ initialEntries: ['/'] }),
+  })
+  await addAsync(
+    'Warm navigate',
+    async () => {
+      await oursRouter.navigate({ href: paths[cursor++ % paths.length]! })
+    },
+    async () => {
+      await tsRouter.navigate({ href: paths[cursor++ % paths.length]! })
+    },
+  )
+  await addAsync(
+    'Warm router.load',
+    async () => {
+      await oursRouter.load()
+    },
+    async () => {
+      await tsRouter.load()
+    },
   )
 }
-console.log('')
+
+if (section === 'micro') {
+  const oursProcessed = buildOursLargeTree(8, 3)
+  const tsProcessed = buildTsLargeTree(8, 3)
+  const oursHistory = oursCreateMemoryHistory({ initialEntries: ['/'] })
+  const tsHistory = tsCreateMemoryHistory({ initialEntries: ['/'] })
+  await addSync(
+    'Query-string encode',
+    () => {
+      oursEncode(sample)
+    },
+    () => {
+      tsEncode(sample)
+    },
+  )
+  await addSync(
+    'Query-string decode',
+    () => {
+      oursDecode(oursEncoded)
+    },
+    () => {
+      tsDecode(tsEncoded)
+    },
+  )
+  await addSync(
+    'defaultStringifySearch (×1000)',
+    () => {
+      for (let i = 0; i < 1000; i++) oursStringifySearch(ordinarySearch)
+    },
+    () => {
+      for (let i = 0; i < 1000; i++) tsStringifySearch(ordinarySearch)
+    },
+  )
+  await addSync(
+    'parseHref',
+    () => {
+      oursParseHref('/posts/abc?tab=specs&page=2#comments', undefined)
+    },
+    () => {
+      tsParseHref('/posts/abc?tab=specs&page=2#comments', undefined)
+    },
+  )
+  await addSync(
+    'cleanPath',
+    () => {
+      oursCleanPath('/a//b///c/d//e')
+    },
+    () => {
+      tsCleanPath('/a//b///c/d//e')
+    },
+  )
+  await addSync(
+    'resolvePath',
+    () => {
+      oursResolvePath({ base: '/a/b/c', to: '../../d/e' })
+    },
+    () => {
+      tsResolvePath({ base: '/a/b/c', to: '../../d/e' })
+    },
+  )
+  await addSync(
+    'interpolatePath',
+    () => {
+      oursInterpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
+    },
+    () => {
+      tsInterpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
+    },
+  )
+  await addSync(
+    'Route match (large tree)',
+    () => {
+      oursFindRouteMatch(oursProcessed, needles[matchCursor++ & 63]!)
+    },
+    () => {
+      tsFindRouteMatch(needles[matchCursor++ & 63]!, tsProcessed.processedTree)
+    },
+  )
+  await addSync(
+    'Encode 100 typical SSR match IDs',
+    () => {
+      for (const id of typicalIds) oursDehydrateSsrMatchId(id)
+    },
+    () => {
+      for (const id of typicalIds) tsDehydrateSsrMatchId(id)
+    },
+  )
+  await addSync(
+    'History push',
+    () => {
+      oursHistory.push(`/n/${cursor++}`)
+    },
+    () => {
+      tsHistory.push(`/n/${cursor++}`)
+    },
+  )
+}
+
+console.log(`BENCH_JSON:${JSON.stringify([...microRows, ...headlineRows])}`)
