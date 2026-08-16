@@ -739,6 +739,29 @@ type ServerLoadOptions = NonNullable<Parameters<AnyRouter['load']>[0]> & {
   _signal?: AbortSignal
 }
 
+let fastServerLoaderCtx: Record<string, any> | undefined
+
+function fillFastServerLoaderContext(
+  ctx: Record<string, any>,
+  match: AnyRouteMatch,
+  location: ParsedLocation,
+  navigate: AnyRouter['navigate'],
+  context: Record<string, any>,
+  route: AnyRoute,
+) {
+  ctx.params = match.params
+  ctx.deps = match.loaderDeps
+  ctx.preload = false
+  ctx.parentMatchPromise = undefined
+  ctx.abortController = match.abortController
+  ctx.context = context
+  ctx.location = location
+  ctx.navigate = navigate
+  ctx.cause = match.cause
+  ctx.route = route
+  return ctx
+}
+
 function canUseFastServerLane(router: AnyRouter, matches: Array<AnyRouteMatch>): boolean {
   if (router.rewrite) return false
   let loaders = 0
@@ -796,20 +819,32 @@ function executeFastServerLane(
     const loaderFn = typeof loader === 'function' ? loader : loader?.handler
     if (loaderFn) {
       try {
-        const data = loaderFn({
-          params: match.params,
-          deps: match.loaderDeps,
-          preload: false,
-          parentMatchPromise: undefined,
-          abortController: match.abortController,
-          context,
-          location,
-          navigate: router.navigate,
-          cause: match.cause,
-          route,
-          ...router.options.additionalContext,
-        })
+        const extra = router.options.additionalContext
+        const loaderContext = extra
+          ? {
+              params: match.params,
+              deps: match.loaderDeps,
+              preload: false,
+              parentMatchPromise: undefined,
+              abortController: match.abortController,
+              context,
+              location,
+              navigate: router.navigate,
+              cause: match.cause,
+              route,
+              ...extra,
+            }
+          : fillFastServerLoaderContext(
+              fastServerLoaderCtx ?? (fastServerLoaderCtx = {}),
+              match,
+              location,
+              router.navigate,
+              context,
+              route,
+            )
+        const data = loaderFn(loaderContext)
         if (data instanceof Promise) {
+          if (!extra) fastServerLoaderCtx = undefined
           return data.then((value) => {
             if (isRedirect(value)) {
               abortLane()

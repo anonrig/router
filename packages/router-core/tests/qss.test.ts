@@ -22,6 +22,12 @@ describe('qss', () => {
     expect(encode({ q: 'hello world' })).toBe('q=hello+world')
     expect(decode('q=hello+world')).toEqual({ q: 'hello world' })
   })
+
+  it('returns a fresh object so callers can mutate the result', () => {
+    const first = decode('foo=bar')
+    first.foo = 'mutated'
+    expect(decode('foo=bar')).toEqual({ foo: 'bar' })
+  })
 })
 
 describe('search params', () => {

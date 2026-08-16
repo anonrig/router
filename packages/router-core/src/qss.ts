@@ -105,20 +105,7 @@ export function encode(
   return out
 }
 
-let lastDecodeIn: string | undefined
-let lastDecodeOut: Record<string, unknown> | undefined
-
-function cloneDecoded(source: Record<string, unknown>): Record<string, unknown> {
-  const copy: Record<string, unknown> = Object.create(null)
-  for (const key in source) {
-    const value = source[key]
-    copy[key] = Array.isArray(value) ? value.slice() : value
-  }
-  return copy
-}
-
 export function decode(str: any): Record<string, unknown> {
-  if (str === lastDecodeIn && lastDecodeOut) return cloneDecoded(lastDecodeOut)
   const result: Record<string, unknown> = Object.create(null)
   if (!str || typeof str !== 'string') return result
 
@@ -150,7 +137,5 @@ export function decode(str: any): Record<string, unknown> {
     }
   }
 
-  lastDecodeIn = str
-  lastDecodeOut = result
-  return cloneDecoded(result)
+  return result
 }

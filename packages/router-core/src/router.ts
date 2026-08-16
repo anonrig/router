@@ -595,14 +595,29 @@ export class RouterCore<
         setMatches: (nextMatches: any[]) => {
           setMatches(nextMatches)
           const current = state.get()
-          if (current) {
-            state.set({
-              ...current,
-              matches: nextMatches,
-              status: stores.status.get(),
-              isLoading: stores.status.get() === 'pending',
-            })
+          if (!current) return
+          const status = stores.status.get()
+          const nextLocation = stores.location.get()
+          const nextResolved = stores.resolvedLocation.get()
+          const isLoading = status === 'pending'
+          if (
+            current.matches === nextMatches &&
+            current.status === status &&
+            current.location === nextLocation &&
+            current.resolvedLocation === nextResolved &&
+            current.isLoading === isLoading
+          ) {
+            return
           }
+          state.set({
+            ...current,
+            matches: nextMatches,
+            status,
+            isLoading,
+            isTransitioning: isLoading,
+            location: nextLocation,
+            resolvedLocation: nextResolved,
+          })
         },
       })
     }
@@ -1375,16 +1390,26 @@ export class RouterCore<
   }
 
   private navigateHrefFast(href: string, rest: any): Promise<void> {
-    const currentIndex = this.history.location.state?.__TSR_index
-    const parsed = parseHref(href, {
-      __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
-    })
-    const searchStr = parsed.search
-    const hashRaw = parsed.hash
-    const hash = !hashRaw ? '' : hashRaw.charCodeAt(0) === 35 ? hashRaw.slice(1) : hashRaw
-    const hashStr = hash ? `#${hash}` : ''
-    const pathname = parsed.pathname
-    const hrefFull = `${pathname}${searchStr}${hashStr}`
+    let pathname: string
+    let searchStr: string
+    let hash: string
+    let hrefFull: string
+    if (isSimpleHref(href)) {
+      pathname = href
+      searchStr = ''
+      hash = ''
+      hrefFull = href
+    } else {
+      const currentIndex = this.history.location.state?.__TSR_index
+      const parsed = parseHref(href, {
+        __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
+      })
+      searchStr = parsed.search
+      const hashRaw = parsed.hash
+      hash = !hashRaw ? '' : hashRaw.charCodeAt(0) === 35 ? hashRaw.slice(1) : hashRaw
+      pathname = parsed.pathname
+      hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
+    }
     const location: ParsedLocation = {
       href: hrefFull,
       publicHref: hrefFull,
@@ -1564,12 +1589,13 @@ export class RouterCore<
     start: number,
     context: Record<string, any>,
   ): void | Promise<void> {
+    const now = Date.now()
     for (let i = start; i < matches.length; i++) {
       if (id !== this.loadId) return
       const match = matches[i]!
       const route = this.routesById[match.routeId]!
       const opts = route.options
-      if (!warmMatchNeedsLoader(match, route, this, this._committed)) {
+      if (!warmMatchNeedsLoader(match, route, this, this._committed, now)) {
         match.context = context
         continue
       }
@@ -1582,22 +1608,19 @@ export class RouterCore<
         continue
       }
 
-      const loaderContext = {
-        abortController: match.abortController,
-        preload: false,
-        params: match.params,
-        rawParams: match.rawParams,
-        cause: match.cause,
+      const loaderContext = fillWarmLoaderContext(
+        warmLoaderCtx ?? (warmLoaderCtx = {}),
+        match,
         location,
-        navigate: this.navigate,
-        search: match.search,
+        this.navigate,
         context,
         route,
         matches,
-      }
+      )
       const data = callWarmLoader(loader, loaderContext)
       if (data === WARM_LOADER_THREW) return loadClientRoute(this)
       if (data instanceof Promise) {
+        warmLoaderCtx = undefined
         return Promise.resolve(data).then((value) => {
           if (isRedirect(value) || isNotFound(value)) {
             return loadClientRoute(this)
@@ -1615,7 +1638,7 @@ export class RouterCore<
       match.loaderData = data
       match.status = 'success'
       match.isFetching = false
-      match.updatedAt = Date.now()
+      match.updatedAt = now
       match.context = context
       this._cache[match.id] = match
     }
@@ -1631,6 +1654,7 @@ export class RouterCore<
     location: ParsedLocation,
   ): { needsLoader: boolean } | undefined {
     const prevMatches = this._committed
+    const now = Date.now()
     let needsLoader = false
     for (let i = 0; i < matches.length; i++) {
       const match = matches[i]!
@@ -1641,7 +1665,7 @@ export class RouterCore<
       match.cause = prev ? 'stay' : 'enter'
       match.search = location.search
       match.publicHref = location.publicHref
-      if (warmMatchNeedsLoader(match, route, this, prevMatches)) needsLoader = true
+      if (warmMatchNeedsLoader(match, route, this, prevMatches, now)) needsLoader = true
     }
     return { needsLoader }
   }
@@ -1670,15 +1694,6 @@ export class RouterCore<
   }
 
   private completeWarmLoad(location: ParsedLocation, matches: RouteMatch[]) {
-    let statusCode = 200
-    for (let i = 0; i < matches.length; i++) {
-      const status = matches[i]!.status
-      if (status === 'notFound') {
-        statusCode = 404
-        break
-      }
-      if (status === 'error') statusCode = 500
-    }
     const prevResolved = this.stores.resolvedLocation.get()
     this._committed = matches
     for (let i = 0; i < matches.length; i++) {
@@ -1689,16 +1704,28 @@ export class RouterCore<
       this.stores.location.set(location)
       this.stores.resolvedLocation.set(location)
       this.stores.setMatches(matches)
-      this.stores.state.set({
-        status: 'idle',
-        isLoading: false,
-        isTransitioning: false,
-        matches,
-        pendingMatches: undefined,
-        location,
-        resolvedLocation: location,
-        statusCode,
-      })
+      const current = this.stores.state.get()
+      if (
+        current.status !== 'idle' ||
+        current.isLoading ||
+        current.isTransitioning ||
+        current.matches !== matches ||
+        current.location !== location ||
+        current.resolvedLocation !== location ||
+        current.statusCode !== 200 ||
+        current.pendingMatches
+      ) {
+        this.stores.state.set({
+          status: 'idle',
+          isLoading: false,
+          isTransitioning: false,
+          matches,
+          pendingMatches: undefined,
+          location,
+          resolvedLocation: location,
+          statusCode: 200,
+        })
+      }
     })
     this.redirectHops = 0
     if (this.subscribers.size) {
@@ -2400,7 +2427,20 @@ function cloneCachedMatches(cached: RouteMatch[]): RouteMatch[] {
 function isPlainAsciiPath(path: string) {
   for (let i = 0; i < path.length; i++) {
     const c = path.charCodeAt(i)
-    if (c <= 0x1f || c === 0x20 || c === 0x7f || c > 0x7f) return false
+    // Reject control/space/DEL/non-ASCII, plus '%' and '\\' so we can skip decode/encode.
+    if (c <= 0x20 || c === 0x7f || c > 0x7f || c === 37 || c === 92) return false
+  }
+  return true
+}
+
+function isSimpleHref(href: string) {
+  const len = href.length
+  if (len === 0 || href.charCodeAt(0) !== 47 || (len > 1 && href.charCodeAt(1) === 47)) {
+    return false
+  }
+  for (let i = 1; i < len; i++) {
+    const c = href.charCodeAt(i)
+    if (c <= 0x1f || c === 0x7f || c === 63 || c === 35) return false
   }
   return true
 }
@@ -2415,17 +2455,16 @@ function parseHistoryLocation(
   if (!router.rewrite && isPlainAsciiPath(location.pathname)) {
     const hash = location.hash
     const hashValue = !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
-    const pathname = decodePath(location.pathname).path
-    const encodedPath = encodePathLikeUrl(pathname)
+    const pathname = location.pathname
     if (!location.search && parseSearch === defaultParseSearch) {
-      const href = hash ? encodedPath + hash : encodedPath
+      const href = hash ? pathname + hash : pathname
       return {
         href,
         publicHref: href,
         pathname,
         external: false,
         searchStr: '',
-        search: Object.create(null),
+        search: EMPTY_OBJ,
         hash: hashValue,
         state: previous ? replaceEqualDeep(previous.state, location.state) : location.state,
       }
@@ -2433,8 +2472,8 @@ function parseHistoryLocation(
     const parsedSearch = parseSearch(location.search)
     const searchStr = stringifySearch(parsedSearch)
     return {
-      href: encodedPath + searchStr + hash,
-      publicHref: encodedPath + searchStr + hash,
+      href: pathname + searchStr + hash,
+      publicHref: pathname + searchStr + hash,
       pathname,
       external: false,
       searchStr,
@@ -2465,6 +2504,31 @@ function parseHistoryLocation(
 const WARM_MATCH_CACHE_MAX = 64
 
 const WARM_LOADER_THREW = {}
+
+let warmLoaderCtx: Record<string, any> | undefined
+
+function fillWarmLoaderContext(
+  ctx: Record<string, any>,
+  match: RouteMatch,
+  location: ParsedLocation,
+  navigate: NavigateFn,
+  context: Record<string, any>,
+  route: AnyRoute,
+  matches: RouteMatch[],
+) {
+  ctx.abortController = match.abortController
+  ctx.preload = false
+  ctx.params = match.params
+  ctx.rawParams = match.rawParams
+  ctx.cause = match.cause
+  ctx.location = location
+  ctx.navigate = navigate
+  ctx.search = match.search
+  ctx.context = context
+  ctx.route = route
+  ctx.matches = matches
+  return ctx
+}
 
 function callWarmLoader(loader: (context: any) => any, context: any) {
   try {
@@ -2507,11 +2571,12 @@ function warmMatchNeedsLoader(
   route: AnyRoute,
   router: { options: { defaultStaleTime?: number } },
   prevMatches: RouteMatch[],
+  now: number,
 ): boolean {
   if (!route.options.loader) return false
   if (match.status !== 'success' || match.invalid) return true
   const staleAge = route.options.staleTime ?? router.options.defaultStaleTime ?? 0
-  if (staleAge === Infinity || Date.now() - match.updatedAt < staleAge) return false
+  if (staleAge === Infinity || now - match.updatedAt < staleAge) return false
   if (match.cause === 'enter') return true
   const routeId = match.routeId
   const matchId = match.id

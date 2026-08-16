@@ -593,9 +593,17 @@ export function decodePath(path: string) {
   // Only fall back to the slower scan/regex path when we see a '%' (encoded),
   // a backslash (explicitly handled), a control character, or a protocol-relative
   // prefix which needs collapsing.
-  // eslint-disable-next-line no-control-regex
-  if (!/[%\\\x00-\x1f\x7f]/.test(path) && !path.startsWith('//')) {
-    return { path, handledProtocolRelativeURL: false }
+  const len = path.length
+  if (!(len >= 2 && path.charCodeAt(0) === 47 && path.charCodeAt(1) === 47)) {
+    let encoded = false
+    for (let i = 0; i < len; i++) {
+      const c = path.charCodeAt(i)
+      if (c === 37 || c === 92 || c <= 0x1f || c === 0x7f) {
+        encoded = true
+        break
+      }
+    }
+    if (!encoded) return { path, handledProtocolRelativeURL: false }
   }
 
   const re = /%25|%5C/gi
@@ -642,14 +650,20 @@ export function decodePath(path: string) {
  */
 export function encodePathLikeUrl(path: string): string {
   // Encode whitespace and non-ASCII characters that browsers encode in URLs
-
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
-  // eslint-disable-next-line no-control-regex
-  const encoded = !/\s|[^\u0000-\u007F]/.test(path)
-    ? path
-    : // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
+  const pathLen = path.length
+  let needsEncode = false
+  for (let i = 0; i < pathLen; i++) {
+    const c = path.charCodeAt(i)
+    if (c === 0x20 || (c >= 0x09 && c <= 0x0d) || c > 0x7f) {
+      needsEncode = true
+      break
+    }
+  }
+  const encoded = needsEncode
+    ? // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
       // eslint-disable-next-line no-control-regex
       path.replace(/\s|[^\u0000-\u007F]/gu, encodeURIComponent)
+    : path
   // Browsers leave [] in pathnames; interpolatePath keeps them encoded so core
   // path tests stay strict. Public hrefs unescape them for Link/history.
   if (encoded.indexOf('%5') === -1) return encoded
