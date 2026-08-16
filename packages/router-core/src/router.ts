@@ -55,6 +55,8 @@ import {
 import {
   createControlledPromise,
   createLRUCache,
+  createStringMap,
+  rememberBounded,
   decodePath,
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
@@ -447,11 +449,11 @@ export class RouterCore<
   stores: any
   batch: (fn: () => void) => void = runNow
   _rendered: any[] | undefined
-  _cache = new Map<string, any>()
-  _matchesByPath?: Map<string, RouteMatch[]>
+  _cache = createStringMap<any>()
+  _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>>
   _committed: any[] = []
   _tx?: any
-  _flights?: Map<string, any>
+  _flights?: ReturnType<typeof createStringMap<any>>
   _preloads?: Map<AbortController, any[]>
   _refreshNextLoad?: boolean
   declare _replaceRouteChunk?: typeof replaceRouteChunk
@@ -1307,11 +1309,12 @@ export class RouterCore<
 
     const prevMatches = this._committed
     const prevByRoute = prevMatches.length > 4 ? null : prevMatches
-    const prevMap = prevMatches.length > 4 ? new Map<string, RouteMatch>() : null
+    const prevMap: Record<string, RouteMatch> | null =
+      prevMatches.length > 4 ? Object.create(null) : null
     if (prevMap) {
       for (let i = 0; i < prevMatches.length; i++) {
         const prev = prevMatches[i]!
-        prevMap.set(prev.routeId, prev)
+        prevMap[prev.routeId] = prev
       }
     }
 
@@ -1321,9 +1324,7 @@ export class RouterCore<
 
     for (let i = 0; i < found.length; i++) {
       const result = found[i]!
-      const prev = prevMap
-        ? prevMap.get(result.route.id)
-        : findPrevMatch(prevByRoute!, result.route.id)
+      const prev = prevMap ? prevMap[result.route.id] : findPrevMatch(prevByRoute!, result.route.id)
       const sameParams = prev && deepEqual(prev.params, result.params)
       const samePath = prev && prev.pathname === location.pathname
       if (prev && sameParams && samePath && !prev.invalid) {
@@ -1556,16 +1557,16 @@ export class RouterCore<
     }
 
     const prevMatches = this.state.matches ?? []
-    const prevByRoute = new Map<string, RouteMatch>()
+    const prevByRoute: Record<string, RouteMatch> = Object.create(null)
     for (let i = 0; i < prevMatches.length; i++) {
       const prev = prevMatches[i]!
-      prevByRoute.set(prev.routeId, prev)
+      prevByRoute[prev.routeId] = prev
     }
 
     const matches: RouteMatch[] = new Array(matchResults.length)
     for (let i = 0; i < matchResults.length; i++) {
       const result = matchResults[i]!
-      const prev = prevByRoute.get(result.route.id)
+      const prev = prevByRoute[result.route.id]
       const sameParams = prev && deepEqual(prev.params, result.params)
       const samePath = prev && prev.pathname === location.pathname
       if (prev && sameParams && samePath && !prev.invalid) {
@@ -1849,7 +1850,7 @@ export class RouterCore<
   getMatchedRoutes(pathname: string) {
     const path = trimPathRight(pathname || '/')
     const cache = this.processedTree.matchedRoutesCache
-    const cached = cache?.get(path)
+    const cached = cache?.[path]
     if (cached) return cached
 
     const exact = findRouteMatchFromTree(
@@ -1872,7 +1873,7 @@ export class RouterCore<
         ? [match.branch || [this.routesById[rootRouteId]!], match.rawParams, match.route]
         : [[this.routesById[rootRouteId]!], Object.create(null), undefined]
     }
-    cache?.set(path, result)
+    if (cache) cache[path] = result
     return result
   }
 
@@ -1992,7 +1993,7 @@ export class RouterCore<
       !opts?._rematerialize &&
       !opts?._controller
     ) {
-      const cached = templateCache.get(next.pathname)
+      const cached = templateCache[next.pathname]
       if (cached) return cloneCachedMatches(cached)
     }
 
@@ -2163,7 +2164,7 @@ export class RouterCore<
     ) {
       const snapshot = new Array(matches.length)
       for (let i = 0; i < matches.length; i++) snapshot[i] = { ...matches[i] }
-      templateCache.set(next.pathname, snapshot)
+      templateCache[next.pathname] = snapshot
     }
 
     return matches
@@ -2579,16 +2580,12 @@ function findPrevMatch(matches: RouteMatch[], routeId: string) {
 }
 
 function rememberWarmMatches(
-  router: { _matchesByPath?: Map<string, RouteMatch[]> },
+  router: { _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>> },
   key: string,
   matches: RouteMatch[],
 ) {
-  const cache = (router._matchesByPath ??= new Map())
-  if (cache.size >= WARM_MATCH_CACHE_MAX && !cache.has(key)) {
-    const first = cache.keys().next().value
-    if (first !== undefined) cache.delete(first)
-  }
-  cache.set(key, matches)
+  const cache = (router._matchesByPath ??= createStringMap<RouteMatch[]>())
+  rememberBounded(cache, key, matches, WARM_MATCH_CACHE_MAX)
 }
 
 function resolveNextParams(spec: unknown, base: Record<string, unknown>): Record<string, unknown> {

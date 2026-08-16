@@ -1,4 +1,4 @@
-import { arraysEqual, functionalUpdate } from './utils'
+import { arraysEqual, createStringMap, functionalUpdate } from './utils'
 
 import type { AnyRoute } from './route'
 import type { RouterState } from './router'
@@ -66,7 +66,7 @@ export interface RouterStores<in out TRouteTree extends AnyRoute> {
   matches: ReadableStore<Array<AnyRouteMatch>>
   __store: RouterReadableStore<RouterState<TRouteTree>>
 
-  byRoute: Map<string, MatchStore>
+  byRoute: ReturnType<typeof createStringMap<MatchStore>>
 
   /**
    * Get the stable atom for a route's presented match. The atom remains in the
@@ -84,7 +84,7 @@ export function createRouterStores<TRouteTree extends AnyRoute>(
   const { createMutableStore, createReadonlyStore, batch } = config
 
   // non reactive utilities
-  const byRoute = new Map<string, MatchStore>()
+  const byRoute = createStringMap<MatchStore>()
 
   // atoms
   const status = createMutableStore<RouterState<TRouteTree>['status']>('idle')

@@ -1,6 +1,7 @@
 // Keep this filename free of a secondary extension so declaration generation
 // can rewrite relative imports for both ESM and CJS.
 import { isNotFound } from './not-found'
+import { createStringMap, type StringMap } from './utils'
 import { isRedirect } from './redirect'
 import { getLocationChangeInfo, runRouteLifecycle } from './router'
 import { hydrateSsrMatchId } from './ssr/ssr-match-id'
@@ -214,7 +215,7 @@ type CoordinatorRouter = AnyRouter & {
 type PublicationCheckpoint = {
   previousMatches: Array<AnyRouteMatch>
   previousPresentation: Array<AnyRouteMatch>
-  previousCache: Map<string, AnyRouteMatch>
+  previousCache: StringMap<AnyRouteMatch>
   commitPromise: CoordinatorRouter['_commitPromise']
   published: boolean
 }
@@ -617,7 +618,7 @@ async function loadResource(
         controller,
         1,
       ]
-      ;(router._flights ??= new Map()).set(match.id, flight)
+      ;(router._flights ??= createStringMap()).set(match.id, flight)
     }
     match._flight = flight
     match.abortController = flight[1 /* controller */]
@@ -1434,7 +1435,7 @@ function commitMatches(
     }
   }
   const cut = _getRenderedMatches(matches).length
-  const cached = new Map<string, AnyRouteMatch>()
+  const cached = createStringMap<AnyRouteMatch>()
   const now = Date.now()
   for (const match of [...previous, ...previousCached.values()]) {
     // Rendered-prefix ids and settled successes anywhere in the lane are
@@ -1496,7 +1497,7 @@ function commitRefreshMatches(
   for (const match of matches) {
     match.preload = false
   }
-  const cached = new Map<string, AnyRouteMatch>()
+  const cached = createStringMap<AnyRouteMatch>()
   // Delay releasing the previous owners until the HMR render is acknowledged.
   // Old generations must not become reusable cache entries after refresh.
   tx[3 /* matches */] = []

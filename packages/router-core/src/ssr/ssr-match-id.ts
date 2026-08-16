@@ -1,8 +1,11 @@
-const dehydrateCache = new Map<string, string>()
+import { evictOldest } from '../utils'
+
+const dehydrateCache: Record<string, string> = Object.create(null)
 const DEHYDRATE_CACHE_MAX = 256
+let dehydrateCacheSize = 0
 
 export function dehydrateSsrMatchId(id: string): string {
-  const cached = dehydrateCache.get(id)
+  const cached = dehydrateCache[id]
   if (cached !== undefined) return cached
   const len = id.length
   let slash = false
@@ -20,11 +23,11 @@ export function dehydrateSsrMatchId(id: string): string {
     }
   }
   if (slash) result = id.replaceAll('/', '\0')
-  if (dehydrateCache.size >= DEHYDRATE_CACHE_MAX && !dehydrateCache.has(id)) {
-    const first = dehydrateCache.keys().next().value
-    if (first !== undefined) dehydrateCache.delete(first)
+  if (!(id in dehydrateCache)) {
+    if (dehydrateCacheSize >= DEHYDRATE_CACHE_MAX) evictOldest(dehydrateCache)
+    else dehydrateCacheSize++
   }
-  dehydrateCache.set(id, result)
+  dehydrateCache[id] = result
   return result
 }
 

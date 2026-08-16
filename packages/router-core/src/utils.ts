@@ -192,6 +192,10 @@ export function hasKeys(obj: Record<string, unknown>) {
 }
 
 export const createNull = () => Object.create(null)
+
+function firstOwnKey(store: object): string | undefined {
+  return Object.keys(store)[0]
+}
 export const nullReplaceEqualDeep: typeof replaceEqualDeep = (prev, next) =>
   replaceEqualDeep(prev, next, createNull)
 
@@ -678,27 +682,105 @@ export function arraysEqual<T>(a: Array<T>, b: Array<T>) {
   return true
 }
 
+export type StringMap<V> = {
+  get(key: string): V | undefined
+  set(key: string, value: V): StringMap<V>
+  has(key: string): boolean
+  delete(key: string): boolean
+  clear(): void
+  readonly size: number
+  keys(): Iterator<string>
+  values(): IterableIterator<V>
+  [Symbol.iterator](): IterableIterator<[string, V]>
+}
+
+/** Null-prototype string dictionary. Faster than Map for string keys. */
+export function createStringMap<V>(): StringMap<V> {
+  const store: Record<string, V> = Object.create(null)
+  let size = 0
+  const map: StringMap<V> = {
+    get(key) {
+      return store[key]
+    },
+    set(key, value) {
+      if (!(key in store)) size++
+      store[key] = value
+      return map
+    },
+    has(key) {
+      return key in store
+    },
+    delete(key) {
+      if (!(key in store)) return false
+      delete store[key]
+      size--
+      return true
+    },
+    clear() {
+      for (const key in store) delete store[key]
+      size = 0
+    },
+    get size() {
+      return size
+    },
+    keys() {
+      return (function* () {
+        for (const key in store) yield key
+      })()
+    },
+    values() {
+      return (function* () {
+        for (const key in store) yield store[key]!
+      })()
+    },
+    [Symbol.iterator]() {
+      return (function* () {
+        for (const key in store) yield [key, store[key]!]
+      })()
+    },
+  }
+  return map
+}
+
+export function rememberBounded<V>(map: StringMap<V>, key: string, value: V, max: number) {
+  if (map.size >= max && !map.has(key)) {
+    const first = map.keys().next().value
+    if (first !== undefined) map.delete(first)
+  }
+  map.set(key, value)
+}
+
+export function evictOldest<V>(store: Record<string, V>) {
+  const first = firstOwnKey(store)
+  if (first !== undefined) delete store[first]
+}
+
 export function createLRUCache<K, V>(max = 1000) {
-  const map = new Map<K, V>()
+  const store: Record<string, V> = Object.create(null)
+  let size = 0
   return {
     get(key: K): V | undefined {
-      const value = map.get(key)
-      if (value !== undefined) {
-        map.delete(key)
-        map.set(key, value)
-      }
+      const k = key as string
+      if (!(k in store)) return undefined
+      const value = store[k]!
+      delete store[k]
+      store[k] = value
       return value
     },
     set(key: K, value: V) {
-      if (map.has(key)) map.delete(key)
-      map.set(key, value)
-      if (map.size > max) {
-        const first = map.keys().next().value
-        if (first !== undefined) map.delete(first)
+      const k = key as string
+      if (k in store) {
+        delete store[k]
+      } else if (size >= max) {
+        evictOldest(store)
+      } else {
+        size++
       }
+      store[k] = value
     },
     clear() {
-      map.clear()
+      for (const key in store) delete store[key]
+      size = 0
     },
   }
 }

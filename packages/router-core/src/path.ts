@@ -5,6 +5,7 @@ import {
   SEGMENT_TYPE_WILDCARD,
   parseSegment,
 } from './match'
+import { evictOldest } from './utils'
 
 export function joinPaths(paths: Array<string | undefined>) {
   let out = ''
@@ -22,23 +23,30 @@ export function joinPaths(paths: Array<string | undefined>) {
   return cleanPath(out)
 }
 
-const cleanCache = new Map<string, string>()
+const cleanCache: Record<string, string> = Object.create(null)
 const CLEAN_CACHE_MAX = 32
+const cleanCacheSize = { n: 0 }
 
-function setBounded<V>(cache: Map<string, V>, key: string, value: V, max: number) {
-  if (cache.size >= max && !cache.has(key)) {
-    const first = cache.keys().next().value
-    if (first !== undefined) cache.delete(first)
+function setBounded<V>(
+  cache: Record<string, V>,
+  size: { n: number },
+  key: string,
+  value: V,
+  max: number,
+) {
+  if (!(key in cache)) {
+    if (size.n >= max) evictOldest(cache)
+    else size.n++
   }
-  cache.set(key, value)
+  cache[key] = value
 }
 
 export function cleanPath(path: string) {
-  const cached = cleanCache.get(path)
+  const cached = cleanCache[path]
   if (cached !== undefined) return cached
   const first = path.indexOf('//')
   const result = first === -1 ? path : collapseSlashes(path, first)
-  setBounded(cleanCache, path, result, CLEAN_CACHE_MAX)
+  setBounded(cleanCache, cleanCacheSize, path, result, CLEAN_CACHE_MAX)
   return result
 }
 
@@ -103,17 +111,18 @@ interface ResolvePathOptions {
   cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
-const defaultResolveCache = new Map<string, string>()
+const defaultResolveCache: Record<string, string> = Object.create(null)
 const RESOLVE_CACHE_MAX = 64
+const defaultResolveCacheSize = { n: 0 }
 
 function rememberResolved(
-  cache: ResolvePathOptions['cache'] | Map<string, string> | undefined,
+  cache: ResolvePathOptions['cache'] | Record<string, string> | undefined,
   key: string | undefined,
   result: string,
 ) {
   if (!key || !cache) return result
   if (cache === defaultResolveCache) {
-    setBounded(defaultResolveCache, key, result, RESOLVE_CACHE_MAX)
+    setBounded(defaultResolveCache, defaultResolveCacheSize, key, result, RESOLVE_CACHE_MAX)
     return result
   }
   cache.set(key, result)
@@ -141,7 +150,7 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
   let key: string | undefined
   key = isAbsolute ? to : isBase ? base : base + '\0' + to
   if (trailingSlash !== 'never') key += '\0' + trailingSlash
-  const cached = store.get(key)
+  const cached = cache ? cache.get(key) : defaultResolveCache[key]
   if (cached) {
     if (!cache) {
       lastResolveBase = base
@@ -200,7 +209,7 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
 }
 
 function finishResolve(
-  store: ResolvePathOptions['cache'] | Map<string, string>,
+  store: ResolvePathOptions['cache'] | Record<string, string>,
   key: string | undefined,
   result: string,
   base: string,
@@ -243,14 +252,17 @@ function splitPath(path: string): string[] {
 }
 
 export function compileDecodeCharMap(pathParamsAllowedCharacters: ReadonlyArray<string>) {
-  const charMap = new Map(
-    pathParamsAllowedCharacters.map((char) => [encodeURIComponent(char), char]),
-  )
-  const pattern = Array.from(charMap.keys())
-    .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('|')
+  const charMap: Record<string, string> = Object.create(null)
+  const keys: string[] = []
+  for (let i = 0; i < pathParamsAllowedCharacters.length; i++) {
+    const char = pathParamsAllowedCharacters[i]!
+    const key = encodeURIComponent(char)
+    charMap[key] = char
+    keys.push(key)
+  }
+  const pattern = keys.map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
   const regex = new RegExp(pattern, 'g')
-  return (encoded: string) => encoded.replace(regex, (match) => charMap.get(match) ?? match)
+  return (encoded: string) => encoded.replace(regex, (match) => charMap[match] ?? match)
 }
 
 interface InterpolatePathOptions {
@@ -294,16 +306,23 @@ function encodePathParam(value: string, decoder?: InterpolatePathOptions['decode
 }
 
 type SimplePart = { t: 0; s: string } | { t: 1; k: string }
-const simpleInterpolateCache = new Map<string, SimplePart[] | null>()
+const simpleInterpolateCache: Record<string, SimplePart[] | null> = Object.create(null)
 const SIMPLE_INTERPOLATE_CACHE_MAX = 256
+const simpleInterpolateCacheSize = { n: 0 }
 
 function rememberSimpleParts(path: string, parts: SimplePart[] | null) {
-  setBounded(simpleInterpolateCache, path, parts, SIMPLE_INTERPOLATE_CACHE_MAX)
+  setBounded(
+    simpleInterpolateCache,
+    simpleInterpolateCacheSize,
+    path,
+    parts,
+    SIMPLE_INTERPOLATE_CACHE_MAX,
+  )
   return parts
 }
 
 function compileSimpleParams(path: string): SimplePart[] | null {
-  const cached = simpleInterpolateCache.get(path)
+  const cached = simpleInterpolateCache[path]
   if (cached !== undefined) return cached
   const parts: SimplePart[] = []
   let i = 0

@@ -5,7 +5,7 @@ import {
   createInlineCssStyleAsset,
   getStylesheetHref,
 } from '../manifest'
-import { decodePath } from '../utils'
+import { decodePath, evictOldest } from '../utils'
 import { createLRUCache } from '../lru-cache'
 import { rootRouteId } from '../root'
 import { _getRenderedMatches } from '../load-client'
@@ -59,8 +59,9 @@ export function dehydrateMatch(match: AnyRouteMatch): DehydratedMatch {
 }
 
 const INITIAL_SCRIPTS = [getCrossReferenceHeader(SCOPE_ID), minifiedTsrBootStrapScript]
-const dehydrateScriptCache = new Map<string, string[]>()
+const dehydrateScriptCache: Record<string, string[]> = Object.create(null)
 const DEHYDRATE_SCRIPT_CACHE_MAX = 32
+let dehydrateScriptCacheSize = 0
 
 function dehydrateScriptCacheKey(matches: DehydratedMatch[]): string {
   let key = ''
@@ -592,7 +593,7 @@ export function attachRouterServerSsrUtils({
           !serializationAdapters &&
           !router.options.dehydrate
         const cacheKey = canCache ? dehydrateScriptCacheKey(matches) : ''
-        const cachedScripts = cacheKey ? dehydrateScriptCache.get(cacheKey) : undefined
+        const cachedScripts = cacheKey ? dehydrateScriptCache[cacheKey] : undefined
         if (cachedScripts) {
           for (let i = 0; i < cachedScripts.length; i++) scriptBuffer.enqueue(cachedScripts[i]!)
           finishScriptSerialization()
@@ -621,14 +622,14 @@ export function attachRouterServerSsrUtils({
           scopeId: SCOPE_ID,
           onDone: () => {
             if (cacheKey && recordedScripts) {
-              if (
-                dehydrateScriptCache.size >= DEHYDRATE_SCRIPT_CACHE_MAX &&
-                !dehydrateScriptCache.has(cacheKey)
-              ) {
-                const first = dehydrateScriptCache.keys().next().value
-                if (first !== undefined) dehydrateScriptCache.delete(first)
+              if (!(cacheKey in dehydrateScriptCache)) {
+                if (dehydrateScriptCacheSize >= DEHYDRATE_SCRIPT_CACHE_MAX) {
+                  evictOldest(dehydrateScriptCache)
+                } else {
+                  dehydrateScriptCacheSize++
+                }
               }
-              dehydrateScriptCache.set(cacheKey, recordedScripts)
+              dehydrateScriptCache[cacheKey] = recordedScripts
             }
             finishScriptSerialization()
           },

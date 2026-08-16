@@ -6,23 +6,28 @@ import {
   rememberHotMatch,
   setFindRouteMatchLookup,
 } from './find-route-match'
+import { evictOldest } from './utils'
 
 function createMatchCache<V>(max = 1000) {
-  const map = new Map<string, V>()
+  const store: Record<string, V> = Object.create(null)
+  let size = 0
   return {
     get(key: string): V | undefined {
-      return map.get(key)
+      return store[key]
     },
     set(key: string, value: V) {
-      if (map.has(key)) map.delete(key)
-      map.set(key, value)
-      if (map.size > max) {
-        const first = map.keys().next().value
-        if (first !== undefined) map.delete(first)
+      if (key in store) {
+        delete store[key]
+      } else if (size >= max) {
+        evictOldest(store)
+      } else {
+        size++
       }
+      store[key] = value
     },
     clear() {
-      map.clear()
+      for (const key in store) delete store[key]
+      size = 0
     },
   }
 }
@@ -351,8 +356,8 @@ function lookupStaticExact(
 }
 
 export type MaskTreeNode = {
-  static: Map<string, MaskTreeNode>
-  staticInsensitive: Map<string, MaskTreeNode>
+  static: Record<string, MaskTreeNode>
+  staticInsensitive: Record<string, MaskTreeNode>
   dynamic: MaskTreeNode[]
   optional: MaskTreeNode[]
   wildcard: MaskTreeNode[]
@@ -378,12 +383,12 @@ export type ProcessedTree = {
   lastPath?: string
   lastMatch?: RouteMatchResult[] | null
   /** Cached getMatchedRoutes tuples keyed by trimmed pathname. */
-  matchedRoutesCache?: Map<
+  matchedRoutesCache?: Record<
     string,
     readonly [AnyRouteLike[], Record<string, any>, AnyRouteLike | undefined]
   >
   /** Cached matchRoutes templates for empty-search pathnames. */
-  matchedTemplateCache?: Map<string, any[]>
+  matchedTemplateCache?: Record<string, any[]>
   /** True if any route has validateSearch or search middlewares. */
   hasSearchWork?: boolean
   /** Optional param names in insert order, used to prefer left-filled matches. */
@@ -560,8 +565,8 @@ export function processRouteTree<T extends AnyRouteLike>(
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
     hasDynamic: nodeHasDynamic(root),
-    matchedRoutesCache: new Map(),
-    matchedTemplateCache: new Map(),
+    matchedRoutesCache: Object.create(null),
+    matchedTemplateCache: Object.create(null),
     hasSearchWork,
     optionalNames: optionalNamesThisTree.slice(),
   }
@@ -1415,8 +1420,8 @@ export function buildRouteBranch(route: AnyRouteLike): AnyRouteLike[] {
 
 function createMaskNode(): MaskTreeNode {
   return {
-    static: new Map(),
-    staticInsensitive: new Map(),
+    static: Object.create(null),
+    staticInsensitive: Object.create(null),
     dynamic: [],
     optional: [],
     wildcard: [],
@@ -1442,11 +1447,11 @@ function insertMaskRoute(
     const raw = trimmed.substring(start, end)
     if (kind === SEGMENT_TYPE_PATHNAME) {
       const key = raw.toLowerCase()
-      let child = node.staticInsensitive.get(key)
+      let child = node.staticInsensitive[key]
       if (!child) {
         child = createMaskNode()
-        node.staticInsensitive.set(key, child)
-        node.static.set(raw, child)
+        node.staticInsensitive[key] = child
+        node.static[raw] = child
       }
       node = child
     } else if (kind === SEGMENT_TYPE_PARAM) {
