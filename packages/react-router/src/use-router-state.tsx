@@ -27,7 +27,7 @@ export function useRouterState<
     warn: opts?.router === undefined,
   })
   const router = opts?.router || contextRouter
-  const sharing = opts?.structuralSharing ?? router.options.defaultStructuralSharing
+  const sharing = opts?.structuralSharing ?? false
   const userSelect = (opts?.select as any) ?? ((s: any) => s)
   const sharedRef = useRef<any>(undefined)
   return useStore(router.stores.state, (state) => {

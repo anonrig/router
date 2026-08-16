@@ -1,3 +1,4 @@
+import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
 import type { AnyRouter, RegisteredRouter, RouterState } from '@anonrig/router-core'
@@ -24,8 +25,9 @@ export function useLocation<
   opts?: UseLocationBaseOptions<TRouter, TSelected, TStructuralSharing> &
     StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
 ): UseLocationResult<TRouter, TSelected> {
+  const router = useRouter({ warn: false })
   return useRouterState({
     select: (s) => (opts?.select ? opts.select(s.location) : s.location),
-    structuralSharing: opts?.structuralSharing,
+    structuralSharing: opts?.structuralSharing ?? router.options.defaultStructuralSharing,
   }) as UseLocationResult<TRouter, TSelected>
 }
