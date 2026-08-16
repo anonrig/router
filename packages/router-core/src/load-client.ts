@@ -1517,7 +1517,7 @@ function settlePublication(router: CoordinatorRouter, checkpoint: PublicationChe
   checkpoint.published = false
   transferMatchResources(
     router,
-    [...checkpoint.previousCache.values(), ...checkpoint.previousMatches],
+    [...objectValues(checkpoint.previousCache), ...checkpoint.previousMatches],
     [...objectValues(router._cache), ...router._committed],
   )
 }
@@ -1534,7 +1534,7 @@ function rollbackPublication(
   }
 
   const discarded = [...objectValues(router._cache), ...router._committed]
-  const restored = [...checkpoint.previousCache.values(), ...checkpoint.previousMatches]
+  const restored = [...objectValues(checkpoint.previousCache), ...checkpoint.previousMatches]
   router._cache = checkpoint.previousCache
   router._committed = checkpoint.previousMatches
   checkpoint.published = false
