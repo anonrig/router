@@ -373,9 +373,14 @@
       }
     },
     {
-      "files": ["packages/router-core/src/load-client.ts"],
+      "files": [
+        "packages/router-core/src/load-client.ts",
+        "packages/router-core/src/load-server.ts",
+        "packages/router-core/src/router.ts"
+      ],
       "rules": {
-        "no-throw-literal": "off"
+        "no-throw-literal": "off",
+        "import/no-cycle": "off"
       }
     }
   ]
