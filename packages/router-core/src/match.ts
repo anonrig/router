@@ -701,10 +701,6 @@ function findRouteMatchOrdered(
   if (!fuzzy && pathname.indexOf('%') === -1) {
     const exact = lookupStaticExact(tree, pathname, caseSensitive)
     if (exact !== undefined) return exact
-    if (!tree.hasDynamic) {
-      const staticHit = findStaticMatch(tree, pathname, caseSensitive)
-      if (staticHit !== undefined) return staticHit
-    }
   }
 
   const cacheKey =

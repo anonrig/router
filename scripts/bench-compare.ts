@@ -84,39 +84,39 @@ async function measureAsync(fn: () => Promise<void>, ms = 1500) {
 
 function buildOursLargeTree(width: number, depth: number) {
   const root = oursCreateRootRoute()
-  const children: any[] = []
   const make = (parent: any, level: number, prefix: string) => {
     if (level >= depth) return
+    const children: any[] = []
     for (let i = 0; i < width; i++) {
       const route = oursCreateRoute({
         getParentRoute: () => parent,
         path: `/${prefix}${level}-${i}`,
       })
       make(route, level + 1, `${prefix}${level}-${i}-`)
-      if (level === 0) children.push(route)
+      children.push(route)
     }
+    parent.addChildren(children)
   }
   make(root, 0, 's')
-  root.addChildren(children)
   return oursProcessRouteTree(root as any)
 }
 
 function buildTsLargeTree(width: number, depth: number) {
   const root = tsCreateRootRoute()
-  const children: any[] = []
   const make = (parent: any, level: number, prefix: string) => {
     if (level >= depth) return
+    const children: any[] = []
     for (let i = 0; i < width; i++) {
       const route = tsCreateRoute({
         getParentRoute: () => parent,
         path: `/${prefix}${level}-${i}`,
       })
       make(route, level + 1, `${prefix}${level}-${i}-`)
-      if (level === 0) children.push(route)
+      children.push(route)
     }
+    parent.addChildren(children)
   }
   make(root, 0, 's')
-  root.addChildren(children)
   root.init?.({ originalIndex: 0 })
   return tsProcessRouteTree(root as any, false, (route: any, index: number) => {
     route.init?.({ originalIndex: index })

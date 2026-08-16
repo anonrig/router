@@ -38,20 +38,20 @@ async function measureAsync(name: string, fn: () => Promise<void>, ms = 1500) {
 
 function buildLargeTree(width: number, depth: number) {
   const root = createRootRoute()
-  const children: any[] = []
   const make = (parent: any, level: number, prefix: string) => {
     if (level >= depth) return
+    const children: any[] = []
     for (let i = 0; i < width; i++) {
       const route = createRoute({
         getParentRoute: () => parent,
         path: `/${prefix}${level}-${i}`,
       })
       make(route, level + 1, `${prefix}${level}-${i}-`)
-      if (level === 0) children.push(route)
+      children.push(route)
     }
+    parent.addChildren(children)
   }
   make(root, 0, 's')
-  root.addChildren(children)
   return processRouteTree(root as any)
 }
 
