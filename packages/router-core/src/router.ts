@@ -9,6 +9,7 @@ import {
   findFlatMatch,
   findRouteMatch,
   findRouteMatchFromTree,
+  findSingleMatch,
   processRouteMasks,
   processRouteTree,
   type ProcessedTree,
@@ -478,9 +479,10 @@ export class RouterCore<
     const setLocation = locationStore.set.bind(locationStore)
     const setStatus = stores.status.set.bind(stores.status)
     const setResolved = stores.resolvedLocation.set.bind(stores.resolvedLocation)
+    let revision = 0
     const syncState = (patch: Record<string, unknown>) => {
       const current = state.get()
-      if (current) state.set({ ...current, ...patch })
+      if (current) state.set({ ...current, ...patch, _revision: ++revision } as any)
     }
     locationStore.set = ((next: any) => {
       setLocation(next)
@@ -764,8 +766,17 @@ export class RouterCore<
     const base = trimPath(this.basepath || '/')
     const prefix = base && base !== '/' ? `/${base}` : ''
     const href = `${prefix}${resolved}${searchStr}${hashStr}`
-    if (process.env.NODE_ENV !== 'production' && destRouteHint && !dest.leaveParams) {
-      warnBuildLocationMismatch(this, resolved, destRouteHint)
+    if (process.env.NODE_ENV !== 'production') {
+      if (dest.from) {
+        const fromId = dest.from
+        const hasFrom = matches?.some(
+          (match) => match.routeId === fromId || match.route?.fullPath === fromId,
+        )
+        if (!hasFrom) console.warn(`Could not find match for from: ${fromId}`)
+      }
+      if (destRouteHint && !dest.leaveParams) {
+        warnBuildLocationMismatch(this, resolved, destRouteHint)
+      }
     }
     const location: ParsedLocation = {
       href,
@@ -1788,7 +1799,7 @@ export class RouterCore<
 
   matchRoute(opts: NavigateOptions & MatchRouteOptions = {}, maybeOpts?: MatchRouteOptions): any {
     const dest = maybeOpts === undefined ? opts : { ...opts, ...maybeOpts }
-    const options = maybeOpts ?? opts
+    const options = maybeOpts ?? (opts as MatchRouteOptions)
     const isPending = this.stores?.status?.get?.() === 'pending'
     if (options.pending && !isPending) return false
     const pending = options.pending ?? !isPending
@@ -1800,38 +1811,28 @@ export class RouterCore<
     if (!dest.to) return !!(this.state?.matches?.length || this.stores?.matches?.get?.()?.length)
     const next = this.buildLocation({
       ...dest,
+      params: dest.params || {},
+      leaveParams: true,
       _fromLocation: dest._fromLocation || baseLocation,
     })
-    const fuzzy = options.fuzzy ?? dest.fuzzy
-    const currentPath = baseLocation?.pathname ?? ''
-    const pathMatch = fuzzy
-      ? currentPath === next.pathname ||
-        currentPath.startsWith(next.pathname.endsWith('/') ? next.pathname : `${next.pathname}/`) ||
-        next.pathname.startsWith(currentPath.endsWith('/') ? currentPath : `${currentPath}/`)
-      : exactPathTest(currentPath, next.pathname, this.basepath || '/')
-    if (!pathMatch) return false
+    const match = findSingleMatch(
+      next.pathname,
+      options.caseSensitive ?? dest.caseSensitive ?? this.options.caseSensitive ?? false,
+      options.fuzzy ?? dest.fuzzy ?? false,
+      baseLocation?.pathname ?? '',
+      this.processedTree,
+    )
+    if (!match) return false
+    if (dest.params && !deepEqual(match.rawParams, dest.params, { partial: true })) {
+      return false
+    }
     if (
       (options.includeSearch ?? dest.includeSearch ?? true) &&
       !deepEqual(baseLocation?.search ?? EMPTY_OBJ, next.search, { partial: true })
     ) {
       return false
     }
-    const found = findRouteMatch(
-      this.processedTree,
-      currentPath,
-      options.caseSensitive ?? dest.caseSensitive ?? this.options.caseSensitive ?? false,
-    )
-    if (!found?.length) return false
-    const lastFound = found[found.length - 1] as { params?: any }
-    if (
-      dest.params &&
-      !deepEqual(lastFound.params, functionalUpdate(dest.params, lastFound.params), {
-        partial: true,
-      })
-    ) {
-      return fuzzy ? lastFound.params : false
-    }
-    return lastFound.params ?? {}
+    return match.rawParams
   }
 
   getMatch(matchId: string) {
@@ -2130,11 +2131,18 @@ function resolveBuildPath(
     : currentMatch
       ? router.routesById[currentMatch.routeId]
       : undefined
-  const fromPath = fromRoute?.fullPath ?? dest.from ?? current?.pathname ?? '/'
+  const fromPath =
+    dest.unsafeRelative === 'path'
+      ? (current?.pathname ?? '/')
+      : (fromRoute?.fullPath ?? dest.from ?? current?.pathname ?? '/')
 
   let to = dest.to
   if (to === undefined || to === '.') {
-    to = dest.from ? fromPath : (current?.pathname ?? fromPath)
+    to = dest.params
+      ? (fromRoute?.fullPath ?? current?.pathname ?? fromPath)
+      : dest.from
+        ? fromPath
+        : (current?.pathname ?? fromPath)
   }
   if (typeof to !== 'string') to = current?.pathname ?? '/'
 
@@ -2175,13 +2183,13 @@ function resolveBuildPath(
   }
 
   let interpolated = to
-  if (typeof to === 'string' && to.includes('$')) {
+  if (!dest.leaveParams && typeof to === 'string' && to.includes('$')) {
     interpolated = interpolatePath({
       path: to,
       params: nextParams ?? EMPTY_OBJ,
       decoder: router.pathParamsDecoder,
     }).interpolatedPath
-  } else if (dest.params && !dest.to) {
+  } else if (dest.params && !dest.to && !dest.leaveParams) {
     const template = currentMatch ? router.routesById[currentMatch.routeId]?.fullPath : undefined
     if (template) {
       interpolated = interpolatePath({
@@ -2306,6 +2314,9 @@ function warnBuildLocationMismatch(router: any, resolved: string, destRouteHint:
   try {
     const foundRoute = router.getMatchedRoutes(resolved)[2]
     if (foundRoute && foundRoute.id !== destRouteHint.id) {
+      const destPath = trimPathRight(destRouteHint.fullPath || destRouteHint.path || '')
+      const foundPath = trimPathRight(foundRoute.fullPath || foundRoute.path || '')
+      if (destPath === foundPath) return
       console.warn(
         `Generated path "${resolved}" for route "${destRouteHint.id}" matched route "${foundRoute.id}" instead. This can happen when multiple route templates resolve to the same URL. Use the route template that matches the intended route, or adjust params.stringify if it changed the target path.`,
       )

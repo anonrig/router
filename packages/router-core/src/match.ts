@@ -386,6 +386,8 @@ export type ProcessedTree = {
   matchedTemplateCache?: Map<string, any[]>
   /** True if any route has validateSearch or search middlewares. */
   hasSearchWork?: boolean
+  /** Optional param names in insert order, used to prefer left-filled matches. */
+  optionalNames?: string[]
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -467,6 +469,7 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
       current.optionalChildren.push(next)
       if (!current.optionalChild) current.optionalChild = next
       if (!current.optionalName) current.optionalName = next.optionalName
+      optionalNamesThisTree.push(next.optionalName || '')
       current = next
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
       if (!current.wildcardChild) current.wildcardChild = createNode()
@@ -519,6 +522,7 @@ export function processRouteTree<T extends AnyRouteLike>(
 
   const root = createNode()
   root.route = routeTree
+  optionalNamesThisTree = []
   const kids = childrenOf(routeTree)
   for (let i = 0; i < kids.length; i++) insertRoute(root, kids[i]!, caseSensitive)
   finalizeParamChildren(root)
@@ -542,6 +546,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     matchedRoutesCache: new Map(),
     matchedTemplateCache: new Map(),
     hasSearchWork,
+    optionalNames: optionalNamesThisTree.slice(),
   }
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
   const result = { ...processedTree, processedTree }
@@ -813,10 +818,25 @@ function findRouteMatchOrdered(
   return rememberMatch(tree, pathname, result, caseSensitive, fuzzy)
 }
 
+let optionalNamesThisTree: string[] = []
+let activeOptionalNames: string[] | undefined
+
+function optionalFillScore(params: Record<string, string>, names: string[] | undefined) {
+  if (!names?.length) return 0
+  let score = 0
+  for (let i = 0; i < names.length; i++) {
+    if (names[i]! in params) score += names.length - i
+  }
+  return score
+}
+
 function isBetterMatch(best: WalkFrame | null, candidate: WalkFrame): boolean {
   if (!best) return true
   if (candidate.statics !== best.statics) return candidate.statics > best.statics
   if (candidate.affix !== best.affix) return candidate.affix > best.affix
+  const candidateFill = optionalFillScore(candidate.params, activeOptionalNames)
+  const bestFill = optionalFillScore(best.params, activeOptionalNames)
+  if (candidateFill !== bestFill) return candidateFill > bestFill
   if (candidate.chain.length !== best.chain.length) {
     return candidate.chain.length > best.chain.length
   }
@@ -968,6 +988,7 @@ function findRouteMatchDynamic(
     decoded[i] = decodeSegment(segments[i]!)
   }
 
+  activeOptionalNames = tree.optionalNames
   const stack: WalkFrame[] = [
     {
       node: tree.root,
@@ -1222,7 +1243,7 @@ function matchPatternParts(
           pi + 1,
           pathSegs,
           si + 1,
-          withParams(params, { [part.name]: inner }),
+          inner ? withParams(params, { [part.name]: inner }) : withParams(params),
           caseSensitive,
           fuzzy,
         )
