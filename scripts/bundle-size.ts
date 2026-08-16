@@ -56,7 +56,11 @@ const cases = [
 
 type Sizes = { min: number; gzip: number }
 
-async function bundle(source: string, filename: string, alias: Record<string, string>): Promise<Sizes> {
+async function bundle(
+  source: string,
+  filename: string,
+  alias: Record<string, string>,
+): Promise<Sizes> {
   const dir = await mkdtemp(join(tmpdir(), 'anonrig-size-'))
   try {
     const entry = join(dir, filename)
@@ -71,7 +75,9 @@ async function bundle(source: string, filename: string, alias: Record<string, st
       plugins: [scriptStringPlugin()],
     })
 
-    const initial = new Set(result.outputs.filter((chunk) => chunk.isEntry).map((chunk) => chunk.fileName))
+    const initial = new Set(
+      result.outputs.filter((chunk) => chunk.isEntry).map((chunk) => chunk.fileName),
+    )
     const queue = [...initial]
     while (queue.length) {
       const file = queue.pop()!
