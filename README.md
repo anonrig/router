@@ -135,19 +135,19 @@ pnpm bench:compare
 | Query-string encode              |     2,590,186 |  2,722,901 |       0.95× |
 | Query-string decode              |     1,116,462 |  1,421,466 |       0.79× |
 | `defaultStringifySearch` (×1000) |     **4,268** |      2,849 |   **1.50×** |
-| `parseHref`                      |     3,746,987 |  3,477,690 |       1.08× |
+| `parseHref`                      | **6,329,868** |  3,575,003 |   **1.77×** |
 | `cleanPath`                      |     8,289,207 |  7,344,894 |       1.13× |
 | `resolvePath`                    |     3,592,458 |  4,253,641 |       0.84× |
 | `interpolatePath`                | **2,354,200** |  2,241,709 |   **1.05×** |
 | Route match (large tree)         |    21,687,585 | 19,456,463 |       1.11× |
 | Encode 100 typical SSR match IDs |        26,624 |     27,828 |       0.96× |
-| History `push`                   |     1,248,590 |  1,327,953 |       0.94× |
+| History `push`                   | **3,092,323** |  1,277,921 |   **2.42×** |
 | Warm `navigate`                  |   **148,525** |     51,696 |   **2.87×** |
 | Warm `router.load`               | **2,649,003** |    139,158 |  **19.04×** |
 | SSR cold `router.load` req/s     |    **72,528** |     35,641 |   **2.03×** |
 | `createRequestHandler` req/s     |    **17,066** |      7,060 |   **2.42×** |
 
-TanStack's query-string encode/decode still win those microbenches. Warm `load()` is the headline: a settled server router returns immediately instead of re-entering the SSR lane. Cold `createRouter().load()` now shares TurboFan-compiled prototype methods instead of per-instance class-field arrows. `interpolatePath` is a small dispatcher so the simple `$param` path can compile. This router is also ahead on stringify, warm navigation, and `createRequestHandler`.
+TanStack's query-string encode/decode still win those microbenches. History `push` no longer allocates a Promise on the unblocked path, and `parseHref` skips random-key work when state is already set. Warm `load()` is the headline: a settled server router returns immediately instead of re-entering the SSR lane. Cold `createRouter().load()` now shares TurboFan-compiled prototype methods instead of per-instance class-field arrows. `interpolatePath` is a small dispatcher so the simple `$param` path can compile. This router is also ahead on stringify, warm navigation, and `createRequestHandler`.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
