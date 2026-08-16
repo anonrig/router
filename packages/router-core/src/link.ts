@@ -315,6 +315,11 @@ export interface NavigateOptionProps {
   href?: string
   /** @internal */
   publicHref?: string
+  /**
+   * Navigate one or more parallel route slots. Unmentioned slots are preserved.
+   * Use `null` to close a slot and `false` to disable a default-open slot.
+   */
+  slots?: Record<string, any>
 }
 
 export type ToOptions<

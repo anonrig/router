@@ -278,6 +278,8 @@ export {
   getRouteApi,
   Route,
   createRoute,
+  createSlotRoute,
+  Slots,
   RootRoute,
   rootRouteWithContext,
   createRootRoute,

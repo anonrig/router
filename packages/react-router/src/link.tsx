@@ -69,6 +69,7 @@ const INTERNAL_LINK_KEYS = new Set([
   'ignoreBlocker',
   'children',
   'href',
+  'slots',
 ])
 
 function resolveIsActive(

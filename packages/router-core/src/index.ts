@@ -153,6 +153,7 @@ export {
   BaseRouteApi,
   BaseRootRoute,
   createRoute,
+  createSlotRoute,
   createRootRoute,
   createRootRouteWithContext,
   rootRouteWithContext,
@@ -522,6 +523,19 @@ export {
 } from './match'
 export type { ProcessedTree, RouteMatchResult, SegmentKind } from './match'
 export { isServer } from './is-server'
+export {
+  DEFAULT_SLOT_PREFIX,
+  applySlotsObject,
+  appendSlotMatches,
+  installSlotTrees,
+  listParentSlots,
+  markSlotRoute,
+  parseQualifiedSlotTo,
+  readSlotState,
+  retainSlotSearch,
+  splitSlotChildren,
+} from './slots'
+export type { SlotNavigateDest, SlotNavigateTo, SlotRenderInfo } from './slots'
 export {
   createFileRoute,
   createLazyFileRoute,

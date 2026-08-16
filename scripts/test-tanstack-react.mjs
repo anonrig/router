@@ -8,6 +8,7 @@ const batches = [
     'tests/tanstack/router.test.tsx',
     'tests/tanstack/route.test.tsx',
     'tests/tanstack/outlet.test.tsx',
+    'tests/tanstack/parallel-routes.test.tsx',
     'tests/tanstack/matches.test.tsx',
     'tests/tanstack/not-found.test.tsx',
   ],

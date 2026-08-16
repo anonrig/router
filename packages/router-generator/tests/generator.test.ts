@@ -53,6 +53,30 @@ describe('scanRoutes', () => {
     expect(byKey['/blog_/$slug']?.path).toBe('/blog/$slug')
   })
 
+  it('maps @slotName files to slot roots and slot children', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'anonrig-slot-routes-'))
+    write(dir, '__root.tsx')
+    write(dir, 'dashboard.tsx')
+    write(dir, 'dashboard.@activity.tsx')
+    write(dir, 'dashboard.@activity.index.tsx')
+    write(dir, '@modal.tsx')
+    write(dir, '@modal.users.$id.tsx')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const byKey = Object.fromEntries(
+      scanned.filter((route) => !route.isRoot).map((route) => [route.key, route]),
+    )
+
+    expect(byKey['/@modal']?.slot).toBe('modal')
+    expect(byKey['/@modal']?.isSlotRoot).toBe(true)
+    expect(byKey['/@modal']?.path).toBeUndefined()
+    expect(byKey['/@modal/users/$id']?.parentId).toBe('/@modal')
+    expect(byKey['/@modal/users/$id']?.path).toBe('/users/$id')
+    expect(byKey['/dashboard/@activity']?.slot).toBe('activity')
+    expect(byKey['/dashboard/@activity']?.parentId).toBe('/dashboard')
+    expect(byKey['/dashboard/@activity']?.isSlotRoot).toBe(true)
+  })
+
   it('walks dirents once and skips node_modules, dot dirs, and split files', () => {
     const dir = mkdtempSync(join(tmpdir(), 'anonrig-routes-skip-'))
     write(dir, '__root.tsx')

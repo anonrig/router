@@ -19,6 +19,10 @@ export type ScannedRoute = {
   parentId: string
   isRoot: boolean
   isPathless: boolean
+  /** Parallel-route slot name when the file uses `@slotName`. */
+  slot?: string
+  /** True when this file is the root of a named slot tree. */
+  isSlotRoot?: boolean
 }
 
 export type ScanRoutesOptions = {
@@ -75,9 +79,17 @@ function stripRouteToken(segments: Array<string>) {
   return segments.filter((segment) => segment !== 'route')
 }
 
+function normalizeSlotFileId(fileId: string) {
+  if (!fileId.includes('@')) return fileId
+  return fileId
+    .replace(/\.@/g, '/@')
+    .replace(/(@[^./]+)\./g, '$1/')
+    .replace(/\./g, '/')
+}
+
 function fileIdToKey(fileId: string) {
   if (fileId === '__root') return '__root__'
-  const raw = fileId.split('/').filter(Boolean)
+  const raw = normalizeSlotFileId(fileId).split('/').filter(Boolean)
   const segments = stripRouteToken(raw)
   if (segments.length === 0) return '/'
   const last = segments[segments.length - 1]!
@@ -98,7 +110,12 @@ function lastSegment(key: string) {
 
 function isPathlessKey(key: string) {
   const segment = lastSegment(key)
-  return segment.startsWith('_') && segment !== '__root__'
+  return (segment.startsWith('_') && segment !== '__root__') || segment.startsWith('@')
+}
+
+function slotNameOf(key: string) {
+  const segment = lastSegment(key)
+  return segment.startsWith('@') ? segment.slice(1) : undefined
 }
 
 function urlPathFromId(id: string, pathless: boolean): string | undefined {
@@ -107,7 +124,7 @@ function urlPathFromId(id: string, pathless: boolean): string | undefined {
   const parts: Array<string> = []
   for (const segment of id.split('/')) {
     if (!segment) continue
-    if (segment.startsWith('_')) continue
+    if (segment.startsWith('_') || segment.startsWith('@')) continue
     parts.push(segment.endsWith('_') ? segment.slice(0, -1) : segment)
   }
   if (parts.length === 0) return '/'
@@ -171,12 +188,15 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
     const parentId = parentKeyOf(route.key, keys)
     const pathless = isPathlessKey(route.key)
     const id = relativeId(route.key, parentId)
+    const slot = slotNameOf(route.key)
     routes.push({
       ...route,
       id,
       path: urlPathFromId(id, pathless),
       parentId,
       isPathless: pathless,
+      slot,
+      isSlotRoot: !!slot && !route.key.endsWith('/') && lastSegment(route.key).startsWith('@'),
     })
   }
 

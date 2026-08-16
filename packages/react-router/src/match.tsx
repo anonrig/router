@@ -1,4 +1,4 @@
-import { memo, Suspense, useContext, useMemo } from 'react'
+import { memo, Suspense, useContext, useMemo, type ReactNode } from 'react'
 import {
   isNotFound,
   rootRouteId,
@@ -200,7 +200,13 @@ export const MatchInner = memo(function MatchInnerImpl({ match }: { match: AnyRo
   return out
 })
 
-export const Outlet = memo(function OutletImpl() {
+export const Outlet = memo(function OutletImpl({
+  slot,
+  fallback = null,
+}: {
+  slot?: string
+  fallback?: ReactNode
+} = {}) {
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const nonRouteComponent = useContext(nonRouteComponentContext!)
@@ -223,13 +229,19 @@ export const Outlet = memo(function OutletImpl() {
   const parentMatch = matches[parentIndex]
   const parentGlobalNotFound = !!parentMatch?._notFound
   const parentNotFoundError = parentMatch?.error
-  const childRouteId = matches[parentIndex + 1]?.routeId
+  const childRouteId = slot
+    ? matches.find((item: AnyRouteMatch) => item.slot === slot && item.slotParentId === routeId)
+        ?.routeId
+    : parentMatch?.slot
+      ? matches.slice(parentIndex + 1).find((item: AnyRouteMatch) => item.slot === parentMatch.slot)
+          ?.routeId
+      : matches.slice(parentIndex + 1).find((item: AnyRouteMatch) => !item.slot)?.routeId
 
   if (parentGlobalNotFound) {
     return renderRouteNotFound(router, router.routesById[routeId]!, parentNotFoundError)
   }
 
-  if (!childRouteId) return null
+  if (!childRouteId) return slot ? fallback : null
 
   const nextMatch = <Match routeId={childRouteId} />
   if (routeId === rootRouteId) {

@@ -45,6 +45,15 @@ import {
   validateSearch,
 } from './router-search'
 import { defaultParseSearch, defaultStringifySearch } from './search-params'
+import {
+  appendSlotMatches,
+  applySlotsObject,
+  DEFAULT_SLOT_PREFIX,
+  installSlotTrees,
+  parseQualifiedSlotTo,
+  retainSlotSearch,
+  splitSlotChildren,
+} from './slots'
 import { createStore } from './store'
 import {
   createNonReactiveMutableStore,
@@ -255,6 +264,7 @@ export interface RouterOptions<
   serializer?: any
   serializationAdapters?: any[]
   routeMasks?: any[]
+  slotPrefix?: string
   hydrate?: (data: any) => any
   additionalContext?: Record<string, any>
   defaultSsr?: any
@@ -333,6 +343,7 @@ export type NavigateOptions = {
   _includeValidateSearch?: boolean
   _isRedirect?: boolean
   _isNavigate?: boolean
+  slots?: Record<string, any>
 }
 
 export type ToOptions = NavigateOptions
@@ -363,7 +374,11 @@ const RESOLVED: Promise<void> = Promise.resolve()
 let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 
 function lastMatch(matches: RouteMatch[] | undefined) {
-  return matches && matches.length ? matches[matches.length - 1] : undefined
+  if (!matches?.length) return undefined
+  for (let i = matches.length - 1; i >= 0; i--) {
+    if (!matches[i]!.slot) return matches[i]
+  }
+  return matches[matches.length - 1]
 }
 
 function collectSimpleParamKeys(path: string): string[] | null {
@@ -544,6 +559,7 @@ export class RouterCore<
   _tx?: any
   _flights?: ReturnType<typeof createStringMap<any>>
   _preloads?: Map<AbortController, any[]>
+  _hasSlots = false
   _refreshNextLoad?: boolean
   declare _replaceRouteChunk?: typeof replaceRouteChunk
   declare _refreshRoute?: () => Promise<void>
@@ -832,12 +848,19 @@ export class RouterCore<
 
     if (this.options.routeTree && this.options.routeTree !== prevTree) {
       this.routeTree = this.options.routeTree as TRouteTree
+      splitSlotChildren(this.routeTree as any)
       this.processedTree = processRouteTree(
         this.routeTree as any,
         this.options.caseSensitive ?? false,
       )
       this.routesById = this.processedTree.routesById as any
       this.routesByPath = this.processedTree.routesByPath as any
+      this._hasSlots = installSlotTrees(
+        this.routeTree as any,
+        this.routesById,
+        this.routesByPath,
+        this.options.caseSensitive ?? false,
+      )
     }
     const notFoundRoute = this.options.notFoundRoute
     if (notFoundRoute && this.routesById) {
@@ -901,12 +924,19 @@ export class RouterCore<
 
   buildRouteTree() {
     if (!this.routeTree) return this
+    splitSlotChildren(this.routeTree as any)
     this.processedTree = processRouteTree(
       this.routeTree as any,
       this.options.caseSensitive ?? false,
     )
     this.routesById = this.processedTree.routesById as any
     this.routesByPath = this.processedTree.routesByPath as any
+    this._hasSlots = installSlotTrees(
+      this.routeTree as any,
+      this.routesById,
+      this.routesByPath,
+      this.options.caseSensitive ?? false,
+    )
     this._hasSearchWork = !!this.processedTree.hasSearchWork
     return this
   }
@@ -942,9 +972,9 @@ export class RouterCore<
   }
 
   private executeBuildLocation(opts: NavigateOptions = {}): ParsedLocation {
-    const dest = opts
     const current =
-      dest._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
+      opts._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
+    const dest = resolveSlotNavigateDest(this, opts, current)
     const matches = this.stores?.matches?.get?.()?.length
       ? this.stores.matches.get()
       : this.state?.matches?.length
@@ -1100,6 +1130,8 @@ export class RouterCore<
       rest.hash == null &&
       rest.mask == null &&
       rest.from == null &&
+      rest.slots == null &&
+      !this._hasSlots &&
       !rest._isRedirect
     ) {
       return this.navigateHrefFast(href, rest)
@@ -1124,7 +1156,9 @@ export class RouterCore<
       rest.state == null &&
       rest.params !== true &&
       rest.params !== false &&
-      typeof rest.params !== 'function'
+      typeof rest.params !== 'function' &&
+      rest.slots == null &&
+      !this._hasSlots
     ) {
       const fast = this.tryNavigateToFast(to, rest)
       if (fast) return fast
@@ -1445,7 +1479,7 @@ export class RouterCore<
 
   private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
     if (this._forcePending || this._handoff || this._tx || this._refreshNextLoad) return false
-    if (this.subscribers.size || this.options.hydrate) return false
+    if (this.subscribers.size || this.options.hydrate || this._hasSlots) return false
 
     const cacheKey = location.searchStr
       ? `${location.pathname}\0${location.searchStr}`
@@ -1822,13 +1856,19 @@ export class RouterCore<
   }
 
   matchRoutes(pathnameOrNext: string | ParsedLocation, locationSearchOrOpts?: any, opts?: any) {
-    if (typeof pathnameOrNext === 'string') {
-      return this.matchRoutesInternal(
-        { pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation,
-        opts,
-      )
-    }
-    return this.matchRoutesInternal(pathnameOrNext, locationSearchOrOpts)
+    const matches =
+      typeof pathnameOrNext === 'string'
+        ? this.matchRoutesInternal(
+            { pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation,
+            opts,
+          )
+        : this.matchRoutesInternal(pathnameOrNext, locationSearchOrOpts)
+    if (!this._hasSlots) return matches
+    const location =
+      typeof pathnameOrNext === 'string'
+        ? ({ pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation)
+        : pathnameOrNext
+    return appendSlotMatches(this, location, matches)
   }
 
   private matchRoutesInternal(next: ParsedLocation, opts?: any): RouteMatch[] {
@@ -2248,9 +2288,74 @@ function resolveBuildSearch(
         // matchRoutes reports the error
       }
     }
-    return validatedSearch
+    return applySlotSearchUpdates(router, dest, currentSearch, validatedSearch)
   }
-  return nextSearch
+  return applySlotSearchUpdates(router, dest, currentSearch, nextSearch)
+}
+
+function resolveSlotNavigateDest(router: any, dest: any, current: ParsedLocation | undefined) {
+  if (!router._hasSlots) return dest
+  const qualified =
+    typeof dest.to === 'string'
+      ? parseQualifiedSlotTo(dest.to, router.routesById, router.routesByPath)
+      : undefined
+  if (!qualified && dest.slots == null) return dest
+  return {
+    ...dest,
+    to: qualified ? (current?.pathname ?? '/') : dest.to,
+    search: dest.search === undefined && qualified ? true : dest.search,
+    params: qualified ? true : dest.params,
+    _slotNav: {
+      qualified,
+      slots: dest.slots,
+      params: dest.params,
+      search: dest.search,
+    },
+  }
+}
+
+function applySlotSearchUpdates(
+  router: any,
+  dest: any,
+  currentSearch: Record<string, any>,
+  nextSearch: Record<string, any>,
+) {
+  if (!router._hasSlots) return nextSearch
+  const prefix = router.options.slotPrefix ?? DEFAULT_SLOT_PREFIX
+  const result = retainSlotSearch(
+    currentSearch,
+    nextSearch === EMPTY_OBJ ? {} : { ...nextSearch },
+    prefix,
+  )
+  const slotNav = dest._slotNav
+  if (slotNav?.qualified) {
+    const path = interpolateQualifiedSlotPath(slotNav.qualified.internal, slotNav.params)
+    applySlotsObject(
+      result,
+      {
+        [slotNav.qualified.names[0]!]: nestSlotDest(slotNav.qualified.names, {
+          to: path,
+          search: slotNav.search,
+        }),
+      },
+      prefix,
+    )
+  }
+  if (slotNav?.slots || dest.slots) {
+    applySlotsObject(result, slotNav?.slots ?? dest.slots, prefix)
+  }
+  return result
+}
+
+function nestSlotDest(names: string[], dest: { to?: string; search?: any }): any {
+  if (names.length <= 1) return dest
+  return { slots: { [names[1]!]: nestSlotDest(names.slice(1), dest) } }
+}
+
+function interpolateQualifiedSlotPath(path: string, params: any) {
+  if (!params || params === true || typeof params === 'function') return path
+  if (path.indexOf('$') === -1) return path
+  return interpolatePath({ path, params }).interpolatedPath
 }
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {

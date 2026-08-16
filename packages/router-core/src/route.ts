@@ -1,4 +1,5 @@
 import { invariant } from './invariant'
+import { markSlotRoute } from './slots'
 import { joinPaths, trimPathLeft, trimPathRight } from './path'
 import { notFound } from './not-found'
 import { redirect } from './redirect'
@@ -698,6 +699,12 @@ export interface Route<
   _warmLoad?: 0 | 1
   /** @internal Generated route stubs load options through `.lazy()`. */
   _lazyOptions?: boolean
+  /** @internal Parallel-route slot name when this route belongs to a slot tree. */
+  _slotName?: string
+  /** @internal True when this route is the root of a named slot tree. */
+  _slotRoot?: boolean
+  /** @internal Named slot roots attached to this route. */
+  _slots?: Record<string, AnyRoute>
   rank: number
   to: TrimPathRight<TFullPath>
   init: (opts: { originalIndex: number }) => void
@@ -939,6 +946,12 @@ export interface FilebaseRouteOptionsInterface<
   THandlers = undefined,
 > {
   validateSearch?: Constrain<TSearchValidator, AnyValidator, DefaultValidator>
+  /**
+   * When set on a slot root, controls whether the slot renders by default.
+   */
+  enabled?:
+    | boolean
+    | ((opts: { context: any; location: ParsedLocation; params: any; search: any }) => boolean)
 
   shouldReload?:
     | boolean
@@ -1615,6 +1628,12 @@ export class BaseRoute<
   _warmLoad?: 0 | 1
   /** @internal Generated route stubs load options through `.lazy()`. */
   _lazyOptions?: boolean
+  /** @internal Parallel-route slot name when this route belongs to a slot tree. */
+  _slotName?: string
+  /** @internal True when this route is the root of a named slot tree. */
+  _slotRoot?: boolean
+  /** @internal Named slot roots attached to this route. */
+  _slots?: Record<string, AnyRoute>
   constructor(
     options?: RouteOptions<
       TRegister,
@@ -1775,14 +1794,20 @@ export class BaseRoute<
     TServerMiddlewares,
     THandlers
   > = (children) => {
-    if (Array.isArray(children)) {
-      this.children = children as TChildren
+    const list = Array.isArray(children)
+      ? children
+      : typeof children === 'object' && children !== null
+        ? Object.values(children)
+        : []
+    const regular: AnyRoute[] = []
+    const slots = { ...(this._slots ?? {}) }
+    for (let i = 0; i < list.length; i++) {
+      const child = list[i] as AnyRoute
+      if (child._slotRoot && child._slotName) slots[child._slotName] = child
+      else regular.push(child)
     }
-
-    if (typeof children === 'object' && children !== null) {
-      this.children = Object.values(children) as TChildren
-    }
-
+    this.children = regular as TChildren
+    if (Object.keys(slots).length) this._slots = slots
     return this as any
   }
 
@@ -2024,6 +2049,14 @@ export interface RouteLike {
 }
 
 export const createRoute = /*#__PURE__*/ (options: any = {}) => new BaseRoute(options as any)
+
+export const createSlotRoute = /*#__PURE__*/ (options: any = {}) => {
+  const route = new BaseRoute({
+    ...options,
+    ...(options.slot && !options.path && !options.id ? { id: `@${options.slot}` } : {}),
+  } as any)
+  return markSlotRoute(route, options)
+}
 
 export const createRootRoute = /*#__PURE__*/ (options: any = {}) =>
   new BaseRootRoute(options as any)
