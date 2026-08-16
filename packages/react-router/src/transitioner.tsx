@@ -42,9 +42,7 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
   }
 
   useLayoutEffect(() => {
-    if (!router.unsubHistory) {
-      router.update({})
-    }
+    router._attachHistory?.()
     if (mountedFor.current !== router) {
       mountedFor.current = router
 
@@ -99,8 +97,7 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
         clearTimeout(session[3 /* timer */])
         router._pending = undefined
       }
-      router.unsubHistory?.()
-      router.unsubHistory = undefined
+      router._detachHistory?.()
       mountedFor.current = undefined
     }
   }, [router])

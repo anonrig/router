@@ -600,6 +600,17 @@ export class RouterCore<
   private unsubHistory?: () => void
   private _committing = false
 
+  /** @internal */
+  _attachHistory() {
+    if (!this.unsubHistory) this.update({})
+  }
+
+  /** @internal */
+  _detachHistory() {
+    this.unsubHistory?.()
+    this.unsubHistory = undefined
+  }
+
   constructor(
     options: RouterConstructorOptions<
       TRouteTree,
