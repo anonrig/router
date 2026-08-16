@@ -5,7 +5,7 @@ import { isRedirect, redirect } from './redirect'
 import { rootRouteId } from './root'
 import { ensureRouteOptions, loadRouteChunk } from './load-client'
 import { waitForReason } from './await-signal'
-import { getLocationChangeInfo, runRouteLifecycle } from './router'
+import { getLocationChangeInfo, runRouteLifecycle } from './lifecycle'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
 import type { NotFoundError } from './not-found'
@@ -201,7 +201,7 @@ async function contextualize(
     }
 
     match.__beforeLoadContext = undefined
-    let context = parentContext
+    let context
     try {
       let routeContext
       if (route.options.context) {
@@ -642,6 +642,7 @@ async function executeServerLane(
                 loaderFailure = [task.index, outcome]
               }
             }
+            return undefined
           }),
         ),
       )
@@ -778,7 +779,7 @@ async function executeFastServerLane(
   router.serverSsr?.onCleanup(abortLane)
 
   const routerContext = router.options.context
-  let context: Record<string, any> = routerContext ? { ...routerContext } : {}
+  const context: Record<string, any> = routerContext ? { ...routerContext } : {}
   let parentMatch: AnyRouteMatch | undefined
   let status: 200 | 404 | 500 = 200
 

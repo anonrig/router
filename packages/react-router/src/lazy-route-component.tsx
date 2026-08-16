@@ -27,6 +27,7 @@ export function lazyRouteComponent<T extends Record<string, any>, TKey extends k
             ;(lazyComp as any).preload = undefined
           }
           comp = res[exportName ?? 'default']
+          return undefined
         })
         .catch((err) => {
           loadPromise = undefined

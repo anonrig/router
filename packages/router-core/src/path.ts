@@ -109,11 +109,11 @@ function rememberResolved(
 ) {
   if (!key || !cache) return result
   if (cache === defaultResolveCache) {
-    if (cache.size >= RESOLVE_CACHE_MAX && !cache.has(key)) {
-      const first = cache.keys().next().value
-      if (first !== undefined) cache.delete(first)
+    if (defaultResolveCache.size >= RESOLVE_CACHE_MAX && !defaultResolveCache.has(key)) {
+      const first = defaultResolveCache.keys().next().value
+      if (first !== undefined) defaultResolveCache.delete(first)
     }
-    cache.set(key, result)
+    defaultResolveCache.set(key, result)
     return result
   }
   cache.set(key, result)

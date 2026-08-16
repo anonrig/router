@@ -502,32 +502,6 @@ export const createMemoryHistory = /*#__PURE__*/ function createMemoryHistory(
   })
 }
 
-function sanitizePath(path: string): string {
-  let dirty = false
-  let lead = 0
-  for (let i = 0; i < path.length; i++) {
-    const code = path.charCodeAt(i)
-    if (code <= 0x1f || code === 0x7f) {
-      dirty = true
-      break
-    }
-    if (lead === i && code === 47) lead++
-  }
-  let sanitized = path
-  if (dirty) {
-    sanitized = ''
-    lead = 0
-    for (let i = 0; i < path.length; i++) {
-      const code = path.charCodeAt(i)
-      if (code <= 0x1f || code === 0x7f) continue
-      if (lead === sanitized.length && code === 47) lead++
-      sanitized += path[i]
-    }
-  }
-  if (lead > 1) sanitized = sanitized.slice(lead - 1)
-  return sanitized
-}
-
 let lastHref = ''
 let lastSanitizedHref = ''
 let lastPathname = ''

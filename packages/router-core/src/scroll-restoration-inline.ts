@@ -1,6 +1,6 @@
 // This module is stringified into a browser script, so it must stay valid JavaScript.
 export default function (storageKey = '', key = '') {
-  let byKey = Object.create(null)
+  let byKey
 
   try {
     byKey = JSON.parse(sessionStorage.getItem(storageKey) || '{}')

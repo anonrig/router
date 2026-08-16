@@ -340,7 +340,9 @@
         "packages/react-router/src/head-content-utils.tsx",
         "packages/react-router/src/scripts.tsx",
         "packages/react-router/src/transitioner.tsx",
-        "packages/react-router/src/link.tsx"
+        "packages/react-router/src/link.tsx",
+        "packages/react-router/src/match.tsx",
+        "packages/react-router/src/matches.tsx"
       ],
       "rules": {
         "react/react-compiler": "off"
@@ -368,6 +370,12 @@
       ],
       "rules": {
         "oxc/erasing-op": "off"
+      }
+    },
+    {
+      "files": ["packages/router-core/src/load-client.ts"],
+      "rules": {
+        "no-throw-literal": "off"
       }
     }
   ]

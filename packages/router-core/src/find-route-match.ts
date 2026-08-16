@@ -1,8 +1,23 @@
-export let hotTree: unknown
-export let hotPath: unknown
-export let hotMatch: unknown
+import type { ProcessedTree, RouteMatchResult } from './match'
 
-type Lookup = (tree: unknown, path: unknown, flag: unknown) => unknown
+export type FindRouteMatchCompatResult = {
+  route: RouteMatchResult['route']
+  rawParams: RouteMatchResult['rawParams']
+  params: RouteMatchResult['params']
+  branch: Array<RouteMatchResult['route']>
+}
+
+export type FindRouteMatchResult = RouteMatchResult[] | FindRouteMatchCompatResult | null
+
+export let hotTree: ProcessedTree | undefined
+export let hotPath: string | undefined
+export let hotMatch: RouteMatchResult[] | null | undefined
+
+type Lookup = (
+  treeOrPathname: ProcessedTree | string,
+  pathnameOrTree?: string | ProcessedTree,
+  flag?: boolean,
+) => FindRouteMatchResult
 
 let lookup: Lookup = () => {
   throw new Error('findRouteMatch lookup is not installed')
@@ -12,14 +27,32 @@ export function setFindRouteMatchLookup(fn: Lookup) {
   lookup = fn
 }
 
-export function rememberHotMatch(tree: unknown, pathname: unknown, result: unknown) {
+export function rememberHotMatch(
+  tree: ProcessedTree,
+  pathname: string,
+  result: RouteMatchResult[] | null,
+): RouteMatchResult[] | null {
   hotTree = tree
   hotPath = pathname
   hotMatch = result
   return result
 }
 
-export function findRouteMatch(tree: unknown, path?: unknown, flag?: unknown) {
-  if (tree === hotTree && path === hotPath) return hotMatch
-  return lookup(tree, path, flag)
+export function findRouteMatch(
+  tree: ProcessedTree,
+  pathname: string,
+  caseSensitive?: boolean,
+): RouteMatchResult[] | null
+export function findRouteMatch(
+  pathname: string,
+  tree: ProcessedTree,
+  fuzzy?: boolean,
+): FindRouteMatchCompatResult | null
+export function findRouteMatch(
+  treeOrPathname: ProcessedTree | string,
+  pathnameOrTree?: string | ProcessedTree,
+  flag?: boolean,
+): FindRouteMatchResult {
+  if (treeOrPathname === hotTree && pathnameOrTree === hotPath) return hotMatch!
+  return lookup(treeOrPathname, pathnameOrTree, flag)
 }

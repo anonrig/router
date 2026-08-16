@@ -63,7 +63,7 @@ describe('scanRoutes', () => {
     write(dir, 'about.lazy.tsx', 'export const Route = { lazy: true }\n')
 
     const scanned = scanRoutes({ routesDirectory: dir })
-    const fileIds = scanned.map((route) => route.fileId).sort()
+    const fileIds = scanned.map((route) => route.fileId).toSorted()
     expect(fileIds).toEqual(['__root', 'visible'])
   })
 

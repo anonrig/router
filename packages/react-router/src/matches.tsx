@@ -31,7 +31,7 @@ export function Matches() {
   const rootRoute = router.routesById[rootRouteId]
   const pendingElement = renderPending(router, rootRoute)
   const ResolvedSuspense = (isServer ?? router.isServer) || router.ssr ? SafeFragment : Suspense
-  const setRouter = useState<AnyRouter>()[1]
+  const [, setRouter] = useState<AnyRouter>()
 
   const inner = (
     <>

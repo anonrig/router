@@ -2,7 +2,7 @@
 // can rewrite relative imports for both ESM and CJS.
 import { isNotFound } from './not-found'
 import { isRedirect } from './redirect'
-import { getLocationChangeInfo, runRouteLifecycle } from './router'
+import { getLocationChangeInfo, runRouteLifecycle } from './lifecycle'
 import { hydrateSsrMatchId } from './ssr/ssr-match-id'
 import type { GLOBAL_SEROVAL, GLOBAL_TSR } from './ssr/constants'
 import type { AnySerializationAdapter } from './ssr/serializer/transformer-types'
@@ -39,7 +39,7 @@ function loadComponents(route: AnyRoute, onPendingReady?: () => void): Promise<v
     onPendingReady()
   }
   if (component && pendingReady) {
-    return Promise.all([component, pendingReady]).then(() => {})
+    return Promise.all([component, pendingReady]).then(() => undefined)
   }
   return component ?? pendingReady
 }
@@ -72,6 +72,7 @@ export function loadRouteChunk(
         Object.assign(route.options, options)
         route._lazy = true
       }
+      return undefined
     },
     (error) => {
       if (process.env.NODE_ENV === 'production' || route._lazy === promise) {
@@ -262,6 +263,7 @@ export function waitFor<T>(value: T | PromiseLike<T>, signal: AbortSignal): Prom
     Promise.resolve(value)
       .then(resolve, reject)
       .finally(() => signal.removeEventListener('abort', abort))
+      .catch(reject)
   })
 }
 
@@ -356,7 +358,7 @@ async function contextualize(
       matches,
       routeId: route.id,
     }
-    let context = parentContext
+    let context
     try {
       let routeContext = match._ctx
       if (!routeContext && route.options.context) {
@@ -943,7 +945,7 @@ async function settleTasks(
         task[1 /* outcome */].then(async (outcome) => {
           const taskIndex = task[0 /* index */]
           if (gate && taskIndex >= (await gate)) {
-            return
+            return undefined
           }
           if (outcome[0 /* kind */] >= REDIRECTED) {
             throw [taskIndex, outcome] as IndexedOutcome
@@ -953,18 +955,19 @@ async function settleTasks(
             // Every started descendant must settle before an ordinary failure
             // wins because a redirect from any of them remains control flow.
             await Promise.all(
-              (redirectTasks ?? []).map((nextTask) => {
-                if (nextTask[0 /* index */] <= taskIndex) {
-                  return
-                }
-                return nextTask[1 /* outcome */].then((nextOutcome) => {
-                  if (nextOutcome[0 /* kind */] === REDIRECTED) {
-                    throw [nextTask[0 /* index */], nextOutcome] as IndexedOutcome
-                  }
-                })
-              }),
+              (redirectTasks ?? [])
+                .filter((nextTask) => nextTask[0 /* index */] > taskIndex)
+                .map((nextTask) =>
+                  nextTask[1 /* outcome */].then((nextOutcome) => {
+                    if (nextOutcome[0 /* kind */] === REDIRECTED) {
+                      throw [nextTask[0 /* index */], nextOutcome] as IndexedOutcome
+                    }
+                    return undefined
+                  }),
+                ),
             )
           }
+          return undefined
         }),
       ),
     )

@@ -4,6 +4,7 @@ import {
   type RouterHistory,
   type HistoryLocation,
 } from '@anonrig/history'
+import { getLocationChangeInfo } from './lifecycle'
 import {
   buildRouteBranch,
   findFlatMatch,
@@ -12,7 +13,6 @@ import {
   processRouteMasks,
   processRouteTree,
   type ProcessedTree,
-  type RouteMatchResult,
 } from './match'
 import { isNotFound, notFound, type NotFoundError } from './not-found'
 import { isServer } from './is-server'
@@ -299,25 +299,6 @@ function lastMatch(matches: RouteMatch[] | undefined) {
   return matches && matches.length ? matches[matches.length - 1] : undefined
 }
 
-function parseLocationFromHistory(
-  historyLocation: HistoryLocation,
-  parseSearch: (s: string) => any,
-  previous?: ParsedLocation,
-): ParsedLocation {
-  const searchStr = historyLocation.search || ''
-  const hash = historyLocation.hash || ''
-  const publicHref = encodePathLikeUrl(`${historyLocation.pathname}${searchStr}${hash}`)
-  return {
-    href: historyLocation.href,
-    pathname: historyLocation.pathname,
-    search: parseSearch(searchStr),
-    searchStr,
-    hash,
-    state: replaceEqualDeep(previous?.state, historyLocation.state),
-    publicHref,
-  }
-}
-
 function applySearchValidator(route: AnyRoute, search: Record<string, any>) {
   const validator = route.options?.validateSearch
   if (!validator) return search
@@ -341,28 +322,7 @@ function defaultGetStoreConfig() {
 }
 
 /** Run route lifecycle callbacks in leave/enter/stay phases. */
-export function runRouteLifecycle(
-  router: AnyRouter,
-  previous: Array<RouteMatch>,
-  matches: Array<RouteMatch>,
-  isCurrent?: () => boolean,
-): void {
-  for (const match of previous) {
-    if (isCurrent?.() === false) return
-    if (!matches.some((candidate) => candidate.routeId === match.routeId)) {
-      router.routesById[match.routeId]?.options.onLeave?.(match)
-    }
-  }
-  for (const match of matches) {
-    if (isCurrent?.() === false) return
-    const route = router.routesById[match.routeId]
-    if (!route) continue
-    route.options[
-      previous.some((candidate) => candidate.routeId === match.routeId) ? 'onStay' : 'onEnter'
-    ]?.(match)
-  }
-}
-
+export { getLocationChangeInfo, runRouteLifecycle } from './lifecycle'
 export { SearchParamError, PathParamError }
 
 let tempLocationKeySeq = 0
@@ -434,7 +394,7 @@ export class RouterCore<
   _pendingLocation?: ParsedLocation
   _commitPromise?: Promise<void> & { resolve: () => void }
   _forcePending = false
-  tempLocationKey: string | undefined = String(++tempLocationKeySeq)
+  tempLocationKey: string | undefined
   _scroll: {
     next: boolean
     hash?: boolean
@@ -444,7 +404,7 @@ export class RouterCore<
   } = { next: true }
   rewrite?: any
   _hasSearchWork = false
-  private getStoreConfig = defaultGetStoreConfig
+  private readonly getStoreConfig = defaultGetStoreConfig
 
   private createStores(location: ParsedLocation) {
     const config = this.getStoreConfig()
@@ -489,7 +449,7 @@ export class RouterCore<
   }
 
   private loadId = 0
-  private pendingLoad: Promise<void> | undefined
+  private readonly pendingLoad: Promise<void> | undefined
   private unsubHistory?: () => void
   private _committing = false
 
@@ -502,6 +462,7 @@ export class RouterCore<
       TDehydrated
     >,
   ) {
+    this.tempLocationKey = String(++tempLocationKeySeq)
     this.navigate = this.executeNavigate.bind(this) as NavigateFn
     this.buildLocation = this.executeBuildLocation.bind(this) as BuildLocationFn
     this.load = this.load.bind(this)
@@ -757,12 +718,12 @@ export class RouterCore<
       )
 
     const previousCommitPromise = this._commitPromise
-    let resolve!: () => void
-    const commitPromise = new Promise<void>((done) => {
-      resolve = done
+    let settle!: () => void
+    const commitPromise = new Promise<void>((resolve) => {
+      settle = resolve
     }) as Promise<void> & { resolve: () => void }
     commitPromise.resolve = () => {
-      resolve()
+      settle()
       previousCommitPromise?.resolve()
     }
     this._commitPromise = commitPromise
@@ -770,10 +731,11 @@ export class RouterCore<
     if (isSameLocation) {
       this.load()
     } else {
-      let { maskedLocation, ...nextHistory } = next as ParsedLocation & {
+      const { maskedLocation, ...restHistory } = next as ParsedLocation & {
         maskedLocation?: ParsedLocation
         hashScrollIntoView?: any
       }
+      let nextHistory = restHistory
       if (maskedLocation) {
         nextHistory = {
           ...maskedLocation,
@@ -969,7 +931,7 @@ export class RouterCore<
     this.updateLatestLocation()
     if (isServer || this.isServer) {
       if (opts?._signal?.aborted) {
-        return Promise.reject(opts._signal.reason)
+        throw opts._signal.reason
       }
       // Request-scoped SSR passes `_signal` and must re-run. A warm
       // `load()` on an already-idle server router (the Node bench) can skip.
@@ -2036,16 +1998,6 @@ export function _getUserHistoryState({
   ...state
 }: any) {
   return state
-}
-
-export function getLocationChangeInfo(location: ParsedLocation, resolvedLocation?: ParsedLocation) {
-  return {
-    fromLocation: resolvedLocation,
-    toLocation: location,
-    pathChanged: resolvedLocation?.pathname !== location.pathname,
-    hrefChanged: resolvedLocation?.href !== location.href,
-    hashChanged: resolvedLocation?.hash !== location.hash,
-  }
 }
 
 export type ControllablePromise<T = any> = Promise<T> & {

@@ -722,8 +722,9 @@ export function findRouteMatchFromTree(
   caseSensitive = false,
 ): RouteMatchResult[] | null {
   if (tree === hotTree && pathname === hotPath) return hotMatch!
-  if (!caseSensitive && tree.lastPath === pathname)
+  if (!caseSensitive && tree.lastPath === pathname) {
     return rememberHot(tree, pathname, tree.lastMatch!)
+  }
   return findRouteMatchOrdered(tree, pathname, caseSensitive, false)
 }
 
@@ -749,7 +750,11 @@ function findRouteMatchCompat(
 
 setFindRouteMatchLookup((treeOrPathname, pathnameOrTree, caseSensitiveOrFuzzy) => {
   if (typeof pathnameOrTree === 'string') {
-    return findRouteMatchFromTree(treeOrPathname, pathnameOrTree, caseSensitiveOrFuzzy)
+    return findRouteMatchFromTree(
+      treeOrPathname as ProcessedTree,
+      pathnameOrTree,
+      caseSensitiveOrFuzzy,
+    )
   }
   return findRouteMatchCompat(treeOrPathname, pathnameOrTree, caseSensitiveOrFuzzy)
 })
@@ -804,8 +809,9 @@ function isBetterMatch(best: WalkFrame | null, candidate: WalkFrame): boolean {
   if (!best) return true
   if (candidate.statics !== best.statics) return candidate.statics > best.statics
   if (candidate.affix !== best.affix) return candidate.affix > best.affix
-  if (candidate.chain.length !== best.chain.length)
+  if (candidate.chain.length !== best.chain.length) {
     return candidate.chain.length > best.chain.length
+  }
   if (candidate.parsed !== best.parsed) return candidate.parsed > best.parsed
   if (candidate.depth !== best.depth) return candidate.depth > best.depth
   return !!(candidate.node.indexRoute && !best.node.indexRoute)
@@ -998,11 +1004,12 @@ function findRouteMatchDynamic(
         const params = Object.assign(Object.create(null), frame.params)
         const rest = decoded.slice(index)
         if (prefix) rest[0] = rest[0]!.slice(prefix.length)
-        if (suffix)
+        if (suffix) {
           rest[rest.length - 1] = rest[rest.length - 1]!.slice(
             0,
             rest[rest.length - 1]!.length - suffix.length,
           )
+        }
         const splat = rest.join('/')
         params._splat = splat
         params['*'] = splat

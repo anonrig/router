@@ -51,7 +51,7 @@ function listRouteFiles(rootDir: string) {
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
       if (dir === rootDir && (code === 'ENOENT' || code === 'ENOTDIR')) {
-        throw new Error(`routesDirectory does not exist: ${rootDir}`)
+        throw new Error(`routesDirectory does not exist: ${rootDir}`, { cause: error })
       }
       throw error
     }
