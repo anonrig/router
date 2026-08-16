@@ -202,15 +202,76 @@ function createTsRouter(path: string) {
   })
 }
 
-const rows: Row[] = []
+const microRows: Row[] = []
+const headlineRows: Row[] = []
 
 async function addSync(name: string, ours: () => void, tanstack: () => void) {
-  rows.push({ name, ours: measureSync(ours), tanstack: measureSync(tanstack) })
+  microRows.push({ name, ours: measureSync(ours), tanstack: measureSync(tanstack) })
 }
 
 async function addAsync(name: string, ours: () => Promise<void>, tanstack: () => Promise<void>) {
-  rows.push({ name, ours: await measureAsync(ours), tanstack: await measureAsync(tanstack) })
+  headlineRows.push({
+    name,
+    ours: await measureAsync(ours),
+    tanstack: await measureAsync(tanstack),
+  })
 }
+
+// Headline ops first so createRouter / load numbers are not taken after
+// half a minute of tight microbenchmarks on a shared 4-core box.
+
+await addAsync(
+  'SSR cold router.load req/s',
+  async () => {
+    const path = paths[cursor++ % paths.length]!
+    await createOursRouter(path).load()
+  },
+  async () => {
+    const path = paths[cursor++ % paths.length]!
+    await createTsRouter(path).load()
+  },
+)
+await addAsync(
+  'createRequestHandler req/s',
+  async () => {
+    const path = paths[cursor++ % paths.length]!
+    const handler = oursCreateRequestHandler({
+      createRouter: () => createOursRouter(path),
+      request: new Request(`http://localhost${path}`),
+    })
+    await handler(
+      async ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
+    )
+  },
+  async () => {
+    const path = paths[cursor++ % paths.length]!
+    const handler = tsCreateRequestHandler({
+      createRouter: () => createTsRouter(path),
+      request: new Request(`http://localhost${path}`),
+    })
+    await handler(
+      async ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
+    )
+  },
+)
+await addAsync(
+  'Warm navigate',
+  async () => {
+    await oursRouter.navigate({ href: paths[cursor++ % paths.length]! })
+  },
+  async () => {
+    await tsRouter.navigate({ href: paths[cursor++ % paths.length]! })
+  },
+)
+await addAsync(
+  'Warm router.load',
+  async () => {
+    await oursRouter.load()
+  },
+  async () => {
+    await tsRouter.load()
+  },
+)
 
 await addSync(
   'Query-string encode',
@@ -302,58 +363,13 @@ await addSync(
     tsHistory.push(`/n/${cursor++}`)
   },
 )
-await addAsync(
-  'Warm navigate',
-  async () => {
-    await oursRouter.navigate({ href: paths[cursor++ % paths.length]! })
-  },
-  async () => {
-    await tsRouter.navigate({ href: paths[cursor++ % paths.length]! })
-  },
-)
-await addAsync(
-  'Warm router.load',
-  async () => {
-    await oursRouter.load()
-  },
-  async () => {
-    await tsRouter.load()
-  },
-)
-await addAsync(
-  'SSR cold router.load req/s',
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    await createOursRouter(path).load()
-  },
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    await createTsRouter(path).load()
-  },
-)
-await addAsync(
-  'createRequestHandler req/s',
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    const handler = oursCreateRequestHandler({
-      createRouter: () => createOursRouter(path),
-      request: new Request(`http://localhost${path}`),
-    })
-    await handler(
-      async ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
-    )
-  },
-  async () => {
-    const path = paths[cursor++ % paths.length]!
-    const handler = tsCreateRequestHandler({
-      createRouter: () => createTsRouter(path),
-      request: new Request(`http://localhost${path}`),
-    })
-    await handler(
-      async ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
-    )
-  },
-)
+const rows = [
+  ...microRows,
+  ...headlineRows.filter((row) => row.name === 'Warm navigate'),
+  ...headlineRows.filter((row) => row.name === 'Warm router.load'),
+  ...headlineRows.filter((row) => row.name === 'SSR cold router.load req/s'),
+  ...headlineRows.filter((row) => row.name === 'createRequestHandler req/s'),
+]
 
 function fmt(n: number) {
   return n >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n.toFixed(1)
