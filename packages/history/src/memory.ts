@@ -40,6 +40,7 @@ class MemoryHistory implements RouterHistory {
   private entries: Array<string>
   private states: Array<ParsedHistoryState>
   private index: number
+  private compactEnabled: boolean
   private _subscribers?: Set<(opts: SubscriberArgs) => void>
   private blockers?: Array<NavigationBlocker>
 
@@ -47,8 +48,10 @@ class MemoryHistory implements RouterHistory {
     opts: {
       initialEntries: Array<string>
       initialIndex?: number
+      compact?: boolean
     } = { initialEntries: ['/'] },
   ) {
+    this.compactEnabled = opts.compact === true
     const src = opts.initialEntries
     if (src.length === 1 && opts.initialIndex == null) {
       const href = src[0]!
@@ -76,6 +79,7 @@ class MemoryHistory implements RouterHistory {
   }
 
   private compactIfNeeded() {
+    if (!this.compactEnabled) return
     const { entries, states, index } = this
     if (index !== entries.length - 1 || entries.length < MEMORY_HISTORY_COMPACT_AT) {
       return
@@ -256,6 +260,7 @@ export const createMemoryHistory = /*#__PURE__*/ function createMemoryHistory(
   opts: {
     initialEntries: Array<string>
     initialIndex?: number
+    compact?: boolean
   } = { initialEntries: ['/'] },
 ): RouterHistory {
   return new MemoryHistory(opts)

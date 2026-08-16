@@ -1,0 +1,172 @@
+import { describe, expect, test } from 'vitest'
+import { createMemoryHistory } from '@anonrig/history'
+import { createRootRoute, createRoute } from '../src/route'
+import { createRouter } from '../src/router'
+
+function createApp(opts: {
+  root?: Record<string, any>
+  posts?: Record<string, any>
+  initial?: string
+}) {
+  const root = createRootRoute(opts.root as any)
+  const about = createRoute({ getParentRoute: () => root, path: '/about' })
+  const posts = createRoute({
+    getParentRoute: () => root,
+    path: '/posts',
+    ...(opts.posts as any),
+  })
+  root.addChildren([about, posts])
+  return createRouter({
+    routeTree: root,
+    history: createMemoryHistory({ initialEntries: [opts.initial ?? '/about'] }),
+  })
+}
+
+describe('warm-path TanStack behavior parity', () => {
+  test('loaderDeps changes reload the loader and store deps on the match', async () => {
+    const seen: unknown[] = []
+    const router = createApp({
+      posts: {
+        loaderDeps: ({ search }: { search: { mode?: string } }) => ({ mode: search.mode }),
+        loader: (ctx: { deps: { mode?: string } }) => {
+          seen.push(ctx.deps)
+          return ctx.deps
+        },
+      },
+    })
+
+    await router.navigate({ href: '/posts?mode=a' } as any)
+    await router.navigate({ href: '/posts?mode=b' } as any)
+
+    const match = router.state.matches.at(-1)
+    expect(seen).toEqual([{ mode: 'a' }, { mode: 'b' }])
+    expect(match?.loaderDeps).toEqual({ mode: 'b' })
+    expect(match?.loaderData).toEqual({ mode: 'b' })
+    expect(match?.id).toContain('{"mode":"b"}')
+  })
+
+  test('nested loaders receive distinct mutable context objects', async () => {
+    const refs: { who: string; ctx: Record<string, any> }[] = []
+    const router = createApp({
+      root: {
+        loader: (ctx: { context: Record<string, any> }) => {
+          refs.push({ who: 'root', ctx: ctx.context })
+          ctx.context.fromRoot = true
+          return 'root'
+        },
+      },
+      posts: {
+        loader: (ctx: { context: Record<string, any> }) => {
+          refs.push({ who: 'posts', ctx: ctx.context })
+          return 'posts'
+        },
+      },
+    })
+
+    await router.navigate({ href: '/posts' } as any)
+
+    expect(refs.map((entry) => entry.who)).toEqual(['root', 'posts'])
+    expect(refs[0]!.ctx).not.toBe(refs[1]!.ctx)
+    expect(Object.isFrozen(refs[0]!.ctx)).toBe(false)
+    expect(refs[0]!.ctx.fromRoot).toBe(true)
+  })
+
+  test('a synchronous loader throw runs once, calls onError, and commits an error match', async () => {
+    let calls = 0
+    const onError = { n: 0, err: null as unknown }
+    const boom = new Error('sync-boom')
+    const router = createApp({
+      posts: {
+        loader: () => {
+          calls++
+          throw boom
+        },
+        onError: (err: unknown) => {
+          onError.n++
+          onError.err = err
+        },
+      },
+    })
+
+    await expect(router.navigate({ href: '/posts' } as any)).resolves.toBeUndefined()
+
+    const match = router.state.matches.at(-1)
+    expect(calls).toBe(1)
+    expect(onError.n).toBe(1)
+    expect(onError.err).toBe(boom)
+    expect(match?.status).toBe('error')
+    expect(match?.error).toBe(boom)
+  })
+
+  test('additionalContext is passed through to warm loaders', async () => {
+    const root = createRootRoute()
+    const posts = createRoute({
+      getParentRoute: () => root,
+      path: '/posts',
+      loader: (ctx: { extra?: string }) => ctx.extra,
+    })
+    root.addChildren([posts])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      additionalContext: { extra: 'from-router' },
+    } as any)
+
+    await router.navigate({ href: '/posts' } as any)
+    expect(router.state.matches.at(-1)?.loaderData).toBe('from-router')
+  })
+
+  test('warm matches expose TanStack identity fields and parentMatchPromise', async () => {
+    const seen: { parent?: { routeId?: string } }[] = []
+    const router = createApp({
+      root: {
+        staticData: { kind: 'root' },
+        loader: () => 'root',
+      },
+      posts: {
+        staticData: { kind: 'posts' },
+        loader: async (ctx: { parentMatchPromise?: Promise<any> }) => {
+          seen.push({
+            parent: ctx.parentMatchPromise ? await ctx.parentMatchPromise : undefined,
+          })
+          return 'posts'
+        },
+      },
+    })
+
+    await router.navigate({ href: '/posts' } as any)
+
+    const match = router.state.matches.at(-1)
+    expect(seen).toHaveLength(1)
+    expect(seen[0]!.parent?.routeId).toBe(router.state.matches[0]!.routeId)
+    expect(match?.index).toBe(1)
+    expect(match?.fullPath).toBe('/posts')
+    expect(match?.preload).toBe(false)
+    expect(match?.staticData).toEqual({ kind: 'posts' })
+  })
+
+  test('an async loader rejection calls onError and commits an error match', async () => {
+    let calls = 0
+    const onError = { n: 0 }
+    const boom = new Error('async-boom')
+    const router = createApp({
+      posts: {
+        loader: async () => {
+          calls++
+          throw boom
+        },
+        onError: () => {
+          onError.n++
+        },
+      },
+    })
+
+    await expect(router.navigate({ href: '/posts' } as any)).resolves.toBeUndefined()
+
+    const match = router.state.matches.at(-1)
+    expect(calls).toBe(1)
+    expect(onError.n).toBe(1)
+    expect(match?.status).toBe('error')
+    expect(match?.error).toBe(boom)
+  })
+})
