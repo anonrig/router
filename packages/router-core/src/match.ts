@@ -1147,7 +1147,7 @@ function matchPathPattern(
   let pathIndex = pathname.charCodeAt(0) === 47 ? 1 : 0
   const patternEnd = pattern.length
   const pathEnd = pathname.length
-  const parsed = new Uint16Array(6)
+  const parsed = new Uint16Array(6) as ParsedSegment
 
   while (patternIndex < patternEnd) {
     if (pattern.charCodeAt(patternIndex) === 47) patternIndex++
