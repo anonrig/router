@@ -495,7 +495,10 @@ export function processRouteTree<T extends AnyRouteLike>(
   let segmentTree: SegmentTreeNode | undefined
   const getSegmentTree = () => {
     if (segmentTree) return segmentTree
-    for (const [route, kids] of declaredChildren) route.children = kids
+    for (const [route, kids] of declaredChildren) {
+      if (kids === undefined) delete route.children
+      else route.children = kids
+    }
     segmentTree = buildSegmentTree(routeTree, caseSensitive)
     for (const [parent, list] of childLists) parent.children = list
     return segmentTree
