@@ -83,7 +83,7 @@ export function useMatch<
     select: (state) => {
       const matches = state.matches
       const match = from
-        ? matches.find((m: any) => m.routeId === from || m.id === from)
+        ? matches.find((m: any) => m.routeId === from)
         : matches[matches.length - 1]
       if (!match) {
         if (opts?.shouldThrow === false || opts?.strict === false) {

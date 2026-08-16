@@ -656,6 +656,11 @@ export class RouterCore<
       this.routesById = this.processedTree.routesById as any
       this.routesByPath = this.processedTree.routesByPath as any
     }
+    const notFoundRoute = this.options.notFoundRoute
+    if (notFoundRoute && this.routesById) {
+      if (!notFoundRoute.id) notFoundRoute.init({ originalIndex: 999999 })
+      this.routesById[notFoundRoute.id] = notFoundRoute
+    }
     if (this.options.routeMasks && this.processedTree) {
       processRouteMasks(this.options.routeMasks as any, this.processedTree)
     }

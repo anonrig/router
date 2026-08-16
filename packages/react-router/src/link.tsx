@@ -201,7 +201,13 @@ export function useLinkProps(
   const preloadDelay = props.preloadDelay ?? router.options.defaultPreloadDelay ?? 0
 
   const doPreload = useCallback(() => {
-    void router.preloadRoute(propsRef.current).catch((err) => {
+    const current = propsRef.current
+    const enabled =
+      current.reloadDocument || current.disabled
+        ? false
+        : (current.preload ?? router.options.defaultPreload)
+    if (!enabled) return
+    void router.preloadRoute(current).catch((err) => {
       console.warn(err)
       console.warn(preloadWarning)
     })
@@ -258,7 +264,7 @@ export function useLinkProps(
     }
   }, [doPreload, preload])
 
-  useEffect(() => cancelPreload, [cancelPreload])
+  useEffect(() => cancelPreload, [cancelPreload, preload, preloadDelay, props.to])
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     props.onClick?.(e)
