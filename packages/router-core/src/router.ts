@@ -366,7 +366,11 @@ function lastMatch(matches: RouteMatch[] | undefined) {
   return matches && matches.length ? matches[matches.length - 1] : undefined
 }
 
+let lastSimpleParamPath = ''
+let lastSimpleParamKeys: string[] | null = null
+
 function collectSimpleParamKeys(path: string): string[] | null {
+  if (path === lastSimpleParamPath) return lastSimpleParamKeys
   const keys: string[] = []
   for (let i = 0; i < path.length; i++) {
     if (path.charCodeAt(i) !== 36) continue
@@ -378,6 +382,8 @@ function collectSimpleParamKeys(path: string): string[] | null {
     keys.push(key)
     i = j - 1
   }
+  lastSimpleParamPath = path
+  lastSimpleParamKeys = keys
   return keys
 }
 
@@ -1383,12 +1389,10 @@ export class RouterCore<
       href: hrefFull,
       publicHref: hrefFull,
       pathname,
-      search: searchStr
-        ? (this.options.parseSearch ?? defaultParseSearch)(searchStr)
-        : Object.create(null),
+      search: searchStr ? (this.options.parseSearch ?? defaultParseSearch)(searchStr) : EMPTY_OBJ,
       searchStr,
       hash,
-      state: parsed.state ?? {},
+      state: rest.state ?? EMPTY_OBJ,
       external: false,
     }
 
@@ -1403,16 +1407,17 @@ export class RouterCore<
       this._committing = true
       const history = this.history
       if (rest.replace) {
-        history.replace(hrefFull, location.state, {
+        history.replace(hrefFull, rest.state, {
           ignoreBlocker: rest.ignoreBlocker,
         })
       } else {
-        history.push(hrefFull, location.state, {
+        history.push(hrefFull, rest.state, {
           ignoreBlocker: rest.ignoreBlocker,
         })
       }
       history.flush()
       this._committing = false
+      location.state = history.location.state
     }
 
     const id = ++this.loadId
@@ -1451,28 +1456,18 @@ export class RouterCore<
       ? `${location.pathname}\0${location.searchStr}`
       : location.pathname
     const cached = this._matchesByPath?.get(cacheKey)
-    if (cached && this.canReuseWarmMatches(cached)) {
-      const prevMatches = this._committed
-      let needsLoader = false
-      for (let i = 0; i < cached.length; i++) {
-        const match = cached[i]!
-        const route = this.routesById[match.routeId]!
-        const prev = findPrevMatch(prevMatches, match.routeId)
-        match.cause = prev ? 'stay' : 'enter'
-        match.search = location.search
-        match.publicHref = location.publicHref
-        if (warmMatchNeedsLoader(match, route, this, prevMatches)) {
-          needsLoader = true
+    if (cached) {
+      const prepared = this.prepareCachedWarmMatches(cached, location)
+      if (prepared) {
+        if (!prepared.needsLoader) {
+          this.completeWarmLoad(location, cached)
+          return true
         }
+        const routerContext = this.options.context
+        const context = routerContext ? { ...routerContext } : EMPTY_OBJ
+        const next = this.finishWarmMatches(location, id, cached, cacheKey, 0, context)
+        return next ?? true
       }
-      if (!needsLoader) {
-        this.completeWarmLoad(location, cached)
-        return true
-      }
-      const routerContext = this.options.context
-      const context = routerContext ? { ...routerContext } : EMPTY_OBJ
-      const next = this.finishWarmMatches(location, id, cached, cacheKey, 0, context)
-      return next ?? true
     }
 
     const found = findRouteMatch(
@@ -1631,14 +1626,24 @@ export class RouterCore<
     rememberWarmMatches(this, cacheKey, matches)
   }
 
-  private canReuseWarmMatches(matches: RouteMatch[]) {
+  private prepareCachedWarmMatches(
+    matches: RouteMatch[],
+    location: ParsedLocation,
+  ): { needsLoader: boolean } | undefined {
+    const prevMatches = this._committed
+    let needsLoader = false
     for (let i = 0; i < matches.length; i++) {
       const match = matches[i]!
-      if (match.status !== 'success' || match.invalid || match.isFetching) return false
+      if (match.status !== 'success' || match.invalid || match.isFetching) return
       const route = this.routesById[match.routeId]
-      if (route === undefined || !routeCanWarmLoad(route)) return false
+      if (route === undefined || !routeCanWarmLoad(route)) return
+      const prev = findPrevMatch(prevMatches, match.routeId)
+      match.cause = prev ? 'stay' : 'enter'
+      match.search = location.search
+      match.publicHref = location.publicHref
+      if (warmMatchNeedsLoader(match, route, this, prevMatches)) needsLoader = true
     }
-    return true
+    return { needsLoader }
   }
 
   private leaveWarmMatches(matches: RouteMatch[]) {
@@ -1680,7 +1685,7 @@ export class RouterCore<
       this._cache[matches[i]!.id] = matches[i]!
     }
     this.batch(() => {
-      this.stores.status.set('idle')
+      if (this.stores.status.get() !== 'idle') this.stores.status.set('idle')
       this.stores.location.set(location)
       this.stores.resolvedLocation.set(location)
       this.stores.setMatches(matches)
@@ -2530,6 +2535,7 @@ function rememberWarmMatches(
   matches: RouteMatch[],
 ) {
   const cache = (router._matchesByPath ??= createStringMap<RouteMatch[]>())
+  if (cache.get(key) === matches) return
   rememberBounded(cache, key, matches, WARM_MATCH_CACHE_MAX)
 }
 

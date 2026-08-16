@@ -1,5 +1,23 @@
 import { BACK_ACTION, FORWARD_ACTION, PUSH_ACTION, REPLACE_ACTION, STATE_INDEX } from './constants'
 import { assignKeyAndIndex, parseHref } from './parse'
+
+function locationFromPath(path: string, state: ParsedHistoryState): HistoryLocation {
+  const len = path.length
+  if (len !== 0 && path.charCodeAt(0) === 47 && (len === 1 || path.charCodeAt(1) !== 47)) {
+    let simple = true
+    for (let i = 1; i < len; i++) {
+      const code = path.charCodeAt(i)
+      if (code <= 0x1f || code === 0x7f || code === 63 || code === 35) {
+        simple = false
+        break
+      }
+    }
+    if (simple) {
+      return { href: path, pathname: path, search: '', hash: '', state }
+    }
+  }
+  return parseHref(path, state)
+}
 import type {
   BlockerFnArgs,
   HistoryLocation,
@@ -131,7 +149,7 @@ class MemoryHistory implements RouterHistory {
     states.push(nextState)
     entries.push(path)
     this.index = entries.length - 1
-    this.location = parseHref(path, nextState)
+    this.location = locationFromPath(path, nextState)
     this.notify(PUSH_ACTION)
   }
 
@@ -150,7 +168,7 @@ class MemoryHistory implements RouterHistory {
     }
     this.states[this.index] = nextState
     this.entries[this.index] = path
-    this.location = parseHref(path, nextState)
+    this.location = locationFromPath(path, nextState)
     this.notify(REPLACE_ACTION)
   }
 

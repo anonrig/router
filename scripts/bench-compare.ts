@@ -8,8 +8,8 @@
  * navigation (what `<Link>` uses), param-changing navigation, invalidate +
  * reload, and per-request cold `load` / `createRequestHandler`. Default
  * `staleTime` is 0, so those navigations rerun stale loaders on both sides.
- * A settled `router.load()` no-op is not a headline; that path skips
- * lifecycle work when matches are already valid.
+ * Utility rows use rotating unique inputs so last-value intern caches miss.
+ * A settled `router.load()` no-op is not published.
  */
 import { spawnSync } from 'node:child_process'
 import './bench-compare-self.ts'
@@ -131,43 +131,80 @@ function buildTsLargeTree(width: number, depth: number) {
   })
 }
 
-function createOursAppTree() {
+function createOursAppTree(loader?: () => { title: string }) {
   const root = oursCreateRootRoute()
   const index = oursCreateRoute({ getParentRoute: () => root, path: '/' })
   const posts = oursCreateRoute({ getParentRoute: () => root, path: '/posts' })
   const post = oursCreateRoute({
     getParentRoute: () => root,
     path: '/posts/$id',
-    loader: () => ({ title: 'Post' }),
+    loader: loader ?? (() => ({ title: 'Post' })),
   })
   const about = oursCreateRoute({ getParentRoute: () => root, path: '/about' })
   root.addChildren([index, posts, post, about])
   return root
 }
 
-function createTsAppTree() {
+function createTsAppTree(loader?: () => { title: string }) {
   const root = tsCreateRootRoute()
   const index = tsCreateRoute({ getParentRoute: () => root, path: '/' })
   const posts = tsCreateRoute({ getParentRoute: () => root, path: '/posts' })
   const post = tsCreateRoute({
     getParentRoute: () => root,
     path: '/posts/$id',
-    loader: () => ({ title: 'Post' }),
+    loader: loader ?? (() => ({ title: 'Post' })),
   })
   const about = tsCreateRoute({ getParentRoute: () => root, path: '/about' })
   root.addChildren([index, posts, post, about])
   return root
 }
 
-const sample = { token: 'foo', page: 12, q: 'hello world', flag: true }
-const oursEncoded = oursEncode(sample)
-const tsEncoded = tsEncode(sample)
-const ordinarySearch = {
-  tab: 'specs',
-  filter: 'available',
-  category: 'hardware',
-  sort: 'newest',
-}
+const encodeSamples = [
+  { token: 'foo', page: 12, q: 'hello world', flag: true },
+  { token: 'bar', page: 3, q: 'router bench', flag: false },
+  { token: 'baz', page: 99, q: 'unique value', flag: true },
+  { token: 'qux', page: 1, q: 'another query', flag: false },
+  { token: 'zip', page: 42, q: 'more text', flag: true },
+  { token: 'zap', page: 7, q: 'final sample', flag: false },
+]
+const decodeSamples = encodeSamples.map((sample) => oursEncode(sample))
+const searchSamples = [
+  { tab: 'specs', filter: 'available', category: 'hardware', sort: 'newest' },
+  { tab: 'reviews', filter: 'all', category: 'software', sort: 'oldest' },
+  { tab: 'docs', filter: 'open', category: 'cloud', sort: 'name' },
+  { q: 'router', page: 2, debug: true },
+  { ref: 'nav', utm: 'bench', lang: 'en' },
+  { id: 'post-1', comments: true, sort: 'recent' },
+]
+const hrefSamples = [
+  '/posts/abc?tab=specs&page=2#comments',
+  '/about?ref=nav#team',
+  '/posts/1?sort=new',
+  '/search?q=router&page=3',
+  '/settings/profile?tab=security',
+  '/docs/start#install',
+]
+const cleanSamples = [
+  '/a//b///c/d//e',
+  '/x//y/z/',
+  '//double/slash',
+  '/keep/single',
+  '/a/b//c//d/e/',
+]
+const resolveSamples = [
+  { base: '/a/b/c', to: '../../d/e' },
+  { base: '/posts/1', to: '../2' },
+  { base: '/docs/api', to: './guide' },
+  { base: '/a/b', to: '/absolute' },
+  { base: '/x/y/z', to: '../../../root' },
+]
+const interpolateSamples = [
+  { path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } },
+  { path: '/posts/$slug/comments/$id', params: { slug: 'y', id: '2' } },
+  { path: '/orgs/$org/projects/$id', params: { org: 'acme', id: '9' } },
+  { path: '/files/$id', params: { id: 'abc' } },
+  { path: '/users/$user/posts/$id', params: { user: 'sam', id: '4' } },
+]
 const typicalIds = Array.from(
   { length: 100 },
   (_, index) => `/$orgId/projects/$projectId/acme/projects/project-${index}{"page":${index}}`,
@@ -179,6 +216,7 @@ for (let a = 0; a < 8; a++) {
   }
 }
 let matchCursor = 0
+let sampleCursor = 0
 const oursRouteTree = createOursAppTree()
 const tsRouteTree = createTsAppTree()
 const paths = ['/', '/posts', '/posts/1', '/posts/2', '/about']
@@ -196,6 +234,74 @@ function createTsRouter(path: string) {
     routeTree: tsRouteTree,
     history: tsCreateMemoryHistory({ initialEntries: [path] }),
   })
+}
+
+const typedDests = [
+  { to: '/' },
+  { to: '/posts' },
+  { to: '/posts/$id', params: { id: '1' } },
+  { to: '/posts/$id', params: { id: '2' } },
+  { to: '/about' },
+] as const
+
+async function countLoaders(
+  createApp: (counter: { calls: number }) => {
+    navigate: (options: any) => Promise<unknown>
+  },
+) {
+  const sequential = { calls: 0 }
+  const router = createApp(sequential)
+  for (let index = 0; index < 100; index++) {
+    await router.navigate(typedDests[index % typedDests.length])
+  }
+  const typed = sequential.calls
+  for (let index = 0; index < 100; index++) {
+    await router.navigate({
+      to: '/posts/$id',
+      params: { id: String((index % 50) + 1) },
+    })
+  }
+  const changingAfterTyped = sequential.calls - typed
+  const fresh = { calls: 0 }
+  const freshRouter = createApp(fresh)
+  for (let index = 0; index < 100; index++) {
+    await freshRouter.navigate({
+      to: '/posts/$id',
+      params: { id: String((index % 50) + 1) },
+    })
+  }
+  return { typed, changingAfterTyped, fresh: fresh.calls }
+}
+
+async function assertLoaderParity() {
+  const ours = await countLoaders((counter) =>
+    oursCreateRouter({
+      routeTree: createOursAppTree(() => {
+        counter.calls++
+        return { title: 'Post' }
+      }),
+      history: oursCreateMemoryHistory({ initialEntries: ['/'] }),
+    }),
+  )
+  const tanstack = await countLoaders((counter) =>
+    tsCreateRouter({
+      routeTree: createTsAppTree(() => {
+        counter.calls++
+        return { title: 'Post' }
+      }),
+      history: tsCreateMemoryHistory({ initialEntries: ['/'] }),
+    }),
+  )
+  if (
+    ours.typed !== tanstack.typed ||
+    ours.changingAfterTyped !== tanstack.changingAfterTyped ||
+    ours.fresh !== tanstack.fresh
+  ) {
+    throw new Error(
+      `Loader-call parity failed: ours=${JSON.stringify(ours)} tanstack=${JSON.stringify(tanstack)}`,
+    )
+  }
+  return ours
 }
 
 const microRows: Row[] = []
@@ -222,14 +328,8 @@ function ratio(ours: number, tanstack: number) {
   return `${(ours / tanstack).toFixed(2)}×`
 }
 
-function printRows(rows: Row[]) {
-  console.log('')
-  console.log('Same-machine comparison (higher ops/s is better)')
-  console.log(`Node ${process.version}`)
-  console.log(
-    'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
-  )
-  console.log('')
+function printTable(title: string, rows: Row[]) {
+  console.log(title)
   console.log(
     'Operation'.padEnd(38) +
       ' @anonrig'.padStart(14) +
@@ -246,6 +346,35 @@ function printRows(rows: Row[]) {
     )
   }
   console.log('')
+}
+
+function printRows(
+  headlines: Row[],
+  micros: Row[],
+  loaders: Awaited<ReturnType<typeof countLoaders>>,
+) {
+  console.log('')
+  console.log('Same-machine comparison (higher ops/s is better)')
+  console.log(`Node ${process.version}`)
+  console.log(
+    'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
+  )
+  console.log(
+    `Loader-call parity: typed ${loaders.typed}/${loaders.typed}, changing-params ${loaders.fresh}/${loaders.fresh} (default staleTime 0)`,
+  )
+  console.log('')
+  printTable('Equal-work headlines (same loader counts, default staleTime 0)', [
+    ...headlines.filter((row) => row.name === 'Warm navigate ({ to, params })'),
+    ...headlines.filter((row) => row.name === 'Warm navigate changing params'),
+    ...headlines.filter((row) => row.name === 'Invalidate + reload'),
+    ...headlines.filter((row) => row.name === 'SSR cold router.load req/s'),
+    ...headlines.filter((row) => row.name === 'createRequestHandler req/s'),
+  ])
+  printTable(
+    'Same staleTime, no to/params interpolation',
+    headlines.filter((row) => row.name === 'Warm navigate ({ href })'),
+  )
+  printTable('Utilities (rotating unique inputs so intern caches miss)', micros)
 }
 
 function runSection(section: string): Row[] {
@@ -270,22 +399,13 @@ function runSection(section: string): Row[] {
 const section = process.env.BENCH_SECTION
 
 if (!section) {
+  const loaders = await assertLoaderParity()
   const headlines = runSection('headline')
   const micros = runSection('micro')
-  printRows([
-    ...micros,
-    ...headlines.filter((row) => row.name === 'Warm navigate ({ href })'),
-    ...headlines.filter((row) => row.name === 'Warm navigate ({ to, params })'),
-    ...headlines.filter((row) => row.name === 'Warm navigate changing params'),
-    ...headlines.filter((row) => row.name === 'Invalidate + reload'),
-    ...headlines.filter((row) => row.name === 'SSR cold router.load req/s'),
-    ...headlines.filter((row) => row.name === 'createRequestHandler req/s'),
-  ])
+  printRows(headlines, micros, loaders)
   process.exit(0)
 }
 
-// Headlines and micros run in separate processes so createRouter/load and
-// stringify/encode are not timed on each other's leftover heap.
 globalThis.gc?.()
 
 if (section === 'headline') {
@@ -333,13 +453,6 @@ if (section === 'headline') {
     routeTree: tsRouteTree,
     history: tsCreateMemoryHistory({ initialEntries: ['/'] }),
   })
-  const typedDests = [
-    { to: '/' },
-    { to: '/posts' },
-    { to: '/posts/$id', params: { id: '1' } },
-    { to: '/posts/$id', params: { id: '2' } },
-    { to: '/about' },
-  ] as const
   let typedCursor = 0
   let paramCursor = 0
   await addAsync(
@@ -404,64 +517,64 @@ if (section === 'micro') {
   await addSync(
     'Query-string encode',
     () => {
-      oursEncode(sample)
+      oursEncode(encodeSamples[sampleCursor++ % encodeSamples.length]!)
     },
     () => {
-      tsEncode(sample)
+      tsEncode(encodeSamples[sampleCursor++ % encodeSamples.length]!)
     },
   )
   await addSync(
     'Query-string decode',
     () => {
-      oursDecode(oursEncoded)
+      oursDecode(decodeSamples[sampleCursor++ % decodeSamples.length]!)
     },
     () => {
-      tsDecode(tsEncoded)
+      tsDecode(decodeSamples[sampleCursor++ % decodeSamples.length]!)
     },
   )
   await addSync(
-    'defaultStringifySearch (×1000)',
+    'defaultStringifySearch',
     () => {
-      for (let i = 0; i < 1000; i++) oursStringifySearch(ordinarySearch)
+      oursStringifySearch(searchSamples[sampleCursor++ % searchSamples.length]!)
     },
     () => {
-      for (let i = 0; i < 1000; i++) tsStringifySearch(ordinarySearch)
+      tsStringifySearch(searchSamples[sampleCursor++ % searchSamples.length]!)
     },
   )
   await addSync(
     'parseHref',
     () => {
-      oursParseHref('/posts/abc?tab=specs&page=2#comments', undefined)
+      oursParseHref(hrefSamples[sampleCursor++ % hrefSamples.length]!, undefined)
     },
     () => {
-      tsParseHref('/posts/abc?tab=specs&page=2#comments', undefined)
+      tsParseHref(hrefSamples[sampleCursor++ % hrefSamples.length]!, undefined)
     },
   )
   await addSync(
     'cleanPath',
     () => {
-      oursCleanPath('/a//b///c/d//e')
+      oursCleanPath(cleanSamples[sampleCursor++ % cleanSamples.length]!)
     },
     () => {
-      tsCleanPath('/a//b///c/d//e')
+      tsCleanPath(cleanSamples[sampleCursor++ % cleanSamples.length]!)
     },
   )
   await addSync(
     'resolvePath',
     () => {
-      oursResolvePath({ base: '/a/b/c', to: '../../d/e' })
+      oursResolvePath(resolveSamples[sampleCursor++ % resolveSamples.length]!)
     },
     () => {
-      tsResolvePath({ base: '/a/b/c', to: '../../d/e' })
+      tsResolvePath(resolveSamples[sampleCursor++ % resolveSamples.length]!)
     },
   )
   await addSync(
     'interpolatePath',
     () => {
-      oursInterpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
+      oursInterpolatePath(interpolateSamples[sampleCursor++ % interpolateSamples.length]!)
     },
     () => {
-      tsInterpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
+      tsInterpolatePath(interpolateSamples[sampleCursor++ % interpolateSamples.length]!)
     },
   )
   await addSync(
