@@ -67,6 +67,28 @@ describe('matcher', () => {
     expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts'])
   })
 
+  it('does not prefer a static sibling over an optional route that can skip', () => {
+    const root = createRootRoute()
+    const localized = createRoute({
+      getParentRoute: () => root,
+      path: '/{-$lang}/home',
+      params: {
+        parse: (params: { lang?: string }) => {
+          if (params.lang && params.lang !== 'en') return false
+          return params
+        },
+      },
+    })
+    const home = createRoute({ getParentRoute: () => root, path: '/home' })
+    root.addChildren([localized, home])
+    const processed = processRouteTree(root as any)
+    expect(findRouteMatch(processed, '/home')?.map((m) => m.route.id)).toEqual([
+      '__root__',
+      '/{-$lang}/home',
+    ])
+    expect(findRouteMatch(processed, '/en/home')?.at(-1)?.route.id).toBe('/{-$lang}/home')
+  })
+
   it('matches a static-only tree without entering the dynamic walker', () => {
     const root = createRootRoute()
     const about = createRoute({ getParentRoute: () => root, path: '/about' })

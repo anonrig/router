@@ -257,12 +257,19 @@ function isStaticPath(path: string): boolean {
  * Param siblings/children are allowed (find-my-way: static-first).
  * Optional/wildcard on the terminal stay on the dynamic walker.
  */
+function nodeHasSkipMatch(node: SegmentNode): boolean {
+  return !!(node.optionalChild || node.optionalChildren?.length || node.wildcardChild)
+}
+
 function walkStaticExact(
   tree: ProcessedTree,
   pathname: string,
   caseSensitive: boolean,
 ): RouteMatchResult[] | undefined {
   let node = tree.root
+  // Optional/wildcard nodes can skip segments and beat a static sibling
+  // (e.g. `/{ -$lang}/home` vs `/home`). Leave those on the dynamic walker.
+  if (nodeHasSkipMatch(node)) return undefined
   const chain: AnyRouteLike[] = []
   if (node.route) chain.push(node.route)
   if (node.pathless) {
@@ -270,9 +277,6 @@ function walkStaticExact(
   }
 
   if (pathname === '/' || pathname === '') {
-    if (node.optionalChild || node.optionalChildren?.length || node.wildcardChild) {
-      return undefined
-    }
     const match = finishStaticMatch(tree, node, chain)
     return matchNeedsParse(match) ? undefined : match
   }
@@ -285,7 +289,7 @@ function walkStaticExact(
       let key = pathname.slice(i, end)
       if (!caseSensitive && pathNeedsLowercase(key)) key = key.toLowerCase()
       const child = node.staticChildren?.[key]
-      if (!child) return undefined
+      if (!child || nodeHasSkipMatch(child)) return undefined
       if (child.route) chain.push(child.route)
       if (child.pathless) {
         for (let p = 0; p < child.pathless.length; p++) chain.push(child.pathless[p]!)
@@ -295,9 +299,6 @@ function walkStaticExact(
     i = end + 1
   }
 
-  if (node.optionalChild || node.optionalChildren?.length || node.wildcardChild) {
-    return undefined
-  }
   const match = finishStaticMatch(tree, node, chain)
   if (matchNeedsParse(match)) return undefined
   return match
