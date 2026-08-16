@@ -207,6 +207,7 @@ async function addAsync(name: string, ours: () => Promise<void>, tanstack: () =>
 
 // Headline ops first so createRouter / load numbers are not taken after
 // half a minute of tight microbenchmarks on a shared 4-core box.
+globalThis.gc?.()
 
 await addAsync(
   'SSR cold router.load req/s',
@@ -274,6 +275,7 @@ const oursProcessed = buildOursLargeTree(8, 3)
 const tsProcessed = buildTsLargeTree(8, 3)
 const oursHistory = oursCreateMemoryHistory({ initialEntries: ['/'] })
 const tsHistory = tsCreateMemoryHistory({ initialEntries: ['/'] })
+globalThis.gc?.()
 
 await addSync(
   'Query-string encode',
