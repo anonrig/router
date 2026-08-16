@@ -247,6 +247,7 @@ export function useLinkProps(
     preload !== 'viewport',
     undefined,
     `${String(props.to)}:${String(preload)}:${String(preloadDelay)}`,
+    cancelPreload,
   )
 
   useEffect(() => {

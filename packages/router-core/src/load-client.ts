@@ -1637,6 +1637,7 @@ async function followRedirect(
     replace: true,
     ignoreBlocker: true,
     _redirects: tx[1 /* redirects */] + 1,
+    _fromLocation: redirect.options._fromLocation ?? tx[2 /* location */],
   } as any)
 }
 

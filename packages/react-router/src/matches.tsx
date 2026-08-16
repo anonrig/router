@@ -176,11 +176,8 @@ export function useMatchRoute<TRouter extends AnyRouter = RegisteredRouter>(): <
   opts: UseMatchRouteOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>,
 ) => false | Expand<ResolveRoute<TRouter, TFrom, TTo>['types']['allParams']> {
   const router = useRouter()
-  const revision = useStore(router.stores.state, (state) => (state as any)._revision ?? 0)
-  return useCallback(
-    ((opts: any = {}) => router.matchRoute(opts)) as any,
-    [router, revision],
-  )
+  const revision = useStore((router.stores as any).matchRoute ?? router.stores.state)
+  return useCallback(((opts: any = {}) => router.matchRoute(opts)) as any, [router, revision])
 }
 
 export type MakeMatchRouteOptions<

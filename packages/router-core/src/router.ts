@@ -24,14 +24,7 @@ import {
   replaceRouteChunk,
 } from './load-client'
 import { PathParamError, SearchParamError } from './misc'
-import {
-  compileDecodeCharMap,
-  exactPathTest,
-  interpolatePath,
-  resolvePath,
-  trimPath,
-  trimPathRight,
-} from './path'
+import { compileDecodeCharMap, interpolatePath, resolvePath, trimPath, trimPathRight } from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
 import {
   composeRewrites,
@@ -479,18 +472,29 @@ export class RouterCore<
     const setLocation = locationStore.set.bind(locationStore)
     const setStatus = stores.status.set.bind(stores.status)
     const setResolved = stores.resolvedLocation.set.bind(stores.resolvedLocation)
-    let revision = 0
+    const matchRoute = createStore(0)
+    const sameParsedLocation = (left: any, right: any) =>
+      left === right ||
+      (!!left &&
+        !!right &&
+        left.href === right.href &&
+        left.pathname === right.pathname &&
+        left.searchStr === right.searchStr &&
+        left.hash === right.hash)
+    const bumpMatchRoute = () => matchRoute.set(matchRoute.get() + 1)
     const syncState = (patch: Record<string, unknown>) => {
       const current = state.get()
-      if (current) state.set({ ...current, ...patch, _revision: ++revision } as any)
+      if (current) state.set({ ...current, ...patch } as any)
     }
     locationStore.set = ((next: any) => {
+      const previous = locationStore.get()
       setLocation(next)
-      syncState({
-        location: locationStore.get(),
-      })
+      const location = locationStore.get()
+      syncState({ location })
+      if (!sameParsedLocation(previous, location)) bumpMatchRoute()
     }) as typeof locationStore.set
     stores.status.set = ((next: any) => {
+      const previous = stores.status.get()
       setStatus(next)
       const status = stores.status.get()
       syncState({
@@ -498,15 +502,18 @@ export class RouterCore<
         isLoading: status === 'pending',
         isTransitioning: status === 'pending',
       })
+      if (previous !== status) bumpMatchRoute()
     }) as typeof stores.status.set
     stores.resolvedLocation.set = ((next: any) => {
+      const previous = stores.resolvedLocation.get()
       setResolved(next)
-      syncState({
-        resolvedLocation: stores.resolvedLocation.get(),
-      })
+      const resolvedLocation = stores.resolvedLocation.get()
+      syncState({ resolvedLocation })
+      if (!sameParsedLocation(previous, resolvedLocation)) bumpMatchRoute()
     }) as typeof stores.resolvedLocation.set
     return Object.assign(stores, {
       state,
+      matchRoute,
       setMatches: (nextMatches: any[]) => {
         setMatches(nextMatches)
         const current = state.get()
@@ -1750,7 +1757,11 @@ export class RouterCore<
     if (exact?.length) {
       const last = exact[exact.length - 1]!
       const branch = buildRouteBranch(last.route as AnyRoute)
-      result = [branch.length ? branch : exact.map((item) => item.route), last.rawParams, last.route]
+      result = [
+        branch.length ? branch : exact.map((item) => item.route),
+        last.rawParams,
+        last.route,
+      ]
     } else {
       const match = findRouteMatch(path, this.processedTree, true)
       result = match
@@ -1907,7 +1918,9 @@ export class RouterCore<
       const parentSearch = parentMatch?.search ?? next.search
       const parentStrictSearch = parentMatch?._strictSearch
       let preMatchSearch = parentSearch
-      let strictMatchSearch: Record<string, any> = parentStrictSearch ? { ...parentStrictSearch } : {}
+      let strictMatchSearch: Record<string, any> = parentStrictSearch
+        ? { ...parentStrictSearch }
+        : {}
       let searchError: any
       if (route.options?.validateSearch) {
         try {
@@ -2230,11 +2243,15 @@ function resolveBuildSearch(
     : router._hasSearchWork && router.processedTree
       ? (router.getMatchedRoutes(resolved)[0] as AnyRoute[])
       : []
-  const fromRoutes = router.state?.matches?.length
-    ? router.state.matches
-        .map((match: RouteMatch) => router.routesById[match.routeId])
-        .filter(Boolean)
-    : destRoutes
+  const fromLocation = dest._fromLocation as ParsedLocation | undefined
+  const fromRoutes =
+    fromLocation?.pathname && router.processedTree
+      ? (router.getMatchedRoutes(fromLocation.pathname)[0] as AnyRoute[])
+      : router.state?.matches?.length
+        ? router.state.matches
+            .map((match: RouteMatch) => router.routesById[match.routeId])
+            .filter(Boolean)
+        : destRoutes
   for (const route of fromRoutes as AnyRoute[]) {
     try {
       Object.assign(currentSearch, validateSearch(route.options?.validateSearch, currentSearch))
