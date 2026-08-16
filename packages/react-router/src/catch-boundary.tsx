@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { wrapInNonRouteComponentContext } from './non-route-component-context'
 
 export function ErrorComponent({ error }: { error: unknown; reset?: () => void; info?: any }) {
   const message = Error.isError(error) ? error.message : String(error)
@@ -43,13 +44,16 @@ export class CatchBoundary extends Component<
   render() {
     if (this.state.error) {
       const Comp = this.props.errorComponent ?? ErrorComponent
-      return (
+      const errorElement = (
         <Comp
           error={this.state.error}
           info={this.state.info}
           reset={() => this.setState({ error: null })}
         />
       )
+      return process.env.NODE_ENV !== 'production'
+        ? wrapInNonRouteComponentContext(errorElement, 'errorComponent')
+        : errorElement
     }
     return this.props.children
   }

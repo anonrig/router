@@ -21,16 +21,19 @@ export function useIntersectionObserver(
   callback: (entry: IntersectionObserverEntry) => void,
   disabled?: boolean,
   options?: IntersectionObserverInit,
+  resetKey?: unknown,
 ) {
+  const callbackRef = useRef(callback)
+  callbackRef.current = callback
   useEffect(() => {
     if (disabled || typeof IntersectionObserver === 'undefined') return
     const node = ref.current
     if (!node) return
     const observer = new IntersectionObserver((entries) => {
       const entry = entries[0]
-      if (entry) callback(entry)
+      if (entry) callbackRef.current(entry)
     }, options)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [ref, callback, disabled, options])
+  }, [ref, disabled, options, resetKey])
 }

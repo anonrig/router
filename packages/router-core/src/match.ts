@@ -911,7 +911,6 @@ function considerTerminal(
       if (isBetterMatch(best, terminal)) best = terminal
     }
     if (
-      !best &&
       terminal.node.wildcardChild &&
       !terminal.node.wildcardChild.prefix &&
       !terminal.node.wildcardChild.suffix

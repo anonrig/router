@@ -23,7 +23,14 @@ import {
   replaceRouteChunk,
 } from './load-client'
 import { PathParamError, SearchParamError } from './misc'
-import { compileDecodeCharMap, interpolatePath, resolvePath, trimPath, trimPathRight } from './path'
+import {
+  compileDecodeCharMap,
+  exactPathTest,
+  interpolatePath,
+  resolvePath,
+  trimPath,
+  trimPathRight,
+} from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
 import {
   composeRewrites,
@@ -469,16 +476,33 @@ export class RouterCore<
     })
     const locationStore = stores.location
     const setLocation = locationStore.set.bind(locationStore)
+    const setStatus = stores.status.set.bind(stores.status)
+    const setResolved = stores.resolvedLocation.set.bind(stores.resolvedLocation)
+    const syncState = (patch: Record<string, unknown>) => {
+      const current = state.get()
+      if (current) state.set({ ...current, ...patch })
+    }
     locationStore.set = ((next: any) => {
       setLocation(next)
-      const current = state.get()
-      if (current && current.location !== locationStore.get()) {
-        state.set({
-          ...current,
-          location: locationStore.get(),
-        })
-      }
+      syncState({
+        location: locationStore.get(),
+      })
     }) as typeof locationStore.set
+    stores.status.set = ((next: any) => {
+      setStatus(next)
+      const status = stores.status.get()
+      syncState({
+        status,
+        isLoading: status === 'pending',
+        isTransitioning: status === 'pending',
+      })
+    }) as typeof stores.status.set
+    stores.resolvedLocation.set = ((next: any) => {
+      setResolved(next)
+      syncState({
+        resolvedLocation: stores.resolvedLocation.get(),
+      })
+    }) as typeof stores.resolvedLocation.set
     return Object.assign(stores, {
       state,
       setMatches: (nextMatches: any[]) => {
@@ -1714,9 +1738,8 @@ export class RouterCore<
     let result: readonly [any[], Record<string, any>, any]
     if (exact?.length) {
       const last = exact[exact.length - 1]!
-      const branch = new Array(exact.length)
-      for (let i = 0; i < exact.length; i++) branch[i] = exact[i]!.route
-      result = [branch, last.rawParams, last.route]
+      const branch = buildRouteBranch(last.route as AnyRoute)
+      result = [branch.length ? branch : exact.map((item) => item.route), last.rawParams, last.route]
     } else {
       const match = findRouteMatch(path, this.processedTree, true)
       result = match
@@ -1763,28 +1786,52 @@ export class RouterCore<
     return redirect
   }
 
-  matchRoute(opts: NavigateOptions & MatchRouteOptions = {}): any {
-    const pending = opts.pending
-    const matches = pending ? (this.state.pendingMatches ?? this.state.matches) : this.state.matches
-    if (!opts.to) return !!matches.length
-    const next = this.buildLocation(opts)
+  matchRoute(opts: NavigateOptions & MatchRouteOptions = {}, maybeOpts?: MatchRouteOptions): any {
+    const dest = maybeOpts === undefined ? opts : { ...opts, ...maybeOpts }
+    const options = maybeOpts ?? opts
+    const isPending = this.stores?.status?.get?.() === 'pending'
+    if (options.pending && !isPending) return false
+    const pending = options.pending ?? !isPending
+    const baseLocation = pending
+      ? this.latestLocation
+      : (this.stores?.resolvedLocation?.get?.() ??
+        this.stores?.location?.get?.() ??
+        this.latestLocation)
+    if (!dest.to) return !!(this.state?.matches?.length || this.stores?.matches?.get?.()?.length)
+    const next = this.buildLocation({
+      ...dest,
+      _fromLocation: dest._fromLocation || baseLocation,
+    })
+    const fuzzy = options.fuzzy ?? dest.fuzzy
+    const currentPath = baseLocation?.pathname ?? ''
+    const pathMatch = fuzzy
+      ? currentPath === next.pathname ||
+        currentPath.startsWith(next.pathname.endsWith('/') ? next.pathname : `${next.pathname}/`) ||
+        next.pathname.startsWith(currentPath.endsWith('/') ? currentPath : `${currentPath}/`)
+      : exactPathTest(currentPath, next.pathname, this.basepath || '/')
+    if (!pathMatch) return false
+    if (
+      (options.includeSearch ?? dest.includeSearch ?? true) &&
+      !deepEqual(baseLocation?.search ?? EMPTY_OBJ, next.search, { partial: true })
+    ) {
+      return false
+    }
     const found = findRouteMatch(
       this.processedTree,
-      next.pathname,
-      opts.caseSensitive ?? this.options.caseSensitive ?? false,
+      currentPath,
+      options.caseSensitive ?? dest.caseSensitive ?? this.options.caseSensitive ?? false,
     )
-    if (!found) return false
-    const lastFound = last(found) as { params?: any } | undefined
-    if (!lastFound) return false
+    if (!found?.length) return false
+    const lastFound = found[found.length - 1] as { params?: any }
     if (
-      opts.params &&
-      !deepEqual(lastFound.params, functionalUpdate(opts.params, lastFound.params), {
+      dest.params &&
+      !deepEqual(lastFound.params, functionalUpdate(dest.params, lastFound.params), {
         partial: true,
       })
     ) {
-      return opts.fuzzy ? lastFound.params : false
+      return fuzzy ? lastFound.params : false
     }
-    return lastFound.params
+    return lastFound.params ?? {}
   }
 
   getMatch(matchId: string) {
@@ -1837,7 +1884,7 @@ export class RouterCore<
     let matchedRoutes = initialMatchedRoutes as AnyRoute[]
     let isGlobalNotFound = false
 
-    if (foundRoute ? foundRoute.path !== '/' && rawParams['**'] : trimPathRight(next.pathname)) {
+    if (rawParams['**'] || (!foundRoute && trimPathRight(next.pathname))) {
       if (this.options.notFoundRoute) {
         matchedRoutes = [...matchedRoutes, this.options.notFoundRoute]
       } else {
@@ -1857,13 +1904,16 @@ export class RouterCore<
       const route = matchedRoutes[index]!
       const parentMatch = matches[index - 1]
       const parentSearch = parentMatch?.search ?? next.search
+      const parentStrictSearch = parentMatch?._strictSearch
       let preMatchSearch = parentSearch
+      let strictMatchSearch: Record<string, any> = parentStrictSearch ? { ...parentStrictSearch } : {}
       let searchError: any
       if (route.options?.validateSearch) {
         try {
           const strictSearch =
             validateSearch(route.options.validateSearch, { ...parentSearch }) ?? undefined
           preMatchSearch = { ...parentSearch, ...strictSearch }
+          strictMatchSearch = { ...parentStrictSearch, ...strictSearch }
         } catch (err: any) {
           const searchParamError =
             err instanceof SearchParamError
@@ -1871,6 +1921,7 @@ export class RouterCore<
               : new SearchParamError(err?.message ?? String(err), { cause: err })
           if (opts?.throwOnError) throw searchParamError
           preMatchSearch = parentSearch
+          strictMatchSearch = {}
           searchError = searchParamError
         }
       }
@@ -1936,6 +1987,7 @@ export class RouterCore<
             previousMatch?.search ?? existingMatch.search,
             preMatchSearch,
           ),
+          _strictSearch: strictMatchSearch,
           searchError,
         } as RouteMatch
       } else {
@@ -1948,7 +2000,7 @@ export class RouterCore<
           params: previousMatch?.params ?? strictParams,
           rawParams,
           _strictParams: strictParams,
-          _strictSearch: preMatchSearch,
+          _strictSearch: strictMatchSearch,
           status: needsLoad ? 'pending' : 'success',
           isFetching: false,
           error: undefined,
@@ -2073,27 +2125,32 @@ function resolveBuildPath(
   current: ParsedLocation | undefined,
   currentMatch: RouteMatch | undefined,
 ) {
-  const fromPath = dest.from
-    ? (router.routesById[dest.from]?.fullPath ?? dest.from)
-    : (current?.pathname ?? '/')
+  const fromRoute = dest.from
+    ? (router.routesById[dest.from] ?? router.routesByPath?.[trimPathRight(dest.from)])
+    : currentMatch
+      ? router.routesById[currentMatch.routeId]
+      : undefined
+  const fromPath = fromRoute?.fullPath ?? dest.from ?? current?.pathname ?? '/'
 
   let to = dest.to
   if (to === undefined || to === '.') {
-    to = currentMatch?.routeId
-      ? (router.routesById[currentMatch.routeId]?.fullPath ?? current?.pathname)
-      : current?.pathname
+    to = dest.from ? fromPath : (current?.pathname ?? fromPath)
   }
   if (typeof to !== 'string') to = current?.pathname ?? '/'
 
   const currentParams = Object.assign(Object.create(null), currentMatch?.params ?? EMPTY_OBJ)
-  if (!hasOwnParams(currentParams) && current?.pathname && router.processedTree) {
+  if (current?.pathname && router.processedTree) {
     const found = findRouteMatch(
       router.processedTree,
       current.pathname,
       router.options.caseSensitive ?? false,
     )
     const foundParams = found?.[found.length - 1]?.params
-    if (foundParams) Object.assign(currentParams, foundParams)
+    if (foundParams) {
+      for (const key in foundParams) {
+        if (currentParams[key] == null) currentParams[key] = foundParams[key]
+      }
+    }
   }
   const nextParams = resolveNextParams(dest.params, currentParams)
 
@@ -2135,13 +2192,14 @@ function resolveBuildPath(
     }
   }
 
+  const interpolatedInput = interpolated
   let resolved = resolvePath({
     base: fromPath || '/',
     to: interpolated || '/',
     trailingSlash: (router.options.trailingSlash as any) ?? 'never',
     cache: router.resolvePathCache,
   })
-  if (resolved.includes('$')) {
+  if (resolved !== interpolatedInput && resolved.includes('$')) {
     resolved = interpolatePath({
       path: resolved,
       params: nextParams ?? EMPTY_OBJ,
@@ -2176,17 +2234,42 @@ function resolveBuildSearch(
       // ignore, matchRoutes reports the error
     }
   }
+  let nextSearch: Record<string, any>
   if (destRoutes.length > 0) {
-    return applySearchMiddleware(
+    nextSearch = applySearchMiddleware(
       currentSearch,
       dest,
       destRoutes as AnyRoute[],
       dest._includeValidateSearch,
-    )
+    ) as Record<string, any>
+  } else if (dest.search === true) {
+    nextSearch = currentSearch
+  } else if (dest.search) {
+    nextSearch = functionalUpdate(dest.search, currentSearch)
+  } else {
+    nextSearch = dest.to ? EMPTY_OBJ : currentSearch
   }
-  if (dest.search === true) return currentSearch
-  if (dest.search) return functionalUpdate(dest.search, currentSearch)
-  return dest.to ? EMPTY_OBJ : currentSearch
+
+  if (dest._includeValidateSearch && router.options.search?.strict) {
+    const validatedSearch: Record<string, any> = {}
+    const routes = destRoutes.length ? destRoutes : (fromRoutes as AnyRoute[])
+    for (const route of routes) {
+      if (!route.options?.validateSearch) continue
+      try {
+        Object.assign(
+          validatedSearch,
+          validateSearch(route.options.validateSearch, {
+            ...validatedSearch,
+            ...nextSearch,
+          }),
+        )
+      } catch {
+        // matchRoutes reports the error
+      }
+    }
+    return validatedSearch
+  }
+  return nextSearch
 }
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {
@@ -2341,7 +2424,7 @@ function parseHistoryLocation(
   const href = encodePathLikeUrl(pathname) + searchStr + (hashValue ? `#${hashValue}` : '')
   return {
     href,
-    publicHref: href,
+    publicHref: router.rewrite ? location.href : href,
     pathname,
     external: !!router.rewrite && url.origin !== router.origin,
     searchStr,
@@ -2371,11 +2454,6 @@ function rememberWarmMatches(
     if (first !== undefined) cache.delete(first)
   }
   cache.set(key, matches)
-}
-
-function hasOwnParams(params: Record<string, unknown>) {
-  for (const _key in params) return true
-  return false
 }
 
 function resolveNextParams(spec: unknown, base: Record<string, unknown>): Record<string, unknown> {

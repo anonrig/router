@@ -3,7 +3,6 @@ import {
   forwardRef,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   type AnchorHTMLAttributes,
   type FocusEvent,
@@ -15,12 +14,13 @@ import {
   deepEqual,
   exactPathTest,
   functionalUpdate,
+  isDangerousProtocol,
   preloadWarning,
   removeTrailingSlash,
 } from '@anonrig/router-core'
 import { useIntersectionObserver } from './utils'
 import { useRouter } from './use-router'
-import { useRouterState } from './use-router-state'
+import { useStore } from './use-store'
 import type { ActiveOptions, NavigateOptions, ParsedLocation } from '@anonrig/router-core'
 
 export type LinkProps = NavigateOptions &
@@ -67,7 +67,6 @@ const INTERNAL_LINK_KEYS = new Set([
   'resetScroll',
   'viewTransition',
   'ignoreBlocker',
-  'disabled',
   'children',
   'href',
 ])
@@ -112,39 +111,101 @@ function omitInternalProps(props: Record<string, unknown>) {
   return out
 }
 
+function isSafeInternal(to: unknown) {
+  if (typeof to !== 'string') return false
+  const zero = to.charCodeAt(0)
+  if (zero === 47) return to.charCodeAt(1) !== 47
+  return zero === 46
+}
+
+function resolveExternalLink(
+  hrefOption: { href?: string; external?: boolean } | undefined,
+  to: unknown,
+  protocolAllowlist: Set<string>,
+): string | undefined {
+  if (hrefOption?.external && hrefOption.href) {
+    if (isDangerousProtocol(hrefOption.href, protocolAllowlist)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`Blocked Link with dangerous protocol: ${hrefOption.href}`)
+      }
+      return undefined
+    }
+    return hrefOption.href
+  }
+  if (isSafeInternal(to) || typeof to !== 'string' || to.indexOf(':') === -1) return undefined
+  if (!URL.canParse(to)) return undefined
+  if (isDangerousProtocol(to, protocolAllowlist)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`Blocked Link with dangerous protocol: ${to}`)
+    }
+    return undefined
+  }
+  return to
+}
+
+type LinkState = [href: string | undefined, externalLink: string | undefined, isActive: boolean]
+
+function compareLinkState(a: LinkState, b: LinkState) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+}
+
 export function useLinkProps(
   props: LinkProps,
   forwardedRef?: { current: HTMLAnchorElement | null },
 ): AnchorHTMLAttributes<HTMLAnchorElement> {
   const router = useRouter()
-  const location = useRouterState({ select: (s) => s.location })
   const innerRef = useRef<HTMLAnchorElement | null>(null)
   const ref = forwardedRef ?? innerRef
   const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const didRenderPreload = useRef(false)
+  const propsRef = useRef(props)
+  propsRef.current = props
 
-  const next = useMemo(
-    () => router.buildLocation(props),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [router, props.to, props.params, props.search, props.hash, props.from, props.href, location],
+  const [href, externalLink, isActive] = useStore(
+    router.stores.state,
+    (state): LinkState => {
+      const location = state.location as ParsedLocation
+      if (typeof props.to === 'string' && !isSafeInternal(props.to) && props.to.indexOf(':') > -1) {
+        const external = resolveExternalLink(undefined, props.to, router.protocolAllowlist)
+        if (external) return [external, external, false]
+      }
+      const next = router.buildLocation({
+        _fromLocation: location,
+        ...props,
+      } as any)
+      const publicHref = next.maskedLocation ? next.maskedLocation.publicHref : next.publicHref
+      const isExternal = next.maskedLocation ? next.maskedLocation.external : next.external
+      const builtHref = props.disabled
+        ? undefined
+        : isExternal
+          ? publicHref
+          : router.history.createHref(publicHref || `${next.pathname}${next.searchStr}${next.hash}`)
+      const external = resolveExternalLink(
+        isExternal ? { href: publicHref, external: true } : { href: builtHref },
+        props.to,
+        router.protocolAllowlist,
+      )
+      return [
+        external ?? builtHref,
+        external,
+        resolveIsActive(location, next, props.activeOptions, router.basepath),
+      ]
+    },
+    compareLinkState,
   )
 
-  const href = router.history.createHref(
-    next.publicHref || `${next.pathname}${next.searchStr}${next.hash}`,
-  )
-  const isActive = resolveIsActive(location, next, props.activeOptions, router.basepath)
   const preload =
-    props.reloadDocument || props.disabled
+    props.reloadDocument || props.disabled || externalLink
       ? false
       : (props.preload ?? router.options.defaultPreload)
   const preloadDelay = props.preloadDelay ?? router.options.defaultPreloadDelay ?? 0
 
   const doPreload = useCallback(() => {
-    void router.preloadRoute(props).catch((err) => {
+    void router.preloadRoute(propsRef.current).catch((err) => {
       console.warn(err)
       console.warn(preloadWarning)
     })
-  }, [router, props])
+  }, [router])
 
   const cancelPreload = useCallback(() => {
     if (preloadTimer.current) {
@@ -180,7 +241,13 @@ export function useLinkProps(
     [cancelPreload, doPreload, preload, preloadDelay],
   )
 
-  useIntersectionObserver(ref, enqueuePreload, preload !== 'viewport')
+  useIntersectionObserver(
+    ref,
+    enqueuePreload,
+    preload !== 'viewport',
+    undefined,
+    `${String(props.to)}:${String(preload)}:${String(preloadDelay)}`,
+  )
 
   useEffect(() => {
     if (didRenderPreload.current) return
@@ -194,10 +261,13 @@ export function useLinkProps(
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     props.onClick?.(e)
+    if (externalLink) return
+    const elementTarget = (e.currentTarget as HTMLAnchorElement).getAttribute('target')
+    const effectiveTarget = props.target !== undefined ? props.target : elementTarget
     if (
       e.defaultPrevented ||
       e.button !== 0 ||
-      props.target === '_blank' ||
+      (effectiveTarget && effectiveTarget !== '_self') ||
       e.metaKey ||
       e.altKey ||
       e.ctrlKey ||
@@ -207,7 +277,7 @@ export function useLinkProps(
       return
     }
     e.preventDefault()
-    void router.navigate(props)
+    void router.navigate(propsRef.current)
   }
 
   const onMouseEnter = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -254,11 +324,12 @@ export function useLinkProps(
     ...omitInternalProps(props as Record<string, unknown>),
     ...resolvedActiveProps,
     ...resolvedInactiveProps,
-    href,
+    href: externalLink || href,
     ref,
     className: className || undefined,
     style,
     target: props.target,
+    disabled: props.disabled,
     onClick: handleClick,
     onMouseEnter,
     onMouseLeave,

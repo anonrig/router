@@ -1,4 +1,4 @@
-import { Suspense, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useState, type ReactNode } from 'react'
 import {
   rootRouteId,
   type AnyRouter,
@@ -22,6 +22,7 @@ import { settleOwner, Transitioner } from './transitioner'
 import { useLayoutEffect } from './utils'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
+import { useStore } from './use-store'
 import { useMatch } from './use-match'
 import { deepEqual } from '@anonrig/router-core'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
@@ -175,7 +176,13 @@ export function useMatchRoute<TRouter extends AnyRouter = RegisteredRouter>(): <
   opts: UseMatchRouteOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo>,
 ) => false | Expand<ResolveRoute<TRouter, TFrom, TTo>['types']['allParams']> {
   const router = useRouter()
-  return ((opts: any = {}) => router.matchRoute(opts)) as any
+  const locationHref = useStore(router.stores.state, (state) => state.location?.href)
+  const resolvedHref = useStore(router.stores.state, (state) => state.resolvedLocation?.href)
+  const status = useStore(router.stores.state, (state) => state.status)
+  return useCallback(
+    ((opts: any = {}) => router.matchRoute(opts)) as any,
+    [router, locationHref, resolvedHref, status],
+  )
 }
 
 export type MakeMatchRouteOptions<
