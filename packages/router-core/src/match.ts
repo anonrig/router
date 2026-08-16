@@ -384,6 +384,8 @@ export type ProcessedTree = {
   >
   /** Cached matchRoutes templates for empty-search pathnames. */
   matchedTemplateCache?: Map<string, any[]>
+  /** True if any route has validateSearch or search middlewares. */
+  hasSearchWork?: boolean
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -525,6 +527,15 @@ export function processRouteTree<T extends AnyRouteLike>(
   for (let i = 0; i < kids.length; i++) insertRoute(root, kids[i]!, caseSensitive)
   finalizeParamChildren(root)
 
+  let hasSearchWork = false
+  for (const id in routesById) {
+    const options = routesById[id]?.options
+    if (options?.validateSearch || options?.search?.middlewares?.length) {
+      hasSearchWork = true
+      break
+    }
+  }
+
   const processedTree: ProcessedTree = {
     root,
     routesById,
@@ -534,6 +545,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     hasDynamic: nodeHasDynamic(root),
     matchedRoutesCache: new Map(),
     matchedTemplateCache: new Map(),
+    hasSearchWork,
   }
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
   const result = { ...processedTree, processedTree }

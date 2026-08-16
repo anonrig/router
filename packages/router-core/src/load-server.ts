@@ -766,24 +766,27 @@ function canUseFastServerLane(router: AnyRouter, matches: Array<AnyRouteMatch>):
   return loaders <= 1
 }
 
-async function executeFastServerLane(
+function executeFastServerLane(
   router: AnyRouter,
   location: ParsedLocation,
   matches: Array<AnyRouteMatch>,
-): Promise<ServerLoadResult> {
+  start = 0,
+  context?: Record<string, any>,
+  status: 200 | 404 | 500 = 200,
+): ServerLoadResult | Promise<ServerLoadResult> {
   const abortLane = () => {
     for (let i = 0; i < matches.length; i++) {
       matches[i]!.abortController?.abort()
     }
   }
-  router.serverSsr?.onCleanup(abortLane)
+  if (start === 0 && router.serverSsr) router.serverSsr.onCleanup(abortLane)
 
-  const routerContext = router.options.context
-  const context: Record<string, any> = routerContext ? { ...routerContext } : {}
-  let parentMatch: AnyRouteMatch | undefined
-  let status: 200 | 404 | 500 = 200
+  if (!context) {
+    const routerContext = router.options.context
+    context = routerContext ? { ...routerContext } : {}
+  }
 
-  for (let i = 0; i < matches.length; i++) {
+  for (let i = start; i < matches.length; i++) {
     const match = matches[i]!
     const route = getRoute(router, match)
     match.context = context
@@ -797,7 +800,7 @@ async function executeFastServerLane(
           params: match.params,
           deps: match.loaderDeps,
           preload: false,
-          parentMatchPromise: parentMatch ? Promise.resolve(parentMatch) : undefined,
+          parentMatchPromise: undefined,
           abortController: match.abortController,
           context,
           location,
@@ -806,13 +809,27 @@ async function executeFastServerLane(
           route,
           ...router.options.additionalContext,
         })
-        const value = data && typeof data.then === 'function' ? await data : data
-        if (isRedirect(value)) {
-          abortLane()
-          throw value
+        if (data && typeof (data as Promise<unknown>).then === 'function') {
+          return Promise.resolve(data).then((value) => {
+            if (isRedirect(value)) {
+              abortLane()
+              throw value
+            }
+            if (isNotFound(value)) throw value
+            match.loaderData = value
+            match.status = 'success'
+            match.invalid = false
+            match.error = undefined
+            match.updatedAt = 0
+            return executeFastServerLane(router, location, matches, i + 1, context, status)
+          })
         }
-        if (isNotFound(value)) throw value
-        match.loaderData = value
+        if (isRedirect(data)) {
+          abortLane()
+          throw data
+        }
+        if (isNotFound(data)) throw data
+        match.loaderData = data
       } catch (cause) {
         if (isRedirect(cause)) {
           abortLane()
@@ -821,13 +838,13 @@ async function executeFastServerLane(
         if (isNotFound(cause)) {
           match.status = 'notFound'
           match.error = cause
-          match.updatedAt = Date.now()
+          match.updatedAt = 0
           status = 404
           break
         }
         match.status = 'error'
         match.error = cause
-        match.updatedAt = Date.now()
+        match.updatedAt = 0
         status = 500
         break
       }
@@ -835,18 +852,39 @@ async function executeFastServerLane(
     match.status = 'success'
     match.invalid = false
     match.error = undefined
-    match.updatedAt = Date.now()
-    parentMatch = match
+    match.updatedAt = 0
   }
 
   return { type: 'render', status, matches }
 }
 
-export async function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): Promise<void> {
+function commitServerLoad(
+  router: AnyRouter,
+  next: ParsedLocation,
+  previous: AnyRouter['_committed'],
+  result: ServerLoadResult,
+) {
+  router._serverResult = result
+  router.batch(() => {
+    router.stores.location.set(next)
+    router.stores.status.set('idle')
+    if (result.type === 'render') {
+      router.stores.setMatches(result.matches)
+      router.stores.resolvedLocation.set(next)
+    }
+  })
+  if (result.type === 'render') {
+    router._committed = result.matches
+    runRouteLifecycle(router, previous, result.matches)
+  }
+  router._commitPromise?.resolve()
+  router._commitPromise = undefined
+}
+
+export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): void | Promise<void> {
   router.updateLatestLocation()
   const next = router.latestLocation
   const previous = router._committed
-  let result: ServerLoadResult
   try {
     if (router._hasSearchWork || router.rewrite || next.pathname.includes('$')) {
       const canonical = router.buildLocation({
@@ -873,31 +911,44 @@ export async function loadServerRoute(router: AnyRouter, opts?: ServerLoadOption
     }
     opts?._signal?.throwIfAborted()
     const matches = router.matchRoutes(next)
-    result = canUseFastServerLane(router, matches)
-      ? await executeFastServerLane(router, next, matches)
-      : await waitFor(executeServerLane(router, next, matches, opts?._signal), opts?._signal)
-    opts?._signal?.throwIfAborted()
+    if (canUseFastServerLane(router, matches)) {
+      const result = executeFastServerLane(router, next, matches)
+      if (result && typeof (result as Promise<ServerLoadResult>).then === 'function') {
+        return (result as Promise<ServerLoadResult>).then(
+          (resolved) => {
+            opts?._signal?.throwIfAborted()
+            commitServerLoad(router, next, previous, resolved)
+            return
+          },
+          (cause) => {
+            opts?._signal?.throwIfAborted()
+            if (!isRedirect(cause)) throw cause
+            commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
+            return
+          },
+        )
+      }
+      commitServerLoad(router, next, previous, result as ServerLoadResult)
+      return
+    }
+    return waitFor(executeServerLane(router, next, matches, opts?._signal), opts?._signal).then(
+      (result) => {
+        opts?._signal?.throwIfAborted()
+        commitServerLoad(router, next, previous, result)
+        return
+      },
+      (cause) => {
+        opts?._signal?.throwIfAborted()
+        if (!isRedirect(cause)) throw cause
+        commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
+        return
+      },
+    )
   } catch (cause) {
     opts?._signal?.throwIfAborted()
     if (!isRedirect(cause)) {
       throw cause
     }
-    result = resolveServerRedirect(router, next, cause)
+    commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
   }
-
-  router._serverResult = result
-  router.batch(() => {
-    router.stores.location.set(next)
-    router.stores.status.set('idle')
-    if (result.type === 'render') {
-      router.stores.setMatches(result.matches)
-      router.stores.resolvedLocation.set(next)
-    }
-  })
-  if (result.type === 'render') {
-    router._committed = result.matches
-    runRouteLifecycle(router, previous, result.matches)
-  }
-  router._commitPromise?.resolve()
-  router._commitPromise = undefined
 }

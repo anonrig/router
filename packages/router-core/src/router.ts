@@ -289,7 +289,7 @@ export type ListenerFn = RouterListener
 let matchSeq = 0
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 const RESOLVED: Promise<void> = Promise.resolve()
-let loadServerRouteCached: ((router: any, opts?: any) => Promise<void>) | undefined
+let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 
 function nextMatchId(routeId: string, pathname: string) {
   return `${routeId}-${pathname}-${++matchSeq}`
@@ -311,14 +311,28 @@ function applySearchValidator(route: AnyRoute, search: Record<string, any>) {
   }
 }
 
+const runNow = (fn: () => void) => fn()
+
+const DEFAULT_STORE_CONFIG = {
+  createMutableStore: createNonReactiveMutableStore,
+  createReadonlyStore: createNonReactiveReadonlyStore,
+  batch: runNow,
+}
+
+const OPTION_DEFAULTS = {
+  defaultPreloadDelay: 50,
+  defaultPendingMs: 1000,
+  defaultPendingMinMs: 500,
+  context: undefined as any,
+  caseSensitive: false,
+  notFoundMode: 'fuzzy' as const,
+  stringifySearch: defaultStringifySearch,
+  parseSearch: defaultParseSearch,
+  protocolAllowlist: DEFAULT_PROTOCOL_ALLOWLIST,
+}
+
 function defaultGetStoreConfig() {
-  return {
-    createMutableStore: createNonReactiveMutableStore,
-    createReadonlyStore: createNonReactiveReadonlyStore,
-    batch: (fn: () => void) => {
-      fn()
-    },
-  }
+  return DEFAULT_STORE_CONFIG
 }
 
 /** Run route lifecycle callbacks in leave/enter/stay phases. */
@@ -406,7 +420,7 @@ export class RouterCore<
   serverSsr: any = undefined
   serverSsrLifecycle?: { onServerSsrAttach?: Array<(serverSsr: any) => void> }
   stores: any
-  batch: (fn: () => void) => void = (fn) => fn()
+  batch: (fn: () => void) => void = runNow
   _rendered: any[] | undefined
   _cache = new Map<string, any>()
   _matchesByPath?: Map<string, RouteMatch[]>
@@ -438,10 +452,9 @@ export class RouterCore<
   _scrollReady?: Promise<void>
   rewrite?: any
   _hasSearchWork = false
-  private readonly getStoreConfig = defaultGetStoreConfig
 
   private createStores(location: ParsedLocation) {
-    const config = this.getStoreConfig()
+    const config = defaultGetStoreConfig()
     this.batch = config.batch
     const stores = createRouterStores(location, config)
     const setMatches = stores.setMatches.bind(stores)
@@ -500,10 +513,7 @@ export class RouterCore<
     this.buildLocation = this.executeBuildLocation.bind(this) as BuildLocationFn
     this.load = this.load.bind(this)
     this.update({
-      defaultPreloadDelay: 50,
-      defaultPendingMs: 1000,
-      defaultPendingMinMs: 500,
-      context: undefined!,
+      ...OPTION_DEFAULTS,
       ...options,
       caseSensitive: options.caseSensitive ?? false,
       notFoundMode: options.notFoundMode ?? 'fuzzy',
@@ -568,11 +578,12 @@ export class RouterCore<
     const prevTree = this.routeTree
     this.options = { ...this.options, ...newOptions } as any
     this.isServer = this.options.isServer ?? typeof document === 'undefined'
-    this.protocolAllowlist =
+    if (
       this.options.protocolAllowlist &&
       this.options.protocolAllowlist !== DEFAULT_PROTOCOL_ALLOWLIST
-        ? new Set(this.options.protocolAllowlist)
-        : DEFAULT_PROTOCOL_SET
+    ) {
+      this.protocolAllowlist = new Set(this.options.protocolAllowlist)
+    }
 
     if (this.options.pathParamsAllowedCharacters) {
       this.pathParamsDecoder = compileDecodeCharMap(this.options.pathParamsAllowedCharacters)
@@ -583,21 +594,11 @@ export class RouterCore<
       else if (!this.isServer) this.history = createBrowserHistory() as TRouterHistory
     }
 
-    this.origin = this.options.origin
-    if (!this.origin) {
-      if (
-        !this.isServer &&
-        typeof window !== 'undefined' &&
-        window.origin &&
-        window.origin !== 'null'
-      ) {
-        this.origin = window.origin
-      } else {
-        this.origin = 'http://localhost'
-      }
-    }
-
-    this.basepath = this.options.basepath ?? '/'
+    this.origin =
+      this.options.origin ??
+      (!this.isServer && typeof window !== 'undefined' && window.origin && window.origin !== 'null'
+        ? window.origin
+        : 'http://localhost')
 
     if (this.options.routeTree && this.options.routeTree !== prevTree) {
       this.routeTree = this.options.routeTree as TRouteTree
@@ -612,31 +613,27 @@ export class RouterCore<
       processRouteMasks(this.options.routeMasks as any, this.processedTree)
     }
 
-    this._hasSearchWork = false
-    const routesById = this.routesById
-    for (const id in routesById) {
-      const options = routesById[id]?.options
-      if (options?.validateSearch || options?.search?.middlewares?.length) {
-        this._hasSearchWork = true
-        break
-      }
-    }
+    this._hasSearchWork = !!this.processedTree?.hasSearchWork
 
-    const nextBasepath = this.options.basepath ?? '/'
-    const nextRewriteOption = this.options.rewrite
-    const rewrites: Array<any> = []
-    const trimmed = trimPath(nextBasepath)
-    if (trimmed && trimmed !== '/') {
-      rewrites.push(rewriteBasepath({ basepath: nextBasepath }))
+    const nextBasepath = this.options.basepath
+    if (!nextBasepath || nextBasepath === '/') {
+      this.basepath = '/'
+      this.rewrite = this.options.rewrite
+    } else {
+      const rewrites: Array<any> = []
+      const trimmed = trimPath(nextBasepath)
+      if (trimmed && trimmed !== '/') {
+        rewrites.push(rewriteBasepath({ basepath: nextBasepath }))
+      }
+      if (this.options.rewrite) rewrites.push(this.options.rewrite)
+      this.rewrite =
+        rewrites.length === 0
+          ? undefined
+          : rewrites.length === 1
+            ? rewrites[0]
+            : composeRewrites(rewrites)
+      this.basepath = nextBasepath
     }
-    if (nextRewriteOption) rewrites.push(nextRewriteOption)
-    this.rewrite =
-      rewrites.length === 0
-        ? undefined
-        : rewrites.length === 1
-          ? rewrites[0]
-          : composeRewrites(rewrites)
-    this.basepath = nextBasepath
 
     if (this.history) {
       this.latestLocation = this.parseLocation(this.history.location, this.latestLocation)
@@ -654,17 +651,6 @@ export class RouterCore<
         }
       } else {
         this.stores.location.set(this.latestLocation)
-      }
-      if (!this.stores.state.get()) {
-        this.stores.state.set({
-          status: 'pending',
-          isLoading: true,
-          isTransitioning: false,
-          matches: [],
-          location: this.latestLocation,
-          resolvedLocation: undefined,
-          statusCode: 200,
-        })
       }
       if (!this.unsubHistory) {
         this.unsubHistory = this.history.subscribe(({ location, action }) => {
@@ -1016,11 +1002,12 @@ export class RouterCore<
     await loadClientRoute(this, opts)
   }
 
-  private async importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
+  private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
     if (loadServerRouteCached) return loadServerRouteCached(this, opts)
-    const { loadServerRoute } = await import('./load-server')
-    loadServerRouteCached = loadServerRoute
-    return loadServerRoute(this, opts)
+    return import('./load-server').then(({ loadServerRoute }) => {
+      loadServerRouteCached = loadServerRoute
+      return loadServerRoute(this, opts)
+    })
   }
 
   private canSkipSettledLoad(): boolean {
