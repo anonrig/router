@@ -336,6 +336,30 @@ function defaultGetStoreConfig() {
   return DEFAULT_STORE_CONFIG
 }
 
+function createBatchedStore<T>(
+  initial: T,
+  schedule: (notify: () => void) => void,
+): ReturnType<typeof createStore<T>> {
+  let value = initial
+  let listeners: Set<(next: T) => void> | undefined
+  return {
+    get: () => value,
+    set: (next) => {
+      const resolved = typeof next === 'function' ? (next as (prev: T) => T)(value) : next
+      if (resolved === value) return
+      value = resolved
+      schedule(() => listeners?.forEach((listener) => listener(value)))
+    },
+    subscribe: (listener) => {
+      listeners ??= new Set()
+      listeners.add(listener)
+      return () => {
+        listeners!.delete(listener)
+      }
+    },
+  }
+}
+
 /** Run route lifecycle callbacks in leave/enter/stay phases. */
 export function runRouteLifecycle(
   router: AnyRouter,
@@ -456,18 +480,42 @@ export class RouterCore<
 
   private createStores(location: ParsedLocation) {
     const config = defaultGetStoreConfig()
-    this.batch = config.batch
     const stores = createRouterStores(location, config)
     const setMatches = stores.setMatches.bind(stores)
-    const state = createStore<RouterState>({
-      status: 'pending',
-      isLoading: true,
-      isTransitioning: false,
-      matches: [],
-      location,
-      resolvedLocation: undefined,
-      statusCode: 200,
-    })
+    let batchDepth = 0
+    let pendingNotify: (() => void) | undefined
+    const scheduleStateNotify = (notify: () => void) => {
+      if (batchDepth === 0) {
+        notify()
+        return
+      }
+      pendingNotify = notify
+    }
+    this.batch = (fn) => {
+      batchDepth++
+      try {
+        fn()
+      } finally {
+        batchDepth--
+        if (batchDepth === 0 && pendingNotify) {
+          const notify = pendingNotify
+          pendingNotify = undefined
+          notify()
+        }
+      }
+    }
+    const state = createBatchedStore<RouterState>(
+      {
+        status: 'pending',
+        isLoading: true,
+        isTransitioning: false,
+        matches: [],
+        location,
+        resolvedLocation: undefined,
+        statusCode: 200,
+      },
+      scheduleStateNotify,
+    )
     const locationStore = stores.location
     const setLocation = locationStore.set.bind(locationStore)
     const setStatus = stores.status.set.bind(stores.status)
@@ -484,7 +532,13 @@ export class RouterCore<
     const bumpMatchRoute = () => matchRoute.set(matchRoute.get() + 1)
     const syncState = (patch: Record<string, unknown>) => {
       const current = state.get()
-      if (current) state.set({ ...current, ...patch } as any)
+      if (!current) return
+      for (const key in patch) {
+        if ((current as any)[key] !== (patch as any)[key]) {
+          state.set({ ...current, ...patch } as any)
+          return
+        }
+      }
     }
     locationStore.set = ((next: any) => {
       const previous = locationStore.get()
@@ -1406,19 +1460,21 @@ export class RouterCore<
     for (let i = 0; i < matches.length; i++) {
       this._cache.set(matches[i]!.id, matches[i]!)
     }
-    this.stores.status.set('idle')
-    this.stores.location.set(location)
-    this.stores.resolvedLocation.set(location)
-    this.stores.setMatches(matches)
-    this.stores.state.set({
-      status: 'idle',
-      isLoading: false,
-      isTransitioning: false,
-      matches,
-      pendingMatches: undefined,
-      location,
-      resolvedLocation: location,
-      statusCode,
+    this.batch(() => {
+      this.stores.status.set('idle')
+      this.stores.location.set(location)
+      this.stores.resolvedLocation.set(location)
+      this.stores.setMatches(matches)
+      this.stores.state.set({
+        status: 'idle',
+        isLoading: false,
+        isTransitioning: false,
+        matches,
+        pendingMatches: undefined,
+        location,
+        resolvedLocation: location,
+        statusCode,
+      })
     })
     this.redirectHops = 0
     if (this.subscribers.size) {
@@ -1537,13 +1593,15 @@ export class RouterCore<
       }
     }
     if (needsAsync) {
-      this.stores.state.set({
-        ...this.state,
-        status: 'pending',
-        isLoading: true,
-        isTransitioning: true,
-        pendingMatches: matches,
-        location,
+      this.batch(() => {
+        this.stores.state.set({
+          ...this.state,
+          status: 'pending',
+          isLoading: true,
+          isTransitioning: true,
+          pendingMatches: matches,
+          location,
+        })
       })
     }
 
@@ -1720,15 +1778,17 @@ export class RouterCore<
       if (status === 'error') statusCode = 500
     }
     const prevResolved = this.state.resolvedLocation
-    this.stores.state.set({
-      status: 'idle',
-      isLoading: false,
-      isTransitioning: false,
-      matches,
-      pendingMatches: undefined,
-      location,
-      resolvedLocation: location,
-      statusCode,
+    this.batch(() => {
+      this.stores.state.set({
+        status: 'idle',
+        isLoading: false,
+        isTransitioning: false,
+        matches,
+        pendingMatches: undefined,
+        location,
+        resolvedLocation: location,
+        statusCode,
+      })
     })
 
     this.redirectHops = 0
@@ -2157,11 +2217,14 @@ function resolveBuildPath(
 
   let to = dest.to
   if (to === undefined || to === '.') {
-    to = dest.params
-      ? (fromRoute?.fullPath ?? current?.pathname ?? fromPath)
-      : dest.from
-        ? fromPath
-        : (current?.pathname ?? fromPath)
+    // `params: false` is a real spec (clear inherited params) and must still
+    // rebuild from the route template. Only a missing spec keeps the pathname.
+    to =
+      dest.params !== undefined
+        ? (fromRoute?.fullPath ?? current?.pathname ?? fromPath)
+        : dest.from
+          ? fromPath
+          : (current?.pathname ?? fromPath)
   }
   if (typeof to !== 'string') to = current?.pathname ?? '/'
 

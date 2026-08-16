@@ -5,7 +5,8 @@ export function ErrorComponent({ error }: { error: unknown; reset?: () => void; 
   const message = Error.isError(error) ? error.message : String(error)
   return (
     <div style={{ padding: 8, color: 'red' }} data-error>
-      {message}
+      <div>Something went wrong!</div>
+      {message ? <div>{message}</div> : null}
     </div>
   )
 }
@@ -17,28 +18,28 @@ export class CatchBoundary extends Component<
     onCatch?: (error: Error, info: ErrorInfo) => void
     children: ReactNode
   },
-  { error: Error | null; info?: ErrorInfo }
+  { error: Error | null; info?: ErrorInfo; resetKey?: unknown }
 > {
-  state: { error: Error | null; info?: ErrorInfo } = { error: null }
+  state: { error: Error | null; info?: ErrorInfo; resetKey?: unknown } = { error: null }
 
   static getDerivedStateFromError(error: Error) {
     return { error }
   }
 
+  static getDerivedStateFromProps(
+    props: CatchBoundary['props'],
+    state: { error: Error | null; info?: ErrorInfo; resetKey?: unknown },
+  ) {
+    const resetKey = props.getResetKey?.()
+    if (state.resetKey !== resetKey) {
+      return { error: null, info: undefined, resetKey }
+    }
+    return null
+  }
+
   componentDidCatch(error: Error, info: ErrorInfo) {
     this.props.onCatch?.(error, info)
     this.setState({ info })
-  }
-
-  componentDidUpdate(prevProps: this['props']) {
-    if (
-      this.state.error &&
-      this.props.getResetKey &&
-      prevProps.getResetKey &&
-      this.props.getResetKey() !== prevProps.getResetKey()
-    ) {
-      this.setState({ error: null })
-    }
   }
 
   render() {

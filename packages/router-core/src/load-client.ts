@@ -532,6 +532,13 @@ function setFetching(
   const presented = store?.get()
   if (presented?.id === match.id) {
     store!.set({ ...presented, isFetching: value })
+    const bag = router.stores.state?.get?.()
+    if (bag) {
+      router.stores.state.set({
+        ...bag,
+        matches: router.stores.matches.get(),
+      })
+    }
   }
 }
 

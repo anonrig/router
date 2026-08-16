@@ -9,7 +9,7 @@ import {
 import { isServer } from '@anonrig/router-core/is-server'
 import { CatchBoundary, ErrorComponent } from './catch-boundary'
 import { ClientOnly } from './client-only'
-import { matchContext } from './match-context'
+import { errorResetContext, matchContext } from './match-context'
 import {
   nonRouteComponentContext,
   wrapInNonRouteComponentContext,
@@ -67,6 +67,7 @@ function MatchView({
   match: AnyRouteMatch
 }) {
   const route: AnyRoute = router.routesById[match.routeId]!
+  const errorReset = useContext(errorResetContext)
   const pendingElement = renderPending(router, route)
   const routeErrorComponent = route.options.errorComponent ?? router.options.defaultErrorComponent
   const routeOnCatch = route.options.onCatch ?? router.options.defaultOnCatch
@@ -94,7 +95,7 @@ function MatchView({
       <matchContext.Provider value={match.routeId}>
         <ResolvedSuspenseBoundary fallback={pendingElement}>
           <ResolvedCatchBoundary
-            getResetKey={() => match}
+            getResetKey={() => `${errorReset}:${match.id}:${match.status}`}
             errorComponent={routeErrorComponent as any}
             onCatch={(error, errorInfo) => {
               if (isNotFound(error)) {

@@ -42,54 +42,66 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
   }
 
   useLayoutEffect(() => {
-    if (mountedFor.current === router) {
-      return
+    if (!router.unsubHistory) {
+      router.update({})
     }
-    mountedFor.current = router
+    if (mountedFor.current !== router) {
+      mountedFor.current = router
 
-    router.updateLatestLocation?.()
-    const location = router.latestLocation
-    if (!location) return
+      router.updateLatestLocation?.()
+      const location = router.latestLocation
+      if (location) {
+        const nextLocation = router.buildLocation({
+          to: location.pathname,
+          search: true,
+          params: true,
+          hash: true,
+          state: true,
+          _includeValidateSearch: true,
+        })
 
-    const nextLocation = router.buildLocation({
-      to: location.pathname,
-      search: true,
-      params: true,
-      hash: true,
-      state: true,
-      _includeValidateSearch: true,
-    })
-
-    if (
-      trimPathRight(location.publicHref ?? location.href) !==
-      trimPathRight(nextLocation.publicHref ?? nextLocation.href)
-    ) {
-      void router.commitLocation({
-        ...nextLocation,
-        replace: true,
-        ignoreBlocker: true,
-      } as any)
-      return
-    }
-
-    const resolvedLocation =
-      router.stores.resolvedLocation?.get?.() ?? router.state.resolvedLocation
-    if (
-      resolvedLocation?.href === location.href &&
-      resolvedLocation.state?.__TSR_key === location.state?.__TSR_key
-    ) {
-      // Prefer the stable state snapshot. `stores.matches.get()` maps a new
-      // array on every call, which would break MatchesInner's identity check.
-      acknowledgement.push(router.stores.state.get().matches, (rendered: boolean) => {
-        if (rendered) {
-          router.emit({
-            type: 'onRendered',
-            ...getLocationChangeInfo(resolvedLocation, resolvedLocation),
-          })
+        if (
+          trimPathRight(location.publicHref ?? location.href) !==
+          trimPathRight(nextLocation.publicHref ?? nextLocation.href)
+        ) {
+          void router.commitLocation({
+            ...nextLocation,
+            replace: true,
+            ignoreBlocker: true,
+          } as any)
+        } else {
+          const resolvedLocation =
+            router.stores.resolvedLocation?.get?.() ?? router.state.resolvedLocation
+          if (
+            resolvedLocation?.href === location.href &&
+            resolvedLocation.state?.__TSR_key === location.state?.__TSR_key
+          ) {
+            // Prefer the stable state snapshot. `stores.matches.get()` maps a new
+            // array on every call, which would break MatchesInner's identity check.
+            acknowledgement.push(router.stores.state.get().matches, (rendered: boolean) => {
+              if (rendered) {
+                router.emit({
+                  type: 'onRendered',
+                  ...getLocationChangeInfo(resolvedLocation, resolvedLocation),
+                })
+              }
+            })
+          } else if (!router._tx) {
+            router.load().catch(console.error)
+          }
         }
-      })
-    } else if (!router._tx) {
-      router.load().catch(console.error)
+      }
+    }
+
+    return () => {
+      const session = router._pending
+      if (session) {
+        clearTimeout(session[3 /* timer */])
+        router._pending = undefined
+      }
+      router.unsubHistory?.()
+      router.unsubHistory = undefined
+      mountedFor.current = undefined
     }
   }, [router])
 

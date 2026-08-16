@@ -16,7 +16,7 @@ import {
 import { isServer } from '@anonrig/router-core/is-server'
 import { CatchBoundary } from './catch-boundary'
 import { Match, renderPending } from './match'
-import { matchContext } from './match-context'
+import { errorResetContext, matchContext } from './match-context'
 import { SafeFragment } from './safe-fragment'
 import { settleOwner, Transitioner } from './transitioner'
 import { useLayoutEffect } from './utils'
@@ -62,6 +62,11 @@ function MatchesInner() {
         })
   const match = matches[0]
   const routeId = match?.routeId
+  let errorReset = ''
+  for (let i = 0; i < matches.length; i++) {
+    const item = matches[i]!
+    errorReset += `${item.id}:${item.status}:${item.updatedAt}:`
+  }
 
   useLayoutEffect(() => {
     if (acknowledgement[0 /* offered */] === matches) {
@@ -72,27 +77,29 @@ function MatchesInner() {
   const matchComponent = routeId ? <Match routeId={routeId} /> : null
 
   return (
-    <matchContext.Provider value={routeId}>
-      {router.options.disableGlobalCatchBoundary ? (
-        matchComponent
-      ) : (
-        <CatchBoundary
-          getResetKey={() => match}
-          onCatch={
-            process.env.NODE_ENV !== 'production'
-              ? (error) => {
-                  console.warn(
-                    `Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!`,
-                  )
-                  console.warn(`Warning: ${error.message || error.toString()}`)
-                }
-              : undefined
-          }
-        >
-          {matchComponent}
-        </CatchBoundary>
-      )}
-    </matchContext.Provider>
+    <errorResetContext.Provider value={errorReset}>
+      <matchContext.Provider value={routeId}>
+        {router.options.disableGlobalCatchBoundary ? (
+          matchComponent
+        ) : (
+          <CatchBoundary
+            getResetKey={() => errorReset}
+            onCatch={
+              process.env.NODE_ENV !== 'production'
+                ? (error) => {
+                    console.warn(
+                      `Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!`,
+                    )
+                    console.warn(`Warning: ${error.message || error.toString()}`)
+                  }
+                : undefined
+            }
+          >
+            {matchComponent}
+          </CatchBoundary>
+        )}
+      </matchContext.Provider>
+    </errorResetContext.Provider>
   )
 }
 

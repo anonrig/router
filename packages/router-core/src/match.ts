@@ -951,7 +951,10 @@ function considerTerminal(
         terminal.chain.push(terminal.node.route)
       }
     }
-    if (applyParamsParse(terminal)) {
+    // Intermediate optional nodes have no route of their own. Accepting them
+    // lets `/{ -$locale}/$rooms` treat `/chambres` as a filled locale and win
+    // over the real required-param match.
+    if (terminal.node.route && applyParamsParse(terminal)) {
       terminal.parsed = parsedScore(terminal)
       if (isBetterMatch(best, terminal)) best = terminal
     }

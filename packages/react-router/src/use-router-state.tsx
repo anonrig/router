@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { replaceEqualDeep } from '@anonrig/router-core'
 import { useRouter } from './use-router'
 import { useStore } from './use-store'
@@ -28,13 +28,21 @@ export function useRouterState<
   })
   const router = opts?.router || contextRouter
   const sharing = opts?.structuralSharing ?? false
-  const userSelect = (opts?.select as any) ?? ((s: any) => s)
+  const userSelect = (opts?.select as any) ?? identitySelect
   const sharedRef = useRef<any>(undefined)
-  return useStore(router.stores.state, (state) => {
-    const next = userSelect(state)
-    if (!sharing) return next
-    const shared = replaceEqualDeep(sharedRef.current, next)
-    sharedRef.current = shared
-    return shared
-  }) as UseRouterStateResult<TRouter, TSelected>
+  const select = useCallback(
+    (state: any) => {
+      const next = userSelect(state)
+      if (!sharing) return next
+      const shared = replaceEqualDeep(sharedRef.current, next)
+      sharedRef.current = shared
+      return shared
+    },
+    [userSelect, sharing],
+  )
+  return useStore(router.stores.state, select) as UseRouterStateResult<TRouter, TSelected>
+}
+
+function identitySelect<T>(state: T) {
+  return state
 }
