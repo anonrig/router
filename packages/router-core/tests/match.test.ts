@@ -54,4 +54,31 @@ describe('matcher', () => {
     const processed = tree()
     expect(findRouteMatch(processed, '/missing')).toBeNull()
   })
+
+  it('matches a static route that has a param child', () => {
+    const processed = tree()
+    const matches = findRouteMatch(processed, '/posts')
+    expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts'])
+  })
+
+  it('matches static paths case-insensitively', () => {
+    const processed = tree()
+    const matches = findRouteMatch(processed, '/POSTS')
+    expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts'])
+  })
+
+  it('matches a static-only tree without entering the dynamic walker', () => {
+    const root = createRootRoute()
+    const about = createRoute({ getParentRoute: () => root, path: '/about' })
+    const docs = createRoute({ getParentRoute: () => about, path: '/docs' })
+    root.addChildren([about.addChildren([docs])])
+    const processed = processRouteTree(root as any)
+    expect(processed.hasDynamic).toBe(false)
+    expect(findRouteMatch(processed, '/about/docs')?.map((m) => m.route.id)).toEqual([
+      '__root__',
+      '/about',
+      '/about/docs',
+    ])
+    expect(findRouteMatch(processed, '/missing')).toBeNull()
+  })
 })

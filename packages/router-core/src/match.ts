@@ -144,7 +144,8 @@ export type AnyRouteLike = {
 }
 
 export type SegmentNode = {
-  staticChildren: Map<string, SegmentNode> | null
+  /** Null-prototype map of static segment → child (find-my-way: no Map on the hot path). */
+  staticChildren: Record<string, SegmentNode> | null
   paramChild: SegmentNode | null
   paramChildren: SegmentNode[] | null
   paramName: string
@@ -178,13 +179,165 @@ function createNode(): SegmentNode {
 }
 
 function getOrCreateStatic(node: SegmentNode, key: string): SegmentNode {
-  if (!node.staticChildren) node.staticChildren = new Map()
-  let child = node.staticChildren.get(key)
-  if (!child) {
-    child = createNode()
-    node.staticChildren.set(key, child)
-  }
+  const children = node.staticChildren ?? (node.staticChildren = Object.create(null))
+  const existing = children[key]
+  if (existing) return existing
+  const child = createNode()
+  children[key] = child
   return child
+}
+
+function pathNeedsLowercase(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i)
+    if (c >= 65 && c <= 90) return true
+  }
+  return false
+}
+
+function nodeHasDynamic(node: SegmentNode): boolean {
+  if (
+    node.paramChild ||
+    node.paramChildren?.length ||
+    node.optionalChild ||
+    node.optionalChildren?.length ||
+    node.wildcardChild
+  ) {
+    return true
+  }
+  const kids = node.staticChildren
+  if (kids) {
+    for (const key in kids) {
+      if (nodeHasDynamic(kids[key]!)) return true
+    }
+  }
+  return false
+}
+
+function finalizeParamChildren(node: SegmentNode): void {
+  if (node.paramChildren && node.paramChildren.length > 1) {
+    node.paramChildren.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+  }
+  const kids = node.staticChildren
+  if (kids) {
+    for (const key in kids) finalizeParamChildren(kids[key]!)
+  }
+  if (node.paramChildren) {
+    for (let i = 0; i < node.paramChildren.length; i++) {
+      finalizeParamChildren(node.paramChildren[i]!)
+    }
+  }
+  if (node.paramChild && node.paramChild !== node.paramChildren?.[0]) {
+    finalizeParamChildren(node.paramChild)
+  }
+  if (node.optionalChildren) {
+    for (let i = 0; i < node.optionalChildren.length; i++) {
+      finalizeParamChildren(node.optionalChildren[i]!)
+    }
+  } else if (node.optionalChild) {
+    finalizeParamChildren(node.optionalChild)
+  }
+  if (node.wildcardChild) finalizeParamChildren(node.wildcardChild)
+}
+
+function matchNeedsParse(matches: RouteMatchResult[]): boolean {
+  for (let i = 0; i < matches.length; i++) {
+    const opts = matches[i]!.route.options
+    if (opts?.params?.parse || opts?.parseParams) return true
+  }
+  return false
+}
+
+function isStaticPath(path: string): boolean {
+  return path.indexOf('$') === -1 && path.indexOf('{') === -1
+}
+
+/**
+ * Walk only static children for a registered static path.
+ * Param siblings/children are allowed (find-my-way: static-first).
+ * Optional/wildcard on the terminal stay on the dynamic walker.
+ */
+function walkStaticExact(
+  tree: ProcessedTree,
+  pathname: string,
+  caseSensitive: boolean,
+): RouteMatchResult[] | undefined {
+  let node = tree.root
+  const chain: AnyRouteLike[] = []
+  if (node.route) chain.push(node.route)
+  if (node.pathless) {
+    for (let i = 0; i < node.pathless.length; i++) chain.push(node.pathless[i]!)
+  }
+
+  if (pathname === '/' || pathname === '') {
+    if (node.optionalChild || node.optionalChildren?.length || node.wildcardChild) {
+      return undefined
+    }
+    const match = finishStaticMatch(tree, node, chain)
+    return matchNeedsParse(match) ? undefined : match
+  }
+
+  let i = pathname.charCodeAt(0) === 47 ? 1 : 0
+  while (i < pathname.length) {
+    let end = i
+    while (end < pathname.length && pathname.charCodeAt(end) !== 47) end++
+    if (end > i) {
+      let key = pathname.slice(i, end)
+      if (!caseSensitive && pathNeedsLowercase(key)) key = key.toLowerCase()
+      const child = node.staticChildren?.[key]
+      if (!child) return undefined
+      if (child.route) chain.push(child.route)
+      if (child.pathless) {
+        for (let p = 0; p < child.pathless.length; p++) chain.push(child.pathless[p]!)
+      }
+      node = child
+    }
+    i = end + 1
+  }
+
+  if (node.optionalChild || node.optionalChildren?.length || node.wildcardChild) {
+    return undefined
+  }
+  const match = finishStaticMatch(tree, node, chain)
+  if (matchNeedsParse(match)) return undefined
+  return match
+}
+
+function buildStaticExactTable(
+  tree: ProcessedTree,
+  caseSensitive: boolean,
+): Record<string, RouteMatchResult[]> {
+  const table: Record<string, RouteMatchResult[]> = Object.create(null)
+  const add = (pathname: string) => {
+    if (table[pathname] !== undefined) return
+    const match = walkStaticExact(tree, pathname, caseSensitive)
+    if (!match) return
+    table[pathname] = match
+    if (!caseSensitive && pathNeedsLowercase(pathname)) {
+      table[pathname.toLowerCase()] = match
+    }
+  }
+  add('/')
+  const routes = tree.flatRoutes
+  for (let i = 0; i < routes.length; i++) {
+    const path = routes[i]!.fullPath
+    if (!path || !isStaticPath(path)) continue
+    add(path)
+  }
+  return table
+}
+
+function lookupStaticExact(
+  tree: ProcessedTree,
+  pathname: string,
+  caseSensitive: boolean,
+): RouteMatchResult[] | undefined {
+  const table = tree.staticExact
+  if (!table) return undefined
+  const hit = table[pathname]
+  if (hit !== undefined) return hit
+  if (caseSensitive || !pathNeedsLowercase(pathname)) return undefined
+  return table[pathname.toLowerCase()]
 }
 
 export type MaskTreeNode = {
@@ -204,6 +357,13 @@ export type ProcessedTree = {
   matchCache: ReturnType<typeof createMatchCache<RouteMatchResult[] | null>>
   masks?: Array<{ from: string; [key: string]: any }>
   masksTree?: MaskTreeNode | null
+  /**
+   * Precomputed exact matches for fully-static paths (find-my-way: never enter
+   * the parametric walker when the path is static).
+   */
+  staticExact?: Record<string, RouteMatchResult[]>
+  /** True if any node has a param, optional, or wildcard child. */
+  hasDynamic?: boolean
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -343,14 +503,17 @@ export function processRouteTree<T extends AnyRouteLike>(
   root.route = routeTree
   const kids = childrenOf(routeTree)
   for (let i = 0; i < kids.length; i++) insertRoute(root, kids[i]!, caseSensitive)
+  finalizeParamChildren(root)
 
-  const processedTree = {
+  const processedTree: ProcessedTree = {
     root,
     routesById,
     routesByPath,
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
+    hasDynamic: nodeHasDynamic(root),
   }
+  processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
   const result = { ...processedTree, processedTree }
   processedTreeCache.set(routeTree, { caseSensitive, children, tree: result })
   return result
@@ -440,7 +603,7 @@ function findStaticMatch(
         }
         if (lower) key = key.toLowerCase()
       }
-      const child = node.staticChildren?.get(key)
+      const child = node.staticChildren?.[key]
       if (!child) return null
       if (child.route) chain.push(child.route)
       if (child.pathless) {
@@ -534,6 +697,15 @@ function findRouteMatchOrdered(
   caseSensitive = false,
   fuzzy = false,
 ): RouteMatchResult[] | null {
+  if (!fuzzy && pathname.indexOf('%') === -1) {
+    const exact = lookupStaticExact(tree, pathname, caseSensitive)
+    if (exact !== undefined) return exact
+    if (!tree.hasDynamic) {
+      const staticHit = findStaticMatch(tree, pathname, caseSensitive)
+      if (staticHit !== undefined) return staticHit
+    }
+  }
+
   const cacheKey =
     caseSensitive || fuzzy
       ? `${caseSensitive ? '1' : '0'}:${fuzzy ? '1' : '0'}:${pathname}`
@@ -806,9 +978,8 @@ function findRouteMatchDynamic(
         ? [node.paramChild]
         : []
     if (paramKids.length) {
-      const ordered = paramKids.slice().sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
-      for (let p = ordered.length - 1; p >= 0; p--) {
-        const child = ordered[p]!
+      for (let p = paramKids.length - 1; p >= 0; p--) {
+        const child = paramKids[p]!
         const inner = extractPrefixed(value, child.prefix || '', child.suffix || '')
         if (inner === null) continue
         const params = Object.assign(Object.create(null), frame.params)
@@ -831,8 +1002,8 @@ function findRouteMatchDynamic(
     }
 
     const staticChild =
-      node.staticChildren?.get(key) ??
-      (caseSensitive ? undefined : node.staticChildren?.get(raw.toLowerCase()))
+      node.staticChildren?.[key] ??
+      (caseSensitive ? undefined : node.staticChildren?.[raw.toLowerCase()])
     if (staticChild) {
       const onlyStatic =
         !node.wildcardChild &&
