@@ -159,10 +159,10 @@ Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip
 
 | Package         | @anonrig |    gzip |     TanStack |        gzip |
 | --------------- | -------: | ------: | -----------: | ----------: |
-| `@react-router` | 128.0 kB | 35.8 kB | **104.4 kB** | **29.5 kB** |
-| `@router-core`  | 108.2 kB | 30.1 kB |  **74.7 kB** | **21.6 kB** |
+| `@react-router` | 128.8 kB | 36.2 kB | **104.4 kB** | **29.5 kB** |
+| `@router-core`  | 108.8 kB | 30.3 kB |  **74.7 kB** | **21.6 kB** |
 
-TanStack is still smaller on both client graphs (1.21× gzip for `@react-router`). The remaining extra is the warm-path / matcher interners that keep every `pnpm bench:compare` row at least 2×. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs (1.23× gzip for `@react-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The remaining extra is the warm-path / matcher interners that keep every `pnpm bench:compare` row at least 2×. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 

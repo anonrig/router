@@ -45,15 +45,7 @@ import {
   validateSearch,
 } from './router-search'
 import { defaultParseSearch, defaultStringifySearch } from './search-params'
-import {
-  appendSlotMatches,
-  applySlotsObject,
-  DEFAULT_SLOT_PREFIX,
-  installSlotTrees,
-  parseQualifiedSlotTo,
-  retainSlotSearch,
-  splitSlotChildren,
-} from './slots'
+import { slotRuntime } from './slot-runtime'
 import { createStore } from './store'
 import {
   createNonReactiveMutableStore,
@@ -848,19 +840,7 @@ export class RouterCore<
 
     if (this.options.routeTree && this.options.routeTree !== prevTree) {
       this.routeTree = this.options.routeTree as TRouteTree
-      splitSlotChildren(this.routeTree as any)
-      this.processedTree = processRouteTree(
-        this.routeTree as any,
-        this.options.caseSensitive ?? false,
-      )
-      this.routesById = this.processedTree.routesById as any
-      this.routesByPath = this.processedTree.routesByPath as any
-      this._hasSlots = installSlotTrees(
-        this.routeTree as any,
-        this.routesById,
-        this.routesByPath,
-        this.options.caseSensitive ?? false,
-      )
+      this.bindSlotTrees()
     }
     const notFoundRoute = this.options.notFoundRoute
     if (notFoundRoute && this.routesById) {
@@ -924,21 +904,26 @@ export class RouterCore<
 
   buildRouteTree() {
     if (!this.routeTree) return this
-    splitSlotChildren(this.routeTree as any)
+    this.bindSlotTrees()
+    this._hasSearchWork = !!this.processedTree.hasSearchWork
+    return this
+  }
+
+  private bindSlotTrees() {
+    slotRuntime?.split(this.routeTree)
     this.processedTree = processRouteTree(
       this.routeTree as any,
       this.options.caseSensitive ?? false,
     )
     this.routesById = this.processedTree.routesById as any
     this.routesByPath = this.processedTree.routesByPath as any
-    this._hasSlots = installSlotTrees(
-      this.routeTree as any,
-      this.routesById,
-      this.routesByPath,
-      this.options.caseSensitive ?? false,
-    )
-    this._hasSearchWork = !!this.processedTree.hasSearchWork
-    return this
+    this._hasSlots =
+      slotRuntime?.install(
+        this.routeTree,
+        this.routesById,
+        this.routesByPath,
+        this.options.caseSensitive ?? false,
+      ) ?? false
   }
 
   parseLocation(locationToParse: HistoryLocation, previous?: ParsedLocation): ParsedLocation {
@@ -974,7 +959,7 @@ export class RouterCore<
   private executeBuildLocation(opts: NavigateOptions = {}): ParsedLocation {
     const current =
       opts._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
-    const dest = resolveSlotNavigateDest(this, opts, current)
+    const dest = slotRuntime?.resolveDest(this, opts, current) ?? opts
     const matches = this.stores?.matches?.get?.()?.length
       ? this.stores.matches.get()
       : this.state?.matches?.length
@@ -1863,12 +1848,12 @@ export class RouterCore<
             opts,
           )
         : this.matchRoutesInternal(pathnameOrNext, locationSearchOrOpts)
-    if (!this._hasSlots) return matches
+    if (!this._hasSlots || !slotRuntime) return matches
     const location =
       typeof pathnameOrNext === 'string'
         ? ({ pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation)
         : pathnameOrNext
-    return appendSlotMatches(this, location, matches)
+    return slotRuntime.match(this, location, matches)
   }
 
   private matchRoutesInternal(next: ParsedLocation, opts?: any): RouteMatch[] {
@@ -2288,74 +2273,9 @@ function resolveBuildSearch(
         // matchRoutes reports the error
       }
     }
-    return applySlotSearchUpdates(router, dest, currentSearch, validatedSearch)
+    return slotRuntime?.applySearch(router, dest, currentSearch, validatedSearch) ?? validatedSearch
   }
-  return applySlotSearchUpdates(router, dest, currentSearch, nextSearch)
-}
-
-function resolveSlotNavigateDest(router: any, dest: any, current: ParsedLocation | undefined) {
-  if (!router._hasSlots) return dest
-  const qualified =
-    typeof dest.to === 'string'
-      ? parseQualifiedSlotTo(dest.to, router.routesById, router.routesByPath)
-      : undefined
-  if (!qualified && dest.slots == null) return dest
-  return {
-    ...dest,
-    to: qualified ? (current?.pathname ?? '/') : dest.to,
-    search: dest.search === undefined && qualified ? true : dest.search,
-    params: qualified ? true : dest.params,
-    _slotNav: {
-      qualified,
-      slots: dest.slots,
-      params: dest.params,
-      search: dest.search,
-    },
-  }
-}
-
-function applySlotSearchUpdates(
-  router: any,
-  dest: any,
-  currentSearch: Record<string, any>,
-  nextSearch: Record<string, any>,
-) {
-  if (!router._hasSlots) return nextSearch
-  const prefix = router.options.slotPrefix ?? DEFAULT_SLOT_PREFIX
-  const result = retainSlotSearch(
-    currentSearch,
-    nextSearch === EMPTY_OBJ ? {} : { ...nextSearch },
-    prefix,
-  )
-  const slotNav = dest._slotNav
-  if (slotNav?.qualified) {
-    const path = interpolateQualifiedSlotPath(slotNav.qualified.internal, slotNav.params)
-    applySlotsObject(
-      result,
-      {
-        [slotNav.qualified.names[0]!]: nestSlotDest(slotNav.qualified.names, {
-          to: path,
-          search: slotNav.search,
-        }),
-      },
-      prefix,
-    )
-  }
-  if (slotNav?.slots || dest.slots) {
-    applySlotsObject(result, slotNav?.slots ?? dest.slots, prefix)
-  }
-  return result
-}
-
-function nestSlotDest(names: string[], dest: { to?: string; search?: any }): any {
-  if (names.length <= 1) return dest
-  return { slots: { [names[1]!]: nestSlotDest(names.slice(1), dest) } }
-}
-
-function interpolateQualifiedSlotPath(path: string, params: any) {
-  if (!params || params === true || typeof params === 'function') return path
-  if (path.indexOf('$') === -1) return path
-  return interpolatePath({ path, params }).interpolatedPath
+  return slotRuntime?.applySearch(router, dest, currentSearch, nextSearch) ?? nextSearch
 }
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {

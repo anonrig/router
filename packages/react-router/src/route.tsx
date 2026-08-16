@@ -1,11 +1,4 @@
-import {
-  BaseRootRoute,
-  BaseRoute,
-  BaseRouteApi,
-  listParentSlots,
-  markSlotRoute,
-  notFound,
-} from '@anonrig/router-core'
+import { BaseRootRoute, BaseRoute, BaseRouteApi, notFound } from '@anonrig/router-core'
 import React from 'react'
 import { useLoaderData } from './use-loader-data'
 import { useLoaderDeps } from './use-loader-deps'
@@ -15,7 +8,6 @@ import { useNavigate } from './use-navigate'
 import { useMatch } from './use-match'
 import { useRouteContext } from './use-route-context'
 import { useRouter } from './use-router'
-import { matchContext } from './match-context'
 import { Link } from './link'
 import { Outlet } from './match'
 import type {
@@ -296,7 +288,7 @@ export class Route<
 
   Outlet = Outlet
 
-  Slots = Slots
+  Slots!: (props: { children: (slots: any[]) => React.ReactNode }) => React.ReactNode
 }
 
 /**
@@ -382,35 +374,6 @@ export function createRoute<
   >(
     // TODO: Help us TypeChris, you're our only hope!
     options as any,
-  )
-}
-
-export function createSlotRoute(options: any = {}) {
-  const route = createRoute({
-    ...options,
-    ...(options.slot && !options.path && !options.id ? { id: `@${options.slot}` } : {}),
-  } as any)
-  return markSlotRoute(route, options)
-}
-
-export function Slots({
-  children,
-}: {
-  children: (
-    slots: Array<ReturnType<typeof listParentSlots>[number] & { Outlet: typeof Outlet }>,
-  ) => React.ReactNode
-}) {
-  const router = useRouter()
-  const routeId = React.useContext(matchContext) as string
-  const matches = router.stores.matches.get()
-  const route = router.routesById[routeId]
-  return children(
-    listParentSlots(route as any, matches, router.options.slotPrefix).map((slot) => ({
-      ...slot,
-      Outlet: ((props?: React.ComponentProps<typeof Outlet>) => (
-        <Outlet slot={slot.name} {...props} />
-      )) as typeof Outlet,
-    })),
   )
 }
 

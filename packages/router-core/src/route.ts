@@ -1,5 +1,4 @@
 import { invariant } from './invariant'
-import { markSlotRoute } from './slots'
 import { joinPaths, trimPathLeft, trimPathRight } from './path'
 import { notFound } from './not-found'
 import { redirect } from './redirect'
@@ -1794,20 +1793,14 @@ export class BaseRoute<
     TServerMiddlewares,
     THandlers
   > = (children) => {
-    const list = Array.isArray(children)
-      ? children
-      : typeof children === 'object' && children !== null
-        ? Object.values(children)
-        : []
-    const regular: AnyRoute[] = []
-    const slots = { ...(this._slots ?? {}) }
-    for (let i = 0; i < list.length; i++) {
-      const child = list[i] as AnyRoute
-      if (child._slotRoot && child._slotName) slots[child._slotName] = child
-      else regular.push(child)
+    if (Array.isArray(children)) {
+      this.children = children as TChildren
     }
-    this.children = regular as TChildren
-    if (Object.keys(slots).length) this._slots = slots
+
+    if (typeof children === 'object' && children !== null) {
+      this.children = Object.values(children) as TChildren
+    }
+
     return this as any
   }
 
@@ -2049,14 +2042,6 @@ export interface RouteLike {
 }
 
 export const createRoute = /*#__PURE__*/ (options: any = {}) => new BaseRoute(options as any)
-
-export const createSlotRoute = /*#__PURE__*/ (options: any = {}) => {
-  const route = new BaseRoute({
-    ...options,
-    ...(options.slot && !options.path && !options.id ? { id: `@${options.slot}` } : {}),
-  } as any)
-  return markSlotRoute(route, options)
-}
 
 export const createRootRoute = /*#__PURE__*/ (options: any = {}) =>
   new BaseRootRoute(options as any)

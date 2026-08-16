@@ -278,8 +278,6 @@ export {
   getRouteApi,
   Route,
   createRoute,
-  createSlotRoute,
-  Slots,
   RootRoute,
   rootRouteWithContext,
   createRootRoute,
@@ -287,6 +285,7 @@ export {
   createRouteMask,
   NotFoundRoute,
 } from './route'
+export { createSlotRoute, Slots } from './slots'
 export type {
   AnyRootRoute,
   AsyncRouteComponent,
