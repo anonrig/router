@@ -76,6 +76,7 @@ If you already know TanStack Router, you already know this router.
 - **React 19.2 only.** Peers are pinned to `react` and `react-dom` `~19.2.0`. No compatibility tax for React 18.
 - **Typed the same way.** Vendored TanStack type tests pass. Route trees, params, and search stay on the TanStack type surface.
 - **Measured in the open.** Head-to-head benches live in the repo. Re-run them. The wins and the losses are both in the table.
+- **Large trees stay small.** The generated `routeTree` still uses `createRoute` and `.lazy()`. Only the root route is statically imported. Other route modules load when they are matched. Types live in a separate file and do not use `typeof` every route.
 
 ## Quick start
 
@@ -87,11 +88,12 @@ pnpm test
 pnpm bench:compare
 ```
 
-| Package                                          | What you import                               |
-| ------------------------------------------------ | --------------------------------------------- |
-| [`@anonrig/react-router`](packages/react-router) | `RouterProvider`, `Link`, hooks, SSR bindings |
-| [`@anonrig/router-core`](packages/router-core)   | Matcher, navigation, loaders, search params   |
-| [`@anonrig/history`](packages/history)           | Browser, hash, and memory history             |
+| Package                                                  | What you import                               |
+| -------------------------------------------------------- | --------------------------------------------- |
+| [`@anonrig/react-router`](packages/react-router)         | `RouterProvider`, `Link`, hooks, SSR bindings |
+| [`@anonrig/router-core`](packages/router-core)           | Matcher, navigation, loaders, search params   |
+| [`@anonrig/history`](packages/history)                   | Browser, hash, and memory history             |
+| [`@anonrig/router-generator`](packages/router-generator) | Compact lazy `routeTree.gen.ts` + types       |
 
 ## Performance
 
@@ -145,6 +147,25 @@ TanStack's query-string encode/decode still win those microbenches. The publishe
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
+
+## Large route trees
+
+TanStack's `routeTree.gen.ts` statically imports every route module and repeats every path as `typeof` aliases and union members. At a few hundred URLs that file becomes a TypeScript and bundle problem: tsserver crawls a giant generated module, and the initial JS graph includes every route even when the user only opened `/`.
+
+This generator still exports `routeTree` for `createRouter({ routeTree })`. The difference is how that file is built:
+
+- `routeTree.gen.ts` uses the existing `createRoute` + `.update()` + `.lazy()` APIs. Only the root route is a static import. Every other route is `() => import(...)`, so unused modules stay out of the initial chunk.
+- `routeTree.types.ts` holds `FileRouteTypes`. Path unions are `keyof` maps, not written-out `typeof` aliases, so the type file stays cheap for tsserver.
+
+```ts
+import { tanstackRouter } from '@anonrig/router-generator/vite'
+
+export default defineConfig({
+  plugins: [tanstackRouter({ routesDirectory: './src/routes' })],
+})
+```
+
+Apps keep `createFileRoute('/posts/$id')` in each route file. Nothing new to call at runtime.
 
 ## Streaming, on purpose
 

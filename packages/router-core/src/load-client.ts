@@ -309,6 +309,13 @@ function normalizeLaneError(
   return normalizeError(route, cause)
 }
 
+/** Load lazy route options (loader, beforeLoad, context) without waiting on components. */
+export async function ensureRouteOptions(route: AnyRoute, signal?: AbortSignal): Promise<void> {
+  if (!route.lazyFn || route._lazy === true) return
+  const loading = loadRouteChunk(route, false)
+  if (loading) await (signal ? waitFor(loading, signal) : loading)
+}
+
 export function navigateFrom(router: AnyRouter, location: ParsedLocation) {
   return (opts: any) =>
     router.navigate({
@@ -331,6 +338,7 @@ async function contextualize(
   for (let index = options[7 /* resolvedPrefix */] ?? 0; index < end; index++) {
     const match = matches[index]!
     const route = getRoute(router, match)
+    await ensureRouteOptions(route, signal)
 
     match.abortController = options[0 /* controller */]
     // Contextualization is serial, so the previous match already contains the

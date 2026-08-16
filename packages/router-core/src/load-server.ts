@@ -4,7 +4,7 @@
 import { isNotFound } from './not-found'
 import { isRedirect, redirect } from './redirect'
 import { rootRouteId } from './root'
-import { loadRouteChunk } from './load-client'
+import { ensureRouteOptions, loadRouteChunk } from './load-client'
 import { waitForReason } from './await-signal'
 import { getLocationChangeInfo, runRouteLifecycle } from './router'
 import type { ParsedLocation } from './location'
@@ -187,6 +187,7 @@ async function contextualize(
   for (let index = 0; index < end; index++) {
     const match = lane.matches[index]!
     const route = getRoute(router, match)
+    await ensureRouteOptions(route, signal)
     try {
       match.ssr = await resolveSsr(router, lane, index)
     } catch (cause) {

@@ -22,6 +22,8 @@
       "@anonrig/history": ["./packages/history/src/index.ts"],
       "@anonrig/router-core": ["./packages/router-core/src/index.ts"],
       "@anonrig/react-router": ["./packages/react-router/src/index.ts"],
+      "@anonrig/router-generator": ["./packages/router-generator/src/index.ts"],
+      "@anonrig/router-generator/vite": ["./packages/router-generator/src/vite.ts"],
       "@tanstack/history": ["./packages/history/src/index.ts"],
       "@tanstack/router-core": ["./packages/router-core/src/index.ts"],
       "@tanstack/react-router": ["./packages/react-router/src/index.ts"],
