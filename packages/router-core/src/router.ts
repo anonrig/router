@@ -800,12 +800,7 @@ export class RouterCore<
     if (href) {
       const first = href.charCodeAt(0)
       if (first !== 47 && first !== 46 && first !== 63 && first !== 35) {
-        try {
-          new URL(`${href}`)
-          hrefIsUrl = true
-        } catch {
-          // relative href
-        }
+        hrefIsUrl = URL.parse(`${href}`) !== null
       }
     }
     if (hrefIsUrl && !reloadDocument) reloadDocument = true
@@ -1389,15 +1384,11 @@ export class RouterCore<
       redirect.options.href = href
       redirect.headers.set('Location', href)
     } else if (locationHeader) {
-      try {
-        const url = new URL(locationHeader)
-        if (this.origin && url.origin === this.origin) {
-          const href = url.pathname + url.search + url.hash
-          redirect.options.href = href
-          redirect.headers.set('Location', href)
-        }
-      } catch {
-        // ignore invalid URLs
+      const url = URL.parse(locationHeader)
+      if (url && this.origin && url.origin === this.origin) {
+        const href = url.pathname + url.search + url.hash
+        redirect.options.href = href
+        redirect.headers.set('Location', href)
       }
     }
 

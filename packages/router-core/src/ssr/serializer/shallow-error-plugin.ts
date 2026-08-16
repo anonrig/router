@@ -12,7 +12,7 @@ export interface ErrorNode extends PluginInfo {
 export const ShallowErrorPlugin = /* @__PURE__ */ createPlugin<Error, ErrorNode>({
   tag: '$TSR/Error',
   test(value) {
-    return value instanceof Error
+    return Error.isError(value)
   },
   parse: {
     sync(value, ctx) {

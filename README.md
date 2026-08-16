@@ -13,6 +13,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 [![CI](https://github.com/anonrig/router/actions/workflows/ci.yml/badge.svg)](https://github.com/anonrig/router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-19.2-149ECA?logo=react&logoColor=white)](https://react.dev)
+[![Node](https://img.shields.io/badge/Node-24+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
 <br />
@@ -76,13 +77,14 @@ If you already know TanStack Router, you already know this router.
 - **Faster where it counts.** Warm client navigations, warm `router.load`, and cold SSR `load` beat published TanStack Router on the same machine. Those are the operations that show up as clicks and req/s.
 - **Streaming SSR.** Every stream starts on `onShellReady` and flushes incrementally. No `isbot`, no User-Agent parse, no waiting for a complete document because a crawler might be watching.
 - **React 19.2 only.** Peers are pinned to `react` and `react-dom` `~19.2.0`. No compatibility tax for React 18.
+- **Node 24 only.** `engines.node` is `>=24`. No compatibility tax for Node 22.
 - **Typed the same way.** Vendored TanStack type tests pass. Route trees, params, and search stay on the TanStack type surface.
 - **Measured in the open.** Head-to-head benches live in the repo. Re-run them. The wins and the losses are both in the table.
 - **Large trees stay small.** The generated `routeTree` still uses `createRoute` and `.lazy()`. Only the root route is statically imported. Other route modules load when they are matched. Types live in a separate file and do not use `typeof` every route.
 
 ## Quick start
 
-React 19.2 and React DOM 19.2 are required. Clone the workspace and import the packages:
+Node 24+, React 19.2, and React DOM 19.2 are required. Clone the workspace and import the packages:
 
 ```bash
 pnpm install
@@ -101,7 +103,7 @@ pnpm bench:compare
 
 Routing cost is not a microbenchmark. It is every click and every request.
 
-On a 4-core Intel Xeon, Linux, Node 22, single process, in memory, no HTTP server:
+On a 4-core Intel Xeon, Linux, Node 24, single process, in memory, no HTTP server:
 
 <div align="center">
 

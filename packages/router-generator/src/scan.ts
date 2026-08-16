@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs'
+import { globSync, statSync } from 'node:fs'
 import { basename, extname, join, relative, sep } from 'node:path'
 
 const ROUTE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx'])
@@ -40,16 +40,13 @@ function isRouteFile(name: string) {
   return true
 }
 
-function walk(dir: string, files: Array<string>) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name)
-    if (entry.isDirectory()) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
-      walk(full, files)
-      continue
-    }
-    if (entry.isFile() && isRouteFile(entry.name)) files.push(full)
-  }
+function listRouteFiles(rootDir: string) {
+  return globSync('**/*.{ts,tsx,js,jsx}', {
+    cwd: rootDir,
+    exclude: (name) => name.startsWith('.') || name === 'node_modules',
+  })
+    .filter((file) => isRouteFile(basename(file)))
+    .map((file) => join(rootDir, file))
 }
 
 function stripRouteToken(segments: Array<string>) {
@@ -125,8 +122,7 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
     throw new Error(`routesDirectory does not exist: ${rootDir}`)
   }
 
-  const files: Array<string> = []
-  walk(rootDir, files)
+  const files = listRouteFiles(rootDir)
 
   const pending: Array<Omit<ScannedRoute, 'id' | 'path' | 'parentId' | 'isPathless'>> = []
   for (const filePath of files) {

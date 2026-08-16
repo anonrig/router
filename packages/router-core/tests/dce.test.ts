@@ -3,10 +3,9 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '../../..')
+const root = join(import.meta.dirname, '../../..')
 const require = createRequire(import.meta.url)
 
 const serverMarkers = [

@@ -73,18 +73,17 @@ function resolveExternalLink(
   if (typeof to !== 'string' || to.indexOf(':') === -1) {
     return undefined
   }
-  try {
-    new URL(to)
-    // Block dangerous protocols like javascript:, blob:, data:
-    if (isDangerousProtocol(to, protocolAllowlist)) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(`Blocked Link with dangerous protocol: ${to}`)
-      }
-      return undefined
+  if (!URL.parse(to)) {
+    return undefined
+  }
+  // Block dangerous protocols like javascript:, blob:, data:
+  if (isDangerousProtocol(to, protocolAllowlist)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`Blocked Link with dangerous protocol: ${to}`)
     }
-    return to
-  } catch {}
-  return undefined
+    return undefined
+  }
+  return to
 }
 
 function resolveIsActive(
@@ -222,8 +221,7 @@ export function useLinkProps<
       // Quick checks to avoid `new URL` in common internal-like cases
       to.indexOf(':') > -1
     ) {
-      try {
-        new URL(to)
+      if (URL.parse(to)) {
         if (isDangerousProtocol(to, router.protocolAllowlist)) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn(`Blocked Link with dangerous protocol: ${to}`)
@@ -250,8 +248,6 @@ export function useLinkProps<
           ...(style && { style }),
           ...(className && { className }),
         }
-      } catch {
-        // Not an absolute URL
       }
     }
 
@@ -286,17 +282,14 @@ export function useLinkProps<
       if (safeInternal) return undefined
 
       // Only attempt URL parsing when it looks like an absolute URL.
-      if (typeof to === 'string' && to.indexOf(':') > -1) {
-        try {
-          new URL(to)
-          if (isDangerousProtocol(to, router.protocolAllowlist)) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.warn(`Blocked Link with dangerous protocol: ${to}`)
-            }
-            return undefined
+      if (typeof to === 'string' && to.indexOf(':') > -1 && URL.parse(to)) {
+        if (isDangerousProtocol(to, router.protocolAllowlist)) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(`Blocked Link with dangerous protocol: ${to}`)
           }
-          return to
-        } catch {}
+          return undefined
+        }
+        return to
       }
 
       return undefined

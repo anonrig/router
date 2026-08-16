@@ -13,7 +13,7 @@ import type { ReactNode } from 'react'
 // failure; don't let React's onError log it as one.
 const isAbortError = (request: Request, error: unknown) =>
   (request.signal.aborted && error === request.signal.reason) ||
-  (error instanceof Error && error.name === 'AbortError')
+  (Error.isError(error) && error.name === 'AbortError')
 
 export const renderRouterToStream = async ({
   request,
@@ -64,7 +64,7 @@ export const renderRouterToStream = async ({
     let endedBeforeAttach = false
     let pendingAbortReason: unknown
     const toError = (reason: unknown) =>
-      reason instanceof Error ? reason : new Error(String(reason ?? 'SSR aborted'))
+      Error.isError(reason) ? reason : new Error(String(reason ?? 'SSR aborted'))
     const destroyError = (reason: unknown) => (reason === undefined ? undefined : toError(reason))
     const pendingDestroyError = () =>
       pendingAbortReason === undefined

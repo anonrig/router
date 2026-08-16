@@ -1,9 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
 
-const root = dirname(fileURLToPath(import.meta.url))
+const root = import.meta.dirname
 
 function kebabSegment(segment: string) {
   return segment.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()

@@ -537,7 +537,7 @@ export const DEFAULT_PROTOCOL_ALLOWLIST = [
  * Check if a URL string uses a protocol that is not in the allowlist.
  * Returns true for blocked protocols like javascript:, blob:, data:, etc.
  *
- * The URL constructor correctly normalizes:
+ * `URL.parse` correctly normalizes:
  * - Mixed case (JavaScript: → javascript:)
  * - Whitespace/control characters (java\nscript: → javascript:)
  * - Leading whitespace
@@ -551,16 +551,10 @@ export const DEFAULT_PROTOCOL_ALLOWLIST = [
 export function isDangerousProtocol(url: string, allowlist: Set<string>): boolean {
   if (!url) return false
 
-  try {
-    // Use the URL constructor - it correctly normalizes protocols
-    // per WHATWG URL spec, handling all bypass attempts automatically
-    const parsed = new URL(url)
-    return !allowlist.has(parsed.protocol)
-  } catch {
-    // URL constructor throws for relative URLs (no protocol)
-    // These are safe - they can't execute scripts
-    return false
-  }
+  // URL.parse normalizes protocols per the WHATWG URL spec and returns
+  // null for relative URLs (no protocol). Those are safe.
+  const parsed = URL.parse(url)
+  return parsed !== null && !allowlist.has(parsed.protocol)
 }
 
 // This utility is based on https://github.com/zertosh/htmlescape

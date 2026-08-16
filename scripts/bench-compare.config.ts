@@ -1,8 +1,7 @@
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const repo = resolve(import.meta.dirname, '..')
 
 // Resolve @anonrig/* to this repo. Leave @tanstack/* on the published packages
 // so the same operations can be timed against official TanStack Router.

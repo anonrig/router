@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 export function ErrorComponent({ error }: { error: unknown; reset?: () => void; info?: any }) {
-  const message = error instanceof Error ? error.message : String(error)
+  const message = Error.isError(error) ? error.message : String(error)
   return (
     <div style={{ padding: 8, color: 'red' }} data-error>
       {message}

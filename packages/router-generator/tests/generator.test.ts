@@ -3,12 +3,11 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { generateRouteTree } from '../src/generate'
 import { scanRoutes } from '../src/scan'
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..')
+const repoRoot = join(import.meta.dirname, '../../..')
 const require = createRequire(import.meta.url)
 
 function loadEsbuild(): { build: (options: Record<string, unknown>) => Promise<unknown> } {

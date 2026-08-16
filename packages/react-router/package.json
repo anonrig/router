@@ -2,6 +2,9 @@
   "name": "@anonrig/react-router",
   "version": "0.0.0",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

@@ -5,7 +5,7 @@
  *     node_modules/vite-node/dist/cli.mjs --config scripts/bench-compare.config.ts \
  *     scripts/v8-status.ts
  *
- * Node 22 / V8 bits:
+ * Node 24 / V8 bits:
  *   1 fn  2 never-opt  8 maybe-deopted  16 optimized
  *   32 maglev  64 turbofan  128 interpreted  32768 baseline
  */
