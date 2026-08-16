@@ -36,16 +36,14 @@ export function defaultHistoryState(): ParsedHistoryState {
 
 export function assignKeyAndIndex(index: number, state: HistoryState | undefined) {
   const key = createRandomKey()
-  const next = { key, __TSR_key: key, [STATE_INDEX]: index } as ParsedHistoryState
-  if (state != null) {
-    for (const k in state) {
-      if (k !== 'key' && k !== '__TSR_key' && k !== STATE_INDEX) {
-        ;(next as any)[k] = (state as any)[k]
-      }
+  if (state == null) {
+    return { key, __TSR_key: key, __TSR_index: index }
+  }
+  const next = { key, __TSR_key: key, __TSR_index: index } as ParsedHistoryState
+  for (const k in state) {
+    if (k !== 'key' && k !== '__TSR_key' && k !== STATE_INDEX) {
+      ;(next as any)[k] = (state as any)[k]
     }
-    next.key = key
-    next.__TSR_key = key
-    next[STATE_INDEX] = index
   }
   return next
 }

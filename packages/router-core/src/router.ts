@@ -54,7 +54,6 @@ import {
 import {
   createLRUCache,
   createStringMap,
-  objectValues,
   rememberBounded,
   decodePath,
   deepEqual,
@@ -409,22 +408,45 @@ function isSimpleParamValue(value: unknown) {
   return true
 }
 
-function interpolateSimpleTo(path: string, params: Record<string, any>, keys: string[]): string {
+type SimpleToApply = (params: Record<string, any>) => string
+
+const simpleToApplyByPath = new Map<string, SimpleToApply>()
+
+function compileSimpleTo(path: string, keys: string[]): SimpleToApply {
   if (keys.length === 1) {
     const key = keys[0]!
     const idx = path.indexOf('$' + key)
-    return path.slice(0, idx) + params[key] + path.slice(idx + key.length + 1)
+    const pre = path.slice(0, idx)
+    const post = path.slice(idx + key.length + 1)
+    return (params) => pre + params[key] + post
   }
-  let out = ''
+  const parts: Array<string | { k: string }> = []
   let last = 0
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i]!
     const idx = path.indexOf('$' + key, last)
-    out += path.slice(last, idx)
-    out += params[key]
+    if (idx > last) parts.push(path.slice(last, idx))
+    parts.push({ k: key })
     last = idx + key.length + 1
   }
-  return out + path.slice(last)
+  if (last < path.length) parts.push(path.slice(last))
+  return (params) => {
+    let out = ''
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]!
+      out += typeof part === 'string' ? part : params[part.k]
+    }
+    return out
+  }
+}
+
+function interpolateSimpleTo(path: string, params: Record<string, any>, keys: string[]): string {
+  let apply = simpleToApplyByPath.get(path)
+  if (apply === undefined) {
+    apply = compileSimpleTo(path, keys)
+    simpleToApplyByPath.set(path, apply)
+  }
+  return apply(params)
 }
 
 function routeAllowsSimpleNav(route: AnyRoute | undefined): boolean {
@@ -625,34 +647,64 @@ export class RouterCore<
         resolvedLocation: undefined,
         statusCode: 200,
       })
+      const publishMatches = (nextMatches: any[]) => {
+        setMatches(nextMatches)
+        const current = state.get()
+        if (!current) return
+        const status = stores.status.get()
+        const nextLocation = stores.location.get()
+        const nextResolved = stores.resolvedLocation.get()
+        const isLoading = status === 'pending'
+        if (
+          current.matches === nextMatches &&
+          current.status === status &&
+          current.location === nextLocation &&
+          current.resolvedLocation === nextResolved &&
+          current.isLoading === isLoading
+        ) {
+          return
+        }
+        state.set({
+          ...current,
+          matches: nextMatches,
+          status,
+          isLoading,
+          isTransitioning: isLoading,
+          location: nextLocation,
+          resolvedLocation: nextResolved,
+        })
+      }
       return Object.assign(stores, {
         state,
-        setMatches: (nextMatches: any[]) => {
+        setMatches: publishMatches,
+        commitIdleNavigation: (nextLocation: ParsedLocation, nextMatches: any[]) => {
+          if (stores.status.get() !== 'idle') stores.status.set('idle')
+          stores.location.set(nextLocation)
+          stores.resolvedLocation.set(nextLocation)
           setMatches(nextMatches)
           const current = state.get()
-          if (!current) return
-          const status = stores.status.get()
-          const nextLocation = stores.location.get()
-          const nextResolved = stores.resolvedLocation.get()
-          const isLoading = status === 'pending'
           if (
-            current.matches === nextMatches &&
-            current.status === status &&
-            current.location === nextLocation &&
-            current.resolvedLocation === nextResolved &&
-            current.isLoading === isLoading
+            !current ||
+            current.status !== 'idle' ||
+            current.isLoading ||
+            current.isTransitioning ||
+            current.matches !== nextMatches ||
+            current.location !== nextLocation ||
+            current.resolvedLocation !== nextLocation ||
+            current.statusCode !== 200 ||
+            current.pendingMatches
           ) {
-            return
+            state.set({
+              status: 'idle',
+              isLoading: false,
+              isTransitioning: false,
+              matches: nextMatches,
+              pendingMatches: undefined,
+              location: nextLocation,
+              resolvedLocation: nextLocation,
+              statusCode: 200,
+            })
           }
-          state.set({
-            ...current,
-            matches: nextMatches,
-            status,
-            isLoading,
-            isTransitioning: isLoading,
-            location: nextLocation,
-            resolvedLocation: nextResolved,
-          })
         },
       })
     }
@@ -739,34 +791,70 @@ export class RouterCore<
       syncState({ resolvedLocation })
       if (!sameParsedLocation(previous, resolvedLocation)) bumpMatchRoute()
     }) as typeof stores.resolvedLocation.set
+    const publishMatches = (nextMatches: any[]) => {
+      setMatches(nextMatches)
+      const current = state.get()
+      if (!current) return
+      const status = stores.status.get()
+      const nextLocation = locationStore.get()
+      const nextResolved = stores.resolvedLocation.get()
+      const isLoading = status === 'pending'
+      if (
+        current.matches === nextMatches &&
+        current.status === status &&
+        current.location === nextLocation &&
+        current.resolvedLocation === nextResolved &&
+        current.isLoading === isLoading
+      ) {
+        return
+      }
+      state.set({
+        ...current,
+        matches: nextMatches,
+        location: nextLocation,
+        resolvedLocation: nextResolved,
+        status,
+        isLoading,
+      })
+    }
     return Object.assign(stores, {
       state,
       matchRoute,
-      setMatches: (nextMatches: any[]) => {
+      setMatches: publishMatches,
+      commitIdleNavigation: (nextLocation: ParsedLocation, nextMatches: any[]) => {
+        let bump = false
+        if (stores.status.get() !== 'idle') {
+          setStatus('idle')
+          bump = true
+        }
+        const previous = locationStore.get()
+        setLocation(nextLocation)
+        setResolved(nextLocation)
         setMatches(nextMatches)
         const current = state.get()
-        if (!current) return
-        const status = stores.status.get()
-        const nextLocation = locationStore.get()
-        const nextResolved = stores.resolvedLocation.get()
-        const isLoading = status === 'pending'
         if (
-          current.matches === nextMatches &&
-          current.status === status &&
-          current.location === nextLocation &&
-          current.resolvedLocation === nextResolved &&
-          current.isLoading === isLoading
+          !current ||
+          current.status !== 'idle' ||
+          current.isLoading ||
+          current.isTransitioning ||
+          current.matches !== nextMatches ||
+          current.location !== nextLocation ||
+          current.resolvedLocation !== nextLocation ||
+          current.statusCode !== 200 ||
+          current.pendingMatches
         ) {
-          return
+          state.set({
+            status: 'idle',
+            isLoading: false,
+            isTransitioning: false,
+            matches: nextMatches,
+            pendingMatches: undefined,
+            location: nextLocation,
+            resolvedLocation: nextLocation,
+            statusCode: 200,
+          })
         }
-        state.set({
-          ...current,
-          matches: nextMatches,
-          location: nextLocation,
-          resolvedLocation: nextResolved,
-          status,
-          isLoading,
-        })
+        if (bump || !sameParsedLocation(previous, nextLocation)) bumpMatchRoute()
       },
     })
   }
@@ -1248,16 +1336,21 @@ export class RouterCore<
     const filter = opts?.filter
     const committedMatches = this._committed.length ? this._committed : this.state.matches
     const preloads = this._preloads
-    const invalidIds = new Set(
-      [
-        ...committedMatches,
-        ...objectValues(this._cache),
-        ...[...(preloads?.values() ?? [])].flat(),
-        ...(this._tx?.[3] ?? []),
-      ]
-        .filter((match) => !filter || filter(match as any))
-        .map((match) => match.id),
-    )
+    const invalidIds = new Set<string>()
+    const consider = (match: RouteMatch | undefined) => {
+      if (match && (!filter || filter(match as any))) invalidIds.add(match.id)
+    }
+    for (let i = 0; i < committedMatches.length; i++) consider(committedMatches[i])
+    for (const id in this._cache) consider(this._cache[id])
+    if (preloads) {
+      for (const preloadMatches of preloads.values()) {
+        for (let i = 0; i < preloadMatches.length; i++) consider(preloadMatches[i])
+      }
+    }
+    const txMatches = this._tx?.[3]
+    if (txMatches) {
+      for (let i = 0; i < txMatches.length; i++) consider(txMatches[i])
+    }
     const discardedPreloads: Array<AbortController> = []
     for (const [controller, matches] of preloads ?? []) {
       if (matches.some((match) => invalidIds.has(match.id))) {
@@ -1415,7 +1508,15 @@ export class RouterCore<
         if (!Object.hasOwn(params, key)) return
         if (!isSimpleParamValue(params[key])) return
       }
-      if (!routeAllowsSimpleNav(this.routesByPath?.[trimPathRight(to)] as AnyRoute | undefined)) {
+      const byPath = this.routesByPath
+      if (
+        !routeAllowsSimpleNav(
+          (byPath?.[to] ??
+            (to.charCodeAt(to.length - 1) === 47 ? byPath?.[trimPathRight(to)] : undefined)) as
+            | AnyRoute
+            | undefined,
+        )
+      ) {
         return
       }
       resolved = this.pathParamsDecoder
@@ -1484,14 +1585,14 @@ export class RouterCore<
     if (!same) {
       this._committing = true
       const history = this.history
+      const historyOpts = {
+        ignoreBlocker: rest.ignoreBlocker,
+        simple: searchStr === '' && hash === '' && pathname === hrefFull,
+      }
       if (rest.replace) {
-        history.replace(hrefFull, rest.state, {
-          ignoreBlocker: rest.ignoreBlocker,
-        })
+        history.replace(hrefFull, rest.state, historyOpts)
       } else {
-        history.push(hrefFull, rest.state, {
-          ignoreBlocker: rest.ignoreBlocker,
-        })
+        history.push(hrefFull, rest.state, historyOpts)
       }
       history.flush()
       this._committing = false
@@ -1709,13 +1810,22 @@ export class RouterCore<
     const prevMatches = this._committed
     const now = Date.now()
     let needsLoader = false
+    const prevLen = prevMatches.length
+    let allStay = prevLen === matches.length && prevLen > 0
+    if (allStay) {
+      for (let i = 0; i < prevLen; i++) {
+        if (prevMatches[i]!.routeId !== matches[i]!.routeId) {
+          allStay = false
+          break
+        }
+      }
+    }
     for (let i = 0; i < matches.length; i++) {
       const match = matches[i]!
       if (match.status !== 'success' || match.invalid || match.isFetching) return
       const route = this.routesById[match.routeId]
       if (route === undefined || !routeCanWarmLoad(route)) return
-      const prev = findPrevMatch(prevMatches, match.routeId)
-      match.cause = prev ? 'stay' : 'enter'
+      match.cause = allStay || findPrevMatch(prevMatches, match.routeId) ? 'stay' : 'enter'
       match.search = location.search
       match.publicHref = location.publicHref
       if (warmMatchNeedsLoader(match, route, this, prevMatches, now)) needsLoader = true
@@ -1725,6 +1835,17 @@ export class RouterCore<
 
   private leaveWarmMatches(matches: RouteMatch[]) {
     const prevMatches = this._committed
+    const prevLen = prevMatches.length
+    if (prevLen === matches.length) {
+      let sameRoutes = true
+      for (let i = 0; i < prevLen; i++) {
+        if (prevMatches[i]!.routeId !== matches[i]!.routeId) {
+          sameRoutes = false
+          break
+        }
+      }
+      if (sameRoutes) return
+    }
     for (let i = 0; i < prevMatches.length; i++) {
       const left = prevMatches[i]!
       const hook = this.routesById[left.routeId]?.options.onLeave
@@ -1753,32 +1874,7 @@ export class RouterCore<
       this._cache[matches[i]!.id] = matches[i]!
     }
     this.batch(() => {
-      if (this.stores.status.get() !== 'idle') this.stores.status.set('idle')
-      this.stores.location.set(location)
-      this.stores.resolvedLocation.set(location)
-      this.stores.setMatches(matches)
-      const current = this.stores.state.get()
-      if (
-        current.status !== 'idle' ||
-        current.isLoading ||
-        current.isTransitioning ||
-        current.matches !== matches ||
-        current.location !== location ||
-        current.resolvedLocation !== location ||
-        current.statusCode !== 200 ||
-        current.pendingMatches
-      ) {
-        this.stores.state.set({
-          status: 'idle',
-          isLoading: false,
-          isTransitioning: false,
-          matches,
-          pendingMatches: undefined,
-          location,
-          resolvedLocation: location,
-          statusCode: 200,
-        })
-      }
+      this.stores.commitIdleNavigation!(location, matches)
     })
     this.redirectHops = 0
     if (this.subscribers.size) {

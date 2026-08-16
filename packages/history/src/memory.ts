@@ -4,6 +4,10 @@ import { assignKeyAndIndex, parseHref } from './parse'
 const MEMORY_HISTORY_COMPACT_AT = 2048
 const MEMORY_HISTORY_KEEP = 1024
 
+function simpleLocation(path: string, state: ParsedHistoryState): HistoryLocation {
+  return { href: path, pathname: path, search: '', hash: '', state }
+}
+
 function locationFromPath(path: string, state: ParsedHistoryState | undefined): HistoryLocation {
   if (state == null) return parseHref(path, state)
   const len = path.length
@@ -16,9 +20,7 @@ function locationFromPath(path: string, state: ParsedHistoryState | undefined): 
         break
       }
     }
-    if (simple) {
-      return { href: path, pathname: path, search: '', hash: '', state }
-    }
+    if (simple) return simpleLocation(path, state)
   }
   return parseHref(path, state)
 }
@@ -168,7 +170,9 @@ class MemoryHistory implements RouterHistory {
     entries.push(path)
     this.index = entries.length - 1
     this.compactIfNeeded()
-    this.location = locationFromPath(path, nextState)
+    this.location = navigateOpts?.simple
+      ? simpleLocation(path, nextState)
+      : locationFromPath(path, nextState)
     this.notify(PUSH_ACTION)
   }
 
@@ -187,7 +191,9 @@ class MemoryHistory implements RouterHistory {
     }
     this.states[this.index] = nextState
     this.entries[this.index] = path
-    this.location = locationFromPath(path, nextState)
+    this.location = navigateOpts?.simple
+      ? simpleLocation(path, nextState)
+      : locationFromPath(path, nextState)
     this.notify(REPLACE_ACTION)
   }
 

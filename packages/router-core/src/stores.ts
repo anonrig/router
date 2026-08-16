@@ -75,6 +75,9 @@ export interface RouterStores<in out TRouteTree extends AnyRoute> {
   getMatchStore: (routeId: string) => RouterReadableStore<AnyRouteMatch | undefined>
 
   setMatches: (nextMatches: Array<AnyRouteMatch>) => void
+
+  /** Client/server store bag may attach a single-write idle commit. */
+  commitIdleNavigation?: (location: ParsedLocation, matches: Array<AnyRouteMatch>) => void
 }
 
 export function createRouterStores<TRouteTree extends AnyRoute>(

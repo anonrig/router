@@ -1,5 +1,7 @@
 export interface NavigateOptions {
   ignoreBlocker?: boolean
+  /** When true, `path` is a pathname with no search, hash, or control characters. */
+  simple?: boolean
 }
 
 export type HistoryAction = 'PUSH' | 'REPLACE' | 'FORWARD' | 'BACK' | 'GO'
