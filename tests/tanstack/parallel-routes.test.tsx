@@ -5,6 +5,7 @@ import {
   Link,
   Outlet,
   RouterProvider,
+  Slots,
   createRootRoute,
   createRoute,
   createRouter,
@@ -109,4 +110,50 @@ test('Link slots={null} closes a modal and leaves the main route', async () => {
   await router.navigate({ slots: { modal: null } } as any)
   expect(screen.queryByText('User 42')).not.toBeInTheDocument()
   expect(router.state.location.search['@modal']).toBeUndefined()
+})
+
+test('Slots re-renders when a sibling slot opens and closes', async () => {
+  const rootRoute = createRootRoute({
+    component: () => (
+      <>
+        <Outlet />
+        <Slots>
+          {(slots) => (
+            <div>
+              {slots.map((slot) => (
+                <div key={slot.name}>
+                  <span>{slot.isOpen ? `${slot.name} open` : `${slot.name} closed`}</span>
+                  <slot.Outlet fallback={null} />
+                </div>
+              ))}
+            </div>
+          )}
+        </Slots>
+      </>
+    ),
+  })
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <span>Home</span>,
+  })
+  const modalRoute = createSlotRoute({
+    slot: 'modal',
+    getParentRoute: () => rootRoute,
+    component: () => <span>Modal body</span>,
+  })
+  rootRoute.addChildren([indexRoute, modalRoute])
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+  render(<RouterProvider router={router} />)
+  expect(await screen.findByText('Home')).toBeInTheDocument()
+  expect(await screen.findByText('modal open')).toBeInTheDocument()
+  await router.navigate({ slots: { modal: false } } as any)
+  expect(await screen.findByText('modal closed')).toBeInTheDocument()
+  expect(screen.queryByText('Modal body')).not.toBeInTheDocument()
+  await router.navigate({ slots: { modal: {} } } as any)
+  expect(await screen.findByText('modal open')).toBeInTheDocument()
+  expect(await screen.findByText('Modal body')).toBeInTheDocument()
 })

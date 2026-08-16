@@ -76,9 +76,12 @@ function readSlotState(search: Record<string, any> | undefined, names: string[],
 
 function clearSlotKeys(search: Record<string, any>, names: string[], prefix: string) {
   const key = slotKey(names, prefix)
+  const nestedPrefix = key + prefix
   const searchPrefix = `${key}.`
   for (const name of Object.keys(search)) {
-    if (name === key || name.startsWith(searchPrefix)) delete search[name]
+    if (name === key || name.startsWith(searchPrefix) || name.startsWith(nestedPrefix)) {
+      delete search[name]
+    }
   }
 }
 
@@ -136,7 +139,7 @@ function retainSlotSearch(
 ) {
   const result = { ...nextSearch }
   for (const key in currentSearch) {
-    if (key.charCodeAt(0) === prefix.charCodeAt(0) && !(key in result)) {
+    if (key.startsWith(prefix) && !(key in result)) {
       result[key] = currentSearch[key]
     }
   }
@@ -288,18 +291,20 @@ export function appendSlotMatches(
       seen.add(seenKey)
       const state = readSlotState(location.search, nextNames, prefix)
       if (state.disabled) continue
-      const enabled = slotRoot.options?.enabled
-      if (enabled === false) continue
-      if (typeof enabled === 'function') {
-        if (
-          !enabled({
-            context: parentMatch?.context ?? router.options.context,
-            location,
-            params: parentMatch?.params,
-            search: location.search,
-          })
-        ) {
-          continue
+      if (state.path == null) {
+        const enabled = slotRoot.options?.enabled
+        if (enabled === false) continue
+        if (typeof enabled === 'function') {
+          if (
+            !enabled({
+              context: parentMatch?.context ?? router.options.context,
+              location,
+              params: parentMatch?.params,
+              search: location.search,
+            })
+          ) {
+            continue
+          }
         }
       }
       const tree = slotRoot._slotTree
@@ -358,7 +363,7 @@ function resolveSlotNavigateDest(router: any, dest: any, current: ParsedLocation
   return {
     ...dest,
     to: qualified ? (current?.pathname ?? '/') : dest.to,
-    search: dest.search === undefined && qualified ? true : dest.search,
+    search: qualified ? true : dest.search,
     params: qualified ? true : dest.params,
     _slotNav: { qualified, slots: dest.slots, params: dest.params, search: dest.search },
   }

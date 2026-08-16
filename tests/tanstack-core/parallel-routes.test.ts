@@ -135,6 +135,96 @@ describe('parallel route slots', () => {
     )
   })
 
+  test('closing a parent slot clears nested slot keys', async () => {
+    const root = createRootRoute()
+    const index = createRoute({ getParentRoute: () => root, path: '/' })
+    const modal = createSlotRoute({ slot: 'modal', getParentRoute: () => root })
+    const confirm = createSlotRoute({ slot: 'confirm', getParentRoute: () => modal })
+    const confirmDelete = createSlotRoute({
+      getParentRoute: () => confirm,
+      path: '/delete',
+    })
+    confirm.addChildren([confirmDelete])
+    modal.addChildren([confirm])
+    root.addChildren([index, modal])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    await router.load()
+    await router.navigate({
+      slots: {
+        modal: { to: '/settings', slots: { confirm: { to: '/delete' } } },
+      },
+    } as any)
+    expect(router.state.location.search['@modal']).toBe('/settings')
+    expect(router.state.location.search['@modal@confirm']).toBe('/delete')
+    await router.navigate({ slots: { modal: null } } as any)
+    expect(router.state.location.search['@modal']).toBeUndefined()
+    expect(router.state.location.search['@modal@confirm']).toBeUndefined()
+  })
+
+  test('qualified slot search stays off the main location', async () => {
+    const { root } = createSlotApp()
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/dashboard'] }),
+    })
+    await router.load()
+    await router.navigate({
+      to: '/@modal/users/$id',
+      params: { id: '3' },
+      search: { tab: 'settings' },
+    } as any)
+    expect(router.state.location.pathname).toBe('/dashboard')
+    expect(router.state.location.search.tab).toBeUndefined()
+    expect(router.state.location.search['@modal']).toBe('/users/3')
+    expect(router.state.location.search['@modal.tab']).toBe('settings')
+  })
+
+  test('custom slotPrefix does not retain unrelated search keys', async () => {
+    const { root } = createSlotApp()
+    const router = createRouter({
+      routeTree: root,
+      slotPrefix: 'slot_',
+      history: createMemoryHistory({ initialEntries: ['/dashboard'] }),
+    })
+    await router.load()
+    await router.navigate({
+      to: '/settings',
+      search: { sort: 'name' },
+      slots: { modal: { to: '/users/$id', params: { id: '1' } } },
+    } as any)
+    expect(router.state.location.search.slot_modal).toBe('/users/1')
+    expect(router.state.location.search.sort).toBe('name')
+    await router.navigate({ to: '/dashboard', search: { view: 'grid' } } as any)
+    expect(router.state.location.search.slot_modal).toBe('/users/1')
+    expect(router.state.location.search.sort).toBeUndefined()
+    expect(router.state.location.search.view).toBe('grid')
+  })
+
+  test('enabled: false still opens when the URL explicitly sets the slot', async () => {
+    const root = createRootRoute()
+    const index = createRoute({ getParentRoute: () => root, path: '/' })
+    const admin = createSlotRoute({
+      slot: 'admin',
+      getParentRoute: () => root,
+      enabled: () => false,
+    })
+    const adminPanel = createSlotRoute({
+      getParentRoute: () => admin,
+      path: '/panel',
+    })
+    admin.addChildren([adminPanel])
+    root.addChildren([index, admin])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/?@admin=/panel'] }),
+    })
+    await router.load()
+    expect(router.state.matches.some((match) => match.routeId === '/@admin/panel')).toBe(true)
+  })
+
   test('enabled: false keeps a slot closed', async () => {
     const root = createRootRoute()
     const index = createRoute({ getParentRoute: () => root, path: '/' })
