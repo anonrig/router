@@ -588,7 +588,7 @@ function sanitizePathSegment(segment: string): string {
 function decodeSegment(segment: string): string {
   let decoded: string
   try {
-    decoded = decodeURI(segment)
+    decoded = decodeURI(segment.toWellFormed())
   } catch {
     // if the decoding fails, try to decode the various parts leaving the malformed tags in place
     decoded = segment.replaceAll(/%[0-9A-F]{2}/gi, (match) => {
@@ -728,12 +728,12 @@ export function decodePath(path: string) {
  * encodePathLikeUrl('/path/already%20encoded') // '/path/already%20encoded' (preserved)
  */
 /**
- * `encodeURIComponent` throws `URIError` on lone surrogates. `isWellFormed`
- * is a native UTF-16 scan; `toWellFormed` replaces unpaired surrogates with
- * U+FFFD, the same as `URLSearchParams`.
+ * `encodeURIComponent` throws `URIError` on lone surrogates. `toWellFormed`
+ * is a no-op on well-formed strings and otherwise replaces unpaired
+ * surrogates with U+FFFD, the same as `URLSearchParams`.
  */
 export function encodeURIComponentWellFormed(str: string): string {
-  return encodeURIComponent(str.isWellFormed() ? str : str.toWellFormed())
+  return encodeURIComponent(str.toWellFormed())
 }
 
 export function encodePathLikeUrl(path: string): string {
@@ -772,7 +772,7 @@ export function buildDevStylesUrl(basepath: string, routeIds: Array<string>): st
   const trimmedBasepath = basepath.replace(/^\/+|\/+$/g, '')
   // Build normalized basepath: empty string for root, or '/path' for non-root
   const normalizedBasepath = trimmedBasepath === '' ? '' : `/${trimmedBasepath}`
-  return `${normalizedBasepath}/@tanstack-start/styles.css?routes=${encodeURIComponent(routeIds.join(','))}`
+  return `${normalizedBasepath}/@tanstack-start/styles.css?routes=${encodeURIComponentWellFormed(routeIds.join(','))}`
 }
 
 export function arraysEqual<T>(a: Array<T>, b: Array<T>) {

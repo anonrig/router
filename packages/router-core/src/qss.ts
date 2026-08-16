@@ -53,10 +53,11 @@ function decodeComponent(str: string): string {
   const pct = str.indexOf('%')
   if (plus === -1 && pct === -1) return str
   if (pct === -1) return str.replace(/\+/g, ' ')
+  const input = (plus === -1 ? str : str.replace(/\+/g, ' ')).toWellFormed()
   try {
-    return decodeURIComponent(plus === -1 ? str : str.replace(/\+/g, ' '))
+    return decodeURIComponent(input)
   } catch {
-    return plus === -1 ? str : str.replace(/\+/g, ' ')
+    return input
   }
 }
 
