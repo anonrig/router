@@ -402,8 +402,8 @@ export class RouterCore<
   _flights?: Map<string, any>
   _preloads?: Map<AbortController, any[]>
   _refreshNextLoad?: boolean
-  _replaceRouteChunk?: typeof replaceRouteChunk
-  _refreshRoute?: () => Promise<void>
+  declare _replaceRouteChunk?: typeof replaceRouteChunk
+  declare _refreshRoute?: () => Promise<void>
   navigate!: NavigateFn
   buildLocation!: BuildLocationFn
   _preflight?: AbortController
