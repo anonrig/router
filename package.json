@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "test:tanstack": "vitest run --config vitest.tanstack.config.ts",
     "test:tanstack-core": "vitest run --config vitest.tanstack.config.ts tests/tanstack-core",
-    "test:tanstack-core:ci": "NODE_OPTIONS='--max-old-space-size=4096' vitest run --config vitest.tanstack.config.ts --pool=forks --maxWorkers=1 tests/tanstack-core --exclude tests/tanstack-core/new-process-route-tree.test.ts",
+    "test:tanstack-core:ci": "NODE_OPTIONS='--max-old-space-size=4096' vitest run --config vitest.tanstack.config.ts --pool=forks --maxWorkers=1 tests/tanstack-core",
     "test:tanstack-history": "vitest run --config vitest.tanstack.config.ts tests/tanstack-history",
     "bench": "vitest bench --run benches/hotpath.bench.ts benches/history.bench.ts benches/navigation.bench.ts benches/ssr-rps.bench.ts benches/tanstack/search-params.bench.ts benches/tanstack/ssr-match-id.bench.ts",
     "bench:all": "vitest bench --run benches",

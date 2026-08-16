@@ -6,7 +6,32 @@ import {
   rememberHotMatch,
   setFindRouteMatchLookup,
 } from './find-route-match'
-import { evictOldest } from './utils'
+import {
+  parseSegment,
+  SEGMENT_TYPE_OPTIONAL_PARAM,
+  SEGMENT_TYPE_PARAM,
+  SEGMENT_TYPE_PATHNAME,
+  SEGMENT_TYPE_WILDCARD,
+} from './parse-segment'
+import {
+  buildMasksTree,
+  buildSegmentTree,
+  findCachedSegmentMatch,
+  findFlatSegmentMatch,
+  findSingleSegmentMatch,
+} from './segment-tree'
+import { createLRUCache, evictOldest } from './utils'
+import type { ParsedSegment, SegmentKind } from './parse-segment'
+import type { SegmentMatch, SegmentTreeNode } from './segment-tree'
+
+export {
+  parseSegment,
+  SEGMENT_TYPE_OPTIONAL_PARAM,
+  SEGMENT_TYPE_PARAM,
+  SEGMENT_TYPE_PATHNAME,
+  SEGMENT_TYPE_WILDCARD,
+}
+export type { SegmentKind }
 
 function createMatchCache<V>(max = 1000) {
   const store: Record<string, V> = Object.create(null)
@@ -30,119 +55,6 @@ function createMatchCache<V>(max = 1000) {
       size = 0
     },
   }
-}
-
-export const SEGMENT_TYPE_PATHNAME = 0
-export const SEGMENT_TYPE_PARAM = 1
-export const SEGMENT_TYPE_WILDCARD = 2
-export const SEGMENT_TYPE_OPTIONAL_PARAM = 3
-
-export type SegmentKind =
-  | typeof SEGMENT_TYPE_PATHNAME
-  | typeof SEGMENT_TYPE_PARAM
-  | typeof SEGMENT_TYPE_WILDCARD
-  | typeof SEGMENT_TYPE_OPTIONAL_PARAM
-
-type ParsedSegment = Uint16Array & {
-  0: SegmentKind
-  1: number
-  2: number
-  3: number
-  4: number
-  5: number
-}
-
-export function parseSegment(
-  path: string,
-  start: number,
-  output: Uint16Array = new Uint16Array(6),
-): ParsedSegment {
-  const next = path.indexOf('/', start)
-  const end = next === -1 ? path.length : next
-  const part = path.substring(start, end)
-
-  if (!part || part.indexOf('$') === -1) {
-    output[0] = SEGMENT_TYPE_PATHNAME
-    output[1] = start
-    output[2] = start
-    output[3] = end
-    output[4] = end
-    output[5] = end
-    return output as ParsedSegment
-  }
-
-  if (part === '$') {
-    const total = path.length
-    output[0] = SEGMENT_TYPE_WILDCARD
-    output[1] = start
-    output[2] = start
-    output[3] = total
-    output[4] = total
-    output[5] = total
-    return output as ParsedSegment
-  }
-
-  if (part.charCodeAt(0) === 36) {
-    output[0] = SEGMENT_TYPE_PARAM
-    output[1] = start
-    output[2] = start + 1
-    output[3] = end
-    output[4] = end
-    output[5] = end
-    return output as ParsedSegment
-  }
-
-  const openBrace = part.indexOf('{')
-  let closeBrace = -1
-  if (
-    openBrace !== -1 &&
-    openBrace + 1 < part.length &&
-    (closeBrace = part.indexOf('}', openBrace)) !== -1
-  ) {
-    const firstChar = part.charCodeAt(openBrace + 1)
-    if (firstChar === 45) {
-      if (openBrace + 2 < part.length && part.charCodeAt(openBrace + 2) === 36) {
-        const paramStart = openBrace + 3
-        const paramEnd = closeBrace
-        if (paramStart < paramEnd) {
-          output[0] = SEGMENT_TYPE_OPTIONAL_PARAM
-          output[1] = start + openBrace
-          output[2] = start + paramStart
-          output[3] = start + paramEnd
-          output[4] = start + closeBrace + 1
-          output[5] = end
-          return output as ParsedSegment
-        }
-      }
-    } else if (firstChar === 36) {
-      const dollarPos = openBrace + 1
-      const afterDollar = openBrace + 2
-      if (afterDollar === closeBrace) {
-        output[0] = SEGMENT_TYPE_WILDCARD
-        output[1] = start + openBrace
-        output[2] = start + dollarPos
-        output[3] = start + afterDollar
-        output[4] = start + closeBrace + 1
-        output[5] = path.length
-        return output as ParsedSegment
-      }
-      output[0] = SEGMENT_TYPE_PARAM
-      output[1] = start + openBrace
-      output[2] = start + afterDollar
-      output[3] = start + closeBrace
-      output[4] = start + closeBrace + 1
-      output[5] = end
-      return output as ParsedSegment
-    }
-  }
-
-  output[0] = SEGMENT_TYPE_PATHNAME
-  output[1] = start
-  output[2] = start
-  output[3] = end
-  output[4] = end
-  output[5] = end
-  return output as ParsedSegment
 }
 
 export type AnyRouteLike = {
@@ -355,23 +267,18 @@ function lookupStaticExact(
   return table[pathname.toLowerCase()]
 }
 
-export type MaskTreeNode = {
-  static: Record<string, MaskTreeNode>
-  staticInsensitive: Record<string, MaskTreeNode>
-  dynamic: MaskTreeNode[]
-  optional: MaskTreeNode[]
-  wildcard: MaskTreeNode[]
-  route?: { from: string; [key: string]: any }
-}
-
 export type ProcessedTree = {
   root: SegmentNode
   routesById: Record<string, AnyRouteLike>
   routesByPath: Record<string, AnyRouteLike>
   flatRoutes: AnyRouteLike[]
   matchCache: ReturnType<typeof createMatchCache<RouteMatchResult[] | null>>
+  segmentTree: SegmentTreeNode
+  singleCache: ReturnType<typeof createLRUCache<string, SegmentTreeNode>>
+  segmentMatchCache: ReturnType<typeof createLRUCache<string, SegmentMatch | null>>
+  flatCache?: ReturnType<typeof createLRUCache<string, SegmentMatch | null>> | null
   masks?: Array<{ from: string; [key: string]: any }>
-  masksTree?: MaskTreeNode | null
+  masksTree?: SegmentTreeNode | null
   /**
    * Precomputed exact matches for fully-static paths (find-my-way: never enter
    * the parametric walker when the path is static).
@@ -564,6 +471,10 @@ export function processRouteTree<T extends AnyRouteLike>(
     routesByPath,
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
+    segmentTree: buildSegmentTree(routeTree, caseSensitive),
+    singleCache: createLRUCache<string, SegmentTreeNode>(1000),
+    segmentMatchCache: createLRUCache<string, SegmentMatch | null>(1000),
+    flatCache: null,
     hasDynamic: nodeHasDynamic(root),
     matchedRoutesCache: Object.create(null),
     matchedTemplateCache: Object.create(null),
@@ -767,7 +678,33 @@ export function findRouteMatchFromTree(
   if (!caseSensitive && tree.lastPath === pathname) {
     return rememberHot(tree, pathname, tree.lastMatch!)
   }
-  return findRouteMatchOrdered(tree, pathname, caseSensitive, false)
+  return rememberHot(tree, pathname, matchesFromSegment(matchFromSegmentTree(tree, pathname)))
+}
+
+function matchesFromSegment(result: SegmentMatch | null): RouteMatchResult[] | null {
+  if (!result) return null
+  const branch = result.branch?.length ? result.branch : buildRouteBranch(result.route)
+  const matches: RouteMatchResult[] = new Array(branch.length)
+  for (let i = 0; i < branch.length; i++) {
+    matches[i] = {
+      route: branch[i]!,
+      params: result.rawParams,
+      rawParams: result.rawParams,
+    }
+  }
+  return matches
+}
+
+function matchFromSegmentTree(
+  tree: ProcessedTree,
+  pathname: string,
+  fuzzy = false,
+): SegmentMatch | null {
+  const result = findCachedSegmentMatch(pathname, tree.segmentTree, fuzzy, tree.segmentMatchCache)
+  if (!result) return null
+  if (!result.branch) result.branch = buildRouteBranch(result.route)
+  result.params = result.rawParams
+  return result
 }
 
 function findRouteMatchCompat(
@@ -776,16 +713,11 @@ function findRouteMatchCompat(
   caseSensitiveOrFuzzy: boolean | undefined,
 ) {
   if (typeof treeOrPathname === 'string') {
-    const tree = pathnameOrTree as ProcessedTree
-    const matches = findRouteMatchOrdered(tree, treeOrPathname, false, caseSensitiveOrFuzzy)
-    if (!matches) return null
-    const last = matches[matches.length - 1]!
-    return {
-      route: last.route,
-      rawParams: last.rawParams,
-      params: last.params,
-      branch: matches.map((item) => item.route),
-    }
+    return matchFromSegmentTree(
+      pathnameOrTree as ProcessedTree,
+      treeOrPathname,
+      !!caseSensitiveOrFuzzy,
+    )
   }
   return findRouteMatchOrdered(treeOrPathname, '', caseSensitiveOrFuzzy, false)
 }
@@ -1200,14 +1132,6 @@ function findRouteMatchDynamic(
   return null
 }
 
-type PatternPart = {
-  kind: number
-  raw: string
-  name: string
-  prefix: string
-  suffix: string
-}
-
 function extractPrefixed(value: string, prefix: string, suffix: string): string | null {
   if (prefix && !value.startsWith(prefix)) return null
   if (suffix && !value.endsWith(suffix)) return null
@@ -1215,106 +1139,6 @@ function extractPrefixed(value: string, prefix: string, suffix: string): string 
   if (prefix) inner = inner.slice(prefix.length)
   if (suffix) inner = inner.slice(0, Math.max(0, inner.length - suffix.length))
   return inner
-}
-
-function withParams(
-  params: Record<string, string>,
-  extra?: Record<string, string>,
-): Record<string, string> {
-  return Object.assign(Object.create(null), params, extra)
-}
-
-function matchPatternParts(
-  parts: PatternPart[],
-  pi: number,
-  pathSegs: string[],
-  si: number,
-  params: Record<string, string>,
-  caseSensitive: boolean,
-  fuzzy: boolean,
-): Record<string, string> | null {
-  const norm = (s: string) => (caseSensitive ? s : s.toLowerCase())
-
-  if (pi >= parts.length) {
-    if (si === pathSegs.length) return withParams(params)
-    if (fuzzy) {
-      const leftover = pathSegs.slice(si)
-      const splat = leftover.length === 1 && leftover[0] === '' ? '/' : leftover.join('/')
-      return withParams(params, { '**': splat })
-    }
-    return null
-  }
-
-  const part = parts[pi]!
-
-  if (part.kind === SEGMENT_TYPE_WILDCARD) {
-    const rest = pathSegs.slice(si)
-    if (rest.length === 0) {
-      if (part.prefix || part.suffix) return null
-      const next = withParams(params, { _splat: '', '*': '' })
-      return matchPatternParts(parts, pi + 1, pathSegs, si, next, caseSensitive, fuzzy)
-    }
-    const first = rest[0]!
-    const lastSeg = rest[rest.length - 1]!
-    if (part.prefix && !first.startsWith(part.prefix)) return null
-    if (part.suffix && !lastSeg.endsWith(part.suffix)) return null
-    const stripped = rest.slice()
-    if (part.prefix) stripped[0] = first.slice(part.prefix.length)
-    if (part.suffix) {
-      const idx = stripped.length - 1
-      stripped[idx] = stripped[idx]!.slice(0, stripped[idx]!.length - part.suffix.length)
-    }
-    const splat = stripped.join('/')
-    const next = withParams(params, { _splat: splat, '*': splat })
-    return matchPatternParts(parts, pi + 1, pathSegs, pathSegs.length, next, caseSensitive, fuzzy)
-  }
-
-  if (part.kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-    if (si < pathSegs.length) {
-      const decoded = decodeSeg(pathSegs[si]!)
-      const inner = extractPrefixed(decoded, part.prefix, part.suffix)
-      if (inner !== null) {
-        const consumed = matchPatternParts(
-          parts,
-          pi + 1,
-          pathSegs,
-          si + 1,
-          inner ? withParams(params, { [part.name]: inner }) : withParams(params),
-          caseSensitive,
-          fuzzy,
-        )
-        if (consumed) return consumed
-      }
-    }
-    return matchPatternParts(parts, pi + 1, pathSegs, si, params, caseSensitive, fuzzy)
-  }
-
-  if (si >= pathSegs.length) {
-    return null
-  }
-
-  const value = pathSegs[si]!
-  if (part.kind === SEGMENT_TYPE_PATHNAME) {
-    if (norm(value) !== norm(part.raw)) return null
-    return matchPatternParts(parts, pi + 1, pathSegs, si + 1, params, caseSensitive, fuzzy)
-  }
-
-  if (part.kind === SEGMENT_TYPE_PARAM) {
-    const decoded = decodeSeg(value)
-    const inner = extractPrefixed(decoded, part.prefix, part.suffix)
-    if (inner === null) return null
-    return matchPatternParts(
-      parts,
-      pi + 1,
-      pathSegs,
-      si + 1,
-      withParams(params, { [part.name]: inner }),
-      caseSensitive,
-      fuzzy,
-    )
-  }
-
-  return null
 }
 
 /**
@@ -1326,52 +1150,21 @@ export function findSingleMatch(
   caseSensitive = false,
   fuzzy = false,
   pathname?: string,
-  _tree?: ProcessedTree,
+  tree?: ProcessedTree,
 ): { rawParams: Record<string, string>; params: Record<string, string> } | null {
   if (typeof pattern !== 'string' && pattern && typeof pattern === 'object') {
     return null
   }
-  const path = pathname ?? ''
-  const patternTrail = pattern.length > 1 && pattern.charCodeAt(pattern.length - 1) === 47
-  const pathTrail = path.length > 1 && path.charCodeAt(path.length - 1) === 47
-  const pathSegs = splitSegments(path === '/' ? '' : path, pathTrail && !patternTrail)
-  const fullPattern = pattern.charCodeAt(0) === 47 ? pattern.slice(1) : pattern
-
-  let cursor = 0
-  let segment: ParsedSegment | undefined
-  const parts: PatternPart[] = []
-  while (cursor < fullPattern.length) {
-    const start = cursor
-    segment = parseSegment(fullPattern, start, segment)
-    const end = segment[5]
-    cursor = end + 1
-    if (start === end) continue
-    parts.push({
-      kind: segment[0],
-      raw: fullPattern.substring(start, end),
-      name: fullPattern.substring(segment[2], segment[3]),
-      prefix: fullPattern.substring(start, segment[1]),
-      suffix: fullPattern.substring(segment[4], end),
-    })
-  }
-
-  const params = matchPatternParts(parts, 0, pathSegs, 0, Object.create(null), caseSensitive, fuzzy)
-  if (!params) return null
-  const rawParams = Object.assign(Object.create(null), params)
-  return { rawParams, params: rawParams }
-}
-
-function decodeSeg(value: string) {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
-function maskScore(from: string, params: Record<string, string>): number {
-  const splat = params._splat ?? params['*'] ?? params['**'] ?? ''
-  return from.length * 1000 - String(splat).length
+  if (!tree) return null
+  const matched = findSingleSegmentMatch(
+    pattern,
+    caseSensitive,
+    fuzzy,
+    pathname ?? '',
+    tree.singleCache,
+  )
+  if (!matched) return null
+  return { rawParams: matched.rawParams, params: matched.rawParams }
 }
 
 export function findFlatMatch(
@@ -1381,23 +1174,10 @@ export function findFlatMatch(
   if (typeof treeOrPath === 'string') {
     const tree = fromOrTree as ProcessedTree | undefined
     if (!tree) return undefined
-    const masks = tree.masks
-    if (masks?.length) {
-      let best: { route: any; rawParams: Record<string, string> } | null = null
-      let bestScore = Number.NEGATIVE_INFINITY
-      for (let i = 0; i < masks.length; i++) {
-        const mask = masks[i]!
-        const matched = findSingleMatch(mask.from, false, false, treeOrPath, tree)
-        if (!matched) continue
-        const score = maskScore(mask.from, matched.rawParams)
-        if (score > bestScore) {
-          bestScore = score
-          best = { route: mask, rawParams: matched.rawParams }
-        }
-      }
-      return best
+    if (tree.masksTree && tree.flatCache) {
+      return findFlatSegmentMatch(treeOrPath, tree.masksTree, tree.flatCache)
     }
-    const matches = findRouteMatchOrdered(tree, treeOrPath, false)
+    const matches = matchesFromSegment(matchFromSegmentTree(tree, treeOrPath))
     if (!matches?.length) return null
     const last = matches[matches.length - 1]!
     return { route: last.route, rawParams: last.rawParams }
@@ -1418,71 +1198,14 @@ export function buildRouteBranch(route: AnyRouteLike): AnyRouteLike[] {
   return branch
 }
 
-function createMaskNode(): MaskTreeNode {
-  return {
-    static: Object.create(null),
-    staticInsensitive: Object.create(null),
-    dynamic: [],
-    optional: [],
-    wildcard: [],
-  }
-}
-
-function insertMaskRoute(
-  root: MaskTreeNode,
-  from: string,
-  mask: { from: string; [key: string]: any },
-) {
-  const trimmed = from.charCodeAt(0) === 47 ? from.slice(1) : from
-  let cursor = 0
-  let node = root
-  let segment: ParsedSegment | undefined
-  while (cursor < trimmed.length) {
-    const start = cursor
-    segment = parseSegment(trimmed, start, segment)
-    const end = segment[5]
-    cursor = end + 1
-    if (start === end) continue
-    const kind = segment[0]
-    const raw = trimmed.substring(start, end)
-    if (kind === SEGMENT_TYPE_PATHNAME) {
-      const key = raw.toLowerCase()
-      let child = node.staticInsensitive[key]
-      if (!child) {
-        child = createMaskNode()
-        node.staticInsensitive[key] = child
-        node.static[raw] = child
-      }
-      node = child
-    } else if (kind === SEGMENT_TYPE_PARAM) {
-      const child = createMaskNode()
-      node.dynamic.push(child)
-      node = child
-    } else if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      const child = createMaskNode()
-      node.optional.push(child)
-      node = child
-    } else if (kind === SEGMENT_TYPE_WILDCARD) {
-      const child = createMaskNode()
-      node.wildcard.push(child)
-      node = child
-    }
-  }
-  node.route = mask
-}
-
 export function processRouteMasks(
   routeList: Array<{ from: string; [key: string]: any }> = [],
   processedTree?: ProcessedTree,
 ) {
   if (processedTree) {
     processedTree.masks = routeList
-    const masksTree = createMaskNode()
-    for (let i = 0; i < routeList.length; i++) {
-      const mask = routeList[i]!
-      insertMaskRoute(masksTree, mask.from, mask)
-    }
-    processedTree.masksTree = masksTree
+    processedTree.masksTree = buildMasksTree(routeList)
+    processedTree.flatCache = createLRUCache<string, SegmentMatch | null>(1000)
   }
   return routeList
 }
