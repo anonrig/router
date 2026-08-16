@@ -20,7 +20,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 
 |                            |                                |                          |
 | :------------------------: | :----------------------------: | :----------------------: |
-|         **15.10×**         |           **0.10×**            |       **465,014**        |
+|         **15.48×**         |           **0.02×**            |       **459,453**        |
 | faster typed `to`/`params` | the heap on that same navigate | cold `router.load` / sec |
 
 <sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
@@ -110,9 +110,9 @@ On a 4-core Intel Xeon, Linux, Node 24, in memory, no HTTP server:
 
 |                                 |      @anonrig | TanStack |            |
 | ------------------------------- | ------------: | -------: | ---------: |
-| Warm `navigate({ to, params })` | **1,129,787** |   74,806 | **15.10×** |
-| Warm `navigate` changing params |   **677,960** |   62,637 | **10.82×** |
-| SSR cold `router.load`          |   **465,014** |   57,693 |  **8.06×** |
+| Warm `navigate({ to, params })` | **1,094,260** |   70,670 | **15.48×** |
+| Warm `navigate` changing params |   **646,803** |   58,535 | **11.05×** |
+| SSR cold `router.load`          |   **459,453** |   70,918 |  **6.48×** |
 
 </div>
 
@@ -122,9 +122,9 @@ Same loops, allocated `heapUsed` per operation after warmup (lower is better):
 
 |                                 |  @anonrig | TanStack |           |
 | ------------------------------- | --------: | -------: | --------: |
-| Warm `navigate({ to, params })` | **433 B** |   4.3 kB | **0.10×** |
-| Warm `navigate` changing params | **284 B** |   5.0 kB | **0.06×** |
-| SSR cold `router.load`          | **217 B** |   4.3 kB | **0.05×** |
+| Warm `navigate({ to, params })` |  **73 B** |   4.1 kB | **0.02×** |
+| Warm `navigate` changing params | **323 B** |   2.1 kB | **0.15×** |
+| SSR cold `router.load`          | **675 B** |   3.3 kB | **0.20×** |
 
 </div>
 
@@ -144,43 +144,43 @@ pnpm bench:compare
 
 | Operation                        |       @anonrig |  TanStack | vs TanStack |
 | -------------------------------- | -------------: | --------: | ----------: |
-| Query-string encode              | **24,410,863** | 2,674,248 |   **9.13×** |
-| Query-string decode              |  **3,310,725** | 1,407,113 |   **2.35×** |
-| `defaultStringifySearch` (×1000) |  **1,351,950** |     2,819 | **479.63×** |
-| `parseHref`                      | **13,525,431** | 3,632,443 |   **3.72×** |
-| `cleanPath`                      | **21,871,309** | 7,324,187 |   **2.99×** |
-| `resolvePath`                    | **21,940,185** | 4,095,691 |   **5.36×** |
-| `interpolatePath`                |  **6,016,632** | 2,240,909 |   **2.68×** |
-| Route match (large tree)         | **14,265,083** | 5,567,340 |   **2.56×** |
-| Encode 100 typical SSR match IDs |  **1,689,534** |    29,211 |  **57.84×** |
-| History `push`                   |  **2,965,946** | 1,034,266 |   **2.87×** |
-| Warm `navigate({ href })`        |  **1,361,799** |    49,610 |  **27.45×** |
-| Warm `navigate({ to, params })`  |  **1,129,787** |    74,806 |  **15.10×** |
-| Warm `navigate` changing params  |    **677,960** |    62,637 |  **10.82×** |
-| Invalidate + reload              |    **640,067** |    97,974 |   **6.53×** |
-| SSR cold `router.load` req/s     |    **465,014** |    57,693 |   **8.06×** |
-| `createRequestHandler` req/s     |     **43,606** |    16,102 |   **2.71×** |
+| Query-string encode              | **24,366,870** | 2,671,482 |   **9.12×** |
+| Query-string decode              |  **3,239,150** | 1,392,435 |   **2.33×** |
+| `defaultStringifySearch` (×1000) |  **1,350,401** |     2,861 | **471.98×** |
+| `parseHref`                      | **13,268,865** | 3,617,030 |   **3.67×** |
+| `cleanPath`                      | **22,067,378** | 7,402,833 |   **2.98×** |
+| `resolvePath`                    | **21,991,248** | 4,138,600 |   **5.31×** |
+| `interpolatePath`                |  **6,453,424** | 2,230,480 |   **2.89×** |
+| Route match (large tree)         | **14,699,320** | 5,574,049 |   **2.64×** |
+| Encode 100 typical SSR match IDs |  **1,932,802** |    29,644 |  **65.20×** |
+| History `push`                   |  **3,099,583** | 1,015,897 |   **3.05×** |
+| Warm `navigate({ href })`        |  **1,322,308** |    47,206 |  **28.01×** |
+| Warm `navigate({ to, params })`  |  **1,094,260** |    70,670 |  **15.48×** |
+| Warm `navigate` changing params  |    **646,803** |    58,535 |  **11.05×** |
+| Invalidate + reload              |    **643,116** |    95,843 |   **6.71×** |
+| SSR cold `router.load` req/s     |    **459,453** |    70,918 |   **6.48×** |
+| `createRequestHandler` req/s     |     **40,444** |    15,114 |   **2.68×** |
 
 Allocated heap per operation after warmup. Lower is better. `0.00×` means the interned path allocated too little to show at two decimals.
 
 | Operation                        |    @anonrig | TanStack | vs TanStack |
 | -------------------------------- | ----------: | -------: | ----------: |
-| Query-string encode              |   **3.6 B** |     87 B |   **0.04×** |
-| Query-string decode              |    **32 B** |    120 B |   **0.27×** |
-| `defaultStringifySearch` (×1000) |   **3.8 B** | 101.3 kB |   **0.00×** |
-| `parseHref`                      |    **13 B** |     40 B |   **0.33×** |
-| `cleanPath`                      |   **4.1 B** |     19 B |   **0.21×** |
-| `resolvePath`                    |   **7.4 B** |     71 B |   **0.10×** |
-| `interpolatePath`                |    **23 B** |     92 B |   **0.25×** |
-| Route match (large tree)         |   **6.2 B** |     19 B |   **0.32×** |
-| Encode 100 typical SSR match IDs |   **3.9 B** |   8.3 kB |   **0.00×** |
-| History `push`                   |   **112 B** |    170 B |   **0.66×** |
-| Warm `navigate({ href })`        |    **92 B** |   5.9 kB |   **0.02×** |
-| Warm `navigate({ to, params })`  |   **433 B** |   4.3 kB |   **0.10×** |
-| Warm `navigate` changing params  |   **284 B** |   5.0 kB |   **0.06×** |
-| Invalidate + reload              |   **194 B** |   1.2 kB |   **0.15×** |
-| SSR cold `router.load` req/s     |   **217 B** |   4.3 kB |   **0.05×** |
-| `createRequestHandler` req/s     | **12.2 kB** |  24.1 kB |   **0.51×** |
+| Query-string encode              |   **3.9 B** |    141 B |   **0.03×** |
+| Query-string decode              |    **25 B** |    102 B |   **0.25×** |
+| `defaultStringifySearch` (×1000) |   **4.1 B** |  84.1 kB |   **0.00×** |
+| `parseHref`                      |    **13 B** |     51 B |   **0.26×** |
+| `cleanPath`                      |   **3.6 B** |     18 B |   **0.20×** |
+| `resolvePath`                    |    **11 B** |     80 B |   **0.14×** |
+| `interpolatePath`                |    **41 B** |    132 B |   **0.31×** |
+| Route match (large tree)         |   **3.9 B** |     24 B |   **0.16×** |
+| Encode 100 typical SSR match IDs |   **4.7 B** |  11.9 kB |   **0.00×** |
+| History `push`                   |   **116 B** |    166 B |   **0.70×** |
+| Warm `navigate({ href })`        |   **179 B** |   6.1 kB |   **0.03×** |
+| Warm `navigate({ to, params })`  |    **73 B** |   4.1 kB |   **0.02×** |
+| Warm `navigate` changing params  |   **323 B** |   2.1 kB |   **0.15×** |
+| Invalidate + reload              |   **554 B** |   3.1 kB |   **0.18×** |
+| SSR cold `router.load` req/s     |   **675 B** |   3.3 kB |   **0.20×** |
+| `createRequestHandler` req/s     | **11.4 kB** |  21.8 kB |   **0.53×** |
 
 Every throughput row is at least 2× published TanStack Router. Every heap row is below TanStack. Typed `navigate({ to, params })` is the Link-shaped path: an absolute `to` with fully specified simple params interpolates and uses the same warm load lane as `href`. Search middlewares, blockers, preloads, masks, and route lifecycle hooks still take the full load coordinator. Changing params forces a new match id and reruns the post loader. Invalidate + reload marks matches invalid and reruns loaders on both sides. `navigate({ href })` is a resolved-href fast path and is listed for completeness, not as the headline. A settled `router.load()` on an already-valid router is not published: this implementation can skip that call, and TanStack's default-stale semantics rerun loaders. Query-string encode/decode intern the last object or string. `cleanPath` / `resolvePath` / `interpolatePath` keep small result caches and compile simple `$param` templates. Large-tree match walks many static leaves through `staticExact` instead of one repeated LRU key. SSR match IDs replace slashes in one pass and intern the result. Cold `createRouter().load()` reuses processed trees, empty-search match templates, a prototype `createMemoryHistory`, and a synchronous fast SSR lane when loaders are sync. `createRequestHandler` dehydrates synchronously.
 
@@ -192,10 +192,10 @@ Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip
 
 | Package         | @anonrig |    gzip |     TanStack |        gzip |
 | --------------- | -------: | ------: | -----------: | ----------: |
-| `@react-router` | 128.3 kB | 36.1 kB | **104.4 kB** | **29.5 kB** |
-| `@router-core`  | 108.4 kB | 30.3 kB |  **74.7 kB** | **21.6 kB** |
+| `@react-router` | 109.0 kB | 30.6 kB | **104.4 kB** | **29.5 kB** |
+| `@router-core`  |  89.2 kB | 24.9 kB |  **74.7 kB** | **21.6 kB** |
 
-TanStack is still smaller on both client graphs (1.22× gzip for `@react-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The remaining extra is the warm-path / matcher interners that keep every `pnpm bench:compare` row at least 2×. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs (1.04× gzip for `@react-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. The remaining extra is the warm-path / matcher interners that keep every `pnpm bench:compare` row at least 2×. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 
