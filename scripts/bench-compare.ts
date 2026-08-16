@@ -166,7 +166,13 @@ const typicalIds = Array.from(
 )
 const oursProcessed = buildOursLargeTree(8, 3)
 const tsProcessed = buildTsLargeTree(8, 3)
-const needle = '/s0-7/s0-7-1-7/s0-7-1-7-2-7'
+const needles: string[] = []
+for (let a = 0; a < 8; a++) {
+  for (let b = 0; b < 8; b++) {
+    needles.push(`/s0-${a}/s0-${a}-1-${b}/s0-${a}-1-${b}-2-7`)
+  }
+}
+let matchCursor = 0
 const oursRouteTree = createOursAppTree()
 const tsRouteTree = createTsAppTree()
 const paths = ['/', '/posts', '/posts/1', '/posts/2', '/about']
@@ -272,10 +278,10 @@ await addSync(
 await addSync(
   'Route match (large tree)',
   () => {
-    oursFindRouteMatch(oursProcessed, needle)
+    oursFindRouteMatch(oursProcessed, needles[matchCursor++ & 63]!)
   },
   () => {
-    tsFindRouteMatch(needle, tsProcessed.processedTree)
+    tsFindRouteMatch(needles[matchCursor++ & 63]!, tsProcessed.processedTree)
   },
 )
 await addSync(

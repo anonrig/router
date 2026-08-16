@@ -733,7 +733,19 @@ export function getOrigin(request: Request) {
 // Another anomaly is that in Node new URLSearchParams and new URL also decode/encode characters differently.
 // new URLSearchParams() encodes "|" while new URL() does not, and in this instance
 // chromium treats search params differently than paths, i.e. "|" is not encoded in search params.
+const normalizedUrlCache = new Map<string, { url: URL; handledProtocolRelativeURL: boolean }>()
+const NORMALIZED_URL_CACHE_MAX = 16
+
 export function getNormalizedURL(url: string | URL, base?: string | URL) {
+  const cacheKey =
+    typeof url === 'string' && (base === undefined || typeof base === 'string')
+      ? (base ?? '') + '\0' + url
+      : undefined
+  if (cacheKey) {
+    const cached = normalizedUrlCache.get(cacheKey)
+    if (cached) return cached
+  }
+
   // ensure backslashes are encoded correctly in the URL
   if (typeof url === 'string') url = url.replace('\\', '%5C')
 
@@ -743,8 +755,16 @@ export function getNormalizedURL(url: string | URL, base?: string | URL) {
   const normalizedHref =
     decodedPathname + (searchParams.size > 0 ? '?' : '') + searchParams.toString() + rawUrl.hash
 
-  return {
+  const result = {
     url: new URL(normalizedHref, rawUrl.origin),
     handledProtocolRelativeURL,
   }
+  if (cacheKey) {
+    if (normalizedUrlCache.size >= NORMALIZED_URL_CACHE_MAX) {
+      const first = normalizedUrlCache.keys().next().value
+      if (first !== undefined) normalizedUrlCache.delete(first)
+    }
+    normalizedUrlCache.set(cacheKey, result)
+  }
+  return result
 }

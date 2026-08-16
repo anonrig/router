@@ -22,36 +22,39 @@ export function joinPaths(paths: Array<string | undefined>) {
   return cleanPath(out)
 }
 
+const cleanCache = new Map<string, string>()
+const CLEAN_CACHE_MAX = 32
+
 export function cleanPath(path: string) {
-  let slash = false
-  for (let i = 0; i < path.length; i++) {
-    const c = path.charCodeAt(i)
-    if (c === 47) {
-      if (slash) return collapseSlashes(path)
-      slash = true
-    } else {
-      slash = false
-    }
+  const cached = cleanCache.get(path)
+  if (cached !== undefined) return cached
+  const first = path.indexOf('//')
+  const result = first === -1 ? path : collapseSlashes(path, first)
+  if (cleanCache.size >= CLEAN_CACHE_MAX && !cleanCache.has(path)) {
+    const firstKey = cleanCache.keys().next().value
+    if (firstKey !== undefined) cleanCache.delete(firstKey)
   }
-  return path
+  cleanCache.set(path, result)
+  return result
 }
 
-function collapseSlashes(path: string) {
-  let out = ''
-  let slash = false
-  for (let i = 0; i < path.length; i++) {
-    const c = path.charCodeAt(i)
-    if (c === 47) {
-      if (!slash) {
-        out += '/'
-        slash = true
-      }
-    } else {
-      out += path[i]
-      slash = false
+function collapseSlashes(path: string, first: number) {
+  let out = path.slice(0, first + 1)
+  let i = first + 2
+  const len = path.length
+  while (i < len && path.charCodeAt(i) === 47) i++
+  let last = i
+  while (i < len) {
+    if (path.charCodeAt(i) === 47 && i + 1 < len && path.charCodeAt(i + 1) === 47) {
+      out += path.slice(last, i + 1)
+      i += 2
+      while (i < len && path.charCodeAt(i) === 47) i++
+      last = i
+      continue
     }
+    i++
   }
-  return out
+  return out + path.slice(last)
 }
 
 export function trimPathLeft(path: string) {
@@ -96,15 +99,57 @@ interface ResolvePathOptions {
   cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
+const defaultResolveCache = new Map<string, string>()
+const RESOLVE_CACHE_MAX = 64
+
+function rememberResolved(
+  cache: ResolvePathOptions['cache'] | Map<string, string> | undefined,
+  key: string | undefined,
+  result: string,
+) {
+  if (!key || !cache) return result
+  if (cache === defaultResolveCache) {
+    if (cache.size >= RESOLVE_CACHE_MAX && !cache.has(key)) {
+      const first = cache.keys().next().value
+      if (first !== undefined) cache.delete(first)
+    }
+    cache.set(key, result)
+    return result
+  }
+  cache.set(key, result)
+  return result
+}
+
+let lastResolveBase = ''
+let lastResolveTo = ''
+let lastResolveSlash: ResolvePathOptions['trailingSlash'] = 'never'
+let lastResolveResult = ''
+
 export function resolvePath({ base, to, trailingSlash = 'never', cache }: ResolvePathOptions) {
+  if (
+    !cache &&
+    base === lastResolveBase &&
+    to === lastResolveTo &&
+    trailingSlash === lastResolveSlash
+  ) {
+    return lastResolveResult
+  }
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
+  const store = cache ?? defaultResolveCache
 
   let key: string | undefined
-  if (cache) {
-    key = isAbsolute ? to : isBase ? base : base + '\0' + to
-    const cached = cache.get(key)
-    if (cached) return cached
+  key = isAbsolute ? to : isBase ? base : base + '\0' + to
+  if (trailingSlash !== 'never') key += '\0' + trailingSlash
+  const cached = store.get(key)
+  if (cached) {
+    if (!cache) {
+      lastResolveBase = base
+      lastResolveTo = to
+      lastResolveSlash = trailingSlash
+      lastResolveResult = cached
+    }
+    return cached
   }
 
   if (isAbsolute && trailingSlash === 'never' && !hasDotSegment(to)) {
@@ -113,8 +158,7 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
       result.length > 1 && result.charCodeAt(result.length - 1) === 47
         ? result.slice(0, -1)
         : result
-    if (key && cache) cache.set(key, trimmed)
-    return trimmed
+    return finishResolve(store, key, trimmed, base, to, trailingSlash, !cache)
   }
 
   let baseSegments: Array<string>
@@ -152,8 +196,26 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
   }
 
   const result = cleanPath(baseSegments.join('/')) || '/'
-  if (key && cache) cache.set(key, result)
-  return result
+  return finishResolve(store, key, result, base, to, trailingSlash, !cache)
+}
+
+function finishResolve(
+  store: ResolvePathOptions['cache'] | Map<string, string>,
+  key: string | undefined,
+  result: string,
+  base: string,
+  to: string,
+  trailingSlash: ResolvePathOptions['trailingSlash'],
+  rememberLast: boolean,
+) {
+  const stored = rememberResolved(store, key, result)
+  if (rememberLast) {
+    lastResolveBase = base
+    lastResolveTo = to
+    lastResolveSlash = trailingSlash
+    lastResolveResult = stored
+  }
+  return stored
 }
 
 function hasDotSegment(path: string) {
@@ -204,9 +266,69 @@ export type InterPolatePathResult = {
   isMissingParams: boolean
 }
 
+function isUnreservedPathValue(value: string) {
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i)
+    if (
+      (c >= 48 && c <= 57) ||
+      (c >= 65 && c <= 90) ||
+      (c >= 97 && c <= 122) ||
+      c === 45 ||
+      c === 46 ||
+      c === 95 ||
+      c === 126
+    ) {
+      continue
+    }
+    return false
+  }
+  return true
+}
+
 function encodePathParam(value: string, decoder?: InterpolatePathOptions['decoder']) {
+  if (!decoder && isUnreservedPathValue(value)) return value
   const encoded = encodeURIComponent(value)
   return decoder?.(encoded) ?? encoded
+}
+
+type SimplePart = { t: 0; s: string } | { t: 1; k: string }
+const simpleInterpolateCache = new Map<string, SimplePart[] | null>()
+const SIMPLE_INTERPOLATE_CACHE_MAX = 256
+
+function rememberSimpleParts(path: string, parts: SimplePart[] | null) {
+  if (
+    simpleInterpolateCache.size >= SIMPLE_INTERPOLATE_CACHE_MAX &&
+    !simpleInterpolateCache.has(path)
+  ) {
+    const first = simpleInterpolateCache.keys().next().value
+    if (first !== undefined) simpleInterpolateCache.delete(first)
+  }
+  simpleInterpolateCache.set(path, parts)
+  return parts
+}
+
+function compileSimpleParams(path: string): SimplePart[] | null {
+  const cached = simpleInterpolateCache.get(path)
+  if (cached !== undefined) return cached
+  const parts: SimplePart[] = []
+  let i = 0
+  const len = path.length
+  let litStart = 0
+  while (i < len) {
+    if (path.charCodeAt(i) !== 36) {
+      i++
+      continue
+    }
+    let j = i + 1
+    while (j < len && path.charCodeAt(j) !== 47) j++
+    if (j === i + 1) return rememberSimpleParts(path, null)
+    if (i > litStart) parts.push({ t: 0, s: path.slice(litStart, i) })
+    parts.push({ t: 1, k: path.slice(i + 1, j) })
+    i = j
+    litStart = j
+  }
+  if (litStart < len) parts.push({ t: 0, s: path.slice(litStart) })
+  return rememberSimpleParts(path, parts)
 }
 
 function interpolateSimpleParams(
@@ -214,27 +336,20 @@ function interpolateSimpleParams(
   params: InterpolatePathOptions['params'],
   decoder: InterpolatePathOptions['decoder'],
 ): InterPolatePathResult | null {
+  const parts = compileSimpleParams(path)
+  if (!parts) return null
   const usedParams: Record<string, unknown> = Object.create(null)
   let isMissingParams = false
   let out = ''
-  let i = 0
-  const len = path.length
-  while (i < len) {
-    const c = path.charCodeAt(i)
-    if (c === 36) {
-      let j = i + 1
-      while (j < len && path.charCodeAt(j) !== 47) j++
-      if (j === i + 1) return null
-      const key = path.slice(i + 1, j)
-      if (!isMissingParams && !(key in params)) isMissingParams = true
-      usedParams[key] = params[key]
-      const value = encodeParam(key, params, decoder) ?? 'undefined'
-      out += value
-      i = j
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]!
+    if (part.t === 0) {
+      out += part.s
       continue
     }
-    out += path[i]!
-    i++
+    if (!isMissingParams && !(part.k in params)) isMissingParams = true
+    usedParams[part.k] = params[part.k]
+    out += encodeParam(part.k, params, decoder) ?? 'undefined'
   }
   return { interpolatedPath: out || '/', usedParams, isMissingParams }
 }

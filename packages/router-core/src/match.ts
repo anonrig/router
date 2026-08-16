@@ -1,3 +1,12 @@
+import {
+  findRouteMatch,
+  hotMatch,
+  hotPath,
+  hotTree,
+  rememberHotMatch,
+  setFindRouteMatchLookup,
+} from './find-route-match'
+
 function createMatchCache<V>(max = 1000) {
   const map = new Map<string, V>()
   return {
@@ -690,27 +699,30 @@ function applyParamsParse(frame: WalkFrame): boolean {
   return true
 }
 
+export { findRouteMatch }
+
+function rememberHot(tree: ProcessedTree, pathname: string, result: RouteMatchResult[] | null) {
+  tree.lastPath = pathname
+  tree.lastMatch = result
+  return rememberHotMatch(tree, pathname, result)
+}
+
 export function findRouteMatchFromTree(
   tree: ProcessedTree,
   pathname: string,
   caseSensitive = false,
 ): RouteMatchResult[] | null {
-  if (!caseSensitive && tree.lastPath === pathname) return tree.lastMatch!
+  if (tree === hotTree && pathname === hotPath) return hotMatch!
+  if (!caseSensitive && tree.lastPath === pathname)
+    return rememberHot(tree, pathname, tree.lastMatch!)
   return findRouteMatchOrdered(tree, pathname, caseSensitive, false)
 }
 
-export function findRouteMatch(
+function findRouteMatchCompat(
   treeOrPathname: ProcessedTree | string,
-  pathnameOrTree?: string | ProcessedTree,
-  caseSensitiveOrFuzzy = false,
-): any {
-  if (typeof pathnameOrTree === 'string') {
-    return findRouteMatchFromTree(
-      treeOrPathname as ProcessedTree,
-      pathnameOrTree,
-      caseSensitiveOrFuzzy,
-    )
-  }
+  pathnameOrTree: string | ProcessedTree | undefined,
+  caseSensitiveOrFuzzy: boolean | undefined,
+) {
   if (typeof treeOrPathname === 'string') {
     const tree = pathnameOrTree as ProcessedTree
     const matches = findRouteMatchOrdered(tree, treeOrPathname, false, caseSensitiveOrFuzzy)
@@ -726,6 +738,13 @@ export function findRouteMatch(
   return findRouteMatchOrdered(treeOrPathname, '', caseSensitiveOrFuzzy, false)
 }
 
+setFindRouteMatchLookup((treeOrPathname, pathnameOrTree, caseSensitiveOrFuzzy) => {
+  if (typeof pathnameOrTree === 'string') {
+    return findRouteMatchFromTree(treeOrPathname, pathnameOrTree, caseSensitiveOrFuzzy)
+  }
+  return findRouteMatchCompat(treeOrPathname, pathnameOrTree, caseSensitiveOrFuzzy)
+})
+
 function rememberMatch(
   tree: ProcessedTree,
   pathname: string,
@@ -733,10 +752,7 @@ function rememberMatch(
   caseSensitive: boolean,
   fuzzy: boolean,
 ): RouteMatchResult[] | null {
-  if (!fuzzy && !caseSensitive) {
-    tree.lastPath = pathname
-    tree.lastMatch = result
-  }
+  if (!fuzzy && !caseSensitive) rememberHot(tree, pathname, result)
   return result
 }
 

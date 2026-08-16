@@ -1,7 +1,7 @@
 import { createMemoryHistory } from '@anonrig/history'
 import { _getRenderedMatches } from '../load-client'
 import { mergeHeaders } from './headers'
-import { attachRouterServerSsrUtils, getNormalizedURL, getOrigin } from './ssr-server'
+import { attachRouterServerSsrUtils, getNormalizedURL } from './ssr-server'
 import { bindSsrResponseToRequest, disposeSsrResponseDetached } from './handler-callback'
 import type { HandlerCallback } from './handler-callback'
 import type { AnyHeaders } from './headers'
@@ -102,12 +102,14 @@ export function createRequestHandler<TRouter extends AnyRouter>({
     try {
       attachRouterServerSsrUtils({
         router,
-        manifest: await waitForRequest(getRouterManifest?.(), request.signal),
+        manifest: getRouterManifest
+          ? await waitForRequest(getRouterManifest(), request.signal)
+          : undefined,
       })
 
       // normalizing and sanitizing the pathname here for server, so we always deal with the same format during SSR.
       const { url } = getNormalizedURL(request.url, 'http://localhost')
-      const origin = router.options.origin ?? getOrigin(request)
+      const origin = router.options.origin ?? url.origin
       const href = url.href.replace(url.origin, '')
       const current = router.history?.location
       const currentHref = current ? current.pathname + current.search + current.hash : ''

@@ -58,6 +58,7 @@ import {
   decodePath,
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
+  DEFAULT_PROTOCOL_SET,
   encodePathLikeUrl,
   functionalUpdate,
   isDangerousProtocol,
@@ -364,6 +365,8 @@ export function runRouteLifecycle(
 
 export { SearchParamError, PathParamError }
 
+let tempLocationKeySeq = 0
+
 export class RouterCore<
   TRouteTree extends AnyRoute = AnyRoute,
   TTrailingSlashOption extends TrailingSlashOption = 'never',
@@ -383,13 +386,13 @@ export class RouterCore<
   latestLocation!: ParsedLocation
   basepath = '/'
   routeTree!: TRouteTree
-  routesById: Record<string, AnyRoute> = Object.create(null)
-  routesByPath: Record<string, AnyRoute> = Object.create(null)
+  routesById!: Record<string, AnyRoute>
+  routesByPath!: Record<string, AnyRoute>
   processedTree!: ProcessedTree
   resolvePathCache = createLRUCache<string, string>(1000)
   isServer = typeof document === 'undefined'
   pathParamsDecoder?: (encoded: string) => string
-  protocolAllowlist = new Set(DEFAULT_PROTOCOL_ALLOWLIST)
+  protocolAllowlist = DEFAULT_PROTOCOL_SET
   ssr: any = undefined
   serverSsr: any = undefined
   serverSsrLifecycle?: { onServerSsrAttach?: Array<(serverSsr: any) => void> }
@@ -413,7 +416,7 @@ export class RouterCore<
   _pendingLocation?: ParsedLocation
   _commitPromise?: Promise<void> & { resolve: () => void }
   _forcePending = false
-  tempLocationKey: string | undefined = `${Math.round(Math.random() * 10000000)}`
+  tempLocationKey: string | undefined = String(++tempLocationKeySeq)
   _scroll: {
     next: boolean
     hash?: boolean
@@ -553,7 +556,11 @@ export class RouterCore<
     const prevTree = this.routeTree
     this.options = { ...this.options, ...newOptions } as any
     this.isServer = this.options.isServer ?? typeof document === 'undefined'
-    this.protocolAllowlist = new Set(this.options.protocolAllowlist ?? DEFAULT_PROTOCOL_ALLOWLIST)
+    this.protocolAllowlist =
+      this.options.protocolAllowlist &&
+      this.options.protocolAllowlist !== DEFAULT_PROTOCOL_ALLOWLIST
+        ? new Set(this.options.protocolAllowlist)
+        : DEFAULT_PROTOCOL_SET
 
     if (this.options.pathParamsAllowedCharacters) {
       this.pathParamsDecoder = compileDecodeCharMap(this.options.pathParamsAllowedCharacters)

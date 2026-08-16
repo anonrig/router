@@ -311,6 +311,7 @@ export {
   deepEqual,
   createControlledPromise,
   DEFAULT_PROTOCOL_ALLOWLIST,
+  DEFAULT_PROTOCOL_SET,
   escapeHtml,
   isDangerousProtocol,
   buildDevStylesUrl,

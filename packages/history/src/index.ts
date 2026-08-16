@@ -504,40 +504,88 @@ export const createMemoryHistory = /*#__PURE__*/ function createMemoryHistory(
 
 function sanitizePath(path: string): string {
   let dirty = false
+  let lead = 0
   for (let i = 0; i < path.length; i++) {
     const code = path.charCodeAt(i)
     if (code <= 0x1f || code === 0x7f) {
       dirty = true
       break
     }
+    if (lead === i && code === 47) lead++
   }
   let sanitized = path
   if (dirty) {
     sanitized = ''
+    lead = 0
     for (let i = 0; i < path.length; i++) {
       const code = path.charCodeAt(i)
-      if (code > 0x1f && code !== 0x7f) sanitized += path[i]
+      if (code <= 0x1f || code === 0x7f) continue
+      if (lead === sanitized.length && code === 47) lead++
+      sanitized += path[i]
     }
   }
-  if (sanitized.charCodeAt(0) === 47 && sanitized.charCodeAt(1) === 47) {
-    let i = 0
-    while (sanitized.charCodeAt(i) === 47) i++
-    sanitized = '/' + sanitized.slice(i)
-  }
+  if (lead > 1) sanitized = sanitized.slice(lead - 1)
   return sanitized
 }
 
+let lastHref = ''
+let lastSanitizedHref = ''
+let lastPathname = ''
+let lastSearch = ''
+let lastHash = ''
+
 export function parseHref(href: string, state: ParsedHistoryState | undefined): HistoryLocation {
-  const sanitizedHref = sanitizePath(href)
+  if (href === lastHref) {
+    return {
+      href: lastSanitizedHref,
+      pathname: lastPathname,
+      hash: lastHash,
+      search: lastSearch,
+      state: state ?? defaultHistoryState(),
+    }
+  }
+
+  let sanitizedHref = href
   let hashIndex = -1
   let searchIndex = -1
-  for (let i = 0; i < sanitizedHref.length; i++) {
-    const code = sanitizedHref.charCodeAt(i)
-    if (code === 63 && searchIndex === -1) searchIndex = i
-    else if (code === 35) {
-      hashIndex = i
+  let dirty = false
+  let lead = 0
+  const len = href.length
+  for (let i = 0; i < len; i++) {
+    const code = href.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f) {
+      dirty = true
       break
     }
+    if (lead === i && code === 47) lead++
+    if (hashIndex === -1) {
+      if (code === 63 && searchIndex === -1) searchIndex = i
+      else if (code === 35) hashIndex = i
+    }
+  }
+
+  if (dirty) {
+    sanitizedHref = ''
+    lead = 0
+    hashIndex = -1
+    searchIndex = -1
+    for (let i = 0; i < len; i++) {
+      const code = href.charCodeAt(i)
+      if (code <= 0x1f || code === 0x7f) continue
+      if (lead === sanitizedHref.length && code === 47) lead++
+      if (hashIndex === -1) {
+        if (code === 63 && searchIndex === -1) searchIndex = sanitizedHref.length
+        else if (code === 35) hashIndex = sanitizedHref.length
+      }
+      sanitizedHref += href[i]
+    }
+  }
+
+  if (lead > 1) {
+    const drop = lead - 1
+    sanitizedHref = sanitizedHref.slice(drop)
+    if (searchIndex !== -1) searchIndex -= drop
+    if (hashIndex !== -1) hashIndex -= drop
   }
 
   const pathEnd =
@@ -549,14 +597,23 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
         ? searchIndex
         : sanitizedHref.length
 
+  const pathname = sanitizedHref.substring(0, pathEnd)
+  const hash = hashIndex > -1 ? sanitizedHref.substring(hashIndex) : ''
+  const search =
+    searchIndex > -1
+      ? sanitizedHref.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex)
+      : ''
+  lastHref = href
+  lastSanitizedHref = sanitizedHref
+  lastPathname = pathname
+  lastSearch = search
+  lastHash = hash
+
   return {
     href: sanitizedHref,
-    pathname: sanitizedHref.substring(0, pathEnd),
-    hash: hashIndex > -1 ? sanitizedHref.substring(hashIndex) : '',
-    search:
-      searchIndex > -1
-        ? sanitizedHref.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex)
-        : '',
+    pathname,
+    hash,
+    search,
     state: state ?? defaultHistoryState(),
   }
 }

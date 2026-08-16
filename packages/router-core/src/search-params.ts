@@ -1,6 +1,15 @@
 import { decode, encode } from './qss'
 
-const jsonStart = /^(?:\s|["[{\d-]|fa|nu|tr)/
+function looksLikeJson(val: string) {
+  const c = val.charCodeAt(0)
+  if (c === 32 || c === 9 || c === 10 || c === 13) return true
+  if (c === 34 || c === 91 || c === 123 || c === 45) return true
+  if (c >= 48 && c <= 57) return true
+  if (c === 102) return val.charCodeAt(1) === 97
+  if (c === 110) return val.charCodeAt(1) === 117
+  if (c === 116) return val.charCodeAt(1) === 114
+  return false
+}
 
 export const defaultParseSearch = parseSearchWith(JSON.parse)
 export const defaultStringifySearch = stringifySearchWith(JSON.stringify, JSON.parse)
@@ -36,7 +45,7 @@ export function stringifySearchWith(
         // silent
       }
     } else if (parser && typeof val === 'string') {
-      if (isJsonParser && !jsonStart.test(val)) return val
+      if (isJsonParser && !looksLikeJson(val)) return val
       try {
         parser(val)
         return stringify(val)
@@ -47,9 +56,16 @@ export function stringifySearchWith(
     return val
   }
 
+  let lastSearch: Record<string, any> | undefined
+  let lastSearchStr = ''
+
   return (search: Record<string, any>) => {
+    if (search === lastSearch) return lastSearchStr
     const searchStr = encode(search, stringifyValue)
-    return searchStr ? `?${searchStr}` : ''
+    const out = searchStr ? `?${searchStr}` : ''
+    lastSearch = search
+    lastSearchStr = out
+    return out
   }
 }
 

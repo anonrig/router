@@ -533,6 +533,8 @@ export const DEFAULT_PROTOCOL_ALLOWLIST = [
   'tel:',
 ]
 
+export const DEFAULT_PROTOCOL_SET = new Set(DEFAULT_PROTOCOL_ALLOWLIST)
+
 /**
  * Check if a URL string uses a protocol that is not in the allowlist.
  * Returns true for blocked protocols like javascript:, blob:, data:, etc.
