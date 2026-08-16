@@ -13,6 +13,22 @@ export function createRandomKey() {
   return (++keySeq).toString(36)
 }
 
+function parsedLocation(
+  href: string,
+  pathname: string,
+  hash: string,
+  search: string,
+  state: ParsedHistoryState | undefined,
+): HistoryLocation {
+  return {
+    href,
+    pathname,
+    hash,
+    search,
+    state: state ?? defaultHistoryState(),
+  }
+}
+
 export function defaultHistoryState(): ParsedHistoryState {
   const key = createRandomKey()
   return { __TSR_index: 0, key, __TSR_key: key }
@@ -20,26 +36,24 @@ export function defaultHistoryState(): ParsedHistoryState {
 
 export function assignKeyAndIndex(index: number, state: HistoryState | undefined) {
   const key = createRandomKey()
-  if (state == null) {
-    return { key, __TSR_key: key, [STATE_INDEX]: index }
+  const next = { key, __TSR_key: key, [STATE_INDEX]: index } as ParsedHistoryState
+  if (state != null) {
+    for (const k in state) {
+      if (k !== 'key' && k !== '__TSR_key' && k !== STATE_INDEX) {
+        ;(next as any)[k] = (state as any)[k]
+      }
+    }
+    next.key = key
+    next.__TSR_key = key
+    next[STATE_INDEX] = index
   }
-  return {
-    ...state,
-    key,
-    __TSR_key: key,
-    [STATE_INDEX]: index,
-  } as ParsedHistoryState
+  return next
 }
 
 export function parseHref(href: string, state: ParsedHistoryState | undefined): HistoryLocation {
+  if (state == null) state = defaultHistoryState()
   if (href === lastHref) {
-    return {
-      href: lastSanitizedHref,
-      pathname: lastPathname,
-      hash: lastHash,
-      search: lastSearch,
-      state: state ?? defaultHistoryState(),
-    }
+    return parsedLocation(lastSanitizedHref, lastPathname, lastHash, lastSearch, state)
   }
 
   let sanitizedHref = href
@@ -106,11 +120,5 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
   lastSearch = search
   lastHash = hash
 
-  return {
-    href: sanitizedHref,
-    pathname,
-    hash,
-    search,
-    state: state ?? defaultHistoryState(),
-  }
+  return parsedLocation(sanitizedHref, pathname, hash, search, state)
 }

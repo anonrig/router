@@ -9,9 +9,12 @@ export type FindRouteMatchCompatResult = {
 
 export type FindRouteMatchResult = RouteMatchResult[] | FindRouteMatchCompatResult | null
 
+// `hotPath` starts as a value no real pathname can equal, so the tree compare
+// never runs against the empty sentinel (that deopts Maglev compare ICs).
+const HOT_MISS = '\0'
 export let hotTree: ProcessedTree | undefined
-export let hotPath: string | undefined
-export let hotMatch: RouteMatchResult[] | null | undefined
+export let hotPath = HOT_MISS
+export let hotMatch: RouteMatchResult[] | null = null
 
 type Lookup = (
   treeOrPathname: ProcessedTree | string,
@@ -53,6 +56,6 @@ export function findRouteMatch(
   pathnameOrTree?: string | ProcessedTree,
   flag?: boolean,
 ): FindRouteMatchResult {
-  if (treeOrPathname === hotTree && pathnameOrTree === hotPath) return hotMatch!
+  if (pathnameOrTree === hotPath && treeOrPathname === hotTree) return hotMatch!
   return lookup(treeOrPathname, pathnameOrTree, flag)
 }

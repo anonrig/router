@@ -493,6 +493,8 @@ export function processRouteTree<T extends AnyRouteLike>(
     matchedTemplateCache: Object.create(null),
     hasSearchWork,
     optionalNames: optionalNamesThisTree.slice(),
+    lastPath: '',
+    lastMatch: null,
   } as ProcessedTree
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
 
@@ -689,7 +691,7 @@ export function findRouteMatchFromTree(
   caseSensitive = false,
   fuzzy = false,
 ): RouteMatchResult[] | null {
-  if (!fuzzy && tree === hotTree && pathname === hotPath) return hotMatch!
+  if (!fuzzy && pathname === hotPath && tree === hotTree) return hotMatch!
   if (!fuzzy && !caseSensitive && tree.lastPath === pathname) {
     return rememberHot(tree, pathname, tree.lastMatch!)
   }

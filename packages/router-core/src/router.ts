@@ -63,7 +63,6 @@ import {
   encodePathLikeUrl,
   functionalUpdate,
   isDangerousProtocol,
-  isPromise,
   nullReplaceEqualDeep,
   replaceEqualDeep,
 } from './utils'
@@ -1411,7 +1410,7 @@ export class RouterCore<
 
     const id = ++this.loadId
     const loaded = this.runLoad(location, id)
-    if (isPromise(loaded)) {
+    if (loaded instanceof Promise) {
       return loaded.then(
         () => this.finishHrefNav(location),
         (err) => {
@@ -1465,12 +1464,7 @@ export class RouterCore<
     if (!found) return false
 
     for (let i = 0; i < found.length; i++) {
-      const route = found[i]!.route as AnyRoute
-      const options = route.options
-      if ((route.lazyFn && !route._lazy) || options.beforeLoad) return false
-      if (options.onEnter || options.onLeave || options.onStay) return false
-      if (options.head || options.headers || options.scripts) return false
-      if (options.staleTime != null || options.shouldReload) return false
+      if (!routeCanWarmLoad(found[i]!.route as AnyRoute)) return false
     }
     if (this._preloads?.size) return false
     for (const id in this._cache) {
@@ -1613,7 +1607,7 @@ export class RouterCore<
       }
       try {
         const data = opts.loader(loaderContext)
-        if (isPromise(data)) {
+        if (data instanceof Promise) {
           return Promise.resolve(data).then((value) => {
             if (isRedirect(value) || isNotFound(value)) {
               return loadClientRoute(this)
@@ -1622,7 +1616,7 @@ export class RouterCore<
             match.status = 'success'
             match.isFetching = false
             match.context = context
-            this._cache[match.id] = { data: value, updatedAt: 0 }
+            this._cache[match.id] = match
             return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
           })
         }
@@ -1631,7 +1625,7 @@ export class RouterCore<
         match.status = 'success'
         match.isFetching = false
         match.context = context
-        this._cache[match.id] = { data, updatedAt: 0 }
+        this._cache[match.id] = match
         if (match.cause === 'enter') opts.onEnter?.(loaderContext as any)
         else opts.onStay?.(loaderContext as any)
       } catch {
@@ -1952,7 +1946,6 @@ export class RouterCore<
           path: route.fullPath,
           params: rawParams,
           decoder: this.pathParamsDecoder,
-          server: this.isServer,
         })
         interpolatedPath = interpolated.interpolatedPath
         usedParams = interpolated.usedParams
@@ -2475,6 +2468,27 @@ function parseHistoryLocation(
 }
 
 const WARM_MATCH_CACHE_MAX = 64
+
+function routeCanWarmLoad(route: AnyRoute): boolean {
+  if (route.lazyFn && !route._lazy) return false
+  const cached = route._warmLoad
+  if (cached === 1) return true
+  if (cached === 0) return false
+  const options = route.options
+  const ok = !(
+    options.beforeLoad ||
+    options.onEnter ||
+    options.onLeave ||
+    options.onStay ||
+    options.head ||
+    options.headers ||
+    options.scripts ||
+    options.staleTime != null ||
+    options.shouldReload
+  )
+  route._warmLoad = ok ? 1 : 0
+  return ok
+}
 
 function findPrevMatch(matches: RouteMatch[], routeId: string) {
   for (let i = 0; i < matches.length; i++) {

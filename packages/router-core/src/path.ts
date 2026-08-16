@@ -410,6 +410,14 @@ export function interpolatePath({
   params,
   decoder,
 }: InterpolatePathOptions): InterPolatePathResult {
+  return interpolatePathResolved(path, params, decoder)
+}
+
+function interpolatePathResolved(
+  path: InterpolatePathOptions['path'],
+  params: InterpolatePathOptions['params'],
+  decoder: InterpolatePathOptions['decoder'],
+): InterPolatePathResult {
   if (!path || path === '/') {
     return { interpolatedPath: '/', usedParams: Object.create(null), isMissingParams: false }
   }
