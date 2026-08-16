@@ -59,6 +59,21 @@ export function dehydrateMatch(match: AnyRouteMatch): DehydratedMatch {
 }
 
 const INITIAL_SCRIPTS = [getCrossReferenceHeader(SCOPE_ID), minifiedTsrBootStrapScript]
+const dehydrateScriptCache = new Map<string, string[]>()
+const DEHYDRATE_SCRIPT_CACHE_MAX = 32
+
+function dehydrateScriptCacheKey(matches: DehydratedMatch[]): string {
+  let key = ''
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]!
+    if (i) key += '\n'
+    key += match.i + '\0' + match.s
+    if (match.l !== undefined) key += '\0l'
+    if (match.e !== undefined) key += '\0e'
+    if (match.b !== undefined) key += '\0b'
+  }
+  return key
+}
 
 class ScriptBuffer {
   private injectScript: ((script: string) => void) | undefined
@@ -70,12 +85,16 @@ class ScriptBuffer {
 
   constructor(injectScript: (script: string) => void) {
     this.injectScript = injectScript
-    // Copy INITIAL_SCRIPTS to avoid mutating the shared array
-    this._queue = INITIAL_SCRIPTS.slice()
+    this._queue = INITIAL_SCRIPTS
+  }
+
+  private ownQueue() {
+    if (this._queue === INITIAL_SCRIPTS) this._queue = INITIAL_SCRIPTS.slice()
   }
 
   enqueue(script: string) {
     if (this._cleanedUp) return
+    this.ownQueue()
     this._queue.push(script)
     if (this._scriptBarrierLifted) {
       this.scheduleInjectBufferedScripts()
@@ -127,6 +146,7 @@ class ScriptBuffer {
 
   takeScripts(count: number) {
     if (count <= 0) return undefined
+    this.ownQueue()
     const bufferedScripts = this._queue.splice(0, count)
     if (bufferedScripts.length === 0) {
       return undefined
@@ -566,6 +586,20 @@ export function attachRouterServerSsrUtils({
           signalSerializationComplete()
         }
 
+        const canCache =
+          !manifestToDehydrate &&
+          !dehydratedData &&
+          !serializationAdapters &&
+          !router.options.dehydrate
+        const cacheKey = canCache ? dehydrateScriptCacheKey(matches) : ''
+        const cachedScripts = cacheKey ? dehydrateScriptCache.get(cacheKey) : undefined
+        if (cachedScripts) {
+          for (let i = 0; i < cachedScripts.length; i++) scriptBuffer.enqueue(cachedScripts[i]!)
+          finishScriptSerialization()
+          return
+        }
+
+        const recordedScripts = cacheKey ? ([] as string[]) : undefined
         crossSerializeStream(dehydratedRouter, {
           refs: new Map(),
           plugins,
@@ -574,6 +608,7 @@ export function attachRouterServerSsrUtils({
             if (trackPlugins.didRun) {
               serialized = P_PREFIX + serialized + P_SUFFIX
             }
+            recordedScripts?.push(serialized)
             scriptBuffer.enqueue(serialized)
           },
           onError: (err: unknown) => {
@@ -585,6 +620,16 @@ export function attachRouterServerSsrUtils({
           },
           scopeId: SCOPE_ID,
           onDone: () => {
+            if (cacheKey && recordedScripts) {
+              if (
+                dehydrateScriptCache.size >= DEHYDRATE_SCRIPT_CACHE_MAX &&
+                !dehydrateScriptCache.has(cacheKey)
+              ) {
+                const first = dehydrateScriptCache.keys().next().value
+                if (first !== undefined) dehydrateScriptCache.delete(first)
+              }
+              dehydrateScriptCache.set(cacheKey, recordedScripts)
+            }
             finishScriptSerialization()
           },
         })

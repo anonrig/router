@@ -864,10 +864,12 @@ export async function loadServerRoute(router: AnyRouter, opts?: ServerLoadOption
       }
     }
 
-    const fromLocation = router.stores.resolvedLocation.get()
-    const changeInfo = getLocationChangeInfo(next, fromLocation)
-    router.emit({ type: 'onBeforeNavigate', ...changeInfo })
-    router.emit({ type: 'onBeforeLoad', ...changeInfo })
+    if (router.subscribers.size !== 0) {
+      const fromLocation = router.stores.resolvedLocation.get()
+      const changeInfo = getLocationChangeInfo(next, fromLocation)
+      router.emit({ type: 'onBeforeNavigate', ...changeInfo })
+      router.emit({ type: 'onBeforeLoad', ...changeInfo })
+    }
     opts?._signal?.throwIfAborted()
     const matches = router.matchRoutes(next)
     result = canUseFastServerLane(router, matches)
