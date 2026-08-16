@@ -20,7 +20,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 
 |                            |                                 |                          |
 | :------------------------: | :-----------------------------: | :----------------------: |
-|         **11.10×**         |           **10.02×**            |       **460,647**        |
+|         **12.71×**         |           **10.45×**            |       **452,974**        |
 | faster typed `to`/`params` | faster changing-params navigate | cold `router.load` / sec |
 
 <sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
@@ -74,7 +74,7 @@ If you already know TanStack Router, you already know this router.
 ## Features
 
 - **Same API.** `createRouter`, `Link`, `Outlet`, loaders, search params, nested routes. Public names match `@tanstack/react-router` so existing apps and TanStack's own tests can run against it.
-- **Faster on the same work.** Headline `pnpm bench:compare` rows use TanStack's default `staleTime: 0`, so loaders rerun on enter and param changes on both sides. Typed `to`/`params` navigation, changing-params navigation, invalidate + reload, and cold SSR `load` are the ones that show up as clicks and req/s.
+- **Faster on the same work.** `pnpm bench:compare` checks loader-call counts before timing. Headline rows use TanStack's default `staleTime: 0`, so loaders rerun on enter and param changes on both sides. Utility rows rotate unique inputs so last-value intern caches do not dominate.
 - **Streaming SSR.** Every stream starts on `onShellReady` and flushes incrementally. No `isbot`, no User-Agent parse, no waiting for a complete document because a crawler might be watching.
 - **React 19.2 only.** Peers are pinned to `react` and `react-dom` `~19.2.0`. No compatibility tax for React 18.
 - **Node 24 only.** `engines.node` is `>=24`. No compatibility tax for Node 22.
@@ -110,13 +110,13 @@ On a 4-core Intel Xeon, Linux, Node 24, in memory, no HTTP server:
 
 |                                 |    @anonrig | TanStack |            |
 | ------------------------------- | ----------: | -------: | ---------: |
-| Warm `navigate({ to, params })` | **906,924** |   81,725 | **11.10×** |
-| Warm `navigate` changing params | **651,168** |   64,972 | **10.02×** |
-| SSR cold `router.load`          | **460,647** |   64,821 |  **7.11×** |
+| Warm `navigate({ to, params })` | **861,736** |   67,799 | **12.71×** |
+| Warm `navigate` changing params | **523,473** |   50,109 | **10.45×** |
+| SSR cold `router.load`          | **452,974** |   51,648 |  **8.77×** |
 
 </div>
 
-These are in-memory Node loops: no browser, React render, HTTP, HTML, lazy components, or loader I/O. Cold `router.load` is match + loaders on a new router each time. Typed `to`/`params` navigation is what `<Link>` uses. Default `staleTime` is 0, the same as TanStack, so those rows rerun the post loader on enter and when params change. `pnpm audit:loaders` checks that the loader-call counts match. `navigate({ href })` uses the same staleTime policy and is in the full table. A settled `router.load()` no-op is not published: this implementation can skip that call. `createRequestHandler` (normalize, attach SSR utils, load, dehydrate) is in the full table.
+These are in-memory Node loops: no browser, React render, HTTP, HTML, lazy components, or loader I/O. Cold `router.load` is match + loaders on a new router each time. Typed `to`/`params` navigation is what `<Link>` uses. Default `staleTime` is 0, the same as TanStack, so those rows rerun the post loader on enter and when params change. The compare harness refuses to print if loader-call counts diverge (`pnpm audit:loaders` is the same probe). `navigate({ href })` uses the same staleTime policy and skips `to`/`params` interpolation, so it is listed separately. A settled `router.load()` no-op is not published: this implementation can skip that call. `createRequestHandler` (normalize, attach SSR utils, load, dehydrate) is in the full table.
 
 TanStack side is the published packages, not this repo's test aliases:
 
@@ -128,28 +128,40 @@ TanStack side is the published packages, not this repo's test aliases:
 pnpm bench:compare
 ```
 
-### Full comparison
+### Equal-work headlines
 
-| Operation                        |       @anonrig |  TanStack | vs TanStack |
-| -------------------------------- | -------------: | --------: | ----------: |
-| Query-string encode              | **24,441,316** | 2,651,938 |   **9.22×** |
-| Query-string decode              |  **3,306,669** | 1,390,326 |   **2.38×** |
-| `defaultStringifySearch` (×1000) |  **1,348,268** |     2,833 | **475.91×** |
-| `parseHref`                      | **13,624,662** | 3,538,168 |   **3.85×** |
-| `cleanPath`                      | **20,225,308** | 7,164,706 |   **2.82×** |
-| `resolvePath`                    | **21,188,816** | 4,131,743 |   **5.13×** |
-| `interpolatePath`                |  **6,218,954** | 2,261,090 |   **2.75×** |
-| Route match (large tree)         | **14,569,152** | 5,402,371 |   **2.70×** |
-| Encode 100 typical SSR match IDs |  **1,810,161** |    29,373 |  **61.63×** |
-| History `push`                   |  **3,096,974** | 1,041,631 |   **2.97×** |
-| Warm `navigate({ href })`        |  **1,093,782** |    51,546 |  **21.22×** |
-| Warm `navigate({ to, params })`  |    **906,924** |    81,725 |  **11.10×** |
-| Warm `navigate` changing params  |    **651,168** |    64,972 |  **10.02×** |
-| Invalidate + reload              |    **645,454** |   109,174 |   **5.91×** |
-| SSR cold `router.load` req/s     |    **460,647** |    64,821 |   **7.11×** |
-| `createRequestHandler` req/s     |     **42,605** |    16,054 |   **2.65×** |
+| Operation                       |    @anonrig | TanStack |            |
+| ------------------------------- | ----------: | -------: | ---------: |
+| Warm `navigate({ to, params })` | **861,736** |   67,799 | **12.71×** |
+| Warm `navigate` changing params | **523,473** |   50,109 | **10.45×** |
+| Invalidate + reload             | **415,404** |   78,210 |  **5.31×** |
+| SSR cold `router.load` req/s    | **452,974** |   51,648 |  **8.77×** |
+| `createRequestHandler` req/s    |  **36,742** |   13,283 |  **2.77×** |
 
-Typed `navigate({ to, params })` is the Link-shaped path: an absolute `to` with fully specified simple params interpolates and uses the same warm load lane as `href`. Search middlewares, blockers, preloads, masks, and route lifecycle hooks still take the full load coordinator. Default `staleTime` is 0, so changing params and re-entering a loaded route rerun the post loader on both sides. Set `staleTime: Infinity` (or `defaultStaleTime`) to keep successful data. Invalidate + reload marks matches invalid and reruns loaders on both sides. `navigate({ href })` is a resolved-href fast path with the same staleTime policy and is listed for completeness, not as the headline. A settled `router.load()` on an already-valid router is not published: this implementation can skip that call. Query-string encode/decode intern the last object or string. `cleanPath` / `resolvePath` / `interpolatePath` keep small result caches and compile simple `$param` templates. Large-tree match walks many static leaves through `staticExact` instead of one repeated LRU key. SSR match IDs replace slashes in one pass and intern the result. Cold `createRouter().load()` reuses processed trees, empty-search match templates, a prototype `createMemoryHistory`, and a synchronous fast SSR lane when loaders are sync. `createRequestHandler` dehydrates synchronously.
+### Same staleTime, no `to`/`params` interpolation
+
+| Operation                 |      @anonrig | TanStack |            |
+| ------------------------- | ------------: | -------: | ---------: |
+| Warm `navigate({ href })` | **1,024,354** |   35,070 | **29.21×** |
+
+### Utilities
+
+Rotating unique inputs, so a last-value intern cache does not decide the row.
+
+| Operation                        |       @anonrig |      TanStack | vs TanStack |
+| -------------------------------- | -------------: | ------------: | ----------: |
+| Query-string encode              |  **2,807,508** |     2,277,489 |   **1.23×** |
+| Query-string decode              |        907,890 | **1,154,198** |       0.79× |
+| `defaultStringifySearch`         |  **3,169,069** |     2,179,740 |   **1.45×** |
+| `parseHref`                      |  **5,002,316** |     3,006,161 |   **1.66×** |
+| `cleanPath`                      | **18,691,268** |     7,217,633 |   **2.59×** |
+| `resolvePath`                    |  **7,347,617** |     3,545,755 |   **2.07×** |
+| `interpolatePath`                |  **5,021,765** |     1,907,696 |   **2.63×** |
+| Route match (large tree)         | **13,173,199** |     4,319,389 |   **3.05×** |
+| Encode 100 typical SSR match IDs |  **1,205,049** |        22,413 |  **53.77×** |
+| History `push`                   |  **2,577,880** |       845,353 |   **3.05×** |
+
+Typed `navigate({ to, params })` is the Link-shaped path: an absolute `to` with fully specified simple params interpolates and uses the same warm load lane as `href`. Search middlewares, blockers, preloads, masks, and route lifecycle hooks still take the full load coordinator. Default `staleTime` is 0, so changing params and re-entering a loaded route rerun the post loader on both sides. Set `staleTime: Infinity` (or `defaultStaleTime`) to keep successful data. Invalidate + reload marks matches invalid and reruns loaders on both sides. `navigate({ href })` is a resolved-href fast path with the same staleTime policy. A settled `router.load()` on an already-valid router is not published: this implementation can skip that call. Unique query-string decode is not faster than published TanStack on this machine; encode and stringify still are. `cleanPath` / `resolvePath` / `interpolatePath` keep small result caches and compile simple `$param` templates. Large-tree match walks many static leaves through `staticExact` instead of one repeated LRU key. SSR match IDs replace slashes in one pass and intern the result. Cold `createRouter().load()` reuses processed trees, empty-search match templates, a prototype `createMemoryHistory`, and a synchronous fast SSR lane when loaders are sync. `createRequestHandler` dehydrates synchronously.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
