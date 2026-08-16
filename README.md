@@ -79,7 +79,7 @@ If you already know TanStack Router, you already know this router.
 - **React 19.2 only.** Peers are pinned to `react` and `react-dom` `~19.2.0`. No compatibility tax for React 18.
 - **Node 24 only.** `engines.node` is `>=24`. No compatibility tax for Node 22.
 - **Typed the same way.** Vendored TanStack type tests pass. Route trees, params, and search stay on the TanStack type surface.
-- **Measured in the open.** Head-to-head benches live in the repo. Re-run them. The wins and the losses are both in the table.
+- **Measured in the open.** Head-to-head benches and bundle sizes live in the repo. Re-run them. The wins and the losses are both in the table.
 - **Large trees stay small.** The generated `routeTree` still uses `createRoute` and `.lazy()`. Only the root route is statically imported. Other route modules load when they are matched. Types live in a separate file and do not use `typeof` every route.
 
 ## Quick start
@@ -90,6 +90,7 @@ Node 24+, React 19.2, and React DOM 19.2 are required. Clone the workspace and i
 pnpm install
 pnpm test
 pnpm bench:compare
+pnpm size
 ```
 
 | Package                                                  | What you import                               |
@@ -149,6 +150,17 @@ pnpm bench:compare
 TanStack's query-string encode/decode still win those microbenches. Warm `load()` is the headline: a settled server router returns immediately instead of re-entering the SSR lane. Cold `createRouter().load()` now shares TurboFan-compiled prototype methods instead of per-instance class-field arrows. `interpolatePath` is a small dispatcher so the simple `$param` path can compile. This router is also ahead on stringify, warm navigation, and `createRequestHandler`.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
+
+### Bundle size
+
+Initial client graph for the public constructors. esbuild minify, gzip -9, `react` / `react-dom` external. The SSR `load` chunk is a dynamic import and is not counted.
+
+| Package         | @anonrig |    gzip |    TanStack |        gzip |
+| --------------- | -------: | ------: | ----------: | ----------: |
+| `@react-router` |  85.8 kB | 28.7 kB | **78.8 kB** | **27.5 kB** |
+| `@router-core`  |  75.2 kB | 25.1 kB | **55.6 kB** | **19.7 kB** |
+
+TanStack is smaller on both packages. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 
@@ -211,6 +223,7 @@ pnpm test:tanstack        # vendored TanStack runtime
 pnpm test:types           # vendored TanStack types
 pnpm bench                # vitest benches
 pnpm bench:compare        # head-to-head vs published TanStack
+pnpm size                 # client min+gzip vs published TanStack
 pnpm lint && pnpm fmt:check
 ```
 
