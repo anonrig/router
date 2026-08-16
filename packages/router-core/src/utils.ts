@@ -356,30 +356,36 @@ export function deepEqual(
 
   if (isPlainObject(a) && isPlainObject(b)) {
     const ignoreUndefined = opts?.ignoreUndefined ?? true
+    const bKeys = Reflect.ownKeys(b)
 
     if (opts?.partial) {
-      for (const k in b) {
-        if (!ignoreUndefined || b[k] !== undefined) {
-          if (!deepEqual(a[k], b[k], opts)) return false
+      for (let i = 0; i < bKeys.length; i++) {
+        const k = bKeys[i]!
+        const bv = b[k]
+        if (!ignoreUndefined || bv !== undefined) {
+          if (!deepEqual(a[k], bv, opts)) return false
         }
       }
       return true
     }
 
+    const aKeys = Reflect.ownKeys(a)
     let aCount = 0
     if (!ignoreUndefined) {
-      aCount = Object.keys(a).length
+      aCount = aKeys.length
     } else {
-      for (const k in a) {
-        if (a[k] !== undefined) aCount++
+      for (let i = 0; i < aKeys.length; i++) {
+        if (a[aKeys[i]!] !== undefined) aCount++
       }
     }
 
     let bCount = 0
-    for (const k in b) {
-      if (!ignoreUndefined || b[k] !== undefined) {
+    for (let i = 0; i < bKeys.length; i++) {
+      const k = bKeys[i]!
+      const bv = b[k]
+      if (!ignoreUndefined || bv !== undefined) {
         bCount++
-        if (bCount > aCount || !deepEqual(a[k], b[k], opts)) return false
+        if (bCount > aCount || !deepEqual(a[k], bv, opts)) return false
       }
     }
 

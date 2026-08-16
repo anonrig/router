@@ -454,16 +454,15 @@ describe('deepEqual', () => {
     })
   })
 
-  // This might not be what we want, but this test documents how things are now
-  describe('symbol and non-enumerable properties are not handled', () => {
-    it.fails('should return `false` for unequal objects with symbol properties', () => {
+  describe('symbol and non-enumerable properties', () => {
+    it('should return `false` for unequal objects with symbol properties', () => {
       const key = Symbol('foo')
       const a = { [key]: 1 }
       const b = { [key]: 2 }
       expect(deepEqual(a, b)).toEqual(false)
     })
 
-    it.fails('should return `false` for unequal objects with non-enumerable properties', () => {
+    it('should return `false` for unequal objects with non-enumerable properties', () => {
       const a = {}
       Object.defineProperty(a, 'prop', { value: 1, enumerable: false })
       const b = {}
@@ -472,9 +471,8 @@ describe('deepEqual', () => {
     })
   })
 
-  // We voluntarily fail in this case, because users should not do it, and ignoring it enables some performance improvements
-  describe('augmented object prototype fail case (no one should do this anyway)', () => {
-    it.fails('should not compare objects with augmented prototype properties', () => {
+  describe('augmented object prototype', () => {
+    it('should not compare objects with augmented prototype properties', () => {
       // @ts-expect-error -- typescript is right to complain here, don't do this!
       Object.prototype.x = 'x'
       const a = { a: 1 }
