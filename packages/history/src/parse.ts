@@ -1,34 +1,13 @@
 import { STATE_INDEX } from './constants'
 import type { HistoryLocation, HistoryState, ParsedHistoryState } from './types'
 
-const HREF_RING = 8
-const hrefRing = new Array<string>(HREF_RING)
-const sanitizedRing = new Array<string>(HREF_RING)
-const pathnameRing = new Array<string>(HREF_RING)
-const searchRing = new Array<string>(HREF_RING)
-const hashRing = new Array<string>(HREF_RING)
-let hrefRingWrite = 0
 let lastHref: string | undefined
-let lastRing = 0
+let lastSanitizedHref = ''
+let lastPathname = ''
+let lastSearch = ''
+let lastHash = ''
 
 let keySeq = 0
-
-function rememberParsedHref(
-  href: string,
-  sanitizedHref: string,
-  pathname: string,
-  search: string,
-  hash: string,
-) {
-  const i = hrefRingWrite++ & 7
-  hrefRing[i] = href
-  sanitizedRing[i] = sanitizedHref
-  pathnameRing[i] = pathname
-  searchRing[i] = search
-  hashRing[i] = hash
-  lastHref = href
-  lastRing = i
-}
 
 export function createRandomKey() {
   return (++keySeq).toString(36)
@@ -74,26 +53,7 @@ export function assignKeyAndIndex(index: number, state: HistoryState | undefined
 export function parseHref(href: string, state: ParsedHistoryState | undefined): HistoryLocation {
   if (state == null) state = defaultHistoryState()
   if (href === lastHref) {
-    return parsedLocation(
-      sanitizedRing[lastRing]!,
-      pathnameRing[lastRing]!,
-      hashRing[lastRing]!,
-      searchRing[lastRing]!,
-      state,
-    )
-  }
-  for (let i = 0; i < HREF_RING; i++) {
-    if (hrefRing[i] === href) {
-      lastHref = href
-      lastRing = i
-      return parsedLocation(
-        sanitizedRing[i]!,
-        pathnameRing[i]!,
-        hashRing[i]!,
-        searchRing[i]!,
-        state,
-      )
-    }
+    return parsedLocation(lastSanitizedHref, lastPathname, lastHash, lastSearch, state)
   }
 
   const hrefLen = href.length
@@ -107,7 +67,11 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
       }
     }
     if (simple) {
-      rememberParsedHref(href, href, href, '', '')
+      lastHref = href
+      lastSanitizedHref = href
+      lastPathname = href
+      lastSearch = ''
+      lastHash = ''
       return parsedLocation(href, href, '', '', state)
     }
   }
@@ -170,7 +134,11 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
     searchIndex > -1
       ? sanitizedHref.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex)
       : ''
-  rememberParsedHref(href, sanitizedHref, pathname, search, hash)
+  lastHref = href
+  lastSanitizedHref = sanitizedHref
+  lastPathname = pathname
+  lastSearch = search
+  lastHash = hash
 
   return parsedLocation(sanitizedHref, pathname, hash, search, state)
 }
