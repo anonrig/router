@@ -809,8 +809,8 @@ function executeFastServerLane(
           route,
           ...router.options.additionalContext,
         })
-        if (data && typeof (data as Promise<unknown>).then === 'function') {
-          return Promise.resolve(data).then((value) => {
+        if (data instanceof Promise) {
+          return data.then((value) => {
             if (isRedirect(value)) {
               abortLane()
               throw value
@@ -913,7 +913,7 @@ export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): vo
     const matches = router.matchRoutes(next)
     if (canUseFastServerLane(router, matches)) {
       const result = executeFastServerLane(router, next, matches)
-      if (result && typeof (result as Promise<ServerLoadResult>).then === 'function') {
+      if (result instanceof Promise) {
         return (result as Promise<ServerLoadResult>).then(
           (resolved) => {
             opts?._signal?.throwIfAborted()

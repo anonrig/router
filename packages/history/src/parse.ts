@@ -1,13 +1,34 @@
 import { STATE_INDEX } from './constants'
 import type { HistoryLocation, HistoryState, ParsedHistoryState } from './types'
 
-let lastHref = ''
-let lastSanitizedHref = ''
-let lastPathname = ''
-let lastSearch = ''
-let lastHash = ''
+const HREF_RING = 8
+const hrefRing = new Array<string>(HREF_RING)
+const sanitizedRing = new Array<string>(HREF_RING)
+const pathnameRing = new Array<string>(HREF_RING)
+const searchRing = new Array<string>(HREF_RING)
+const hashRing = new Array<string>(HREF_RING)
+let hrefRingWrite = 0
+let lastHref: string | undefined
+let lastRing = 0
 
 let keySeq = 0
+
+function rememberParsedHref(
+  href: string,
+  sanitizedHref: string,
+  pathname: string,
+  search: string,
+  hash: string,
+) {
+  const i = hrefRingWrite++ & 7
+  hrefRing[i] = href
+  sanitizedRing[i] = sanitizedHref
+  pathnameRing[i] = pathname
+  searchRing[i] = search
+  hashRing[i] = hash
+  lastHref = href
+  lastRing = i
+}
 
 export function createRandomKey() {
   return (++keySeq).toString(36)
@@ -53,7 +74,42 @@ export function assignKeyAndIndex(index: number, state: HistoryState | undefined
 export function parseHref(href: string, state: ParsedHistoryState | undefined): HistoryLocation {
   if (state == null) state = defaultHistoryState()
   if (href === lastHref) {
-    return parsedLocation(lastSanitizedHref, lastPathname, lastHash, lastSearch, state)
+    return parsedLocation(
+      sanitizedRing[lastRing]!,
+      pathnameRing[lastRing]!,
+      hashRing[lastRing]!,
+      searchRing[lastRing]!,
+      state,
+    )
+  }
+  for (let i = 0; i < HREF_RING; i++) {
+    if (hrefRing[i] === href) {
+      lastHref = href
+      lastRing = i
+      return parsedLocation(
+        sanitizedRing[i]!,
+        pathnameRing[i]!,
+        hashRing[i]!,
+        searchRing[i]!,
+        state,
+      )
+    }
+  }
+
+  const hrefLen = href.length
+  if (hrefLen !== 0 && href.charCodeAt(0) === 47 && (hrefLen === 1 || href.charCodeAt(1) !== 47)) {
+    let simple = true
+    for (let i = 1; i < hrefLen; i++) {
+      const code = href.charCodeAt(i)
+      if (code <= 0x1f || code === 0x7f || code === 63 || code === 35) {
+        simple = false
+        break
+      }
+    }
+    if (simple) {
+      rememberParsedHref(href, href, href, '', '')
+      return parsedLocation(href, href, '', '', state)
+    }
   }
 
   let sanitizedHref = href
@@ -114,11 +170,7 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
     searchIndex > -1
       ? sanitizedHref.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex)
       : ''
-  lastHref = href
-  lastSanitizedHref = sanitizedHref
-  lastPathname = pathname
-  lastSearch = search
-  lastHash = hash
+  rememberParsedHref(href, sanitizedHref, pathname, search, hash)
 
   return parsedLocation(sanitizedHref, pathname, hash, search, state)
 }

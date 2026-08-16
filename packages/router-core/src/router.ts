@@ -1327,7 +1327,7 @@ export class RouterCore<
   }
 
   private tryNavigateToFast(to: string, rest: any): Promise<void> | undefined {
-    if (this.history.hasBlockers?.()) return
+    if (this.history.hasBlockers !== undefined && this.history.hasBlockers()) return
     if ((this.history.location.state as any)?.__tempLocation) return
     if (to.indexOf('?') !== -1 || to.indexOf('#') !== -1 || to.indexOf('{') !== -1) return
     let resolved = to
@@ -1338,7 +1338,7 @@ export class RouterCore<
       if (!keys) return
       for (let i = 0; i < keys.length; i++) {
         const key = keys[i]!
-        if (!Object.prototype.hasOwnProperty.call(params, key)) return
+        if (!Object.hasOwn(params, key)) return
         if (!isSimpleParamValue(params[key])) return
       }
       let route = this.routesByPath?.[trimPathRight(to)] as AnyRoute | undefined
@@ -1401,10 +1401,17 @@ export class RouterCore<
 
     if (!same) {
       this._committing = true
-      this.history[rest.replace ? 'replace' : 'push'](hrefFull, location.state, {
-        ignoreBlocker: rest.ignoreBlocker,
-      })
-      this.history.flush?.()
+      const history = this.history
+      if (rest.replace) {
+        history.replace(hrefFull, location.state, {
+          ignoreBlocker: rest.ignoreBlocker,
+        })
+      } else {
+        history.push(hrefFull, location.state, {
+          ignoreBlocker: rest.ignoreBlocker,
+        })
+      }
+      history.flush()
       this._committing = false
     }
 
@@ -1445,13 +1452,6 @@ export class RouterCore<
       : location.pathname
     const cached = this._matchesByPath?.get(cacheKey)
     if (cached && this.canReuseWarmMatches(cached)) {
-      if (this.subscribers.size) {
-        this.emit({
-          type: 'onBeforeLoad',
-          fromLocation: this.stores.resolvedLocation.get(),
-          toLocation: location,
-        })
-      }
       this.completeWarmLoad(location, cached)
       return true
     }
@@ -1466,18 +1466,7 @@ export class RouterCore<
     for (let i = 0; i < found.length; i++) {
       if (!routeCanWarmLoad(found[i]!.route as AnyRoute)) return false
     }
-    if (this._preloads?.size) return false
-    for (const id in this._cache) {
-      if (this._cache[id]?.preload) return false
-    }
-
-    if (this.subscribers.size) {
-      this.emit({
-        type: 'onBeforeLoad',
-        fromLocation: this.stores.resolvedLocation.get(),
-        toLocation: location,
-      })
-    }
+    if (this._preloads !== undefined && this._preloads.size > 0) return false
 
     const prevMatches = this._committed
     const prevByRoute = prevMatches.length > 4 ? null : prevMatches
@@ -1508,6 +1497,7 @@ export class RouterCore<
       const matchId = route.id + interpolatedPath
       const prev = prevMap ? prevMap[route.id] : findPrevMatch(prevByRoute!, route.id)
       const cached = this._cache[matchId]
+      if (cached !== undefined && cached.preload) return false
       const reusable =
         cached &&
         cached.routeId === route.id &&
@@ -1573,22 +1563,6 @@ export class RouterCore<
         match.context = context
         match.status = 'success'
         match.isFetching = false
-        const hook = match.cause === 'enter' ? opts.onEnter : opts.onStay
-        if (hook) {
-          hook({
-            abortController: match.abortController,
-            preload: false,
-            params: match.params,
-            rawParams: match.rawParams,
-            cause: match.cause,
-            location,
-            navigate: this.navigate,
-            search: match.search,
-            context,
-            route,
-            matches,
-          } as any)
-        }
         continue
       }
 
@@ -1605,32 +1579,27 @@ export class RouterCore<
         route,
         matches,
       }
-      try {
-        const data = opts.loader(loaderContext)
-        if (data instanceof Promise) {
-          return Promise.resolve(data).then((value) => {
-            if (isRedirect(value) || isNotFound(value)) {
-              return loadClientRoute(this)
-            }
-            match.loaderData = value
-            match.status = 'success'
-            match.isFetching = false
-            match.context = context
-            this._cache[match.id] = match
-            return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
-          })
-        }
-        if (isRedirect(data) || isNotFound(data)) return loadClientRoute(this)
-        match.loaderData = data
-        match.status = 'success'
-        match.isFetching = false
-        match.context = context
-        this._cache[match.id] = match
-        if (match.cause === 'enter') opts.onEnter?.(loaderContext as any)
-        else opts.onStay?.(loaderContext as any)
-      } catch {
-        return loadClientRoute(this)
+      const data = callWarmLoader(opts.loader, loaderContext)
+      if (data === WARM_LOADER_THREW) return loadClientRoute(this)
+      if (data instanceof Promise) {
+        return Promise.resolve(data).then((value) => {
+          if (isRedirect(value) || isNotFound(value)) {
+            return loadClientRoute(this)
+          }
+          match.loaderData = value
+          match.status = 'success'
+          match.isFetching = false
+          match.context = context
+          this._cache[match.id] = match
+          return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
+        })
       }
+      if (isRedirect(data) || isNotFound(data)) return loadClientRoute(this)
+      match.loaderData = data
+      match.status = 'success'
+      match.isFetching = false
+      match.context = context
+      this._cache[match.id] = match
     }
 
     if (id !== this.loadId) return
@@ -1644,9 +1613,7 @@ export class RouterCore<
       const match = matches[i]!
       if (match.status !== 'success' || match.invalid || match.isFetching) return false
       const route = this.routesById[match.routeId]
-      const shouldReload = route?.options?.shouldReload
-      if (shouldReload === true || typeof shouldReload === 'function') return false
-      if ((route?.lazyFn && !route._lazy) || route?.options?.beforeLoad) return false
+      if (route === undefined || !routeCanWarmLoad(route)) return false
     }
     return true
   }
@@ -2468,6 +2435,16 @@ function parseHistoryLocation(
 }
 
 const WARM_MATCH_CACHE_MAX = 64
+
+const WARM_LOADER_THREW = {}
+
+function callWarmLoader(loader: (context: any) => any, context: any) {
+  try {
+    return loader(context)
+  } catch {
+    return WARM_LOADER_THREW
+  }
+}
 
 function routeCanWarmLoad(route: AnyRoute): boolean {
   if (route.lazyFn && !route._lazy) return false
