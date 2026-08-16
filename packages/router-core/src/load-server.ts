@@ -804,15 +804,14 @@ function executeFastServerLane(
   }
   if (start === 0 && router.serverSsr) router.serverSsr.onCleanup(abortLane)
 
-  if (!context) {
-    const routerContext = router.options.context
-    context = routerContext ? { ...routerContext } : {}
-  }
+  const loaderParentContext =
+    context ?? (router.options.context ? { ...router.options.context } : {})
+  context = loaderParentContext
 
   for (let i = start; i < matches.length; i++) {
     const match = matches[i]!
     const route = getRoute(router, match)
-    match.context = context
+    match.context = loaderParentContext
     match.isFetching = false
     match.__beforeLoadContext = undefined
     const loader = route.options?.loader
@@ -827,7 +826,7 @@ function executeFastServerLane(
               preload: false,
               parentMatchPromise: undefined,
               abortController: match.abortController,
-              context,
+              context: loaderParentContext,
               location,
               navigate: router.navigate,
               cause: match.cause,
@@ -839,7 +838,7 @@ function executeFastServerLane(
               match,
               location,
               router.navigate,
-              context,
+              loaderParentContext,
               route,
             )
         const data = loaderFn(loaderContext)
@@ -856,7 +855,14 @@ function executeFastServerLane(
             match.invalid = false
             match.error = undefined
             match.updatedAt = 0
-            return executeFastServerLane(router, location, matches, i + 1, context, status)
+            return executeFastServerLane(
+              router,
+              location,
+              matches,
+              i + 1,
+              loaderParentContext,
+              status,
+            )
           })
         }
         if (isRedirect(data)) {

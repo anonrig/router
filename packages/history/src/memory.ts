@@ -1,7 +1,8 @@
 import { BACK_ACTION, FORWARD_ACTION, PUSH_ACTION, REPLACE_ACTION, STATE_INDEX } from './constants'
 import { assignKeyAndIndex, parseHref } from './parse'
 
-function locationFromPath(path: string, state: ParsedHistoryState): HistoryLocation {
+function locationFromPath(path: string, state: ParsedHistoryState | undefined): HistoryLocation {
+  if (state == null) return parseHref(path, state)
   const len = path.length
   if (len !== 0 && path.charCodeAt(0) === 47 && (len === 1 || path.charCodeAt(1) !== 47)) {
     let simple = true
