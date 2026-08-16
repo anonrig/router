@@ -263,15 +263,11 @@ function runSection(section: string): Row[] {
 const section = process.env.BENCH_SECTION
 
 if (!section) {
-  const headlines = runSection('headline')
+  const handler = runSection('handler')
+  const ssr = runSection('ssr')
+  const warm = runSection('warm')
   const micros = runSection('micro')
-  printRows([
-    ...micros,
-    ...headlines.filter((row) => row.name === 'Warm navigate'),
-    ...headlines.filter((row) => row.name === 'Warm router.load'),
-    ...headlines.filter((row) => row.name === 'SSR cold router.load req/s'),
-    ...headlines.filter((row) => row.name === 'createRequestHandler req/s'),
-  ])
+  printRows([...micros, ...warm, ...ssr, ...handler])
   process.exit(0)
 }
 
@@ -279,7 +275,7 @@ if (!section) {
 // stringify/encode are not timed on each other's leftover heap.
 globalThis.gc?.()
 
-if (section === 'headline') {
+if (section === 'handler') {
   await addAsync(
     'createRequestHandler req/s',
     async () => {
@@ -305,6 +301,9 @@ if (section === 'headline') {
       )
     },
   )
+}
+
+if (section === 'ssr') {
   await addAsync(
     'SSR cold router.load req/s',
     async () => {
@@ -316,6 +315,9 @@ if (section === 'headline') {
       await createTsRouter(path).load()
     },
   )
+}
+
+if (section === 'warm') {
   const oursRouter = oursCreateRouter({
     routeTree: oursRouteTree,
     history: oursCreateMemoryHistory({ initialEntries: ['/'] }),
