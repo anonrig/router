@@ -342,6 +342,8 @@ export type ProcessedTree = {
   matchedTemplateCache?: Record<string, any[]>
   /** True if any route has validateSearch or search middlewares. */
   hasSearchWork?: boolean
+  /** True if any route has search middlewares. validateSearch alone can stay on the href warm path. */
+  hasSearchMiddleware?: boolean
   /** Optional param names in insert order, used to prefer left-filled matches. */
   optionalNames?: string[]
 }
@@ -474,12 +476,15 @@ export function processRouteTree<T extends AnyRouteLike>(
   finalizeParamChildren(root)
 
   let hasSearchWork = false
+  let hasSearchMiddleware = false
   for (const id in routesById) {
     const options = routesById[id]?.options
-    if (options?.validateSearch || options?.search?.middlewares?.length) {
+    if (options?.search?.middlewares?.length) {
       hasSearchWork = true
+      hasSearchMiddleware = true
       break
     }
+    if (options?.validateSearch) hasSearchWork = true
   }
 
   const processedTree = {
@@ -492,6 +497,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     matchedRoutesCache: Object.create(null),
     matchedTemplateCache: Object.create(null),
     hasSearchWork,
+    hasSearchMiddleware,
     optionalNames: optionalNamesThisTree.slice(),
     lastPath: '',
     lastMatch: null,
