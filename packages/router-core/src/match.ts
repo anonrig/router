@@ -849,7 +849,8 @@ function optionalFillScore(params: Record<string, string>, names: string[] | und
   if (!names?.length) return 0
   let score = 0
   for (let i = 0; i < names.length; i++) {
-    if (names[i]! in params) score += names.length - i
+    const name = names[i]
+    if (name != null && name in params) score += names.length - i
   }
   return score
 }

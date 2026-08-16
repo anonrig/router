@@ -11,10 +11,6 @@ export function useStore<T, U = T>(
   select: (state: T) => U = defaultSelect,
   isEqual: (a: U, b: U) => boolean = Object.is,
 ): U {
-  const selectRef = useRef(select)
-  selectRef.current = select
-  const isEqualRef = useRef(isEqual)
-  isEqualRef.current = isEqual
   const cacheRef = useRef<{ source: T; selected: U } | undefined>(undefined)
 
   const getSnapshot = useCallback(() => {
@@ -23,8 +19,8 @@ export function useStore<T, U = T>(
     if (cached && cached.source === source) {
       return cached.selected
     }
-    const selected = selectRef.current(source)
-    if (cached && isEqualRef.current(cached.selected, selected)) {
+    const selected = select(source)
+    if (cached && isEqual(cached.selected, selected)) {
       cacheRef.current = { source, selected: cached.selected }
       return cached.selected
     }
@@ -39,7 +35,7 @@ export function useStore<T, U = T>(
     }
     cacheRef.current = { source, selected }
     return selected
-  }, [store])
+  }, [store, select, isEqual])
 
   return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot)
 }

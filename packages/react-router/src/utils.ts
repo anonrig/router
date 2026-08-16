@@ -25,9 +25,9 @@ export function useIntersectionObserver(
   onCleanup?: () => void,
 ) {
   const callbackRef = useRef(callback)
-  callbackRef.current = callback
-  const cleanupRef = useRef(onCleanup)
-  cleanupRef.current = onCleanup
+  useLayoutEffect(() => {
+    callbackRef.current = callback
+  })
   useEffect(() => {
     if (disabled || typeof IntersectionObserver === 'undefined') return
     const node = ref.current
@@ -39,7 +39,7 @@ export function useIntersectionObserver(
     observer.observe(node)
     return () => {
       observer.disconnect()
-      cleanupRef.current?.()
+      onCleanup?.()
     }
-  }, [ref, disabled, options, resetKey])
+  }, [ref, disabled, options, resetKey, onCleanup])
 }
