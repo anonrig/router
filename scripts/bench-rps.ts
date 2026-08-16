@@ -105,11 +105,15 @@ const rows = [
   measureSync('history.push', () => {
     history.push(`/n/${cursor++}`)
   }),
-  await measureAsync('navigate (warm router)', async () => {
+  await measureAsync('navigate ({ href })', async () => {
     await router.navigate({ href: paths[cursor++ % paths.length]! })
   }),
-  await measureAsync('router.load (warm)', async () => {
-    await router.load()
+  await measureAsync('navigate ({ to, params })', async () => {
+    await router.navigate({ to: '/posts/$id', params: { id: String((cursor++ % 50) + 1) } })
+  }),
+  await router.navigate({ to: '/posts/$id', params: { id: '1' } }),
+  await measureAsync('invalidate + reload', async () => {
+    await router.invalidate()
   }),
   await measureAsync('SSR cold router.load req/s', async () => {
     const path = paths[cursor++ % paths.length]!

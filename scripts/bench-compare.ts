@@ -3,6 +3,12 @@
  *
  * `@anonrig/*` resolves through the workspace packages. `@tanstack/*` stays
  * on the published packages so the same operations can be timed head-to-head.
+ *
+ * Headline rows measure equivalent work on both sides: typed `to`/`params`
+ * navigation (what `<Link>` uses), param-changing navigation, invalidate +
+ * reload, and per-request cold `load` / `createRequestHandler`. A settled
+ * `router.load()` no-op is not a headline; that path skips lifecycle work
+ * when matches are already valid.
  */
 import { spawnSync } from 'node:child_process'
 import './bench-compare-self.ts'
@@ -267,8 +273,10 @@ if (!section) {
   const micros = runSection('micro')
   printRows([
     ...micros,
-    ...headlines.filter((row) => row.name === 'Warm navigate'),
-    ...headlines.filter((row) => row.name === 'Warm router.load'),
+    ...headlines.filter((row) => row.name === 'Warm navigate ({ href })'),
+    ...headlines.filter((row) => row.name === 'Warm navigate ({ to, params })'),
+    ...headlines.filter((row) => row.name === 'Warm navigate changing params'),
+    ...headlines.filter((row) => row.name === 'Invalidate + reload'),
     ...headlines.filter((row) => row.name === 'SSR cold router.load req/s'),
     ...headlines.filter((row) => row.name === 'createRequestHandler req/s'),
   ])
@@ -324,8 +332,17 @@ if (section === 'headline') {
     routeTree: tsRouteTree,
     history: tsCreateMemoryHistory({ initialEntries: ['/'] }),
   })
+  const typedDests = [
+    { to: '/' },
+    { to: '/posts' },
+    { to: '/posts/$id', params: { id: '1' } },
+    { to: '/posts/$id', params: { id: '2' } },
+    { to: '/about' },
+  ] as const
+  let typedCursor = 0
+  let paramCursor = 0
   await addAsync(
-    'Warm navigate',
+    'Warm navigate ({ href })',
     async () => {
       await oursRouter.navigate({ href: paths[cursor++ % paths.length]! })
     },
@@ -334,12 +351,38 @@ if (section === 'headline') {
     },
   )
   await addAsync(
-    'Warm router.load',
+    'Warm navigate ({ to, params })',
     async () => {
-      await oursRouter.load()
+      await oursRouter.navigate(typedDests[typedCursor++ % typedDests.length] as any)
     },
     async () => {
-      await tsRouter.load()
+      await tsRouter.navigate(typedDests[typedCursor++ % typedDests.length] as any)
+    },
+  )
+  await addAsync(
+    'Warm navigate changing params',
+    async () => {
+      await oursRouter.navigate({
+        to: '/posts/$id',
+        params: { id: String((paramCursor++ % 50) + 1) },
+      })
+    },
+    async () => {
+      await tsRouter.navigate({
+        to: '/posts/$id',
+        params: { id: String((paramCursor++ % 50) + 1) },
+      })
+    },
+  )
+  await oursRouter.navigate({ to: '/posts/$id', params: { id: '1' } })
+  await tsRouter.navigate({ to: '/posts/$id', params: { id: '1' } })
+  await addAsync(
+    'Invalidate + reload',
+    async () => {
+      await oursRouter.invalidate()
+    },
+    async () => {
+      await tsRouter.invalidate()
     },
   )
 }

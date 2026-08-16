@@ -1214,7 +1214,8 @@ export class RouterCore<
         throw opts._signal.reason
       }
       // Request-scoped SSR passes `_signal` and must re-run. A warm
-      // `load()` on an already-idle server router (the Node bench) can skip.
+      // `load()` on an already-idle router can skip only when nothing is
+      // invalid or configured to reload.
       if (!opts?.action && !opts?._signal && this.canSkipSettledLoad()) {
         this._commitPromise?.resolve()
         this._commitPromise = undefined
@@ -1244,7 +1245,7 @@ export class RouterCore<
     if (this.stores?.status?.get() !== 'idle') return false
     const resolved = this.stores.resolvedLocation.get()
     if (!resolved || resolved.href !== this.latestLocation.href) return false
-    const matches = this.stores.matches.get()
+    const matches = this._committed.length ? this._committed : this.stores.matches.get()
     if (!matches?.length) return false
     for (let i = 0; i < matches.length; i++) {
       const match = matches[i]!

@@ -7,7 +7,11 @@ function createNavRouter() {
   const root = createRootRoute()
   const index = createRoute({ getParentRoute: () => root, path: '/' })
   const posts = createRoute({ getParentRoute: () => root, path: '/posts' })
-  const post = createRoute({ getParentRoute: () => root, path: '/posts/$id' })
+  const post = createRoute({
+    getParentRoute: () => root,
+    path: '/posts/$id',
+    loader: () => ({ title: 'Post' }),
+  })
   const about = createRoute({ getParentRoute: () => root, path: '/about' })
   const search = createRoute({ getParentRoute: () => root, path: '/search' })
   root.addChildren([index, posts, post, about, search])
@@ -19,16 +23,36 @@ function createNavRouter() {
 
 const router = createNavRouter()
 const paths = ['/', '/posts', '/posts/42', '/about', '/search?q=router']
+const typedDests = [
+  { to: '/' },
+  { to: '/posts' },
+  { to: '/posts/$id', params: { id: '42' } },
+  { to: '/about' },
+  { to: '/search', search: { q: 'router' } },
+] as const
 let cursor = 0
+let typedCursor = 0
+let paramCursor = 0
 
 describe('navigation', () => {
-  bench('navigate between routes', async () => {
+  bench('navigate ({ href })', async () => {
     const href = paths[cursor++ % paths.length]!
     await router.navigate({ href })
   })
 
-  bench('load current location', async () => {
-    await router.load()
+  bench('navigate ({ to, params })', async () => {
+    await router.navigate(typedDests[typedCursor++ % typedDests.length] as any)
+  })
+
+  bench('navigate changing params', async () => {
+    await router.navigate({
+      to: '/posts/$id',
+      params: { id: String((paramCursor++ % 50) + 1) },
+    })
+  })
+
+  bench('invalidate + reload', async () => {
+    await router.invalidate()
   })
 
   bench('buildLocation absolute', () => {
