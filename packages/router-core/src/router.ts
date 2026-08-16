@@ -389,7 +389,10 @@ export class RouterCore<
   routesById!: Record<string, AnyRoute>
   routesByPath!: Record<string, AnyRoute>
   processedTree!: ProcessedTree
-  resolvePathCache = createLRUCache<string, string>(1000)
+  private _resolvePathCache?: ReturnType<typeof createLRUCache<string, string>>
+  get resolvePathCache() {
+    return (this._resolvePathCache ??= createLRUCache<string, string>(1000))
+  }
   isServer = typeof document === 'undefined'
   pathParamsDecoder?: (encoded: string) => string
   protocolAllowlist = DEFAULT_PROTOCOL_SET
@@ -1891,6 +1894,14 @@ function applyBuildRewrite(router: any, location: ParsedLocation) {
   }
 }
 
+function isPlainAsciiPath(path: string) {
+  for (let i = 0; i < path.length; i++) {
+    const c = path.charCodeAt(i)
+    if (c <= 0x1f || c === 0x20 || c === 0x7f || c > 0x7f) return false
+  }
+  return true
+}
+
 function parseHistoryLocation(
   router: { rewrite?: any; origin?: string },
   location: HistoryLocation,
@@ -1898,18 +1909,33 @@ function parseHistoryLocation(
   parseSearch: (search: string) => any,
   stringifySearch: (search: any) => string,
 ): ParsedLocation {
-  if (!router.rewrite && !/[ \x00-\x1f\x7f\u0080-\uffff]/.test(location.pathname)) {
+  if (!router.rewrite && isPlainAsciiPath(location.pathname)) {
+    const hash = location.hash
+    const hashValue = !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
+    if (!location.search) {
+      const href = hash ? location.pathname + hash : location.pathname
+      return {
+        href,
+        publicHref: href,
+        pathname: location.pathname,
+        external: false,
+        searchStr: '',
+        search: Object.create(null),
+        hash: hashValue,
+        state: previous ? replaceEqualDeep(previous.state, location.state) : location.state,
+      }
+    }
     const parsedSearch = parseSearch(location.search)
     const searchStr = stringifySearch(parsedSearch)
     return {
-      href: location.pathname + searchStr + location.hash,
-      publicHref: location.pathname + searchStr + location.hash,
-      pathname: decodePath(location.pathname).path,
+      href: location.pathname + searchStr + hash,
+      publicHref: location.pathname + searchStr + hash,
+      pathname: location.pathname,
       external: false,
       searchStr,
       search: nullReplaceEqualDeep(previous?.search, parsedSearch),
-      hash: decodePath((location.hash || '').replace(/^#/, '')).path,
-      state: replaceEqualDeep(previous?.state, location.state),
+      hash: hashValue,
+      state: previous ? replaceEqualDeep(previous.state, location.state) : location.state,
     }
   }
   const fullUrl = new URL(location.href, router.origin)
