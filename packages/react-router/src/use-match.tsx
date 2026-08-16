@@ -89,7 +89,7 @@ export function useMatch<
         if (opts?.shouldThrow === false || opts?.strict === false) {
           return undefined as any
         }
-        return undefined as any
+        throw new Error(`Invariant failed: Could not find an active match from "${String(from)}"`)
       }
       return opts?.select ? opts.select(match as any) : (match as any)
     },

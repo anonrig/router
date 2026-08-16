@@ -786,8 +786,9 @@ export class RouterCore<
         )
         if (!hasFrom) console.warn(`Could not find match for from: ${fromId}`)
       }
-      if (destRouteHint && !dest.leaveParams) {
-        warnBuildLocationMismatch(this, resolved, destRouteHint)
+      if (!dest.leaveParams && this.processedTree) {
+        if (destRouteHint) warnBuildLocationMismatch(this, resolved, destRouteHint)
+        else this.getMatchedRoutes(resolved)
       }
     }
     const location: ParsedLocation = {

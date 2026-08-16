@@ -520,6 +520,23 @@ export function processRouteTree<T extends AnyRouteLike>(
 
   walk(routeTree, 0)
 
+  const childLists = new Map<AnyRouteLike, AnyRouteLike[]>()
+  for (let i = 0; i < flatRoutes.length; i++) {
+    const route = flatRoutes[i]!
+    if (route === routeTree) continue
+    const parent = route.parentRoute
+    if (!parent) continue
+    let list = childLists.get(parent)
+    if (!list) {
+      list = []
+      childLists.set(parent, list)
+    }
+    list.push(route)
+  }
+  for (const [parent, list] of childLists) {
+    parent.children = list
+  }
+
   const root = createNode()
   root.route = routeTree
   optionalNamesThisTree = []

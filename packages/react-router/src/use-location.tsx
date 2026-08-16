@@ -26,5 +26,6 @@ export function useLocation<
 ): UseLocationResult<TRouter, TSelected> {
   return useRouterState({
     select: (s) => (opts?.select ? opts.select(s.location) : s.location),
+    structuralSharing: opts?.structuralSharing,
   }) as UseLocationResult<TRouter, TSelected>
 }
