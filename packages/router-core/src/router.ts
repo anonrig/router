@@ -367,6 +367,43 @@ function lastMatch(matches: RouteMatch[] | undefined) {
   return matches && matches.length ? matches[matches.length - 1] : undefined
 }
 
+function collectSimpleParamKeys(path: string): string[] | null {
+  const keys: string[] = []
+  for (let i = 0; i < path.length; i++) {
+    if (path.charCodeAt(i) !== 36) continue
+    let j = i + 1
+    if (j >= path.length || path.charCodeAt(j) === 47) return null
+    while (j < path.length && path.charCodeAt(j) !== 47) j++
+    const key = path.slice(i + 1, j)
+    if (key === '*' || key === '_splat') return null
+    keys.push(key)
+    i = j - 1
+  }
+  return keys
+}
+
+function isSimpleParamValue(value: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value !== 'string' || value.length === 0) return false
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i)
+    if (
+      !(
+        (c >= 48 && c <= 57) ||
+        (c >= 65 && c <= 90) ||
+        (c >= 97 && c <= 122) ||
+        c === 45 ||
+        c === 46 ||
+        c === 95 ||
+        c === 126
+      )
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
 const runNow = (fn: () => void) => fn()
 
 const DEFAULT_STORE_CONFIG = {
@@ -1068,6 +1105,31 @@ export class RouterCore<
     ) {
       return this.navigateHrefFast(href, rest)
     }
+    if (
+      typeof to === 'string' &&
+      to.charCodeAt(0) === 47 &&
+      !href &&
+      !reloadDocument &&
+      !publicHref &&
+      !this.rewrite &&
+      !this._hasSearchWork &&
+      !this.options.routeMasks?.length &&
+      rest.search == null &&
+      rest.hash == null &&
+      rest.mask == null &&
+      rest.from == null &&
+      !rest._isRedirect &&
+      !rest._redirects &&
+      rest._fromLocation == null &&
+      rest.unsafeRelative == null &&
+      rest.state == null &&
+      rest.params !== true &&
+      rest.params !== false &&
+      typeof rest.params !== 'function'
+    ) {
+      const fast = this.tryNavigateToFast(to, rest)
+      if (fast) return fast
+    }
     return this.executeNavigateSlow({
       to,
       reloadDocument: hrefIsUrl ? true : reloadDocument,
@@ -1256,6 +1318,48 @@ export class RouterCore<
     return true
   }
 
+  private tryNavigateToFast(to: string, rest: any): Promise<void> | undefined {
+    if (this.history.hasBlockers?.()) return
+    if ((this.history.location.state as any)?.__tempLocation) return
+    if (to.indexOf('?') !== -1 || to.indexOf('#') !== -1 || to.indexOf('{') !== -1) return
+    let resolved = to
+    if (to.indexOf('$') !== -1) {
+      const params = rest.params
+      if (params == null || typeof params !== 'object' || Array.isArray(params)) return
+      const keys = collectSimpleParamKeys(to)
+      if (!keys) return
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i]!
+        if (!Object.prototype.hasOwnProperty.call(params, key)) return
+        if (!isSimpleParamValue(params[key])) return
+      }
+      let route = this.routesByPath?.[trimPathRight(to)] as AnyRoute | undefined
+      while (route) {
+        if (route.options?.params?.stringify || route.options?.stringifyParams) return
+        route = route.parentRoute as AnyRoute | undefined
+      }
+      resolved = interpolatePath({
+        path: to,
+        params,
+        decoder: this.pathParamsDecoder,
+      }).interpolatedPath
+    } else if (rest.params != null) {
+      return
+    }
+    const trailing = this.options.trailingSlash
+    if (trailing && trailing !== 'never') {
+      resolved = resolvePath({
+        base: '/',
+        to: resolved || '/',
+        trailingSlash: trailing,
+        cache: this.resolvePathCache,
+      })
+    }
+    this.shouldViewTransition = rest.viewTransition
+    this._scroll.next = rest.resetScroll ?? true
+    return this.navigateHrefFast(resolved, rest)
+  }
+
   private navigateHrefFast(href: string, rest: any): Promise<void> {
     const currentIndex = this.history.location.state?.__TSR_index
     const parsed = parseHref(href, {
@@ -1326,6 +1430,7 @@ export class RouterCore<
 
   private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
     if (this._forcePending || this._handoff || this._tx || this._refreshNextLoad) return false
+    if (this.subscribers.size || this.options.hydrate) return false
 
     const cacheKey = location.searchStr
       ? `${location.pathname}\0${location.searchStr}`
@@ -1352,7 +1457,15 @@ export class RouterCore<
 
     for (let i = 0; i < found.length; i++) {
       const route = found[i]!.route as AnyRoute
-      if ((route.lazyFn && !route._lazy) || route.options.beforeLoad) return false
+      const options = route.options
+      if ((route.lazyFn && !route._lazy) || options.beforeLoad) return false
+      if (options.onEnter || options.onLeave || options.onStay) return false
+      if (options.head || options.headers || options.scripts) return false
+      if (options.staleTime != null || options.shouldReload) return false
+    }
+    if (this._preloads?.size) return false
+    for (const id in this._cache) {
+      if (this._cache[id]?.preload) return false
     }
 
     if (this.subscribers.size) {
@@ -1380,25 +1493,43 @@ export class RouterCore<
 
     for (let i = 0; i < found.length; i++) {
       const result = found[i]!
-      const prev = prevMap ? prevMap[result.route.id] : findPrevMatch(prevByRoute!, result.route.id)
-      const sameParams = prev && deepEqual(prev.params, result.params)
-      const samePath = prev && prev.pathname === location.pathname
-      if (prev && sameParams && samePath && !prev.invalid) {
-        prev.search = location.search
-        prev.cause = 'stay'
-        prev.publicHref = location.publicHref
-        prev._forcePending = prev._forcePending || this._forcePending
-        matches[i] = prev
+      const route = result.route as AnyRoute
+      let interpolatedPath = route.fullPath || location.pathname
+      if (interpolatedPath.indexOf('$') !== -1) {
+        interpolatedPath = interpolatePath({
+          path: interpolatedPath,
+          params: result.params,
+          decoder: this.pathParamsDecoder,
+        }).interpolatedPath
+      }
+      const matchId = route.id + interpolatedPath
+      const prev = prevMap ? prevMap[route.id] : findPrevMatch(prevByRoute!, route.id)
+      const cached = this._cache[matchId]
+      const reusable =
+        cached &&
+        cached.routeId === route.id &&
+        cached.status === 'success' &&
+        !cached.invalid &&
+        !cached.isFetching
+          ? cached
+          : prev && prev.id === matchId && deepEqual(prev.params, result.params) && !prev.invalid
+            ? prev
+            : undefined
+      if (reusable) {
+        reusable.search = location.search
+        reusable.cause = prev ? 'stay' : 'enter'
+        reusable.publicHref = location.publicHref
+        reusable._forcePending = reusable._forcePending || this._forcePending
+        matches[i] = reusable
         continue
       }
-      const route = result.route as AnyRoute
       const options = route.options
       const needsLoad = !!options.loader
       matches[i] = {
-        id: `${result.route.id}-${location.pathname}`,
-        routeId: result.route.id,
+        id: matchId,
+        routeId: route.id,
         route,
-        pathname: location.pathname,
+        pathname: interpolatedPath,
         params: result.params,
         rawParams: result.rawParams,
         status: needsLoad ? 'pending' : 'success',

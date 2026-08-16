@@ -26,6 +26,7 @@ export interface RouterHistory {
   canGoBack: () => boolean
   createHref: (href: string) => string
   block: (blocker: NavigationBlocker) => () => void
+  hasBlockers?: () => boolean
   flush: () => void
   destroy: () => void
   notify: (action: SubscriberHistoryAction) => void

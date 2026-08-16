@@ -374,15 +374,23 @@ if (section === 'headline') {
       })
     },
   )
-  await oursRouter.navigate({ to: '/posts/$id', params: { id: '1' } })
-  await tsRouter.navigate({ to: '/posts/$id', params: { id: '1' } })
+  const oursInvalidateRouter = oursCreateRouter({
+    routeTree: oursRouteTree,
+    history: oursCreateMemoryHistory({ initialEntries: ['/posts/1'] }),
+  })
+  const tsInvalidateRouter = tsCreateRouter({
+    routeTree: tsRouteTree,
+    history: tsCreateMemoryHistory({ initialEntries: ['/posts/1'] }),
+  })
+  await oursInvalidateRouter.load()
+  await tsInvalidateRouter.load()
   await addAsync(
     'Invalidate + reload',
     async () => {
-      await oursRouter.invalidate()
+      await oursInvalidateRouter.invalidate()
     },
     async () => {
-      await tsRouter.invalidate()
+      await tsInvalidateRouter.invalidate()
     },
   )
 }

@@ -144,6 +144,7 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
         opts.setBlockers?.(next.filter((b) => b !== blocker))
       }
     },
+    hasBlockers: () => (opts.getBlockers?.()?.length ?? 0) > 0,
     flush: () => opts.flush?.(),
     destroy: () => opts.destroy?.(),
     notify,

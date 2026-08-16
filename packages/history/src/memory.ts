@@ -193,6 +193,10 @@ class MemoryHistory implements RouterHistory {
     }
   }
 
+  hasBlockers() {
+    return !!this.blockers?.length
+  }
+
   flush() {}
 
   destroy() {}
