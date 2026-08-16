@@ -14,7 +14,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-19.2-149ECA?logo=react&logoColor=white)](https://react.dev)
 [![Node](https://img.shields.io/badge/Node-24+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
 <br />
 
@@ -153,7 +153,7 @@ jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. D
 
 ### Bundle size
 
-Initial client graph for the public constructors. esbuild minify, gzip -9, `react` / `react-dom` external. The SSR `load` chunk is a dynamic import and is not counted.
+Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The SSR `load` chunk is a dynamic import and is not counted.
 
 | Package         | @anonrig |    gzip |    TanStack |        gzip |
 | --------------- | -------: | ------: | ----------: | ----------: |

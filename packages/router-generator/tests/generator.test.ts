@@ -1,19 +1,13 @@
 // @vitest-environment node
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { viteBundle } from '../../../scripts/vite-bundle.ts'
 import { generateRouteTree } from '../src/generate'
 import { scanRoutes } from '../src/scan'
 
 const repoRoot = join(import.meta.dirname, '../../..')
-const require = createRequire(import.meta.url)
-
-function loadEsbuild(): { build: (options: Record<string, unknown>) => Promise<unknown> } {
-  const viteDir = dirname(require.resolve('vite'))
-  return require(require.resolve('esbuild', { paths: [viteDir] }))
-}
 
 function write(dir: string, file: string, body = 'export const Route = {}\n') {
   const full = join(dir, file)
@@ -115,28 +109,16 @@ describe('generateRouteTree', () => {
       `import { routeTree } from './routeTree.gen.ts'\nexport { routeTree }\n`,
     )
 
-    const esbuild = loadEsbuild()
-    const outdir = join(dir, 'out')
-    await esbuild.build({
-      absWorkingDir: dir,
-      entryPoints: [join(dir, 'entry.ts')],
-      bundle: true,
-      format: 'esm',
-      platform: 'browser',
-      treeShaking: true,
-      splitting: true,
-      outdir,
-      write: true,
-      logLevel: 'silent',
-      define: { 'process.env.NODE_ENV': '"production"' },
+    const { entry } = await viteBundle({
+      root: repoRoot,
+      entry: join(dir, 'entry.ts'),
+      outDir: join(dir, 'out'),
       alias: {
         '@anonrig/history': join(repoRoot, 'packages/history/src/index.ts'),
         '@anonrig/router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
         '@anonrig/router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
       },
     })
-
-    const entry = readFileSync(join(outdir, 'entry.js'), 'utf8')
     expect(entry).toContain('ROOT_ONLY')
     expect(entry).not.toContain('INDEX_ROUTE_BODY')
     expect(entry).not.toContain('SETTINGS_ROUTE_BODY')

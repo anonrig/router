@@ -1,35 +1,16 @@
 /**
  * Head-to-head client bundle size: this repo vs published TanStack Router.
  *
- * Minified ESM, production, React external. Dependencies are included.
+ * Minified ESM via Vite 8 / Rolldown, production, React external.
  * Re-run with `pnpm size`.
  */
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
+import { scriptStringPlugin, viteBundle } from './vite-bundle.ts'
 
 const repo = resolve(import.meta.dirname, '..')
-const require = createRequire(import.meta.url)
-
-type Metafile = {
-  outputs: Record<
-    string,
-    {
-      bytes: number
-      entryPoint?: string
-      imports: Array<{ path: string; kind: string; external?: boolean }>
-    }
-  >
-}
-
-function loadEsbuild(): {
-  build: (options: Record<string, unknown>) => Promise<{ metafile: Metafile }>
-} {
-  const viteDir = dirname(require.resolve('vite'))
-  return require(require.resolve('esbuild', { paths: [viteDir] }))
-}
 
 const reactExternals = ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime']
 
@@ -75,80 +56,41 @@ const cases = [
 
 type Sizes = { min: number; gzip: number }
 
-async function bundle(
-  source: string,
-  filename: string,
-  alias: Record<string, string>,
-): Promise<Sizes> {
+async function bundle(source: string, filename: string, alias: Record<string, string>): Promise<Sizes> {
   const dir = await mkdtemp(join(tmpdir(), 'anonrig-size-'))
   try {
     const entry = join(dir, filename)
-    const outdir = join(dir, 'out')
     await writeFile(entry, source)
-    await mkdir(outdir)
-    const esbuild = loadEsbuild()
-    const result = await esbuild.build({
-      absWorkingDir: repo,
-      nodePaths: [join(repo, 'node_modules')],
-      entryPoints: [entry],
-      bundle: true,
-      minify: true,
-      format: 'esm',
-      platform: 'browser',
-      target: 'es2024',
-      treeShaking: true,
-      splitting: true,
-      metafile: true,
-      outdir,
-      write: true,
-      logLevel: 'silent',
-      jsx: 'automatic',
-      legalComments: 'none',
-      define: {
-        'process.env.NODE_ENV': '"production"',
-      },
+    const result = await viteBundle({
+      root: repo,
+      entry,
+      outDir: join(dir, 'out'),
       alias,
       external: reactExternals,
-      plugins: [
-        {
-          name: 'script-string',
-          setup(build: {
-            onResolve: (opts: { filter: RegExp }, fn: (args: any) => any) => void
-            onLoad: (opts: { filter: RegExp; namespace: string }, fn: (args: any) => any) => void
-          }) {
-            build.onResolve({ filter: /\?script-string$/ }, (args) => ({
-              path: resolve(args.resolveDir, args.path.replace(/\?script-string$/, '')),
-              namespace: 'script-string',
-            }))
-            build.onLoad({ filter: /.*/, namespace: 'script-string' }, async (args) => ({
-              contents: `export default ${JSON.stringify(await readFile(args.path, 'utf8'))}`,
-              loader: 'js',
-            }))
-          },
-        },
-      ],
+      minify: true,
+      plugins: [scriptStringPlugin()],
     })
 
-    const outputs = result.metafile.outputs
-    const entryOutput = Object.keys(outputs).find((file) => outputs[file]!.entryPoint)
-    if (!entryOutput) throw new Error(`No entry output for ${filename}`)
-
-    const initial = new Set<string>()
-    const queue = [entryOutput]
+    const initial = new Set(result.outputs.filter((chunk) => chunk.isEntry).map((chunk) => chunk.fileName))
+    const queue = [...initial]
     while (queue.length) {
       const file = queue.pop()!
-      if (initial.has(file)) continue
-      initial.add(file)
-      for (const imported of outputs[file]?.imports ?? []) {
-        if (imported.external || imported.kind === 'dynamic-import') continue
-        queue.push(imported.path)
+      const chunk = result.outputs.find((item) => item.fileName === file)
+      for (const imported of chunk?.imports ?? []) {
+        const name = imported.replace(/^\.\//, '')
+        if (!initial.has(name) && result.chunks[name]) {
+          initial.add(name)
+          queue.push(name)
+        }
       }
     }
 
     let min = 0
     let gzip = 0
     for (const file of initial) {
-      const part = await readFile(resolve(repo, file))
+      const code = result.chunks[file]
+      if (!code) continue
+      const part = Buffer.from(code)
       min += part.length
       gzip += gzipSync(part, { level: 9 }).length
     }
@@ -178,7 +120,7 @@ for (const item of cases) {
 }
 
 console.log('')
-console.log('Client bundle size (esbuild minify, gzip -9, React external)')
+console.log('Client bundle size (Vite/Rolldown minify, gzip -9, React external)')
 console.log(`Node ${process.version}`)
 console.log(
   'TanStack: @tanstack/react-router 1.170.29, @tanstack/router-core 1.171.24, @tanstack/history 1.162.1',
