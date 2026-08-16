@@ -50,7 +50,7 @@ class MemoryHistory implements RouterHistory {
       this.entries = [href]
       this.states = [state]
       this.index = 0
-      this.location = parseHref(href, state)
+      this.location = locationFromPath(href, state)
       return
     }
     this.entries = src.slice()
@@ -62,7 +62,7 @@ class MemoryHistory implements RouterHistory {
     for (let i = 0; i < this.entries.length; i++) {
       this.states[i] = assignKeyAndIndex(i, undefined)
     }
-    this.location = parseHref(this.entries[this.index]!, this.states[this.index])
+    this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
   }
 
   get length() {
@@ -90,14 +90,14 @@ class MemoryHistory implements RouterHistory {
     states.push(state)
     entries.push(path)
     this.index = entries.length - 1
-    this.location = parseHref(path, state)
+    this.location = locationFromPath(path, state)
     this.notify(PUSH_ACTION)
   }
 
   private commitReplace(path: string, state: ParsedHistoryState) {
     this.states[this.index] = state
     this.entries[this.index] = path
-    this.location = parseHref(path, state)
+    this.location = locationFromPath(path, state)
     this.notify(REPLACE_ACTION)
   }
 
@@ -108,7 +108,7 @@ class MemoryHistory implements RouterHistory {
     task: () => void,
   ) {
     const list = this.blockers!
-    const nextLocation = parseHref(path, state)
+    const nextLocation = locationFromPath(path, state)
     const blockerArgs: BlockerFnArgs = {
       currentLocation: this.location,
       nextLocation,
@@ -175,14 +175,14 @@ class MemoryHistory implements RouterHistory {
   go(n: number) {
     const next = this.index + n
     this.index = next < 0 ? 0 : next >= this.entries.length ? this.entries.length - 1 : next
-    this.location = parseHref(this.entries[this.index]!, this.states[this.index])
+    this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     this.notify({ type: 'GO', index: n })
   }
 
   back() {
     if (this.index !== 0) {
       this.index -= 1
-      this.location = parseHref(this.entries[this.index]!, this.states[this.index])
+      this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     }
     this.notify(BACK_ACTION)
   }
@@ -190,7 +190,7 @@ class MemoryHistory implements RouterHistory {
   forward() {
     if (this.index < this.entries.length - 1) {
       this.index += 1
-      this.location = parseHref(this.entries[this.index]!, this.states[this.index])
+      this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     }
     this.notify(FORWARD_ACTION)
   }
