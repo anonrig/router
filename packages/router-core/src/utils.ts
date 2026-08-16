@@ -356,43 +356,116 @@ export function deepEqual(
 
   if (isPlainObject(a) && isPlainObject(b)) {
     const ignoreUndefined = opts?.ignoreUndefined ?? true
-    const bKeys = Reflect.ownKeys(b)
-
     if (opts?.partial) {
-      for (let i = 0; i < bKeys.length; i++) {
-        const k = bKeys[i]!
-        const bv = b[k]
-        if (!ignoreUndefined || bv !== undefined) {
-          if (!deepEqual(a[k], bv, opts)) return false
-        }
-      }
-      return true
+      return deepEqualPartial(a, b, opts, ignoreUndefined)
     }
+    return deepEqualObjects(a, b, opts, ignoreUndefined)
+  }
 
-    const aKeys = Reflect.ownKeys(a)
-    let aCount = 0
-    if (!ignoreUndefined) {
-      aCount = aKeys.length
-    } else {
-      for (let i = 0; i < aKeys.length; i++) {
-        if (a[aKeys[i]!] !== undefined) aCount++
-      }
+  return false
+}
+
+function deepEqualPartial(
+  a: Record<PropertyKey, any>,
+  b: Record<PropertyKey, any>,
+  opts: { partial?: boolean; ignoreUndefined?: boolean },
+  ignoreUndefined: boolean,
+): boolean {
+  for (const k in b) {
+    if (!Object.hasOwn(b, k)) continue
+    const bv = b[k]
+    if (!ignoreUndefined || bv !== undefined) {
+      if (!deepEqual(a[k], bv, opts)) return false
     }
+  }
+  return !objectHasHiddenOwnKeys(b) || deepEqualOwnKeys(a, b, opts, ignoreUndefined, true)
+}
 
-    let bCount = 0
+function deepEqualObjects(
+  a: Record<PropertyKey, any>,
+  b: Record<PropertyKey, any>,
+  opts: { partial?: boolean; ignoreUndefined?: boolean },
+  ignoreUndefined: boolean,
+): boolean {
+  let aCount = 0
+  let aEnum = 0
+  for (const k in a) {
+    if (!Object.hasOwn(a, k)) continue
+    aEnum++
+    if (!ignoreUndefined || a[k] !== undefined) aCount++
+  }
+
+  let bCount = 0
+  let bEnum = 0
+  for (const k in b) {
+    if (!Object.hasOwn(b, k)) continue
+    bEnum++
+    const bv = b[k]
+    if (!ignoreUndefined || bv !== undefined) {
+      bCount++
+      if (bCount > aCount || !deepEqual(a[k], bv, opts)) return false
+    }
+  }
+
+  if (aCount !== bCount) return false
+  if (!objectHasHiddenOwnKeys(a, aEnum) && !objectHasHiddenOwnKeys(b, bEnum)) {
+    return true
+  }
+  return deepEqualOwnKeys(a, b, opts, ignoreUndefined, false)
+}
+
+function objectHasHiddenOwnKeys(obj: object, enumerableStringCount?: number): boolean {
+  const names = Object.getOwnPropertyNames(obj)
+  let enumerable = enumerableStringCount
+  if (enumerable === undefined) {
+    enumerable = 0
+    for (const k in obj) {
+      if (Object.hasOwn(obj, k)) enumerable++
+    }
+  }
+  return names.length !== enumerable || Object.getOwnPropertySymbols(obj).length > 0
+}
+
+function deepEqualOwnKeys(
+  a: Record<PropertyKey, any>,
+  b: Record<PropertyKey, any>,
+  opts: { partial?: boolean; ignoreUndefined?: boolean } | undefined,
+  ignoreUndefined: boolean,
+  partial: boolean,
+): boolean {
+  const bKeys = Reflect.ownKeys(b)
+  if (partial) {
     for (let i = 0; i < bKeys.length; i++) {
       const k = bKeys[i]!
       const bv = b[k]
       if (!ignoreUndefined || bv !== undefined) {
-        bCount++
-        if (bCount > aCount || !deepEqual(a[k], bv, opts)) return false
+        if (!deepEqual(a[k], bv, opts)) return false
       }
     }
-
-    return aCount === bCount
+    return true
   }
 
-  return false
+  const aKeys = Reflect.ownKeys(a)
+  let aCount = 0
+  if (!ignoreUndefined) {
+    aCount = aKeys.length
+  } else {
+    for (let i = 0; i < aKeys.length; i++) {
+      if (a[aKeys[i]!] !== undefined) aCount++
+    }
+  }
+
+  let bCount = 0
+  for (let i = 0; i < bKeys.length; i++) {
+    const k = bKeys[i]!
+    const bv = b[k]
+    if (!ignoreUndefined || bv !== undefined) {
+      bCount++
+      if (bCount > aCount || !deepEqual(a[k], bv, opts)) return false
+    }
+  }
+
+  return aCount === bCount
 }
 
 export type StringLiteral<T> = T extends string ? (string extends T ? string : T) : never

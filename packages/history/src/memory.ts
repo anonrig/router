@@ -1,6 +1,9 @@
 import { BACK_ACTION, FORWARD_ACTION, PUSH_ACTION, REPLACE_ACTION, STATE_INDEX } from './constants'
 import { assignKeyAndIndex, parseHref } from './parse'
 
+const MEMORY_HISTORY_COMPACT_AT = 2048
+const MEMORY_HISTORY_KEEP = 1024
+
 function locationFromPath(path: string, state: ParsedHistoryState | undefined): HistoryLocation {
   if (state == null) return parseHref(path, state)
   const len = path.length
@@ -70,6 +73,19 @@ class MemoryHistory implements RouterHistory {
     return this.entries.length
   }
 
+  private compactIfNeeded() {
+    const { entries, states, index } = this
+    if (index !== entries.length - 1 || entries.length < MEMORY_HISTORY_COMPACT_AT) {
+      return
+    }
+    const drop = entries.length - MEMORY_HISTORY_KEEP
+    entries.copyWithin(0, drop)
+    entries.length = MEMORY_HISTORY_KEEP
+    states.copyWithin(0, drop)
+    states.length = MEMORY_HISTORY_KEEP
+    this.index = MEMORY_HISTORY_KEEP - 1
+  }
+
   get subscribers() {
     return (this._subscribers ??= new Set())
   }
@@ -91,6 +107,7 @@ class MemoryHistory implements RouterHistory {
     states.push(state)
     entries.push(path)
     this.index = entries.length - 1
+    this.compactIfNeeded()
     this.location = locationFromPath(path, state)
     this.notify(PUSH_ACTION)
   }
@@ -150,6 +167,7 @@ class MemoryHistory implements RouterHistory {
     states.push(nextState)
     entries.push(path)
     this.index = entries.length - 1
+    this.compactIfNeeded()
     this.location = locationFromPath(path, nextState)
     this.notify(PUSH_ACTION)
   }

@@ -143,7 +143,20 @@ export function createRouterStores<TRouteTree extends AnyRoute>(
   // setters to update non-reactive utilities in sync with the reactive stores
   function setMatches(nextMatches: Array<AnyRouteMatch>) {
     const previousIds = ids.get()
-    const nextIds = nextMatches.map((match) => match.routeId)
+    const len = nextMatches.length
+    if (previousIds.length === len) {
+      let unchanged = true
+      for (let i = 0; i < len; i++) {
+        const match = nextMatches[i]!
+        if (previousIds[i] !== match.routeId || byRoute[match.routeId]?.get() !== match) {
+          unchanged = false
+          break
+        }
+      }
+      if (unchanged) return
+    }
+    const nextIds = new Array<string>(len)
+    for (let i = 0; i < len; i++) nextIds[i] = nextMatches[i]!.routeId
 
     batch(() => {
       // Publish lane membership first so framework trees reconcile departures

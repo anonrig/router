@@ -409,6 +409,41 @@ function isSimpleParamValue(value: unknown) {
   return true
 }
 
+function interpolateSimpleTo(path: string, params: Record<string, any>, keys: string[]): string {
+  if (keys.length === 1) {
+    const key = keys[0]!
+    const idx = path.indexOf('$' + key)
+    return path.slice(0, idx) + params[key] + path.slice(idx + key.length + 1)
+  }
+  let out = ''
+  let last = 0
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]!
+    const idx = path.indexOf('$' + key, last)
+    out += path.slice(last, idx)
+    out += params[key]
+    last = idx + key.length + 1
+  }
+  return out + path.slice(last)
+}
+
+function routeAllowsSimpleNav(route: AnyRoute | undefined): boolean {
+  if (!route) return true
+  const cached = (route as { _simpleNav?: 0 | 1 })._simpleNav
+  if (cached === 1) return true
+  if (cached === 0) return false
+  let current: AnyRoute | undefined = route
+  while (current) {
+    if (current.options?.params?.stringify || current.options?.stringifyParams) {
+      ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 0
+      return false
+    }
+    current = current.parentRoute as AnyRoute | undefined
+  }
+  ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 1
+  return true
+}
+
 const runNow = (fn: () => void) => fn()
 
 const DEFAULT_STORE_CONFIG = {
@@ -710,16 +745,28 @@ export class RouterCore<
       setMatches: (nextMatches: any[]) => {
         setMatches(nextMatches)
         const current = state.get()
-        if (current) {
-          state.set({
-            ...current,
-            matches: nextMatches,
-            location: locationStore.get(),
-            resolvedLocation: stores.resolvedLocation.get(),
-            status: stores.status.get(),
-            isLoading: stores.status.get() === 'pending',
-          })
+        if (!current) return
+        const status = stores.status.get()
+        const nextLocation = locationStore.get()
+        const nextResolved = stores.resolvedLocation.get()
+        const isLoading = status === 'pending'
+        if (
+          current.matches === nextMatches &&
+          current.status === status &&
+          current.location === nextLocation &&
+          current.resolvedLocation === nextResolved &&
+          current.isLoading === isLoading
+        ) {
+          return
         }
+        state.set({
+          ...current,
+          matches: nextMatches,
+          location: nextLocation,
+          resolvedLocation: nextResolved,
+          status,
+          isLoading,
+        })
       },
     })
   }
@@ -1368,16 +1415,16 @@ export class RouterCore<
         if (!Object.hasOwn(params, key)) return
         if (!isSimpleParamValue(params[key])) return
       }
-      let route = this.routesByPath?.[trimPathRight(to)] as AnyRoute | undefined
-      while (route) {
-        if (route.options?.params?.stringify || route.options?.stringifyParams) return
-        route = route.parentRoute as AnyRoute | undefined
+      if (!routeAllowsSimpleNav(this.routesByPath?.[trimPathRight(to)] as AnyRoute | undefined)) {
+        return
       }
-      resolved = interpolatePath({
-        path: to,
-        params,
-        decoder: this.pathParamsDecoder,
-      }).interpolatedPath
+      resolved = this.pathParamsDecoder
+        ? interpolatePath({
+            path: to,
+            params,
+            decoder: this.pathParamsDecoder,
+          }).interpolatedPath
+        : interpolateSimpleTo(to, params, keys)
     } else if (rest.params != null) {
       return
     }
