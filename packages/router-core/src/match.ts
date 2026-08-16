@@ -382,6 +382,8 @@ export type ProcessedTree = {
     string,
     readonly [AnyRouteLike[], Record<string, any>, AnyRouteLike | undefined]
   >
+  /** Cached matchRoutes templates for empty-search pathnames. */
+  matchedTemplateCache?: Map<string, any[]>
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -531,6 +533,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
     hasDynamic: nodeHasDynamic(root),
     matchedRoutesCache: new Map(),
+    matchedTemplateCache: new Map(),
   }
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
   const result = { ...processedTree, processedTree }

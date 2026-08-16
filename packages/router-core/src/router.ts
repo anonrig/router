@@ -1498,6 +1498,18 @@ export class RouterCore<
   }
 
   private matchRoutesInternal(next: ParsedLocation, opts?: any): RouteMatch[] {
+    const templateCache = this.processedTree.matchedTemplateCache
+    if (
+      templateCache &&
+      !next.searchStr &&
+      !opts?.throwOnError &&
+      !opts?._rematerialize &&
+      !opts?._controller
+    ) {
+      const cached = templateCache.get(next.pathname)
+      if (cached) return cloneCachedMatches(cached)
+    }
+
     const [initialMatchedRoutes, rawParams, foundRoute] = this.getMatchedRoutes(next.pathname)
     let matchedRoutes = initialMatchedRoutes as AnyRoute[]
     let isGlobalNotFound = false
@@ -1646,6 +1658,18 @@ export class RouterCore<
       match.params =
         match.cause === 'stay' ? nullReplaceEqualDeep(match.params, strictParams) : strictParams!
       if (opts?._controller) match.context = {}
+    }
+
+    if (
+      templateCache &&
+      !next.searchStr &&
+      !opts?.throwOnError &&
+      !opts?._rematerialize &&
+      !opts?._controller
+    ) {
+      const snapshot = new Array(matches.length)
+      for (let i = 0; i < matches.length; i++) snapshot[i] = { ...matches[i] }
+      templateCache.set(next.pathname, snapshot)
     }
 
     return matches
@@ -1912,6 +1936,24 @@ function applyBuildRewrite(router: any, location: ParsedLocation) {
   } else {
     location.publicHref = rewrittenUrl.pathname + rewrittenUrl.search + rewrittenUrl.hash
   }
+}
+
+function cloneCachedMatches(cached: RouteMatch[]): RouteMatch[] {
+  const now = Date.now()
+  const out = new Array(cached.length)
+  for (let i = 0; i < cached.length; i++) {
+    const match = cached[i]!
+    out[i] = {
+      ...match,
+      updatedAt: now,
+      abortController: routeNeedsLoad(match.route as AnyRoute)
+        ? new AbortController()
+        : noopAbortController,
+      context: {},
+      isFetching: false,
+    }
+  }
+  return out
 }
 
 function isPlainAsciiPath(path: string) {
