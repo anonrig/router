@@ -694,6 +694,8 @@ export interface Route<
   >
   /** @internal */
   _lazy?: Promise<void> | true
+  /** @internal Cached warm-load eligibility; 1 = safe, 0 = must use full load. */
+  _warmLoad?: 0 | 1
   /** @internal Generated route stubs load options through `.lazy()`. */
   _lazyOptions?: boolean
   rank: number
