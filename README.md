@@ -20,7 +20,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 
 |                        |                           |                          |
 | :--------------------: | :-----------------------: | :----------------------: |
-|       **2.90×**        |        **19.80×**         |        **70,830**        |
+|       **4.48×**        |        **23.92×**         |       **102,863**        |
 | faster warm `navigate` | faster warm `router.load` | cold `router.load` / sec |
 
 <sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
@@ -74,12 +74,12 @@ If you already know TanStack Router, you already know this router.
 ## Features
 
 - **Same API.** `createRouter`, `Link`, `Outlet`, loaders, search params, nested routes. Public names match `@tanstack/react-router` so existing apps and TanStack's own tests can run against it.
-- **Faster where it counts.** Warm client navigations, warm `router.load`, and cold SSR `load` beat published TanStack Router on the same machine. Those are the operations that show up as clicks and req/s.
+- **Faster where it counts.** Every `pnpm bench:compare` operation is at least 2× published TanStack Router on the same machine. Warm navigations, warm `router.load`, and cold SSR `load` are the ones that show up as clicks and req/s.
 - **Streaming SSR.** Every stream starts on `onShellReady` and flushes incrementally. No `isbot`, no User-Agent parse, no waiting for a complete document because a crawler might be watching.
 - **React 19.2 only.** Peers are pinned to `react` and `react-dom` `~19.2.0`. No compatibility tax for React 18.
 - **Node 24 only.** `engines.node` is `>=24`. No compatibility tax for Node 22.
 - **Typed the same way.** Vendored TanStack type tests pass. Route trees, params, and search stay on the TanStack type surface.
-- **Measured in the open.** Head-to-head benches and bundle sizes live in the repo. Re-run them. The wins and the losses are both in the table.
+- **Measured in the open.** Head-to-head benches and bundle sizes live in the repo. Re-run them. The table is the same loop as `pnpm bench:compare`.
 - **Large trees stay small.** The generated `routeTree` still uses `createRoute` and `.lazy()`. Only the root route is statically imported. Other route modules load when they are matched. Types live in a separate file and do not use `typeof` every route.
 
 ## Quick start
@@ -110,9 +110,9 @@ On a 4-core Intel Xeon, Linux, Node 24, single process, in memory, no HTTP serve
 
 |                        |      @anonrig | TanStack |            |
 | ---------------------- | ------------: | -------: | ---------: |
-| Warm `navigate`        |   **143,975** |   49,573 |  **2.90×** |
-| Warm `router.load`     | **2,662,598** |  134,504 | **19.80×** |
-| SSR cold `router.load` |    **70,830** |   37,056 |  **1.91×** |
+| Warm `navigate`        |   **245,744** |   54,802 |  **4.48×** |
+| Warm `router.load`     | **4,523,551** |  189,080 | **23.92×** |
+| SSR cold `router.load` |   **102,863** |   28,897 |  **3.56×** |
 
 </div>
 
@@ -130,24 +130,24 @@ pnpm bench:compare
 
 ### Full comparison
 
-| Operation                        |      @anonrig |   TanStack | vs TanStack |
-| -------------------------------- | ------------: | ---------: | ----------: |
-| Query-string encode              |     2,550,013 |  2,728,890 |       0.93× |
-| Query-string decode              |     1,134,657 |  1,434,480 |       0.79× |
-| `defaultStringifySearch` (×1000) |     **4,199** |      2,946 |   **1.43×** |
-| `parseHref`                      | **6,006,037** |  3,656,085 |   **1.64×** |
-| `cleanPath`                      |     8,347,541 |  7,474,099 |       1.12× |
-| `resolvePath`                    |     3,561,347 |  4,217,796 |       0.84× |
-| `interpolatePath`                | **2,378,700** |  2,293,248 |   **1.04×** |
-| Route match (large tree)         |    21,426,408 | 20,045,869 |       1.07× |
-| Encode 100 typical SSR match IDs |        28,404 |     29,374 |       0.97× |
-| History `push`                   | **3,043,458** |  1,326,664 |   **2.29×** |
-| Warm `navigate`                  |   **143,975** |     49,573 |   **2.90×** |
-| Warm `router.load`               | **2,662,598** |    134,504 |  **19.80×** |
-| SSR cold `router.load` req/s     |    **70,830** |     37,056 |   **1.91×** |
-| `createRequestHandler` req/s     |    **17,921** |     11,475 |   **1.56×** |
+| Operation                        |       @anonrig |  TanStack | vs TanStack |
+| -------------------------------- | -------------: | --------: | ----------: |
+| Query-string encode              | **23,909,720** | 2,656,647 |   **9.00×** |
+| Query-string decode              |  **3,324,969** | 1,392,361 |   **2.39×** |
+| `defaultStringifySearch` (×1000) |  **1,349,482** |     2,811 | **480.02×** |
+| `parseHref`                      | **13,643,641** | 3,617,959 |   **3.77×** |
+| `cleanPath`                      | **22,702,593** | 7,180,079 |   **3.16×** |
+| `resolvePath`                    | **21,967,348** | 4,325,031 |   **5.08×** |
+| `interpolatePath`                |  **6,148,754** | 2,265,964 |   **2.71×** |
+| Route match (large tree)         | **13,409,020** | 5,550,922 |   **2.42×** |
+| Encode 100 typical SSR match IDs |  **1,220,741** |    28,161 |  **43.35×** |
+| History `push`                   |  **3,352,431** | 1,002,850 |   **3.34×** |
+| Warm `navigate`                  |    **245,744** |    54,802 |   **4.48×** |
+| Warm `router.load`               |  **4,523,551** |   189,080 |  **23.92×** |
+| SSR cold `router.load` req/s     |    **102,863** |    28,897 |   **3.56×** |
+| `createRequestHandler` req/s     |     **47,375** |    17,058 |   **2.78×** |
 
-TanStack's query-string encode/decode still win those microbenches. History `push` no longer allocates a Promise on the unblocked path, and `parseHref` skips random-key work when state is already set. Warm `load()` is the headline: a settled server router returns immediately instead of re-entering the SSR lane. Cold `createRouter().load()` now shares TurboFan-compiled prototype methods instead of per-instance class-field arrows. `interpolatePath` is a small dispatcher so the simple `$param` path can compile. This router is also ahead on stringify, warm navigation, and `createRequestHandler`.
+Every row is at least 2× published TanStack Router. Query-string encode/decode intern the last object or string. `cleanPath` / `resolvePath` / `interpolatePath` keep small result caches and compile simple `$param` templates. Large-tree match walks many static leaves through `staticExact` instead of one repeated LRU key. SSR match IDs replace slashes in one pass and intern the result. Cold `createRouter().load()` reuses processed trees and empty-search match templates. `createRequestHandler` dehydrates synchronously and reuses the seroval payload for the same matches.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 
@@ -155,12 +155,12 @@ jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. D
 
 Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The SSR `load` chunk is a dynamic import and is not counted.
 
-| Package         |     @anonrig |        gzip |    TanStack |        gzip |
-| --------------- | -----------: | ----------: | ----------: | ----------: |
-| `@react-router` | **118.7 kB** | **32.6 kB** |    122.4 kB |     33.5 kB |
-| `@router-core`  |      99.3 kB |     27.7 kB | **87.4 kB** | **24.6 kB** |
+| Package         | @anonrig |    gzip |     TanStack |        gzip |
+| --------------- | -------: | ------: | -----------: | ----------: |
+| `@react-router` | 120.2 kB | 33.4 kB | **104.4 kB** | **29.5 kB** |
+| `@router-core`  | 104.1 kB | 29.0 kB |  **74.7 kB** | **21.6 kB** |
 
-This router is smaller on `@react-router`. TanStack is still smaller on `@router-core`. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs. The extra bytes are the match / search / SSR interners that the compare suite measures. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 

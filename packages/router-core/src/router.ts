@@ -1501,6 +1501,7 @@ export class RouterCore<
     const templateCache = this.processedTree.matchedTemplateCache
     if (
       templateCache &&
+      !this._hasSearchWork &&
       !next.searchStr &&
       !opts?.throwOnError &&
       !opts?._rematerialize &&
@@ -1662,6 +1663,7 @@ export class RouterCore<
 
     if (
       templateCache &&
+      !this._hasSearchWork &&
       !next.searchStr &&
       !opts?.throwOnError &&
       !opts?._rematerialize &&
@@ -1974,7 +1976,7 @@ function parseHistoryLocation(
   if (!router.rewrite && isPlainAsciiPath(location.pathname)) {
     const hash = location.hash
     const hashValue = !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
-    if (!location.search) {
+    if (!location.search && parseSearch === defaultParseSearch) {
       const href = hash ? location.pathname + hash : location.pathname
       return {
         href,
