@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
 import {

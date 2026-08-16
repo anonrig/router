@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { createMemoryHistory } from '@tanstack/history'
 import { afterEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 import { BaseRootRoute, BaseRoute } from '@tanstack/router-core'
