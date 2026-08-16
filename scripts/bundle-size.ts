@@ -4,8 +4,7 @@
  * Minified ESM via Vite 8 / Rolldown, production, React external.
  * Re-run with `pnpm size`.
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { scriptStringPlugin, viteBundle } from './vite-bundle.ts'
@@ -61,7 +60,9 @@ async function bundle(
   filename: string,
   alias: Record<string, string>,
 ): Promise<Sizes> {
-  const dir = await mkdtemp(join(tmpdir(), 'anonrig-size-'))
+  const cache = join(repo, 'node_modules/.cache')
+  await mkdir(cache, { recursive: true })
+  const dir = await mkdtemp(join(cache, 'anonrig-size-'))
   try {
     const entry = join(dir, filename)
     await writeFile(entry, source)

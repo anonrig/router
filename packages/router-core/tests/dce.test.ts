@@ -64,9 +64,7 @@ describe('dead code elimination', () => {
     expect(entry).toContain('encode')
     expect(entry).not.toContain('RouterCore')
     expect(entry).not.toContain('class Router')
-    for (const marker of serverMarkers) {
-      expect(entry, marker).not.toContain(marker)
-    }
+    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 
   it('does not pull server loaders through the isServer export', async () => {
@@ -75,9 +73,7 @@ describe('dead code elimination', () => {
       console.log(isServer)
     `)
     expect(entry).toMatch(/document/)
-    for (const marker of serverMarkers) {
-      expect(entry, marker).not.toContain(marker)
-    }
+    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 
   it('keeps load-server out of the client createRouter chunk', async () => {
@@ -86,9 +82,7 @@ describe('dead code elimination', () => {
       export const router = createRouter({ routeTree: createRootRoute() })
     `)
     expect(entry).toContain('createRouter')
-    for (const marker of serverMarkers) {
-      expect(entry, marker).not.toContain(marker)
-    }
+    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
     const asyncCode = Object.entries(chunks)
       .filter(([name]) => name !== 'entry.js')
       .map(([, code]) => code)
@@ -107,8 +101,6 @@ describe('dead code elimination', () => {
     expect(entry).not.toContain('tsr-meta-')
     expect(entry).not.toContain('preventScriptHoist')
     expect(entry).not.toContain('HeadContent')
-    for (const marker of serverMarkers) {
-      expect(entry, marker).not.toContain(marker)
-    }
+    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 })

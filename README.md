@@ -155,12 +155,12 @@ jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. D
 
 Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The SSR `load` chunk is a dynamic import and is not counted.
 
-| Package         | @anonrig |    gzip |    TanStack |        gzip |
-| --------------- | -------: | ------: | ----------: | ----------: |
-| `@react-router` |  85.8 kB | 28.7 kB | **78.8 kB** | **27.5 kB** |
-| `@router-core`  |  75.2 kB | 25.1 kB | **55.6 kB** | **19.7 kB** |
+| Package         |     @anonrig |        gzip |    TanStack |        gzip |
+| --------------- | -----------: | ----------: | ----------: | ----------: |
+| `@react-router` | **115.7 kB** | **31.9 kB** |    122.4 kB |     33.5 kB |
+| `@router-core`  |      99.0 kB |     27.6 kB | **87.4 kB** | **24.6 kB** |
 
-TanStack is smaller on both packages. Re-run with `pnpm size`.
+This router is smaller on `@react-router`. TanStack is still smaller on `@router-core`. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 
