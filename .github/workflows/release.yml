@@ -46,7 +46,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+          # Do not set registry-url. setup-node would write
+          # `_authToken=${NODE_AUTH_TOKEN}` into .npmrc, and an empty token
+          # disables npm's OIDC trusted-publishing exchange.
       - run: pnpm install --frozen-lockfile
       - run: pnpm fmt:check
       - run: pnpm lint
@@ -114,15 +116,27 @@ jobs:
 
       - name: Publish packages
         if: github.event_name == 'push' || !inputs.dry_run
-        run: pnpm release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
+            echo "registry=https://registry.npmjs.org/" >> "$HOME/.npmrc"
+            export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          fi
+          pnpm release
 
       - name: Dry-run publish
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
-        run: pnpm release --dry-run
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
+            echo "registry=https://registry.npmjs.org/" >> "$HOME/.npmrc"
+            export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          fi
+          pnpm release --dry-run
 
       - name: Create GitHub Release
         if: github.event_name == 'push' || !inputs.dry_run
