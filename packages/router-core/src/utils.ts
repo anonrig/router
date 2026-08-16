@@ -357,9 +357,9 @@ export function deepEqual(
   if (isPlainObject(a) && isPlainObject(b)) {
     const ignoreUndefined = opts?.ignoreUndefined ?? true
     if (opts?.partial) {
-      return deepEqualPartial(a, b, opts, ignoreUndefined)
+      return deepEqualPartial(a, b, opts ?? {}, ignoreUndefined)
     }
-    return deepEqualObjects(a, b, opts, ignoreUndefined)
+    return deepEqualObjects(a, b, opts ?? {}, ignoreUndefined)
   }
 
   return false
