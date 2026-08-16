@@ -1,9 +1,7 @@
 /**
  * Report V8 optimization status for hot-path functions.
  *
- *   node --allow-natives-syntax \
- *     node_modules/vite-node/dist/cli.mjs --config scripts/bench-compare.config.ts \
- *     scripts/v8-status.ts
+ *   node --allow-natives-syntax --experimental-transform-types --import ./scripts/register-ts.mjs scripts/v8-status.ts
  *
  * Node 24 / V8 bits:
  *   1 fn  2 never-opt  8 maybe-deopted  16 optimized

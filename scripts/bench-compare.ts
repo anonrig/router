@@ -1,8 +1,8 @@
 /**
  * Head-to-head throughput: this repo vs published TanStack Router.
  *
- * Must be run with `scripts/bench-compare.config.ts` so `@tanstack/*` resolves
- * to node_modules and `@anonrig/*` resolves to this workspace.
+ * `@anonrig/*` resolves through the workspace packages. `@tanstack/*` stays
+ * on the published packages so the same operations can be timed head-to-head.
  */
 import './bench-compare-self.ts'
 import {
