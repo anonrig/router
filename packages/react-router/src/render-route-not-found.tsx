@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { DefaultGlobalNotFound } from './not-found'
 import { wrapInNonRouteComponentContext } from './non-route-component-context'
-import type { AnyRoute, AnyRouter } from '@anonrig/router-core'
+import type { AnyRoute, AnyRouter } from 'fast-router-core'
 
 /**
  * Renders a not found component for a route when no matching route is found.

@@ -1,4 +1,4 @@
-import type { HistoryLocation } from '@anonrig/history'
+import type { HistoryLocation } from 'fast-router-history'
 
 export {
   createHistory,
@@ -6,7 +6,7 @@ export {
   createHashHistory,
   createMemoryHistory,
   parseHref,
-} from '@anonrig/history'
+} from 'fast-router-history'
 
 export type {
   BlockerFn,
@@ -14,9 +14,9 @@ export type {
   RouterHistory,
   ParsedPath,
   HistoryState,
-} from '@anonrig/history'
+} from 'fast-router-history'
 
-declare module '@anonrig/history' {
+declare module 'fast-router-history' {
   interface HistoryState {
     __tempLocation?: HistoryLocation
     __tempKey?: string

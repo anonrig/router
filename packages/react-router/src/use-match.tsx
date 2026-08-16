@@ -11,7 +11,7 @@ import type {
   StrictOrFrom,
   ThrowConstraint,
   ThrowOrOptional,
-} from '@anonrig/router-core'
+} from 'fast-router-core'
 
 export interface UseMatchBaseOptions<
   TRouter extends AnyRouter,

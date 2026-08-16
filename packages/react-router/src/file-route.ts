@@ -30,7 +30,7 @@ import type {
   RouteLoaderEntry,
   UpdatableRouteOptions,
   UseNavigateResult,
-} from '@anonrig/router-core'
+} from 'fast-router-core'
 import type { UseLoaderDepsRoute } from './use-loader-deps'
 import type { UseLoaderDataRoute } from './use-loader-data'
 import type { UseRouteContextRoute } from './use-route-context'
@@ -190,7 +190,7 @@ export function FileRouteLoader<
   return (loaderFn) => loaderFn as any
 }
 
-declare module '@anonrig/router-core' {
+declare module 'fast-router-core' {
   export interface LazyRoute<in out TRoute extends AnyRoute> {
     useMatch: UseMatchRoute<TRoute['id']>
     useRouteContext: UseRouteContextRoute<TRoute['id']>

@@ -1,6 +1,6 @@
 import { createElement } from 'react'
-import { isModuleNotFoundError } from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/is-server'
+import { isModuleNotFoundError } from 'fast-router-core'
+import { isServer } from 'fast-router-core/is-server'
 import { reactUse } from './utils'
 import type { AsyncRouteComponent } from './route'
 

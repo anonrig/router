@@ -1,9 +1,9 @@
-import { RouterCore, type CreateRouterFn } from '@anonrig/router-core'
-import type { RouterHistory } from '@anonrig/history'
-import type { AnyRoute, TrailingSlashOption } from '@anonrig/router-core'
+import { RouterCore, type CreateRouterFn } from 'fast-router-core'
+import type { RouterHistory } from 'fast-router-history'
+import type { AnyRoute, TrailingSlashOption } from 'fast-router-core'
 import type { ErrorRouteComponent, NotFoundRouteComponent, RouteComponent } from './route'
 
-declare module '@anonrig/router-core' {
+declare module 'fast-router-core' {
   export interface RouterOptionsExtensions {
     defaultComponent?: RouteComponent
     defaultErrorComponent?: ErrorRouteComponent

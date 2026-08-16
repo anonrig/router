@@ -10,8 +10,8 @@ import {
   isDangerousProtocol,
   preloadWarning,
   removeTrailingSlash,
-} from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/is-server'
+} from 'fast-router-core'
+import { isServer } from 'fast-router-core/is-server'
 import { useRouter } from './use-router'
 
 import { useForwardedRef, useIntersectionObserver } from './utils'
@@ -25,7 +25,7 @@ import type {
   ParsedLocation,
   RegisteredRouter,
   RoutePaths,
-} from '@anonrig/router-core'
+} from 'fast-router-core'
 import type { ReactNode } from 'react'
 import type { ValidateLinkOptions, ValidateLinkOptionsArray } from './type-primitives'
 

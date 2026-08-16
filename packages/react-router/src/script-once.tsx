@@ -1,4 +1,4 @@
-import { isServer } from '@anonrig/router-core/is-server'
+import { isServer } from 'fast-router-core/is-server'
 import { useRouter } from './use-router'
 
 /**

@@ -4,11 +4,11 @@
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "@anonrig/history": ["./packages/history/src/index.ts"],
-      "@anonrig/router-core": ["./packages/router-core/src/index.ts"],
-      "@anonrig/router-core/is-server": ["./packages/router-core/src/is-server.ts"],
-      "@anonrig/router-core/utils": ["./packages/router-core/src/utils.ts"],
-      "@anonrig/router-core/ssr/serializer/transformer": [
+      "fast-router-history": ["./packages/history/src/index.ts"],
+      "fast-router-core": ["./packages/router-core/src/index.ts"],
+      "fast-router-core/is-server": ["./packages/router-core/src/is-server.ts"],
+      "fast-router-core/utils": ["./packages/router-core/src/utils.ts"],
+      "fast-router-core/ssr/serializer/transformer": [
         "./packages/router-core/src/ssr/serializer/transformer-types.ts"
       ],
       "@tanstack/history": ["./packages/history/src/index.ts"],

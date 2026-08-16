@@ -1,6 +1,6 @@
 {
-  "name": "@anonrig/router",
-  "version": "0.0.0",
+  "name": "fast-router-monorepo",
+  "version": "0.1.0",
   "private": true,
   "description": "The TanStack Router API. Rebuilt for the hot path.",
   "license": "MIT",
@@ -27,12 +27,10 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "knip": "knip"
+    "knip": "knip",
+    "release": "pnpm -r --filter './packages/*' publish --access public --no-git-checks --provenance"
   },
   "devDependencies": {
-    "@anonrig/history": "workspace:*",
-    "@anonrig/react-router": "workspace:*",
-    "@anonrig/router-core": "workspace:*",
     "@tanstack/history": "^1.162.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.29",
@@ -45,6 +43,9 @@
     "@types/react-dom": "~19.2.0",
     "@vitejs/plugin-react": "^6.0.5",
     "combinate": "^1.1.11",
+    "fast-router": "workspace:*",
+    "fast-router-core": "workspace:*",
+    "fast-router-history": "workspace:*",
     "jsdom": "^30.0.1",
     "knip": "6.32.2",
     "oxfmt": "^0.63.0",

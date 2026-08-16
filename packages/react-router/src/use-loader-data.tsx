@@ -6,7 +6,7 @@ import type {
   ResolveUseLoaderData,
   StrictOrFrom,
   UseLoaderDataResult,
-} from '@anonrig/router-core'
+} from 'fast-router-core'
 
 export interface UseLoaderDataBaseOptions<
   TRouter extends AnyRouter,

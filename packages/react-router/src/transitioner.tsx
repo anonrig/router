@@ -5,10 +5,10 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react'
-import { getLocationChangeInfo, trimPathRight } from '@anonrig/router-core'
+import { getLocationChangeInfo, trimPathRight } from 'fast-router-core'
 import { useLayoutEffect } from './utils'
 import { useRouter } from './use-router'
-import type { AnyRouter } from '@anonrig/router-core'
+import type { AnyRouter } from 'fast-router-core'
 
 export function settleOwner(owner: NonNullable<AnyRouter['_rendered']>, rendered: boolean) {
   const settle = owner[1]

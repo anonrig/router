@@ -13,9 +13,9 @@ import {
   getInitialRouterState,
   makeSerovalPlugin,
   makeSsrSerovalPlugin,
-} from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/isServer'
-import { getScrollRestorationScriptForRouter } from '@anonrig/router-core/scroll-restoration-script'
+} from 'fast-router-core'
+import { isServer } from 'fast-router-core/isServer'
+import { getScrollRestorationScriptForRouter } from 'fast-router-core/scroll-restoration-script'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const require = createRequire(import.meta.url)

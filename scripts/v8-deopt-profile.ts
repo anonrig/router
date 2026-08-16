@@ -2,7 +2,7 @@
  * Exercise the published bench:compare loops, then dump V8 optimization
  * status for the functions those loops actually call.
  */
-import { createMemoryHistory, parseHref } from '@anonrig/history'
+import { createMemoryHistory, parseHref } from 'fast-router-history'
 import {
   cleanPath,
   createRootRoute,
@@ -13,8 +13,8 @@ import {
   encode,
   interpolatePath,
   resolvePath,
-} from '@anonrig/router-core'
-import { createRequestHandler } from '@anonrig/router-core/ssr/server'
+} from 'fast-router-core'
+import { createRequestHandler } from 'fast-router-core/ssr/server'
 import {
   findRouteMatch,
   findRouteMatchFromTree,

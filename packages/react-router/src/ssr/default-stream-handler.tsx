@@ -1,4 +1,4 @@
-import { defineHandlerCallback } from '@anonrig/router-core/ssr/server'
+import { defineHandlerCallback } from 'fast-router-core/ssr/server'
 import { RouterServer } from './router-server'
 import { renderRouterToStream } from './render-router-to-stream'
 

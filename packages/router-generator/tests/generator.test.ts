@@ -133,7 +133,7 @@ describe('generateRouteTree', () => {
     expect(runtime).not.toContain('interface FileRoutesByFullPath')
     expect(types).toContain('export interface FileRouteTypes')
     expect(types).toContain('fullPaths: keyof FileRoutesByFullPath')
-    expect(types).toContain("declare module '@anonrig/router-core'")
+    expect(types).toContain("declare module 'fast-router-core'")
     expect(types).not.toContain('typeof ')
   })
 
@@ -150,8 +150,8 @@ describe('generateRouteTree', () => {
       generatedRouteTree: generated,
     })
     const runtime = readFileSync(generated, 'utf8')
-    expect(runtime).toContain("import { createRoute } from '@anonrig/router-core'")
-    expect(runtime).toContain("import { createSlotRoute } from '@anonrig/react-router'")
+    expect(runtime).toContain("import { createRoute } from 'fast-router-core'")
+    expect(runtime).toContain("import { createSlotRoute } from 'fast-router'")
     expect(runtime).toContain('createSlotRoute({ getParentRoute, slot })')
   })
 
@@ -202,9 +202,9 @@ describe('generateRouteTree', () => {
       entry: join(dir, 'entry.ts'),
       outDir: join(dir, 'out'),
       alias: {
-        '@anonrig/history': join(repoRoot, 'packages/history/src/index.ts'),
-        '@anonrig/router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
-        '@anonrig/router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
+        'fast-router-history': join(repoRoot, 'packages/history/src/index.ts'),
+        'fast-router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
+        'fast-router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
       },
     })
     expect(entry).toContain('ROOT_ONLY')

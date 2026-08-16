@@ -13,7 +13,7 @@
  *   1 fn  2 never-opt  8 maybe-deopted  16 optimized
  *   32 maglev  64 turbofan  128 interpreted  32768 baseline
  */
-import { createMemoryHistory, parseHref } from '@anonrig/history'
+import { createMemoryHistory, parseHref } from 'fast-router-history'
 import {
   cleanPath,
   createRootRoute,
@@ -24,7 +24,7 @@ import {
   encode,
   interpolatePath,
   resolvePath,
-} from '@anonrig/router-core'
+} from 'fast-router-core'
 import {
   findRouteMatch,
   findRouteMatchFromTree,

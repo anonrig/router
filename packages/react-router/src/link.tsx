@@ -17,11 +17,11 @@ import {
   isDangerousProtocol,
   preloadWarning,
   removeTrailingSlash,
-} from '@anonrig/router-core'
+} from 'fast-router-core'
 import { useIntersectionObserver } from './utils'
 import { useRouter } from './use-router'
 import { useStore } from './use-store'
-import type { ActiveOptions, NavigateOptions, ParsedLocation } from '@anonrig/router-core'
+import type { ActiveOptions, NavigateOptions, ParsedLocation } from 'fast-router-core'
 
 export type LinkProps = NavigateOptions &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {

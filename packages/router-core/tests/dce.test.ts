@@ -36,10 +36,10 @@ async function bundle(
     entry,
     outDir: join(dir, 'out'),
     alias: {
-      '@anonrig/history': join(root, 'packages/history/src/index.ts'),
-      '@anonrig/router-core': join(root, 'packages/router-core/src/index.ts'),
-      '@anonrig/router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
-      '@anonrig/react-router': join(root, 'packages/react-router/src/index.ts'),
+      'fast-router-history': join(root, 'packages/history/src/index.ts'),
+      'fast-router-core': join(root, 'packages/router-core/src/index.ts'),
+      'fast-router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
+      'fast-router': join(root, 'packages/react-router/src/index.ts'),
     },
     external: [
       'react',
@@ -58,7 +58,7 @@ async function bundle(
 describe('dead code elimination', () => {
   it('drops the router and SSR graph when only encode is imported', async () => {
     const { entry } = await bundle(`
-      import { encode } from '@anonrig/router-core'
+      import { encode } from 'fast-router-core'
       console.log(encode({ a: 1 }))
     `)
     expect(entry).toContain('encode')
@@ -69,7 +69,7 @@ describe('dead code elimination', () => {
 
   it('does not pull server loaders through the isServer export', async () => {
     const { entry } = await bundle(`
-      import { isServer } from '@anonrig/router-core'
+      import { isServer } from 'fast-router-core'
       console.log(isServer)
     `)
     expect(entry).toMatch(/document/)
@@ -78,7 +78,7 @@ describe('dead code elimination', () => {
 
   it('keeps load-server out of the client createRouter chunk', async () => {
     const { entry, chunks } = await bundle(`
-      import { createRootRoute, createRouter } from '@anonrig/router-core'
+      import { createRootRoute, createRouter } from 'fast-router-core'
       export const router = createRouter({ routeTree: createRootRoute() })
     `)
     expect(entry).toContain('createRouter')
@@ -96,7 +96,7 @@ describe('dead code elimination', () => {
   it('drops unused Scripts and HeadContent from a client react-router import', async () => {
     const { entry } = await bundle(
       `
-        import { createRootRoute, createRouter } from '@anonrig/react-router'
+        import { createRootRoute, createRouter } from 'fast-router'
         export const router = createRouter({ routeTree: createRootRoute() })
       `,
       { filename: 'entry.tsx' },

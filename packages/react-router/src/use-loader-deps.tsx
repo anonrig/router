@@ -7,7 +7,7 @@ import type {
   ResolveUseLoaderDeps,
   StrictOrFrom,
   UseLoaderDepsResult,
-} from '@anonrig/router-core'
+} from 'fast-router-core'
 
 export interface UseLoaderDepsBaseOptions<
   TRouter extends AnyRouter,

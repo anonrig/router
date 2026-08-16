@@ -14,15 +14,15 @@ const repo = resolve(import.meta.dirname, '..')
 const reactExternals = ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime']
 
 const oursAlias = {
-  '@anonrig/history': join(repo, 'packages/history/src/index.ts'),
-  '@anonrig/router-core': join(repo, 'packages/router-core/src/index.ts'),
-  '@anonrig/router-core/is-server': join(repo, 'packages/router-core/src/is-server.ts'),
-  '@anonrig/react-router': join(repo, 'packages/react-router/src/index.ts'),
+  'fast-router-history': join(repo, 'packages/history/src/index.ts'),
+  'fast-router-core': join(repo, 'packages/router-core/src/index.ts'),
+  'fast-router-core/is-server': join(repo, 'packages/router-core/src/is-server.ts'),
+  'fast-router': join(repo, 'packages/react-router/src/index.ts'),
 }
 
 const cases = [
   {
-    name: '@react-router client',
+    name: 'fast-router client',
     filename: 'entry.tsx',
     ours: `export {
   Link,
@@ -31,7 +31,7 @@ const cases = [
   createRootRoute,
   createRoute,
   createRouter,
-} from '@anonrig/react-router'
+} from 'fast-router'
 `,
     tanstack: `export {
   Link,
@@ -44,9 +44,9 @@ const cases = [
 `,
   },
   {
-    name: '@router-core client',
+    name: 'fast-router-core client',
     filename: 'entry.ts',
-    ours: `export { createRootRoute, createRoute, createRouter } from '@anonrig/router-core'
+    ours: `export { createRootRoute, createRoute, createRouter } from 'fast-router-core'
 `,
     tanstack: `export { BaseRootRoute, BaseRoute, RouterCore } from '@tanstack/router-core'
 `,
@@ -135,7 +135,7 @@ console.log(
 console.log('')
 console.log(
   'Package'.padEnd(24) +
-    ' @anonrig'.padStart(12) +
+    'fast-router'.padStart(12) +
     ' gzip'.padStart(10) +
     ' TanStack'.padStart(12) +
     ' gzip'.padStart(10) +

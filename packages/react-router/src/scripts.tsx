@@ -1,9 +1,9 @@
-import { _getAssetMatches, deepEqual } from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/is-server'
+import { _getAssetMatches, deepEqual } from 'fast-router-core'
+import { isServer } from 'fast-router-core/is-server'
 import { Asset } from './asset'
 import { useRouter } from './use-router'
 import { useStore } from './react-store'
-import type { RouterManagedTag } from '@anonrig/router-core'
+import type { RouterManagedTag } from 'fast-router-core'
 
 type ScriptRenderAsset = RouterManagedTag & {
   preventScriptHoist?: boolean

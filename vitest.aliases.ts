@@ -37,8 +37,8 @@ const specialSubpaths: Record<string, string> = {
     root,
     'packages/router-core/src/scroll-restoration-script/server.ts',
   ),
-  '@anonrig/router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
-  '@anonrig/router-core/scroll-restoration-script': resolve(
+  'fast-router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
+  'fast-router-core/scroll-restoration-script': resolve(
     root,
     'packages/router-core/src/scroll-restoration-script/server.ts',
   ),
@@ -71,10 +71,10 @@ function resolveTanstackId(id: string) {
       id.slice('@tanstack/router-core/'.length),
     )
   }
-  if (id.startsWith('@anonrig/router-core/')) {
+  if (id.startsWith('fast-router-core/')) {
     return resolveUnder(
       resolve(root, 'packages/router-core/src'),
-      id.slice('@anonrig/router-core/'.length),
+      id.slice('fast-router-core/'.length),
     )
   }
   if (id.startsWith('@tanstack/react-router/')) {
@@ -83,11 +83,8 @@ function resolveTanstackId(id: string) {
       id.slice('@tanstack/react-router/'.length),
     )
   }
-  if (id.startsWith('@anonrig/react-router/')) {
-    return resolveUnder(
-      resolve(root, 'packages/react-router/src'),
-      id.slice('@anonrig/react-router/'.length),
-    )
+  if (id.startsWith('fast-router/')) {
+    return resolveUnder(resolve(root, 'packages/react-router/src'), id.slice('fast-router/'.length))
   }
   return undefined
 }
@@ -157,11 +154,11 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
   },
   {
-    find: '@anonrig/router-core/isServer',
+    find: 'fast-router-core/isServer',
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
   },
   {
-    find: /^@anonrig\/router-core\/scroll-restoration-script$/,
+    find: /^fast-router-core\/scroll-restoration-script$/,
     replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
   },
   {
@@ -201,32 +198,32 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/react-router/src/scripts.tsx'),
   },
   {
-    find: '@anonrig/router-core/ssr/server',
+    find: 'fast-router-core/ssr/server',
     replacement: resolve(root, 'packages/router-core/src/ssr/server.ts'),
   },
   {
-    find: '@anonrig/router-core/ssr/client',
+    find: 'fast-router-core/ssr/client',
     replacement: resolve(root, 'packages/router-core/src/ssr/client.ts'),
   },
   {
-    find: '@anonrig/router-core/is-server',
+    find: 'fast-router-core/is-server',
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
   },
   {
-    find: '@anonrig/router-core/path',
+    find: 'fast-router-core/path',
     replacement: resolve(root, 'packages/router-core/src/path.ts'),
   },
   {
-    find: '@anonrig/router-core/qss',
+    find: 'fast-router-core/qss',
     replacement: resolve(root, 'packages/router-core/src/qss.ts'),
   },
-  { find: /^@anonrig\/history$/, replacement: resolve(root, 'packages/history/src/index.ts') },
+  { find: /^fast-router-history$/, replacement: resolve(root, 'packages/history/src/index.ts') },
   {
-    find: /^@anonrig\/router-core$/,
+    find: /^fast-router-core$/,
     replacement: resolve(root, 'packages/router-core/src/index.ts'),
   },
   {
-    find: /^@anonrig\/react-router$/,
+    find: /^fast-router$/,
     replacement: resolve(root, 'packages/react-router/src/index.ts'),
   },
   { find: /^@tanstack\/history$/, replacement: resolve(root, 'packages/history/src/index.ts') },

@@ -2,15 +2,16 @@
 
 <div align="center">
 
-<img src="assets/logo.svg" width="72" height="72" alt="@anonrig/router" />
+<img src="assets/logo.svg" width="72" height="72" alt="fast-router" />
 
-# @anonrig/router
+# fast-router
 
 **The TanStack Router API. Rebuilt for the hot path.**
 
 A from-scratch React 19.2 router. Same public names. Faster navigations. Faster SSR.
 
 [![CI](https://github.com/anonrig/router/actions/workflows/ci.yml/badge.svg)](https://github.com/anonrig/router/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/fast-router.svg)](https://www.npmjs.com/package/fast-router)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-19.2-149ECA?logo=react&logoColor=white)](https://react.dev)
 [![Node](https://img.shields.io/badge/Node-24+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
@@ -35,7 +36,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-} from '@anonrig/react-router'
+} from 'fast-router'
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -61,7 +62,7 @@ export function App() {
 }
 ```
 
-Keep your existing `@tanstack/react-router` imports. Point the alias at `@anonrig/react-router`.
+Keep your existing `@tanstack/react-router` imports. Point the alias at `fast-router`.
 
 ## Why this exists
 
@@ -93,12 +94,12 @@ pnpm bench:compare
 pnpm size
 ```
 
-| Package                                                  | What you import                               |
-| -------------------------------------------------------- | --------------------------------------------- |
-| [`@anonrig/react-router`](packages/react-router)         | `RouterProvider`, `Link`, hooks, SSR bindings |
-| [`@anonrig/router-core`](packages/router-core)           | Matcher, navigation, loaders, search params   |
-| [`@anonrig/history`](packages/history)                   | Browser, hash, and memory history             |
-| [`@anonrig/router-generator`](packages/router-generator) | Compact lazy `routeTree.gen.ts` + types       |
+| Package                                              | What you import                               |
+| ---------------------------------------------------- | --------------------------------------------- |
+| [`fast-router`](packages/react-router)               | `RouterProvider`, `Link`, hooks, SSR bindings |
+| [`fast-router-core`](packages/router-core)           | Matcher, navigation, loaders, search params   |
+| [`fast-router-history`](packages/history)            | Browser, hash, and memory history             |
+| [`fast-router-generator`](packages/router-generator) | Compact lazy `routeTree.gen.ts` + types       |
 
 ## Performance
 
@@ -108,7 +109,7 @@ On a 4-core Intel Xeon, Linux, Node 24, in memory, no HTTP server:
 
 <div align="center">
 
-|                                 |      @anonrig | TanStack |            |
+|                                 |   fast-router | TanStack |            |
 | ------------------------------- | ------------: | -------: | ---------: |
 | Warm `navigate({ to, params })` | **1,094,260** |   70,670 | **15.48×** |
 | Warm `navigate` changing params |   **646,803** |   58,535 | **11.05×** |
@@ -120,11 +121,11 @@ Same loops, allocated `heapUsed` per operation after warmup (lower is better):
 
 <div align="center">
 
-|                                 |  @anonrig | TanStack |           |
-| ------------------------------- | --------: | -------: | --------: |
-| Warm `navigate({ to, params })` |  **73 B** |   4.1 kB | **0.02×** |
-| Warm `navigate` changing params | **323 B** |   2.1 kB | **0.15×** |
-| SSR cold `router.load`          | **675 B** |   3.3 kB | **0.20×** |
+|                                 | fast-router | TanStack |           |
+| ------------------------------- | ----------: | -------: | --------: |
+| Warm `navigate({ to, params })` |    **73 B** |   4.1 kB | **0.02×** |
+| Warm `navigate` changing params |   **323 B** |   2.1 kB | **0.15×** |
+| SSR cold `router.load`          |   **675 B** |   3.3 kB | **0.20×** |
 
 </div>
 
@@ -142,7 +143,7 @@ pnpm bench:compare
 
 ### Full comparison
 
-| Operation                        |       @anonrig |  TanStack | vs TanStack |
+| Operation                        |    fast-router |  TanStack | vs TanStack |
 | -------------------------------- | -------------: | --------: | ----------: |
 | Query-string encode              | **24,366,870** | 2,671,482 |   **9.12×** |
 | Query-string decode              |  **3,239,150** | 1,392,435 |   **2.33×** |
@@ -163,7 +164,7 @@ pnpm bench:compare
 
 Allocated heap per operation after warmup. Lower is better. `0.00×` means the interned path allocated too little to show at two decimals.
 
-| Operation                        |    @anonrig | TanStack | vs TanStack |
+| Operation                        | fast-router | TanStack | vs TanStack |
 | -------------------------------- | ----------: | -------: | ----------: |
 | Query-string encode              |   **3.9 B** |    141 B |   **0.03×** |
 | Query-string decode              |    **25 B** |    102 B |   **0.25×** |
@@ -190,12 +191,12 @@ jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. D
 
 Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted.
 
-| Package         | @anonrig |    gzip |     TanStack |        gzip |
-| --------------- | -------: | ------: | -----------: | ----------: |
-| `@react-router` | 109.0 kB | 30.6 kB | **104.4 kB** | **29.5 kB** |
-| `@router-core`  |  89.2 kB | 24.9 kB |  **74.7 kB** | **21.6 kB** |
+| Package            | fast-router |    gzip |     TanStack |        gzip |
+| ------------------ | ----------: | ------: | -----------: | ----------: |
+| `fast-router`      |    109.0 kB | 30.6 kB | **104.4 kB** | **29.5 kB** |
+| `fast-router-core` |     89.2 kB | 24.9 kB |  **74.7 kB** | **21.6 kB** |
 
-TanStack is still smaller on both client graphs (1.04× gzip for `@react-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. The remaining extra is the warm-path / matcher interners that keep every `pnpm bench:compare` row at least 2×. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs (1.04× gzip for `fast-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. The remaining extra is the warm-path / matcher interners that keep every `pnpm bench:compare` row at least 2×. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 
@@ -209,7 +210,7 @@ This generator still exports `routeTree` for `createRouter({ routeTree })`. The 
 - `routeTree.types.ts` holds `FileRouteTypes`. Path unions are `keyof` maps, not written-out `typeof` aliases, so the type file stays cheap for tsserver.
 
 ```ts
-import { tanstackRouter } from '@anonrig/router-generator/vite'
+import { tanstackRouter } from 'fast-router-generator/vite'
 
 export default defineConfig({
   plugins: [tanstackRouter({ routesDirectory: './src/routes' })],
@@ -236,9 +237,9 @@ The goal is a drop-in for apps written against `@tanstack/react-router`. In this
 // vitest / vite
 resolve: {
   alias: {
-    '@tanstack/react-router': '@anonrig/react-router',
-    '@tanstack/router-core': '@anonrig/router-core',
-    '@tanstack/history': '@anonrig/history',
+    '@tanstack/react-router': 'fast-router',
+    '@tanstack/router-core': 'fast-router-core',
+    '@tanstack/history': 'fast-router-history',
   },
 }
 ```
@@ -262,6 +263,16 @@ pnpm size                 # client min+gzip vs published TanStack
 pnpm lint && pnpm fmt:check
 pnpm knip                 # unused files, dependencies, and exports
 ```
+
+## Publishing
+
+The public packages are `fast-router`, `fast-router-core`, `fast-router-history`, and `fast-router-generator`. The repo root stays private.
+
+1. Keep the four package versions in lockstep.
+2. Push a `v*` tag (`v0.1.0`) from the commit you want on npm.
+3. The [Release](.github/workflows/release.yml) workflow runs the same checks as CI, then publishes with provenance.
+
+Configure [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) for `anonrig/router` and `release.yml`, or add an `NPM_TOKEN` repository secret.
 
 ## License
 

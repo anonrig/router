@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fmt:check
+      - run: pnpm lint
+      - run: pnpm knip
+      - run: pnpm test
+      - run: pnpm test:types
+      - name: TanStack core runtime
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm test:tanstack-core:ci
+      - name: TanStack history runtime
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm test:tanstack-history
+      - name: TanStack React runtime
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm test:tanstack-react:ci
+      - name: Publish packages
+        run: pnpm release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

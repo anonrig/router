@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from './use-router'
-import type { HistoryAction } from '@anonrig/history'
-import type { AnyRoute, AnyRouter, ParseRoute, RegisteredRouter } from '@anonrig/router-core'
+import type { HistoryAction } from 'fast-router-history'
+import type { AnyRoute, AnyRouter, ParseRoute, RegisteredRouter } from 'fast-router-core'
 
 type ShouldBlockFnLocation<out TRouteId, out TFullPath, out TAllParams, out TFullSearchSchema> = {
   routeId: TRouteId
