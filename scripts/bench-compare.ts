@@ -360,6 +360,7 @@ function ratio(ours: number, tanstack: number) {
 
 console.log('')
 console.log('Same-machine comparison (higher ops/s is better)')
+console.log(`Node ${process.version}`)
 console.log(
   'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
 )
