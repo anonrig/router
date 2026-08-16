@@ -73,7 +73,7 @@ function resolveExternalLink(
   if (typeof to !== 'string' || to.indexOf(':') === -1) {
     return undefined
   }
-  if (!URL.parse(to)) {
+  if (!URL.canParse(to)) {
     return undefined
   }
   // Block dangerous protocols like javascript:, blob:, data:
@@ -221,7 +221,7 @@ export function useLinkProps<
       // Quick checks to avoid `new URL` in common internal-like cases
       to.indexOf(':') > -1
     ) {
-      if (URL.parse(to)) {
+      if (URL.canParse(to)) {
         if (isDangerousProtocol(to, router.protocolAllowlist)) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn(`Blocked Link with dangerous protocol: ${to}`)
@@ -282,7 +282,7 @@ export function useLinkProps<
       if (safeInternal) return undefined
 
       // Only attempt URL parsing when it looks like an absolute URL.
-      if (typeof to === 'string' && to.indexOf(':') > -1 && URL.parse(to)) {
+      if (typeof to === 'string' && to.indexOf(':') > -1 && URL.canParse(to)) {
         if (isDangerousProtocol(to, router.protocolAllowlist)) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn(`Blocked Link with dangerous protocol: ${to}`)

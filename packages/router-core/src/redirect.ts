@@ -68,7 +68,7 @@ export function redirect<
   opts.statusCode = opts.statusCode || opts.code || 307
 
   if (!opts._builtLocation && !opts.reloadDocument && typeof opts.href === 'string') {
-    if (URL.parse(opts.href)) opts.reloadDocument = true
+    if (URL.canParse(opts.href)) opts.reloadDocument = true
   }
 
   const headers = new Headers(opts.headers)

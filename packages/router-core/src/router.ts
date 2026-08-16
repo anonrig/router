@@ -819,7 +819,7 @@ export class RouterCore<
     if (href) {
       const first = href.charCodeAt(0)
       if (first !== 47 && first !== 46 && first !== 63 && first !== 35) {
-        hrefIsUrl = URL.parse(`${href}`) !== null
+        hrefIsUrl = URL.canParse(`${href}`)
       }
     }
     if (hrefIsUrl && !reloadDocument) reloadDocument = true
