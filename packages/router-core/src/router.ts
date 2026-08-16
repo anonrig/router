@@ -505,6 +505,7 @@ export class RouterCore<
     >,
   ) {
     this.navigate = this.navigate.bind(this)
+    this.load = this.load.bind(this)
     this.update({
       defaultPreloadDelay: 50,
       defaultPendingMs: 1000,
@@ -966,7 +967,7 @@ export class RouterCore<
     for (const controller of abort) controller.abort()
   }
 
-  load(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> {
+  async load(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> {
     this.updateLatestLocation()
     if (isServer || this.isServer) {
       if (opts?._signal?.aborted) {
@@ -977,16 +978,16 @@ export class RouterCore<
       if (!opts?.action && !opts?._signal && this.canSkipSettledLoad()) {
         this._commitPromise?.resolve()
         this._commitPromise = undefined
-        return RESOLVED
+        return
       }
       return this.importLoadServer(opts)
     }
     if (!opts?.action && this.canSkipSettledLoad()) {
       this._commitPromise?.resolve()
       this._commitPromise = undefined
-      return RESOLVED
+      return
     }
-    return loadClientRoute(this, opts)
+    await loadClientRoute(this, opts)
   }
 
   private async importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
