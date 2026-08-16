@@ -5,6 +5,7 @@ import {
   hotTree,
   rememberHotMatch,
   setFindRouteMatchLookup,
+  type FindRouteMatchCompatResult,
 } from './find-route-match'
 import {
   parseSegment,
@@ -681,9 +682,9 @@ export function findRouteMatchFromTree(
   return rememberHot(tree, pathname, matchesFromSegment(matchFromSegmentTree(tree, pathname)))
 }
 
-function matchesFromSegment(result: SegmentMatch | null): RouteMatchResult[] | null {
+function matchesFromSegment(result: FindRouteMatchCompatResult | null): RouteMatchResult[] | null {
   if (!result) return null
-  const branch = result.branch?.length ? result.branch : buildRouteBranch(result.route)
+  const branch = result.branch
   const matches: RouteMatchResult[] = new Array(branch.length)
   for (let i = 0; i < branch.length; i++) {
     matches[i] = {
@@ -699,12 +700,16 @@ function matchFromSegmentTree(
   tree: ProcessedTree,
   pathname: string,
   fuzzy = false,
-): SegmentMatch | null {
+): FindRouteMatchCompatResult | null {
   const result = findCachedSegmentMatch(pathname, tree.segmentTree, fuzzy, tree.segmentMatchCache)
   if (!result) return null
-  if (!result.branch) result.branch = buildRouteBranch(result.route)
-  result.params = result.rawParams
-  return result
+  const route = result.route as AnyRouteLike
+  return {
+    route,
+    rawParams: result.rawParams,
+    params: result.rawParams,
+    branch: buildRouteBranch(route),
+  }
 }
 
 function findRouteMatchCompat(
