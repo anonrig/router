@@ -1,6 +1,14 @@
-import { mkdir, readFile, readdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { build, type Plugin } from 'vite'
+
+function exactAliases(alias?: Record<string, string>) {
+  if (!alias) return undefined
+  return Object.entries(alias).map(([find, replacement]) => ({
+    find: new RegExp(`^${find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+    replacement,
+  }))
+}
 
 export type ViteBundleChunk = {
   fileName: string
@@ -52,7 +60,7 @@ export async function viteBundle(opts: {
   define?: Record<string, string>
 }): Promise<ViteBundleResult> {
   await mkdir(opts.outDir, { recursive: true })
-  await build({
+  const result = await build({
     configFile: false,
     envFile: false,
     root: opts.root,
@@ -62,7 +70,7 @@ export async function viteBundle(opts: {
       'process.env.NODE_ENV': '"production"',
     },
     resolve: {
-      alias: opts.alias,
+      alias: exactAliases(opts.alias),
     },
     build: {
       outDir: opts.outDir,
@@ -81,7 +89,7 @@ export async function viteBundle(opts: {
         external: opts.external,
         output: {
           format: 'es',
-          inlineDynamicImports: false,
+          codeSplitting: true,
           entryFileNames: 'entry.js',
           chunkFileNames: '[name].js',
         },
@@ -89,30 +97,26 @@ export async function viteBundle(opts: {
     },
   })
 
-  const files = await readdir(opts.outDir)
-  const chunks: Record<string, string> = {}
-  for (const file of files) {
-    if (!file.endsWith('.js')) continue
-    chunks[file] = await readFile(resolve(opts.outDir, file), 'utf8')
+  const bundle = Array.isArray(result) ? result[0] : result
+  if (bundle == null || !('output' in bundle)) {
+    throw new Error('vite.build() did not return a Rolldown bundle')
   }
 
+  const chunks: Record<string, string> = {}
   const outputs: Array<ViteBundleChunk> = []
-  for (const [fileName, code] of Object.entries(chunks)) {
+  for (const item of bundle.output) {
+    if (item.type !== 'chunk') continue
+    chunks[item.fileName] = item.code
     outputs.push({
-      fileName,
-      code,
-      isEntry: fileName === 'entry.js',
-      isDynamicEntry: fileName !== 'entry.js' && /load-server|loadServerRoute/.test(code),
-      imports: [...code.matchAll(/from\s*["'](\.?\.?\/[^"']+)["']/g)].map((match) => match[1]!),
-      dynamicImports: [...code.matchAll(/import\s*\(\s*["']([^"']+)["']\s*\)/g)].map(
-        (match) => match[1]!,
-      ),
+      fileName: item.fileName,
+      code: item.code,
+      isEntry: item.isEntry,
+      isDynamicEntry: item.isDynamicEntry,
+      imports: item.imports,
+      dynamicImports: item.dynamicImports,
     })
   }
 
-  return {
-    entry: chunks['entry.js'] ?? Object.values(chunks)[0] ?? '',
-    chunks,
-    outputs,
-  }
+  const entry = outputs.find((chunk) => chunk.isEntry)?.code ?? Object.values(chunks)[0] ?? ''
+  return { entry, chunks, outputs }
 }
