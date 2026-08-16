@@ -479,7 +479,9 @@ export function attachRouterServerSsrUtils({
 
         invariant()
       }
-      let matchesToDehydrate = _getRenderedMatches(router.stores.matches.get())
+      let matchesToDehydrate = _getRenderedMatches(
+        router._committed.length ? router._committed : router.stores.matches.get(),
+      )
       const isShell = router.isShell()
       if (isShell) {
         // In SPA mode we only want to dehydrate the root match

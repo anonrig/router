@@ -359,7 +359,7 @@ export type RouterListener = (event: RouterEvent) => void
 export type ListenerFn = RouterListener
 
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
-const RESOLVED: Promise<void> = Promise.resolve()
+export const RESOLVED: Promise<void> = Promise.resolve()
 let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 
 function lastMatch(matches: RouteMatch[] | undefined) {
@@ -1289,23 +1289,28 @@ export class RouterCore<
     for (const controller of abort) controller.abort()
   }
 
-  async load(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> {
+  load(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> {
     this.updateLatestLocation()
     if (isServer || this.isServer) {
       if (opts?._signal?.aborted) {
-        throw opts._signal.reason
+        return Promise.reject(opts._signal.reason)
       }
       // A reused server router must never skip or replay another request's
       // loader payloads. Client `load()` may still skip a settled session.
-      this.isolateServerRequest()
-      return this.importLoadServer(opts)
+      try {
+        this.isolateServerRequest()
+        const next = this.importLoadServer(opts)
+        return next == null ? RESOLVED : Promise.resolve(next)
+      } catch (err) {
+        return Promise.reject(err)
+      }
     }
     if (!opts?.action && this.canSkipSettledLoad()) {
       this._commitPromise?.resolve()
       this._commitPromise = undefined
-      return
+      return RESOLVED
     }
-    await loadClientRoute(this, opts)
+    return Promise.resolve(loadClientRoute(this, opts)).then(() => undefined)
   }
 
   private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
@@ -1327,7 +1332,8 @@ export class RouterCore<
     this._pending = undefined
     this._pendingLocation = undefined
     this._forcePending = false
-    this.stores?.setMatches?.([])
+    const ids = this.stores?.ids?.get?.()
+    if (ids?.length) this.stores.setMatches([])
   }
 
   private canSkipSettledLoad(): boolean {
