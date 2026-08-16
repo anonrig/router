@@ -34,13 +34,13 @@ function encodeString(str: string): string {
     const hasClose = encoded.indexOf(')') !== -1
     if (!hasSpace && !hasOpen && !hasClose) return encoded
     let out = encoded
-    if (hasSpace) out = out.replace(/%20/g, '+')
-    if (hasOpen) out = out.replace(/\(/g, '%28')
-    if (hasClose) out = out.replace(/\)/g, '%29')
+    if (hasSpace) out = out.replaceAll('%20', '+')
+    if (hasOpen) out = out.replaceAll('(', '%28')
+    if (hasClose) out = out.replaceAll(')', '%29')
     return out
   }
   if (!space) return str
-  return str.replace(/ /g, '+')
+  return str.replaceAll(' ', '+')
 }
 
 function encodeComponent(str: string): string {
@@ -52,8 +52,8 @@ function decodeComponent(str: string): string {
   const plus = str.indexOf('+')
   const pct = str.indexOf('%')
   if (plus === -1 && pct === -1) return str
-  if (pct === -1) return str.replace(/\+/g, ' ')
-  const input = (plus === -1 ? str : str.replace(/\+/g, ' ')).toWellFormed()
+  if (pct === -1) return str.replaceAll('+', ' ')
+  const input = (plus === -1 ? str : str.replaceAll('+', ' ')).toWellFormed()
   try {
     return decodeURIComponent(input)
   } catch {

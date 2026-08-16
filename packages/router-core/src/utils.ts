@@ -575,14 +575,53 @@ export function findLast<T>(
  * in paths to match how upstream layers (CDNs, edge middleware, browsers)
  * interpret the URL, preventing infinite redirect loops and path mismatches.
  */
-// eslint-disable-next-line no-control-regex
-const PATH_UNSAFE_RE = /[\x00-\x1f\x7f"<>`{}]/g
+function isUnsafePathChar(c: number) {
+  return (
+    c <= 0x1f ||
+    c === 0x7f ||
+    c === 34 ||
+    c === 60 ||
+    c === 62 ||
+    c === 96 ||
+    c === 123 ||
+    c === 125
+  )
+}
 
 function sanitizePathSegment(segment: string): string {
-  return segment.replace(
-    PATH_UNSAFE_RE,
-    (ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'),
-  )
+  const len = segment.length
+  let out = ''
+  let last = 0
+  for (let i = 0; i < len; i++) {
+    const c = segment.charCodeAt(i)
+    if (!isUnsafePathChar(c)) continue
+    out += segment.slice(last, i) + '%' + c.toString(16).toUpperCase().padStart(2, '0')
+    last = i + 1
+  }
+  return last === 0 ? segment : out + segment.slice(last)
+}
+
+function isHexChar(c: number) {
+  return (c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102)
+}
+
+function decodeMalformedPercent(segment: string): string {
+  const len = segment.length
+  let out = ''
+  let last = 0
+  for (let i = 0; i < len - 2; i++) {
+    if (segment.charCodeAt(i) !== 37) continue
+    if (!isHexChar(segment.charCodeAt(i + 1)) || !isHexChar(segment.charCodeAt(i + 2))) continue
+    const match = segment.slice(i, i + 3)
+    try {
+      out += segment.slice(last, i) + decodeURI(match)
+      last = i + 3
+      i += 2
+    } catch {
+      // leave the malformed tag in place
+    }
+  }
+  return last === 0 ? segment : out + segment.slice(last)
 }
 
 function decodeSegment(segment: string): string {
@@ -590,14 +629,7 @@ function decodeSegment(segment: string): string {
   try {
     decoded = decodeURI(segment.toWellFormed())
   } catch {
-    // if the decoding fails, try to decode the various parts leaving the malformed tags in place
-    decoded = segment.replaceAll(/%[0-9A-F]{2}/gi, (match) => {
-      try {
-        return decodeURI(match)
-      } catch {
-        return match
-      }
-    })
+    decoded = decodeMalformedPercent(segment)
   }
   return sanitizePathSegment(decoded)
 }
@@ -644,16 +676,6 @@ export function isDangerousProtocol(url: string, allowlist: Set<string>): boolea
 
 // This utility is based on https://github.com/zertosh/htmlescape
 // License: https://github.com/zertosh/htmlescape/blob/0527ca7156a524d256101bb310a9f970f63078ad/LICENSE
-const HTML_ESCAPE_LOOKUP: { [match: string]: string } = {
-  '&': '\\u0026',
-  '>': '\\u003e',
-  '<': '\\u003c',
-  '\u2028': '\\u2028',
-  '\u2029': '\\u2029',
-}
-
-const HTML_ESCAPE_REGEX = /[&><\u2028\u2029]/g
-
 /**
  * Escape HTML special characters in a string to prevent XSS attacks
  * when embedding strings in script tags during SSR.
@@ -662,14 +684,29 @@ const HTML_ESCAPE_REGEX = /[&><\u2028\u2029]/g
  * content is embedded in inline scripts.
  */
 export function escapeHtml(str: string): string {
-  return str.replace(HTML_ESCAPE_REGEX, (match) => HTML_ESCAPE_LOOKUP[match]!)
+  const len = str.length
+  let out = ''
+  let last = 0
+  for (let i = 0; i < len; i++) {
+    const c = str.charCodeAt(i)
+    let escaped: string | undefined
+    if (c === 38) escaped = '\\u0026'
+    else if (c === 62) escaped = '\\u003e'
+    else if (c === 60) escaped = '\\u003c'
+    else if (c === 0x2028) escaped = '\\u2028'
+    else if (c === 0x2029) escaped = '\\u2029'
+    else continue
+    out += str.slice(last, i) + escaped
+    last = i + 1
+  }
+  return last === 0 ? str : out + str.slice(last)
 }
 
 export function decodePath(path: string) {
   if (!path) return { path, handledProtocolRelativeURL: false }
 
   // Fast path: most paths are already decoded and safe.
-  // Only fall back to the slower scan/regex path when we see a '%' (encoded),
+  // Only fall back to the slower scan when we see a '%' (encoded),
   // a backslash (explicitly handled), a control character, or a protocol-relative
   // prefix which needs collapsing.
   const len = path.length
@@ -685,24 +722,30 @@ export function decodePath(path: string) {
     if (!encoded) return { path, handledProtocolRelativeURL: false }
   }
 
-  const re = /%25|%5C/gi
   let cursor = 0
   let result = ''
-  let match
-  while (null !== (match = re.exec(path))) {
-    result += decodeSegment(path.slice(cursor, match.index)) + match[0]
-    cursor = re.lastIndex
+  const pathLen = path.length
+  for (let i = 0; i < pathLen - 2; i++) {
+    if (path.charCodeAt(i) !== 37) continue
+    const a = path.charCodeAt(i + 1) | 32
+    const b = path.charCodeAt(i + 2) | 32
+    if ((a !== 50 || b !== 53) && (a !== 53 || b !== 99)) continue
+    result += decodeSegment(path.slice(cursor, i)) + path.slice(i, i + 3)
+    cursor = i + 3
+    i += 2
   }
-  result = result + decodeSegment(cursor ? path.slice(cursor) : path)
+  result += decodeSegment(cursor ? path.slice(cursor) : path)
 
   // Prevent open redirect via protocol-relative URLs (e.g. "//evil.com")
   // This is defense-in-depth: since control characters are no longer decoded,
   // paths like "/%0d/evil.com" can no longer become "//evil.com". But we keep
   // this check to guard against other edge cases.
   let handledProtocolRelativeURL = false
-  if (result.startsWith('//')) {
+  if (result.charCodeAt(0) === 47 && result.charCodeAt(1) === 47) {
     handledProtocolRelativeURL = true
-    result = '/' + result.replace(/^\/+/, '')
+    let i = 0
+    while (i < result.length && result.charCodeAt(i) === 47) i++
+    result = '/' + result.slice(i)
   }
 
   return { path: result, handledProtocolRelativeURL }
@@ -736,6 +779,49 @@ export function encodeURIComponentWellFormed(str: string): string {
   return encodeURIComponent(str.toWellFormed())
 }
 
+function encodeWhitespaceAndNonAscii(path: string): string {
+  let out = ''
+  let last = 0
+  const len = path.length
+  for (let i = 0; i < len;) {
+    const c = path.charCodeAt(i)
+    let end = i + 1
+    if (c >= 0xd800 && c <= 0xdbff && end < len) {
+      const lo = path.charCodeAt(end)
+      if (lo >= 0xdc00 && lo <= 0xdfff) end++
+    }
+    const cp = end === i + 2 ? path.codePointAt(i)! : c
+    if (cp === 0x20 || (cp >= 0x09 && cp <= 0x0d) || cp > 0x7f) {
+      out += path.slice(last, i) + encodeURIComponentWellFormed(path.slice(i, end))
+      last = end
+    }
+    i = end
+  }
+  return last === 0 ? path : out + path.slice(last)
+}
+
+function unescapeEncodedBrackets(encoded: string): string {
+  if (encoded.indexOf('%5') === -1) return encoded
+  let out = ''
+  let last = 0
+  const len = encoded.length
+  for (let i = 0; i < len - 2; i++) {
+    if (encoded.charCodeAt(i) !== 37) continue
+    if ((encoded.charCodeAt(i + 1) | 32) !== 53) continue
+    const third = encoded.charCodeAt(i + 2) | 32
+    if (third === 98) {
+      out += encoded.slice(last, i) + '['
+      last = i + 3
+      i += 2
+    } else if (third === 100) {
+      out += encoded.slice(last, i) + ']'
+      last = i + 3
+      i += 2
+    }
+  }
+  return last === 0 ? encoded : out + encoded.slice(last)
+}
+
 export function encodePathLikeUrl(path: string): string {
   // Encode whitespace and non-ASCII characters that browsers encode in URLs
   const pathLen = path.length
@@ -747,15 +833,10 @@ export function encodePathLikeUrl(path: string): string {
       break
     }
   }
-  const encoded = needsEncode
-    ? // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
-      // eslint-disable-next-line no-control-regex
-      path.replace(/\s|[^\u0000-\u007F]/gu, encodeURIComponentWellFormed)
-    : path
+  const encoded = needsEncode ? encodeWhitespaceAndNonAscii(path) : path
   // Browsers leave [] in pathnames; interpolatePath keeps them encoded so core
   // path tests stay strict. Public hrefs unescape them for Link/history.
-  if (encoded.indexOf('%5') === -1) return encoded
-  return encoded.replace(/%5B/gi, '[').replace(/%5D/gi, ']')
+  return unescapeEncodedBrackets(encoded)
 }
 
 /**
@@ -767,9 +848,17 @@ export function encodePathLikeUrl(path: string): string {
  * @param routeIds - Array of matched route IDs to include in the CSS collection
  * @returns The full URL path for the dev styles CSS endpoint
  */
+function trimSlashes(value: string): string {
+  let start = 0
+  let end = value.length
+  while (start < end && value.charCodeAt(start) === 47) start++
+  while (end > start && value.charCodeAt(end - 1) === 47) end--
+  return start === 0 && end === value.length ? value : value.slice(start, end)
+}
+
 export function buildDevStylesUrl(basepath: string, routeIds: Array<string>): string {
   // Trim all leading and trailing slashes from basepath
-  const trimmedBasepath = basepath.replace(/^\/+|\/+$/g, '')
+  const trimmedBasepath = trimSlashes(basepath)
   // Build normalized basepath: empty string for root, or '/path' for non-root
   const normalizedBasepath = trimmedBasepath === '' ? '' : `/${trimmedBasepath}`
   return `${normalizedBasepath}/@tanstack-start/styles.css?routes=${encodeURIComponentWellFormed(routeIds.join(','))}`

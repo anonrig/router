@@ -57,8 +57,31 @@ export function hydrateSsrMatchId(id: string): string {
   if (id.indexOf('\0') === -1 && id.indexOf('\uFFFD') === -1 && id.indexOf('~') === -1) {
     return id
   }
-  return id
-    .replaceAll('\0', '/')
-    .replaceAll('\uFFFD', '/')
-    .replace(/~([~0r])/g, (_, code) => (code === '0' ? '\0' : code === 'r' ? '\uFFFD' : code))
+  let out = ''
+  let last = 0
+  const len = id.length
+  for (let i = 0; i < len; i++) {
+    const c = id.charCodeAt(i)
+    if (c === 0 || c === 0xfffd) {
+      out += id.slice(last, i) + '/'
+      last = i + 1
+      continue
+    }
+    if (c !== 126 || i + 1 >= len) continue
+    const next = id.charCodeAt(i + 1)
+    if (next === 126) {
+      out += id.slice(last, i) + '~'
+      last = i + 2
+      i++
+    } else if (next === 48) {
+      out += id.slice(last, i) + '\0'
+      last = i + 2
+      i++
+    } else if (next === 114) {
+      out += id.slice(last, i) + '\uFFFD'
+      last = i + 2
+      i++
+    }
+  }
+  return last === 0 ? id : out + id.slice(last)
 }

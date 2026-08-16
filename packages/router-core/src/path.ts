@@ -301,7 +301,23 @@ function encodePathParam(value: string, decoder?: InterpolatePathOptions['decode
   const encoded = encodeURIComponentWellFormed(value)
   const decoded = decoder?.(encoded) ?? encoded
   // Browsers leave these in pathnames; encodeURIComponent is stricter.
-  return decoded.replace(/%21/gi, '!')
+  return unescapeEncodedExclamation(decoded)
+}
+
+function unescapeEncodedExclamation(decoded: string): string {
+  if (decoded.indexOf('%2') === -1) return decoded
+  let out = ''
+  let last = 0
+  const len = decoded.length
+  for (let i = 0; i < len - 2; i++) {
+    if (decoded.charCodeAt(i) !== 37) continue
+    if ((decoded.charCodeAt(i + 1) | 32) !== 50) continue
+    if ((decoded.charCodeAt(i + 2) | 32) !== 49) continue
+    out += decoded.slice(last, i) + '!'
+    last = i + 3
+    i += 2
+  }
+  return last === 0 ? decoded : out + decoded.slice(last)
 }
 
 type SimplePart = { t: 0; s: string } | { t: 1; k: string }

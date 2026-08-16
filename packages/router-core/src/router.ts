@@ -1559,8 +1559,7 @@ export class RouterCore<
         __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
       })
       searchStr = parsed.search
-      const hashRaw = parsed.hash
-      hash = !hashRaw ? '' : hashRaw.charCodeAt(0) === 35 ? hashRaw.slice(1) : hashRaw
+      hash = stripLeadingHash(parsed.hash)
       pathname = parsed.pathname
       hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
@@ -2253,7 +2252,7 @@ export class RouterCore<
         rest.to = parsed.pathname
       }
       rest.search = (this.options.parseSearch ?? defaultParseSearch)(parsed.search)
-      rest.hash = (parsed.hash || '').replace(/^#/, '')
+      rest.hash = stripLeadingHash(parsed.hash || '')
     }
 
     const location = this.buildLocation({
@@ -2458,7 +2457,7 @@ function resolveBuildSearch(
 }
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {
-  const currentHash = (current?.hash ?? '').replace(/^#/, '')
+  const currentHash = stripLeadingHash(current?.hash ?? '')
   let hash =
     dest.hash === true
       ? currentHash
@@ -2466,7 +2465,7 @@ function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {
         ? typeof dest.hash === 'function'
           ? dest.hash(currentHash)
           : typeof dest.hash === 'string'
-            ? dest.hash.replace(/^#/, '')
+            ? stripLeadingHash(dest.hash)
             : String(dest.hash)
         : dest.to
           ? ''
@@ -2582,6 +2581,10 @@ function isPlainAsciiPath(path: string) {
   return true
 }
 
+function stripLeadingHash(hash: string) {
+  return !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
+}
+
 function isSimpleHref(href: string) {
   const len = href.length
   if (len === 0 || href.charCodeAt(0) !== 47 || (len > 1 && href.charCodeAt(1) === 47)) {
@@ -2603,7 +2606,7 @@ function parseHistoryLocation(
 ): ParsedLocation {
   if (!router.rewrite && isPlainAsciiPath(location.pathname)) {
     const hash = location.hash
-    const hashValue = !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
+    const hashValue = stripLeadingHash(hash)
     const pathname = location.pathname
     if (!location.search && parseSearch === defaultParseSearch) {
       const href = hash ? pathname + hash : pathname
@@ -2636,7 +2639,7 @@ function parseHistoryLocation(
   const parsedSearch = parseSearch(url.search)
   const searchStr = stringifySearch(parsedSearch)
   const pathname = decodePath(url.pathname).path
-  const hashValue = decodePath(url.hash.replace(/^#/, '')).path
+  const hashValue = decodePath(stripLeadingHash(url.hash)).path
   const href = encodePathLikeUrl(pathname) + searchStr + (hashValue ? `#${hashValue}` : '')
   return {
     href,
