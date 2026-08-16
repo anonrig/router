@@ -164,8 +164,6 @@ const typicalIds = Array.from(
   { length: 100 },
   (_, index) => `/$orgId/projects/$projectId/acme/projects/project-${index}{"page":${index}}`,
 )
-const oursProcessed = buildOursLargeTree(8, 3)
-const tsProcessed = buildTsLargeTree(8, 3)
 const needles: string[] = []
 for (let a = 0; a < 8; a++) {
   for (let b = 0; b < 8; b++) {
@@ -176,16 +174,6 @@ let matchCursor = 0
 const oursRouteTree = createOursAppTree()
 const tsRouteTree = createTsAppTree()
 const paths = ['/', '/posts', '/posts/1', '/posts/2', '/about']
-const oursHistory = oursCreateMemoryHistory({ initialEntries: ['/'] })
-const tsHistory = tsCreateMemoryHistory({ initialEntries: ['/'] })
-const oursRouter = oursCreateRouter({
-  routeTree: oursRouteTree,
-  history: oursCreateMemoryHistory({ initialEntries: ['/'] }),
-})
-const tsRouter = tsCreateRouter({
-  routeTree: tsRouteTree,
-  history: tsCreateMemoryHistory({ initialEntries: ['/'] }),
-})
 let cursor = 0
 
 function createOursRouter(path: string) {
@@ -254,6 +242,15 @@ await addAsync(
     )
   },
 )
+
+const oursRouter = oursCreateRouter({
+  routeTree: oursRouteTree,
+  history: oursCreateMemoryHistory({ initialEntries: ['/'] }),
+})
+const tsRouter = tsCreateRouter({
+  routeTree: tsRouteTree,
+  history: tsCreateMemoryHistory({ initialEntries: ['/'] }),
+})
 await addAsync(
   'Warm navigate',
   async () => {
@@ -272,6 +269,11 @@ await addAsync(
     await tsRouter.load()
   },
 )
+
+const oursProcessed = buildOursLargeTree(8, 3)
+const tsProcessed = buildTsLargeTree(8, 3)
+const oursHistory = oursCreateMemoryHistory({ initialEntries: ['/'] })
+const tsHistory = tsCreateMemoryHistory({ initialEntries: ['/'] })
 
 await addSync(
   'Query-string encode',
