@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { globSync } from 'node:fs'
 
 const batches = [
   [
@@ -68,6 +69,16 @@ const batches = [
     'tests/tanstack/transitioner-render-ack.test.tsx',
   ],
 ]
+
+const discovered = globSync('tests/tanstack/**/*.{test,spec}.{ts,tsx}').sort()
+const batched = new Set(batches.flat())
+const missing = discovered.filter((file) => !batched.has(file))
+const extra = [...batched].filter((file) => !discovered.includes(file))
+if (missing.length || extra.length) {
+  if (missing.length) console.error('React batches missing:', missing.join('\n'))
+  if (extra.length) console.error('React batches extra:', extra.join('\n'))
+  process.exit(1)
+}
 
 for (const files of batches) {
   const result = spawnSync(
