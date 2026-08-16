@@ -540,10 +540,30 @@ function decodeSegment(raw: string) {
   }
 }
 
+function lastNonPathless(chain: AnyRouteLike[]): AnyRouteLike | undefined {
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const route = chain[i]!
+    if (!isPathless(route)) return route
+  }
+}
+
+function isRouteAncestor(route: AnyRouteLike, of: AnyRouteLike): boolean {
+  let cursor: AnyRouteLike | undefined = of
+  while (cursor) {
+    if (cursor === route || cursor.id === route.id) return true
+    cursor = cursor.parentRoute
+  }
+  return !of.parentRoute
+}
+
 function toMatchResults(chain: AnyRouteLike[], params: Record<string, string>): RouteMatchResult[] {
+  const concrete = lastNonPathless(chain)
   const matches: RouteMatchResult[] = []
   for (let i = 0; i < chain.length; i++) {
     const route = chain[i]!
+    if (concrete && isPathless(route) && !isRouteAncestor(route, concrete)) {
+      continue
+    }
     let seen = false
     for (let j = 0; j < matches.length; j++) {
       if (matches[j]!.route.id === route.id) {

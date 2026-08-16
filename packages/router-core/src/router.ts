@@ -458,7 +458,9 @@ export class RouterCore<
   subscribers = new Set<ListenerFn>()
   async startTransition(fn: () => void, _expected?: any): Promise<boolean> {
     fn()
-    return true
+    // Presentation acknowledgement is the framework owner's job. Returning
+    // true here would emit onRendered before RouterProvider mounts.
+    return false
   }
 
   startViewTransition(fn: () => Promise<void>) {
