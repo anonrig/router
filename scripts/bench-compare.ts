@@ -263,11 +263,15 @@ function runSection(section: string): Row[] {
 const section = process.env.BENCH_SECTION
 
 if (!section) {
-  const handler = runSection('handler')
-  const ssr = runSection('ssr')
-  const warm = runSection('warm')
+  const headlines = runSection('headline')
   const micros = runSection('micro')
-  printRows([...micros, ...warm, ...ssr, ...handler])
+  printRows([
+    ...micros,
+    ...headlines.filter((row) => row.name === 'Warm navigate'),
+    ...headlines.filter((row) => row.name === 'Warm router.load'),
+    ...headlines.filter((row) => row.name === 'SSR cold router.load req/s'),
+    ...headlines.filter((row) => row.name === 'createRequestHandler req/s'),
+  ])
   process.exit(0)
 }
 
@@ -275,7 +279,18 @@ if (!section) {
 // stringify/encode are not timed on each other's leftover heap.
 globalThis.gc?.()
 
-if (section === 'handler') {
+if (section === 'headline') {
+  await addAsync(
+    'SSR cold router.load req/s',
+    async () => {
+      const path = paths[cursor++ % paths.length]!
+      await createOursRouter(path).load()
+    },
+    async () => {
+      const path = paths[cursor++ % paths.length]!
+      await createTsRouter(path).load()
+    },
+  )
   await addAsync(
     'createRequestHandler req/s',
     async () => {
@@ -301,23 +316,6 @@ if (section === 'handler') {
       )
     },
   )
-}
-
-if (section === 'ssr') {
-  await addAsync(
-    'SSR cold router.load req/s',
-    async () => {
-      const path = paths[cursor++ % paths.length]!
-      await createOursRouter(path).load()
-    },
-    async () => {
-      const path = paths[cursor++ % paths.length]!
-      await createTsRouter(path).load()
-    },
-  )
-}
-
-if (section === 'warm') {
   const oursRouter = oursCreateRouter({
     routeTree: oursRouteTree,
     history: oursCreateMemoryHistory({ initialEntries: ['/'] }),
