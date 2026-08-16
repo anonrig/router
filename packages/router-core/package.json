@@ -1,7 +1,7 @@
 {
   "name": "fast-router-core",
   "version": "0.1.0",
-  "description": "Matcher, navigation, loaders, and search params for fast-router.",
+  "description": "Matcher, navigation, loaders, and search params for fast-router-react.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
     "url": "https://github.com/anonrig/router/issues"

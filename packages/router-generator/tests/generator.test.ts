@@ -151,7 +151,7 @@ describe('generateRouteTree', () => {
     })
     const runtime = readFileSync(generated, 'utf8')
     expect(runtime).toContain("import { createRoute } from 'fast-router-core'")
-    expect(runtime).toContain("import { createSlotRoute } from 'fast-router'")
+    expect(runtime).toContain("import { createSlotRoute } from 'fast-router-react'")
     expect(runtime).toContain('createSlotRoute({ getParentRoute, slot })')
   })
 

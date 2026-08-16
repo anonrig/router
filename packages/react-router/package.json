@@ -1,5 +1,5 @@
 {
-  "name": "fast-router",
+  "name": "fast-router-react",
   "version": "0.1.0",
   "description": "The TanStack Router API. Rebuilt for the hot path.",
   "homepage": "https://github.com/anonrig/router#readme",

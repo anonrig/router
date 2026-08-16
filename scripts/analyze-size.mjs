@@ -17,7 +17,7 @@ await writeFile(
   createRootRoute,
   createRoute,
   createRouter,
-} from 'fast-router'
+} from 'fast-router-react'
 `,
 )
 
@@ -44,7 +44,7 @@ try {
           replacement: join(repo, 'packages/router-core/src/is-server.ts'),
         },
         {
-          find: /^fast-router$/,
+          find: /^fast-router-react$/,
           replacement: join(repo, 'packages/react-router/src/index.ts'),
         },
       ],

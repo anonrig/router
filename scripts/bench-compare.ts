@@ -1,7 +1,7 @@
 /**
  * Head-to-head throughput: this repo vs published TanStack Router.
  *
- * `fast-router*` resolves through the workspace packages. `@tanstack/*` stays
+ * `fast-router-react*` resolves through the workspace packages. `@tanstack/*` stays
  * on the published packages so the same operations can be timed head-to-head.
  *
  * Headline rows measure equivalent work on both sides: typed `to`/`params`
@@ -342,7 +342,7 @@ function printTable(
   console.log(title)
   console.log(
     'Operation'.padEnd(38) +
-      'fast-router'.padStart(14) +
+      'fast-router-react'.padStart(14) +
       ' TanStack'.padStart(14) +
       ' vs TanStack'.padStart(14),
   )

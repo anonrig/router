@@ -22,7 +22,7 @@
     "paths": {
       "fast-router-history": ["./packages/history/src/index.ts"],
       "fast-router-core": ["./packages/router-core/src/index.ts"],
-      "fast-router": ["./packages/react-router/src/index.ts"],
+      "fast-router-react": ["./packages/react-router/src/index.ts"],
       "fast-router-generator": ["./packages/router-generator/src/index.ts"],
       "fast-router-generator/vite": ["./packages/router-generator/src/vite.ts"],
       "@tanstack/history": ["./packages/history/src/index.ts"],

@@ -83,8 +83,11 @@ function resolveTanstackId(id: string) {
       id.slice('@tanstack/react-router/'.length),
     )
   }
-  if (id.startsWith('fast-router/')) {
-    return resolveUnder(resolve(root, 'packages/react-router/src'), id.slice('fast-router/'.length))
+  if (id.startsWith('fast-router-react/')) {
+    return resolveUnder(
+      resolve(root, 'packages/react-router/src'),
+      id.slice('fast-router-react/'.length),
+    )
   }
   return undefined
 }
@@ -223,7 +226,7 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/router-core/src/index.ts'),
   },
   {
-    find: /^fast-router$/,
+    find: /^fast-router-react$/,
     replacement: resolve(root, 'packages/react-router/src/index.ts'),
   },
   { find: /^@tanstack\/history$/, replacement: resolve(root, 'packages/history/src/index.ts') },

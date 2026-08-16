@@ -44,15 +44,15 @@ importers:
       combinate:
         specifier: ^1.1.11
         version: 1.1.11
-      fast-router:
-        specifier: workspace:*
-        version: link:packages/react-router
       fast-router-core:
         specifier: workspace:*
         version: link:packages/router-core
       fast-router-history:
         specifier: workspace:*
         version: link:packages/history
+      fast-router-react:
+        specifier: workspace:*
+        version: link:packages/react-router
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1

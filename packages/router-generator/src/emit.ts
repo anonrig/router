@@ -31,9 +31,9 @@ export function emitRouteTreeRuntime(options: EmitRouteTreeOptions): string {
   const hasSlots = children.some((route) => route.isSlotRoot || route.key.includes('/@'))
   const slotImport =
     options.slotImport ??
-    (runtimeImport === 'fast-router' || runtimeImport.includes('react-router')
+    (runtimeImport === 'fast-router-react' || runtimeImport.includes('react-router')
       ? runtimeImport
-      : 'fast-router')
+      : 'fast-router-react')
 
   const lines: Array<string> = [
     '/* eslint-disable */',

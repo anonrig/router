@@ -39,7 +39,7 @@ async function bundle(
       'fast-router-history': join(root, 'packages/history/src/index.ts'),
       'fast-router-core': join(root, 'packages/router-core/src/index.ts'),
       'fast-router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
-      'fast-router': join(root, 'packages/react-router/src/index.ts'),
+      'fast-router-react': join(root, 'packages/react-router/src/index.ts'),
     },
     external: [
       'react',
@@ -96,7 +96,7 @@ describe('dead code elimination', () => {
   it('drops unused Scripts and HeadContent from a client react-router import', async () => {
     const { entry } = await bundle(
       `
-        import { createRootRoute, createRouter } from 'fast-router'
+        import { createRootRoute, createRouter } from 'fast-router-react'
         export const router = createRouter({ routeTree: createRootRoute() })
       `,
       { filename: 'entry.tsx' },

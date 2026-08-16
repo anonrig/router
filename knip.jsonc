@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   // Workspace package consumed through @tanstack/react-router path aliases.
-  "ignoreDependencies": ["fast-router"],
+  "ignoreDependencies": ["fast-router-react"],
   "treatConfigHintsAsErrors": true,
   "ignoreIssues": {
     // Public / TanStack-compatible library surface. Unused files and

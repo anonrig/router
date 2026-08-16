@@ -17,12 +17,12 @@ const oursAlias = {
   'fast-router-history': join(repo, 'packages/history/src/index.ts'),
   'fast-router-core': join(repo, 'packages/router-core/src/index.ts'),
   'fast-router-core/is-server': join(repo, 'packages/router-core/src/is-server.ts'),
-  'fast-router': join(repo, 'packages/react-router/src/index.ts'),
+  'fast-router-react': join(repo, 'packages/react-router/src/index.ts'),
 }
 
 const cases = [
   {
-    name: 'fast-router client',
+    name: 'fast-router-react client',
     filename: 'entry.tsx',
     ours: `export {
   Link,
@@ -31,7 +31,7 @@ const cases = [
   createRootRoute,
   createRoute,
   createRouter,
-} from 'fast-router'
+} from 'fast-router-react'
 `,
     tanstack: `export {
   Link,
@@ -135,7 +135,7 @@ console.log(
 console.log('')
 console.log(
   'Package'.padEnd(24) +
-    'fast-router'.padStart(12) +
+    'fast-router-react'.padStart(12) +
     ' gzip'.padStart(10) +
     ' TanStack'.padStart(12) +
     ' gzip'.padStart(10) +
