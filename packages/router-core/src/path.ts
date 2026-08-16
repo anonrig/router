@@ -282,20 +282,26 @@ export function interpolatePath({
   params,
   decoder,
 }: InterpolatePathOptions): InterPolatePathResult {
-  let isMissingParams = false
-  const usedParams: Record<string, unknown> = Object.create(null)
-
   if (!path || path === '/') {
-    return { interpolatedPath: '/', usedParams, isMissingParams }
+    return { interpolatedPath: '/', usedParams: Object.create(null), isMissingParams: false }
   }
   if (path.indexOf('$') === -1) {
-    return { interpolatedPath: path, usedParams, isMissingParams }
+    return { interpolatedPath: path, usedParams: Object.create(null), isMissingParams: false }
   }
   if (path.indexOf('{') === -1) {
     const simple = interpolateSimpleParams(path, params, decoder)
     if (simple) return simple
   }
+  return interpolateBracedParams(path, params, decoder)
+}
 
+function interpolateBracedParams(
+  path: string,
+  params: InterpolatePathOptions['params'],
+  decoder: InterpolatePathOptions['decoder'],
+): InterPolatePathResult {
+  let isMissingParams = false
+  const usedParams: Record<string, unknown> = Object.create(null)
   const length = path.length
   let cursor = 0
   let segment: ReturnType<typeof parseSegment> | undefined

@@ -670,17 +670,26 @@ function applyParamsParse(frame: WalkFrame): boolean {
   return true
 }
 
+export function findRouteMatchFromTree(
+  tree: ProcessedTree,
+  pathname: string,
+  caseSensitive = false,
+): RouteMatchResult[] | null {
+  if (!caseSensitive && tree.lastPath === pathname) return tree.lastMatch!
+  return findRouteMatchOrdered(tree, pathname, caseSensitive, false)
+}
+
 export function findRouteMatch(
   treeOrPathname: ProcessedTree | string,
   pathnameOrTree?: string | ProcessedTree,
   caseSensitiveOrFuzzy = false,
 ): any {
   if (typeof pathnameOrTree === 'string') {
-    const tree = treeOrPathname as ProcessedTree
-    if (!caseSensitiveOrFuzzy && tree.lastPath === pathnameOrTree) {
-      return tree.lastMatch!
-    }
-    return findRouteMatchOrdered(tree, pathnameOrTree, caseSensitiveOrFuzzy, false)
+    return findRouteMatchFromTree(
+      treeOrPathname as ProcessedTree,
+      pathnameOrTree,
+      caseSensitiveOrFuzzy,
+    )
   }
   if (typeof treeOrPathname === 'string') {
     const tree = pathnameOrTree as ProcessedTree
@@ -766,6 +775,129 @@ function parsedScore(frame: WalkFrame): number {
   return score
 }
 
+function applyPathless(node: SegmentNode, chain: AnyRouteLike[]) {
+  if (!node.pathless) return chain
+  const next = chain.slice()
+  for (let i = 0; i < node.pathless.length; i++) next.push(node.pathless[i]!)
+  return next
+}
+
+function withPathless(next: WalkFrame): WalkFrame {
+  if (!next.node.pathless) return next
+  return {
+    ...next,
+    chain: applyPathless(next.node, next.chain),
+  }
+}
+
+function considerFuzzy(
+  fuzzy: boolean,
+  decodedLength: number,
+  rootRoute: AnyRouteLike | null | undefined,
+  bestFuzzy: WalkFrame | null,
+  frame: WalkFrame,
+): WalkFrame | null {
+  if (!fuzzy || frame.index >= decodedLength) return bestFuzzy
+  if (!frame.node.route || frame.node.route === rootRoute) return bestFuzzy
+  return isBetterMatch(bestFuzzy, frame) ? frame : bestFuzzy
+}
+
+function considerTerminal(
+  frame: WalkFrame,
+  stack: WalkFrame[],
+  best: WalkFrame | null,
+  rootRoute: AnyRouteLike | null | undefined,
+): WalkFrame | null {
+  const terminal = withPathless(frame)
+  const indexRoute = terminal.node.indexRoute
+  if (indexRoute) {
+    const indexed = {
+      ...terminal,
+      chain: terminal.chain.concat(indexRoute),
+    }
+    if (applyParamsParse(indexed)) {
+      indexed.parsed = parsedScore(indexed)
+      if (isBetterMatch(best, indexed)) best = indexed
+    } else if (
+      terminal.node.wildcardChild &&
+      !terminal.node.wildcardChild.prefix &&
+      !terminal.node.wildcardChild.suffix
+    ) {
+      const params = Object.assign(Object.create(null), terminal.params)
+      params._splat = ''
+      params['*'] = ''
+      const wild = {
+        ...terminal,
+        node: terminal.node.wildcardChild,
+        params,
+        chain: terminal.chain.concat(
+          terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : [],
+        ),
+        depth: terminal.depth + 1,
+      }
+      if (applyParamsParse(wild)) {
+        wild.parsed = parsedScore(wild)
+        if (isBetterMatch(best, wild)) best = wild
+      }
+    }
+  } else {
+    const chainBeforeRoute = terminal.chain.slice()
+    if (terminal.node.route && terminal.node.route !== rootRoute) {
+      if (terminal.chain[terminal.chain.length - 1] !== terminal.node.route) {
+        terminal.chain.push(terminal.node.route)
+      }
+    }
+    if (applyParamsParse(terminal)) {
+      terminal.parsed = parsedScore(terminal)
+      if (isBetterMatch(best, terminal)) best = terminal
+    }
+    if (
+      !best &&
+      terminal.node.wildcardChild &&
+      !terminal.node.wildcardChild.prefix &&
+      !terminal.node.wildcardChild.suffix
+    ) {
+      const params = Object.assign(Object.create(null), terminal.params)
+      params._splat = ''
+      params['*'] = ''
+      const wild = {
+        ...terminal,
+        node: terminal.node.wildcardChild,
+        params,
+        chain: chainBeforeRoute
+          .filter((route) => route !== terminal.node.route)
+          .concat(terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : []),
+        depth: terminal.depth + 1,
+      }
+      if (applyParamsParse(wild)) {
+        wild.parsed = parsedScore(wild)
+        if (isBetterMatch(best, wild)) best = wild
+      }
+    }
+  }
+  const optionals = terminal.node.optionalChildren?.length
+    ? terminal.node.optionalChildren
+    : terminal.node.optionalChild
+      ? [terminal.node.optionalChild]
+      : []
+  for (let o = 0; o < optionals.length; o++) {
+    const child = optionals[o]!
+    stack.push(
+      withPathless({
+        node: child,
+        index: frame.index,
+        params: terminal.params,
+        chain: terminal.chain,
+        depth: terminal.depth + 1,
+        parsed: terminal.parsed,
+        statics: terminal.statics,
+        affix: terminal.affix,
+      }),
+    )
+  }
+  return best
+}
+
 function findRouteMatchDynamic(
   tree: ProcessedTree,
   pathname: string,
@@ -776,21 +908,6 @@ function findRouteMatchDynamic(
   const decoded: string[] = new Array(segments.length)
   for (let i = 0; i < segments.length; i++) {
     decoded[i] = decodeSegment(segments[i]!)
-  }
-
-  const applyPathless = (node: SegmentNode, chain: AnyRouteLike[]) => {
-    if (!node.pathless) return chain
-    const next = chain.slice()
-    for (let i = 0; i < node.pathless.length; i++) next.push(node.pathless[i]!)
-    return next
-  }
-
-  const withPathless = (next: WalkFrame): WalkFrame => {
-    if (!next.node.pathless) return next
-    return {
-      ...next,
-      chain: applyPathless(next.node, next.chain),
-    }
   }
 
   const stack: WalkFrame[] = [
@@ -808,106 +925,16 @@ function findRouteMatchDynamic(
 
   let best: WalkFrame | null = null
   let bestFuzzy: WalkFrame | null = null
-
-  const considerFuzzy = (frame: WalkFrame) => {
-    if (!fuzzy || frame.index >= decoded.length) return
-    if (!frame.node.route || frame.node.route === tree.root.route) return
-    if (isBetterMatch(bestFuzzy, frame)) bestFuzzy = frame
-  }
+  const rootRoute = tree.root.route
+  const decodedLength = decoded.length
 
   while (stack.length) {
     const frame = stack.pop()!
     const { node, index } = frame
-    considerFuzzy(frame)
+    bestFuzzy = considerFuzzy(fuzzy, decodedLength, rootRoute, bestFuzzy, frame)
 
     if (index === decoded.length) {
-      const terminal = withPathless(frame)
-      const indexRoute = terminal.node.indexRoute
-      if (indexRoute) {
-        const indexed = {
-          ...terminal,
-          chain: terminal.chain.concat(indexRoute),
-        }
-        if (applyParamsParse(indexed)) {
-          indexed.parsed = parsedScore(indexed)
-          if (isBetterMatch(best, indexed)) best = indexed
-        } else if (
-          terminal.node.wildcardChild &&
-          !terminal.node.wildcardChild.prefix &&
-          !terminal.node.wildcardChild.suffix
-        ) {
-          const params = Object.assign(Object.create(null), terminal.params)
-          params._splat = ''
-          params['*'] = ''
-          const wild = {
-            ...terminal,
-            node: terminal.node.wildcardChild,
-            params,
-            chain: terminal.chain.concat(
-              terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : [],
-            ),
-            depth: terminal.depth + 1,
-          }
-          if (applyParamsParse(wild)) {
-            wild.parsed = parsedScore(wild)
-            if (isBetterMatch(best, wild)) best = wild
-          }
-        }
-      } else {
-        const chainBeforeRoute = terminal.chain.slice()
-        if (terminal.node.route && terminal.node.route !== tree.root.route) {
-          if (terminal.chain[terminal.chain.length - 1] !== terminal.node.route) {
-            terminal.chain.push(terminal.node.route)
-          }
-        }
-        if (applyParamsParse(terminal)) {
-          terminal.parsed = parsedScore(terminal)
-          if (isBetterMatch(best, terminal)) best = terminal
-        }
-        if (
-          !best &&
-          terminal.node.wildcardChild &&
-          !terminal.node.wildcardChild.prefix &&
-          !terminal.node.wildcardChild.suffix
-        ) {
-          const params = Object.assign(Object.create(null), terminal.params)
-          params._splat = ''
-          params['*'] = ''
-          const wild = {
-            ...terminal,
-            node: terminal.node.wildcardChild,
-            params,
-            chain: chainBeforeRoute
-              .filter((route) => route !== terminal.node.route)
-              .concat(terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : []),
-            depth: terminal.depth + 1,
-          }
-          if (applyParamsParse(wild)) {
-            wild.parsed = parsedScore(wild)
-            if (isBetterMatch(best, wild)) best = wild
-          }
-        }
-      }
-      const optionals = terminal.node.optionalChildren?.length
-        ? terminal.node.optionalChildren
-        : terminal.node.optionalChild
-          ? [terminal.node.optionalChild]
-          : []
-      for (let o = 0; o < optionals.length; o++) {
-        const child = optionals[o]!
-        stack.push(
-          withPathless({
-            node: child,
-            index,
-            params: terminal.params,
-            chain: terminal.chain,
-            depth: terminal.depth + 1,
-            parsed: terminal.parsed,
-            statics: terminal.statics,
-            affix: terminal.affix,
-          }),
-        )
-      }
+      best = considerTerminal(frame, stack, best, rootRoute)
       continue
     }
 

@@ -9,6 +9,7 @@ import {
   buildRouteBranch,
   findFlatMatch,
   findRouteMatch,
+  findRouteMatchFromTree,
   processRouteMasks,
   processRouteTree,
   type ProcessedTree,
@@ -382,6 +383,17 @@ export function runRouteLifecycle(
 
 export { SearchParamError, PathParamError }
 
+export interface RouterCore<
+  TRouteTree extends AnyRoute = AnyRoute,
+  TTrailingSlashOption extends TrailingSlashOption = 'never',
+  TDefaultStructuralSharingOption extends boolean = false,
+  TRouterHistory extends RouterHistory = RouterHistory,
+  TDehydrated extends Record<string, any> = Record<string, any>,
+> {
+  navigate: import('./router-provider').NavigateFn
+  buildLocation: import('./router-provider').BuildLocationFn
+}
+
 export class RouterCore<
   TRouteTree extends AnyRoute = AnyRoute,
   TTrailingSlashOption extends TrailingSlashOption = 'never',
@@ -469,12 +481,14 @@ export class RouterCore<
     })
   }
   subscribers = new Set<ListenerFn>()
-  startTransition: (fn: () => void, _expected?: any) => Promise<boolean> = async (fn) => {
+  async startTransition(fn: () => void, _expected?: any): Promise<boolean> {
     fn()
     return true
   }
 
-  startViewTransition = (fn: () => Promise<void>) => fn()
+  startViewTransition(fn: () => Promise<void>) {
+    return fn()
+  }
 
   private loadId = 0
   private pendingLoad: Promise<void> | undefined
@@ -490,6 +504,7 @@ export class RouterCore<
       TDehydrated
     >,
   ) {
+    this.navigate = this.navigate.bind(this)
     this.update({
       defaultPreloadDelay: 50,
       defaultPendingMs: 1000,
@@ -534,7 +549,7 @@ export class RouterCore<
     }
   }
 
-  subscribe = (eventType: string, fn: ListenerFn) => {
+  subscribe(eventType: string, fn: ListenerFn) {
     const wrapped: ListenerFn = (event) => {
       if (eventType === '*' || event.type === eventType) fn(event)
     }
@@ -544,7 +559,7 @@ export class RouterCore<
     }
   }
 
-  emit = (event: RouterEvent) => {
+  emit(event: RouterEvent) {
     if (this.subscribers.size === 0) return
     this.subscribers.forEach((fn) => {
       try {
@@ -555,7 +570,7 @@ export class RouterCore<
     })
   }
 
-  update = (newOptions: RouterOptions) => {
+  update(newOptions: RouterOptions) {
     const prevTree = this.routeTree
     this.options = { ...this.options, ...newOptions }
     this.isServer = this.options.isServer ?? typeof document === 'undefined'
@@ -658,46 +673,25 @@ export class RouterCore<
     return this
   }
 
-  parseLocation = (locationToParse: HistoryLocation, previous?: ParsedLocation): ParsedLocation => {
+  parseLocation(locationToParse: HistoryLocation, previous?: ParsedLocation): ParsedLocation {
     const parseSearch = this.options.parseSearch ?? defaultParseSearch
     const stringifySearch = this.options.stringifySearch ?? defaultStringifySearch
-    const parse = (location: HistoryLocation): ParsedLocation => {
-      if (!this.rewrite && !/[ \x00-\x1f\x7f\u0080-\uffff]/.test(location.pathname)) {
-        const parsedSearch = parseSearch(location.search)
-        const searchStr = stringifySearch(parsedSearch)
-        return {
-          href: location.pathname + searchStr + location.hash,
-          publicHref: location.pathname + searchStr + location.hash,
-          pathname: decodePath(location.pathname).path,
-          external: false,
-          searchStr,
-          search: nullReplaceEqualDeep(previous?.search, parsedSearch),
-          hash: decodePath((location.hash || '').replace(/^#/, '')).path,
-          state: replaceEqualDeep(previous?.state, location.state),
-        }
-      }
-      const fullUrl = new URL(location.href, this.origin)
-      const url = executeRewriteInput(this.rewrite, fullUrl)
-      const parsedSearch = parseSearch(url.search)
-      const searchStr = stringifySearch(parsedSearch)
-      url.search = searchStr
-      const fullPath = url.href.replace(url.origin, '')
-      return {
-        href: fullPath,
-        publicHref: location.href,
-        pathname: decodePath(url.pathname).path,
-        external: !!this.rewrite && url.origin !== this.origin,
-        searchStr,
-        search: nullReplaceEqualDeep(previous?.search, parsedSearch),
-        hash: decodePath(url.hash.replace(/^#/, '')).path,
-        state: replaceEqualDeep(previous?.state, location.state),
-      }
-    }
-
-    const location = parse(locationToParse)
+    const location = parseHistoryLocation(
+      this,
+      locationToParse,
+      previous,
+      parseSearch,
+      stringifySearch,
+    )
     const { __tempLocation, __tempKey } = location.state ?? {}
     if (__tempLocation && (!__tempKey || __tempKey === this.tempLocationKey)) {
-      const parsedTempLocation = parse(__tempLocation) as any
+      const parsedTempLocation = parseHistoryLocation(
+        this,
+        __tempLocation,
+        previous,
+        parseSearch,
+        stringifySearch,
+      ) as any
       parsedTempLocation.state.key = location.state.key
       parsedTempLocation.state.__TSR_key = location.state.__TSR_key
       delete parsedTempLocation.state.__tempLocation
@@ -709,199 +703,40 @@ export class RouterCore<
     return location
   }
 
-  buildLocation = ((opts: NavigateOptions = {}): ParsedLocation => {
+  buildLocation(opts: NavigateOptions = {}): ParsedLocation {
     const dest = opts
     const current =
       dest._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
-    const fromPath = dest.from
-      ? (this.routesById[dest.from]?.fullPath ?? dest.from)
-      : (current?.pathname ?? '/')
-
     const currentMatch = lastMatch(this.state?.matches)
-    let to = dest.to
-    if (to === undefined || to === '.') {
-      to = currentMatch?.routeId
-        ? (this.routesById[currentMatch.routeId]?.fullPath ?? current?.pathname)
-        : current?.pathname
-    }
-    if (typeof to !== 'string') to = current?.pathname ?? '/'
-
-    const currentParams = currentMatch?.params ?? EMPTY_OBJ
-    const nextParams =
-      dest.params === true || dest.params === undefined
-        ? currentParams
-        : functionalUpdate(dest.params, currentParams)
-
-    const destRouteHint =
-      typeof to === 'string' ? this.routesByPath?.[trimPathRight(to)] : undefined
-    const stringifyRoutes = destRouteHint
-      ? buildRouteBranch(destRouteHint as AnyRoute)
-      : currentMatch
-        ? buildRouteBranch(this.routesById[currentMatch.routeId] as AnyRoute)
-        : []
-    if (stringifyRoutes.length && nextParams) {
-      for (const route of stringifyRoutes) {
-        const fn = route.options?.params?.stringify ?? route.options?.stringifyParams
-        if (fn) {
-          try {
-            Object.assign(nextParams, fn(nextParams))
-          } catch {
-            // matchRoutes rethrows via parse
-          }
-        }
-      }
-    }
-
-    let interpolated = to
-    if (typeof to === 'string' && to.includes('$')) {
-      interpolated = interpolatePath({
-        path: to,
-        params: nextParams ?? EMPTY_OBJ,
-        decoder: this.pathParamsDecoder,
-      }).interpolatedPath
-    } else if (dest.params && !dest.to) {
-      const template = currentMatch ? this.routesById[currentMatch.routeId]?.fullPath : undefined
-      if (template) {
-        interpolated = interpolatePath({
-          path: template,
-          params: nextParams ?? EMPTY_OBJ,
-          decoder: this.pathParamsDecoder,
-        }).interpolatedPath
-      }
-    }
-
-    let resolved = resolvePath({
-      base: fromPath || '/',
-      to: interpolated || '/',
-      trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-      cache: this.resolvePathCache,
-    })
-    if (resolved.includes('$')) {
-      resolved = interpolatePath({
-        path: resolved,
-        params: nextParams ?? EMPTY_OBJ,
-        decoder: this.pathParamsDecoder,
-      }).interpolatedPath
-    }
-
-    const currentSearch = { ...(current?.search ?? EMPTY_OBJ) }
-    const destRoute = this.routesByPath?.[trimPathRight(resolved)] as AnyRoute | undefined
-    const destRoutes = destRoute
-      ? buildRouteBranch(destRoute)
-      : this._hasSearchWork && this.processedTree
-        ? (this.getMatchedRoutes(resolved)[0] as AnyRoute[])
-        : []
-    const fromRoutes = this.state?.matches?.length
-      ? this.state.matches.map((match) => this.routesById[match.routeId]).filter(Boolean)
-      : destRoutes
-    for (const route of fromRoutes as AnyRoute[]) {
-      try {
-        Object.assign(currentSearch, validateSearch(route.options?.validateSearch, currentSearch))
-      } catch {
-        // ignore, matchRoutes reports the error
-      }
-    }
-
-    const nextSearch =
-      destRoutes.length > 0
-        ? applySearchMiddleware(currentSearch, dest, destRoutes, dest._includeValidateSearch)
-        : dest.search === true
-          ? currentSearch
-          : dest.search
-            ? functionalUpdate(dest.search, currentSearch)
-            : dest.to
-              ? EMPTY_OBJ
-              : currentSearch
-
+    const { resolved, destRouteHint } = resolveBuildPath(this, dest, current, currentMatch)
+    const nextSearch = resolveBuildSearch(this, dest, current, resolved)
     const searchStr = (this.options.stringifySearch ?? defaultStringifySearch)(
       nextSearch ?? EMPTY_OBJ,
     )
-    const currentHash = (current?.hash ?? '').replace(/^#/, '')
-    let hash =
-      dest.hash === true
-        ? currentHash
-        : dest.hash
-          ? typeof dest.hash === 'function'
-            ? dest.hash(currentHash)
-            : typeof dest.hash === 'string'
-              ? dest.hash.replace(/^#/, '')
-              : String(dest.hash)
-          : dest.to
-            ? ''
-            : currentHash
-    if (typeof hash !== 'string') hash = String(hash ?? '')
+    const hash = resolveBuildHash(dest, current)
     const hashStr = hash ? `#${hash}` : ''
-
     const base = trimPath(this.basepath || '/')
     const prefix = base && base !== '/' ? `/${base}` : ''
     const href = `${prefix}${resolved}${searchStr}${hashStr}`
-    const nextState =
-      dest.state === true
-        ? current?.state
-        : dest.state
-          ? typeof dest.state === 'function'
-            ? dest.state(current?.state ?? {})
-            : dest.state
-          : {}
     if (process.env.NODE_ENV !== 'production' && destRouteHint && !dest.leaveParams) {
-      try {
-        const foundRoute = this.getMatchedRoutes(resolved)[2]
-        if (foundRoute && foundRoute.id !== destRouteHint.id) {
-          console.warn(
-            `Generated path "${resolved}" for route "${destRouteHint.id}" matched route "${foundRoute.id}" instead. This can happen when multiple route templates resolve to the same URL. Use the route template that matches the intended route, or adjust params.stringify if it changed the target path.`,
-          )
-        }
-      } catch {
-        // ignore roundtrip validation errors
-      }
+      warnBuildLocationMismatch(this, resolved, destRouteHint)
     }
-
     const location: ParsedLocation = {
       href,
       pathname: resolved,
       search: nextSearch ?? EMPTY_OBJ,
       searchStr,
       hash: hashStr ? hash : '',
-      state: nextState ?? {},
+      state: resolveBuildState(dest, current),
       publicHref: encodePathLikeUrl(href),
       external: false,
     }
-    if (dest.mask) {
-      location.maskedLocation = this.buildLocation({
-        from: dest.from,
-        ...dest.mask,
-      })
-    } else if (this.options.routeMasks?.length && this.processedTree) {
-      const match = findFlatMatch(location.pathname, this.processedTree)
-      if (match) {
-        const params = Object.assign(Object.create(null), match.rawParams)
-        const { from: _from, params: maskParams, ...maskProps } = match.route
-        const nextParams = resolveNextParams(maskParams, params)
-        location.maskedLocation = this.buildLocation({
-          from: dest.from,
-          ...maskProps,
-          params: nextParams,
-        })
-      }
-    }
-    if (this.rewrite) {
-      const url = new URL(
-        `${location.pathname}${location.searchStr}${location.hash ? `#${location.hash}` : ''}`,
-        this.origin,
-      )
-      const rewrittenUrl = executeRewriteOutput(this.rewrite, url)
-      location.href = url.href.replace(url.origin, '')
-      if (rewrittenUrl.origin !== this.origin) {
-        location.publicHref = rewrittenUrl.href
-        location.external = true
-      } else {
-        location.publicHref = rewrittenUrl.pathname + rewrittenUrl.search + rewrittenUrl.hash
-      }
-    }
+    applyBuildMask(this, dest, location)
+    applyBuildRewrite(this, location)
     return location
-  }) as import('./router-provider').BuildLocationFn
+  }
 
-  commitLocation = async (
+  async commitLocation(
     {
       viewTransition,
       ignoreBlocker,
@@ -909,7 +744,7 @@ export class RouterCore<
       hashScrollIntoView,
       ...next
     }: ParsedLocation & CommitLocationOptions = {} as any,
-  ) => {
+  ) {
     const isSameLocation =
       trimPathRight(this.latestLocation?.href ?? '') === trimPathRight(next.href) &&
       deepEqual(
@@ -983,13 +818,7 @@ export class RouterCore<
 
   private redirectHops = 0
 
-  navigate: import('./router-provider').NavigateFn = async ({
-    to,
-    reloadDocument,
-    href,
-    publicHref,
-    ...rest
-  }: any = {}) => {
+  async navigate({ to, reloadDocument, href, publicHref, ...rest }: any = {}) {
     let hrefIsUrl = false
     if (href) {
       const first = href.charCodeAt(0)
@@ -1039,11 +868,17 @@ export class RouterCore<
     return this.buildAndCommitLocation({ to, href, publicHref, ...rest })
   }
 
-  back = () => this.history.back()
-  forward = () => this.history.forward()
-  canGoBack = () => this.history.canGoBack()
+  back() {
+    return this.history.back()
+  }
+  forward() {
+    return this.history.forward()
+  }
+  canGoBack() {
+    return this.history.canGoBack()
+  }
 
-  invalidate: InvalidateFn<this> = async (opts) => {
+  async invalidate(opts?: Parameters<InvalidateFn<this>>[0]) {
     const filter = opts?.filter
     const committedMatches = this._committed.length ? this._committed : this.state.matches
     const preloads = this._preloads
@@ -1099,7 +934,7 @@ export class RouterCore<
     return this.load({ sync: opts?.sync })
   }
 
-  clearCache: ClearCacheFn<this> = (opts) => {
+  clearCache(opts?: Parameters<ClearCacheFn<this>>[0]) {
     const cached = this._cache
     const preloads = this._preloads
     const filter = opts?.filter
@@ -1131,9 +966,9 @@ export class RouterCore<
     for (const controller of abort) controller.abort()
   }
 
-  load = async (opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> => {
+  load(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> {
+    this.updateLatestLocation()
     if (isServer || this.isServer) {
-      this.updateLatestLocation()
       if (opts?._signal?.aborted) {
         return Promise.reject(opts._signal.reason)
       }
@@ -1142,20 +977,23 @@ export class RouterCore<
       if (!opts?.action && !opts?._signal && this.canSkipSettledLoad()) {
         this._commitPromise?.resolve()
         this._commitPromise = undefined
-        return
+        return RESOLVED
       }
-      if (loadServerRouteCached) return loadServerRouteCached(this, opts)
-      const { loadServerRoute } = await import('./load-server')
-      loadServerRouteCached = loadServerRoute
-      return loadServerRoute(this, opts)
+      return this.importLoadServer(opts)
     }
-    this.updateLatestLocation()
     if (!opts?.action && this.canSkipSettledLoad()) {
       this._commitPromise?.resolve()
       this._commitPromise = undefined
-      return
+      return RESOLVED
     }
-    await loadClientRoute(this, opts)
+    return loadClientRoute(this, opts)
+  }
+
+  private async importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
+    if (loadServerRouteCached) return loadServerRouteCached(this, opts)
+    const { loadServerRoute } = await import('./load-server')
+    loadServerRouteCached = loadServerRoute
+    return loadServerRoute(this, opts)
   }
 
   private canSkipSettledLoad(): boolean {
@@ -1537,11 +1375,13 @@ export class RouterCore<
     }
   }
 
-  getMatchedRoutes = (pathname: string) => {
+  getMatchedRoutes(pathname: string) {
     const path = trimPathRight(pathname || '/')
-    const exact = findRouteMatch(this.processedTree, path, this.options.caseSensitive ?? false) as
-      | RouteMatchResult[]
-      | null
+    const exact = findRouteMatchFromTree(
+      this.processedTree,
+      path,
+      this.options.caseSensitive ?? false,
+    )
     if (exact?.length) {
       const last = exact[exact.length - 1]!
       const branch = new Array(exact.length)
@@ -1559,7 +1399,7 @@ export class RouterCore<
     return [[this.routesById[rootRouteId]!], Object.create(null), undefined] as const
   }
 
-  resolveRedirect = (redirect: AnyRedirect): AnyRedirect => {
+  resolveRedirect(redirect: AnyRedirect): AnyRedirect {
     const locationHeader = redirect.headers.get('Location')
 
     if (!redirect.options.href || redirect.options._builtLocation) {
@@ -1599,7 +1439,7 @@ export class RouterCore<
     return redirect
   }
 
-  matchRoute = (opts: NavigateOptions & MatchRouteOptions = {}): any => {
+  matchRoute(opts: NavigateOptions & MatchRouteOptions = {}): any {
     const pending = opts.pending
     const matches = pending ? (this.state.pendingMatches ?? this.state.matches) : this.state.matches
     if (!opts.to) return !!matches.length
@@ -1623,28 +1463,30 @@ export class RouterCore<
     return lastFound.params
   }
 
-  getMatch = (matchId: string) => this.state.matches.find((m) => m.id === matchId)
+  getMatch(matchId: string) {
+    return this.state.matches.find((m) => m.id === matchId)
+  }
 
-  preloadRoute = (opts: NavigateOptions = {}) => preloadClientRoute(this, opts)
+  preloadRoute(opts: NavigateOptions = {}) {
+    return preloadClientRoute(this, opts)
+  }
 
   loadRouteChunk = loadRouteChunk
 
-  hasNotFoundMatch = () =>
-    this.state.matches.some((m) => m.status === 'notFound' || m.globalNotFound)
+  hasNotFoundMatch() {
+    return this.state.matches.some((m) => m.status === 'notFound' || m.globalNotFound)
+  }
 
-  shouldViewTransition = (opts?: { viewTransition?: boolean | { types?: string[] } }) =>
-    !!(opts?.viewTransition ?? this.options.defaultViewTransition)
+  shouldViewTransition(opts?: { viewTransition?: boolean | { types?: string[] } }) {
+    return !!(opts?.viewTransition ?? this.options.defaultViewTransition)
+  }
 
-  updateLatestLocation = () => {
+  updateLatestLocation() {
     if (!this.history) return
     this.latestLocation = this.parseLocation(this.history.location, this.latestLocation)
   }
 
-  matchRoutes = (
-    pathnameOrNext: string | ParsedLocation,
-    locationSearchOrOpts?: any,
-    opts?: any,
-  ) => {
+  matchRoutes(pathnameOrNext: string | ParsedLocation, locationSearchOrOpts?: any, opts?: any) {
     if (typeof pathnameOrNext === 'string') {
       return this.matchRoutesInternal(
         { pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation,
@@ -1803,7 +1645,7 @@ export class RouterCore<
     return matches
   }
 
-  cancelMatch = (matchId: string) => {
+  cancelMatch(matchId: string) {
     const match = this.state.matches.find((m) => m.id === matchId)
     match?.abortController.abort()
   }
@@ -1812,7 +1654,7 @@ export class RouterCore<
     return !!this.options.isShell
   }
 
-  buildAndCommitLocation = ({
+  buildAndCommitLocation({
     replace,
     resetScroll,
     hashScrollIntoView,
@@ -1821,7 +1663,7 @@ export class RouterCore<
     _redirects,
     href,
     ...rest
-  }: NavigateOptions & CommitLocationOptions & { _redirects?: number; href?: string } = {}) => {
+  }: NavigateOptions & CommitLocationOptions & { _redirects?: number; href?: string } = {}) {
     if (href) {
       const currentIndex = this.history.location.state?.__TSR_index
       const parsed = parseHref(href, {
@@ -1868,6 +1710,235 @@ if (process.env.NODE_ENV !== 'production') {
     this._serverResult = undefined
     this.updateLatestLocation()
     await refreshClientRoute(this)
+  }
+}
+
+function resolveBuildPath(
+  router: any,
+  dest: any,
+  current: ParsedLocation | undefined,
+  currentMatch: RouteMatch | undefined,
+) {
+  const fromPath = dest.from
+    ? (router.routesById[dest.from]?.fullPath ?? dest.from)
+    : (current?.pathname ?? '/')
+
+  let to = dest.to
+  if (to === undefined || to === '.') {
+    to = currentMatch?.routeId
+      ? (router.routesById[currentMatch.routeId]?.fullPath ?? current?.pathname)
+      : current?.pathname
+  }
+  if (typeof to !== 'string') to = current?.pathname ?? '/'
+
+  const currentParams = currentMatch?.params ?? EMPTY_OBJ
+  const nextParams =
+    dest.params === true || dest.params === undefined
+      ? currentParams
+      : functionalUpdate(dest.params, currentParams)
+
+  const destRouteHint =
+    typeof to === 'string' ? router.routesByPath?.[trimPathRight(to)] : undefined
+  const stringifyRoutes = destRouteHint
+    ? buildRouteBranch(destRouteHint as AnyRoute)
+    : currentMatch
+      ? buildRouteBranch(router.routesById[currentMatch.routeId] as AnyRoute)
+      : []
+  if (stringifyRoutes.length && nextParams) {
+    for (const route of stringifyRoutes) {
+      const fn = route.options?.params?.stringify ?? route.options?.stringifyParams
+      if (fn) {
+        try {
+          Object.assign(nextParams, fn(nextParams))
+        } catch {
+          // matchRoutes rethrows via parse
+        }
+      }
+    }
+  }
+
+  let interpolated = to
+  if (typeof to === 'string' && to.includes('$')) {
+    interpolated = interpolatePath({
+      path: to,
+      params: nextParams ?? EMPTY_OBJ,
+      decoder: router.pathParamsDecoder,
+    }).interpolatedPath
+  } else if (dest.params && !dest.to) {
+    const template = currentMatch ? router.routesById[currentMatch.routeId]?.fullPath : undefined
+    if (template) {
+      interpolated = interpolatePath({
+        path: template,
+        params: nextParams ?? EMPTY_OBJ,
+        decoder: router.pathParamsDecoder,
+      }).interpolatedPath
+    }
+  }
+
+  let resolved = resolvePath({
+    base: fromPath || '/',
+    to: interpolated || '/',
+    trailingSlash: (router.options.trailingSlash as any) ?? 'never',
+    cache: router.resolvePathCache,
+  })
+  if (resolved.includes('$')) {
+    resolved = interpolatePath({
+      path: resolved,
+      params: nextParams ?? EMPTY_OBJ,
+      decoder: router.pathParamsDecoder,
+    }).interpolatedPath
+  }
+  return { resolved, destRouteHint }
+}
+
+function resolveBuildSearch(
+  router: any,
+  dest: any,
+  current: ParsedLocation | undefined,
+  resolved: string,
+) {
+  const currentSearch = { ...(current?.search ?? EMPTY_OBJ) }
+  const destRoute = router.routesByPath?.[trimPathRight(resolved)] as AnyRoute | undefined
+  const destRoutes = destRoute
+    ? buildRouteBranch(destRoute)
+    : router._hasSearchWork && router.processedTree
+      ? (router.getMatchedRoutes(resolved)[0] as AnyRoute[])
+      : []
+  const fromRoutes = router.state?.matches?.length
+    ? router.state.matches
+        .map((match: RouteMatch) => router.routesById[match.routeId])
+        .filter(Boolean)
+    : destRoutes
+  for (const route of fromRoutes as AnyRoute[]) {
+    try {
+      Object.assign(currentSearch, validateSearch(route.options?.validateSearch, currentSearch))
+    } catch {
+      // ignore, matchRoutes reports the error
+    }
+  }
+  if (destRoutes.length > 0) {
+    return applySearchMiddleware(currentSearch, dest, destRoutes, dest._includeValidateSearch)
+  }
+  if (dest.search === true) return currentSearch
+  if (dest.search) return functionalUpdate(dest.search, currentSearch)
+  return dest.to ? EMPTY_OBJ : currentSearch
+}
+
+function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {
+  const currentHash = (current?.hash ?? '').replace(/^#/, '')
+  let hash =
+    dest.hash === true
+      ? currentHash
+      : dest.hash
+        ? typeof dest.hash === 'function'
+          ? dest.hash(currentHash)
+          : typeof dest.hash === 'string'
+            ? dest.hash.replace(/^#/, '')
+            : String(dest.hash)
+        : dest.to
+          ? ''
+          : currentHash
+  if (typeof hash !== 'string') hash = String(hash ?? '')
+  return hash
+}
+
+function resolveBuildState(dest: any, current: ParsedLocation | undefined) {
+  const nextState =
+    dest.state === true
+      ? current?.state
+      : dest.state
+        ? typeof dest.state === 'function'
+          ? dest.state(current?.state ?? {})
+          : dest.state
+        : {}
+  return nextState ?? {}
+}
+
+function warnBuildLocationMismatch(router: any, resolved: string, destRouteHint: AnyRoute) {
+  try {
+    const foundRoute = router.getMatchedRoutes(resolved)[2]
+    if (foundRoute && foundRoute.id !== destRouteHint.id) {
+      console.warn(
+        `Generated path "${resolved}" for route "${destRouteHint.id}" matched route "${foundRoute.id}" instead. This can happen when multiple route templates resolve to the same URL. Use the route template that matches the intended route, or adjust params.stringify if it changed the target path.`,
+      )
+    }
+  } catch {
+    // ignore roundtrip validation errors
+  }
+}
+
+function applyBuildMask(router: any, dest: any, location: ParsedLocation) {
+  if (dest.mask) {
+    location.maskedLocation = router.buildLocation({
+      from: dest.from,
+      ...dest.mask,
+    })
+    return
+  }
+  if (!router.options.routeMasks?.length || !router.processedTree) return
+  const match = findFlatMatch(location.pathname, router.processedTree)
+  if (!match) return
+  const params = Object.assign(Object.create(null), match.rawParams)
+  const { from: _from, params: maskParams, ...maskProps } = match.route
+  location.maskedLocation = router.buildLocation({
+    from: dest.from,
+    ...maskProps,
+    params: resolveNextParams(maskParams, params),
+  })
+}
+
+function applyBuildRewrite(router: any, location: ParsedLocation) {
+  if (!router.rewrite) return
+  const url = new URL(
+    `${location.pathname}${location.searchStr}${location.hash ? `#${location.hash}` : ''}`,
+    router.origin,
+  )
+  const rewrittenUrl = executeRewriteOutput(router.rewrite, url)
+  location.href = url.href.replace(url.origin, '')
+  if (rewrittenUrl.origin !== router.origin) {
+    location.publicHref = rewrittenUrl.href
+    location.external = true
+  } else {
+    location.publicHref = rewrittenUrl.pathname + rewrittenUrl.search + rewrittenUrl.hash
+  }
+}
+
+function parseHistoryLocation(
+  router: { rewrite?: any; origin?: string },
+  location: HistoryLocation,
+  previous: ParsedLocation | undefined,
+  parseSearch: (search: string) => any,
+  stringifySearch: (search: any) => string,
+): ParsedLocation {
+  if (!router.rewrite && !/[ \x00-\x1f\x7f\u0080-\uffff]/.test(location.pathname)) {
+    const parsedSearch = parseSearch(location.search)
+    const searchStr = stringifySearch(parsedSearch)
+    return {
+      href: location.pathname + searchStr + location.hash,
+      publicHref: location.pathname + searchStr + location.hash,
+      pathname: decodePath(location.pathname).path,
+      external: false,
+      searchStr,
+      search: nullReplaceEqualDeep(previous?.search, parsedSearch),
+      hash: decodePath((location.hash || '').replace(/^#/, '')).path,
+      state: replaceEqualDeep(previous?.state, location.state),
+    }
+  }
+  const fullUrl = new URL(location.href, router.origin)
+  const url = executeRewriteInput(router.rewrite, fullUrl)
+  const parsedSearch = parseSearch(url.search)
+  const searchStr = stringifySearch(parsedSearch)
+  url.search = searchStr
+  const fullPath = url.href.replace(url.origin, '')
+  return {
+    href: fullPath,
+    publicHref: location.href,
+    pathname: decodePath(url.pathname).path,
+    external: !!router.rewrite && url.origin !== router.origin,
+    searchStr,
+    search: nullReplaceEqualDeep(previous?.search, parsedSearch),
+    hash: decodePath(url.hash.replace(/^#/, '')).path,
+    state: replaceEqualDeep(previous?.state, location.state),
   }
 }
 

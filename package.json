@@ -17,6 +17,7 @@
     "bench:all": "vitest bench --run benches",
     "bench:rps": "vite-node --config scripts/bench-compare.config.ts scripts/bench-compare.ts",
     "bench:compare": "vite-node --config scripts/bench-compare.config.ts scripts/bench-compare.ts",
+    "v8:status": "node --allow-natives-syntax ./node_modules/vite-node/dist/cli.mjs --config scripts/bench-compare.config.ts scripts/v8-status.ts",
     "typecheck": "tsc -b --pretty false",
     "test:types": "tsc -p tsconfig.types.json --pretty false && tsc -p tsconfig.types.core.json --pretty false",
     "lint": "oxlint",
