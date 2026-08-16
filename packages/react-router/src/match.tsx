@@ -48,13 +48,13 @@ export const Match = memo(function MatchImpl({ routeId }: { routeId: string }) {
   if (isServer ?? router.isServer) {
     const match =
       router.stores.byRoute.get(routeId)?.get() ??
-      router.stores.matches.get().find((item) => item.routeId === routeId)
+      router.stores.matches.get().find((item: AnyRouteMatch) => item.routeId === routeId)
     return match ? <MatchView router={router} match={match} /> : null
   }
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const match = useRouterState({
-    select: (state) => state.matches.find((item) => item.routeId === routeId),
+    select: (state) => state.matches.find((item: AnyRouteMatch) => item.routeId === routeId),
   })
   return match ? <MatchView router={router} match={match} /> : null
 })
@@ -66,7 +66,7 @@ function MatchView({
   router: ReturnType<typeof useRouter>
   match: AnyRouteMatch
 }) {
-  const route: AnyRoute = router.routesById[match.routeId]
+  const route: AnyRoute = router.routesById[match.routeId]!
   const pendingElement = renderPending(router, route)
   const routeErrorComponent = route.options.errorComponent ?? router.options.defaultErrorComponent
   const routeOnCatch = route.options.onCatch ?? router.options.defaultOnCatch
@@ -218,14 +218,14 @@ export const Outlet = memo(function OutletImpl() {
       ? router.stores.matches.get()
       : // eslint-disable-next-line react-hooks/rules-of-hooks
         useRouterState({ select: (state) => state.matches })
-  const parentIndex = matches.findIndex((item) => item.routeId === routeId)
+  const parentIndex = matches.findIndex((item: AnyRouteMatch) => item.routeId === routeId)
   const parentMatch = matches[parentIndex]
   const parentGlobalNotFound = !!parentMatch?._notFound
   const parentNotFoundError = parentMatch?.error
   const childRouteId = matches[parentIndex + 1]?.routeId
 
   if (parentGlobalNotFound) {
-    return renderRouteNotFound(router, router.routesById[routeId], parentNotFoundError)
+    return renderRouteNotFound(router, router.routesById[routeId]!, parentNotFoundError)
   }
 
   if (!childRouteId) return null

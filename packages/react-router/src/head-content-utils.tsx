@@ -202,5 +202,9 @@ export const useTags = (assetCrossOrigin?: AssetCrossOriginConfig) => {
   // `stores.matches` is a non-reactive derived view. Subscribe to the
   // compatibility state store, which notifies after `setMatches`.
   // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static
-  return useStore(router.stores.state, (state) => selectTags(state.matches), deepEqual)
+  return useStore(
+    router.stores.state,
+    (state: { matches: Array<AnyRouteMatch> }) => selectTags(state.matches),
+    deepEqual,
+  )
 }

@@ -12,6 +12,12 @@ declare module '@anonrig/router-core' {
     Wrap?: (props: { children: any }) => React.JSX.Element
     InnerWrap?: (props: { children: any }) => React.JSX.Element
     defaultOnCatch?: (error: Error, errorInfo: React.ErrorInfo) => void
+    defaultRemountDeps?: (opts: {
+      routeId: string
+      loaderDeps: unknown
+      params: unknown
+      search: unknown
+    }) => unknown
   }
 }
 

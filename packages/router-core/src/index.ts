@@ -2,7 +2,7 @@ export * from './global'
 
 export { TSR_DEFERRED_PROMISE, defer } from './defer'
 export type { DeferredPromiseState, DeferredPromise } from './defer'
-export { invariant } from './utils'
+export { invariant, isModuleNotFoundError } from './utils'
 export { preloadWarning } from './link'
 export type {
   IsRequiredParams,
