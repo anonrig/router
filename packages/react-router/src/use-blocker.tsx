@@ -111,7 +111,14 @@ export function useBlocker(opts?: any): any {
           next: toBlockerLocation(router, args.nextLocation ?? args.next),
         }
         const fromPath = from?.pathname ?? mapped.current.pathname
-        if (fromPath && fromPath !== '/' && !router.getMatchedRoutes?.(fromPath)?.[2]) {
+        const nextPath = mapped.next.pathname
+        if (
+          fromPath &&
+          fromPath !== '/' &&
+          !router.getMatchedRoutes?.(fromPath)?.[2] &&
+          nextPath &&
+          router.getMatchedRoutes?.(nextPath)?.[2]
+        ) {
           return false
         }
         const should = fn ? await fn(mapped) : true
