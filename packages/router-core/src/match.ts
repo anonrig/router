@@ -684,7 +684,7 @@ export function findRouteMatchFromTree(
   if (!caseSensitive && tree.lastPath === pathname) {
     return rememberHot(tree, pathname, tree.lastMatch!)
   }
-  return rememberHot(tree, pathname, matchesFromSegment(matchFromSegmentTree(tree, pathname)))
+  return findRouteMatchOrdered(tree, pathname, caseSensitive, false)
 }
 
 function matchesFromSegment(result: FindRouteMatchCompatResult | null): RouteMatchResult[] | null {
