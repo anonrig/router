@@ -6,9 +6,10 @@
  *
  * Headline rows measure equivalent work on both sides: typed `to`/`params`
  * navigation (what `<Link>` uses), param-changing navigation, invalidate +
- * reload, and per-request cold `load` / `createRequestHandler`. A settled
- * `router.load()` no-op is not a headline; that path skips lifecycle work
- * when matches are already valid.
+ * reload, and per-request cold `load` / `createRequestHandler`. Default
+ * `staleTime` is 0, so those navigations rerun stale loaders on both sides.
+ * A settled `router.load()` no-op is not a headline; that path skips
+ * lifecycle work when matches are already valid.
  */
 import { spawnSync } from 'node:child_process'
 import './bench-compare-self.ts'

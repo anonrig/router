@@ -18,6 +18,7 @@
     "bench:all": "vitest bench --run benches",
     "bench:rps": "node --expose-gc --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/bench-compare.ts",
     "bench:compare": "node --expose-gc --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/bench-compare.ts",
+    "audit:loaders": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/audit-loader-parity.ts",
     "size": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/bundle-size.ts",
     "v8:status": "node --allow-natives-syntax --fuzzing --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/v8-status.ts",
     "v8:deopt": "node --allow-natives-syntax --fuzzing --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/v8-deopt-profile.ts",

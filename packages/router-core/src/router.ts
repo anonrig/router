@@ -1452,8 +1452,27 @@ export class RouterCore<
       : location.pathname
     const cached = this._matchesByPath?.get(cacheKey)
     if (cached && this.canReuseWarmMatches(cached)) {
-      this.completeWarmLoad(location, cached)
-      return true
+      const prevMatches = this._committed
+      let needsLoader = false
+      for (let i = 0; i < cached.length; i++) {
+        const match = cached[i]!
+        const route = this.routesById[match.routeId]!
+        const prev = findPrevMatch(prevMatches, match.routeId)
+        match.cause = prev ? 'stay' : 'enter'
+        match.search = location.search
+        match.publicHref = location.publicHref
+        if (warmMatchNeedsLoader(match, route, this, prevMatches)) {
+          needsLoader = true
+        }
+      }
+      if (!needsLoader) {
+        this.completeWarmLoad(location, cached)
+        return true
+      }
+      const routerContext = this.options.context
+      const context = routerContext ? { ...routerContext } : EMPTY_OBJ
+      const next = this.finishWarmMatches(location, id, cached, cacheKey, 0, context)
+      return next ?? true
     }
 
     const found = findRouteMatch(
@@ -1555,11 +1574,13 @@ export class RouterCore<
       const match = matches[i]!
       const route = this.routesById[match.routeId]!
       const opts = route.options
-      if (match.status === 'success' && match.cause === 'stay' && !match.invalid) {
+      if (!warmMatchNeedsLoader(match, route, this, this._committed)) {
         match.context = context
         continue
       }
-      if (!opts.loader) {
+      const routeLoader = opts.loader
+      const loader = typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
+      if (!loader) {
         match.context = context
         match.status = 'success'
         match.isFetching = false
@@ -1579,7 +1600,7 @@ export class RouterCore<
         route,
         matches,
       }
-      const data = callWarmLoader(opts.loader, loaderContext)
+      const data = callWarmLoader(loader, loaderContext)
       if (data === WARM_LOADER_THREW) return loadClientRoute(this)
       if (data instanceof Promise) {
         return Promise.resolve(data).then((value) => {
@@ -1589,6 +1610,7 @@ export class RouterCore<
           match.loaderData = value
           match.status = 'success'
           match.isFetching = false
+          match.updatedAt = Date.now()
           match.context = context
           this._cache[match.id] = match
           return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
@@ -1598,6 +1620,7 @@ export class RouterCore<
       match.loaderData = data
       match.status = 'success'
       match.isFetching = false
+      match.updatedAt = Date.now()
       match.context = context
       this._cache[match.id] = match
     }
@@ -2452,6 +2475,8 @@ function routeCanWarmLoad(route: AnyRoute): boolean {
   if (cached === 1) return true
   if (cached === 0) return false
   const options = route.options
+  // `staleTime` is not a warm-path opt-out. Omitted staleTime is 0, the same
+  // default as TanStack, and only controls whether a successful match reloads.
   const ok = !(
     options.beforeLoad ||
     options.onEnter ||
@@ -2460,11 +2485,36 @@ function routeCanWarmLoad(route: AnyRoute): boolean {
     options.head ||
     options.headers ||
     options.scripts ||
-    options.staleTime != null ||
     options.shouldReload
   )
   route._warmLoad = ok ? 1 : 0
   return ok
+}
+
+/**
+ * Same reload gate as the full client coordinator: a match reloads when it is
+ * pending/invalid, or when it is stale and this navigation entered the route
+ * or switched to a different match id of the same route. `staleTime` defaults
+ * to `defaultStaleTime ?? 0`, so omitted staleTime is not a permanent cache.
+ */
+function warmMatchNeedsLoader(
+  match: RouteMatch,
+  route: AnyRoute,
+  router: { options: { defaultStaleTime?: number } },
+  prevMatches: RouteMatch[],
+): boolean {
+  if (!route.options.loader) return false
+  if (match.status !== 'success' || match.invalid) return true
+  const staleAge = route.options.staleTime ?? router.options.defaultStaleTime ?? 0
+  if (staleAge === Infinity || Date.now() - match.updatedAt < staleAge) return false
+  if (match.cause === 'enter') return true
+  const routeId = match.routeId
+  const matchId = match.id
+  for (let i = 0; i < prevMatches.length; i++) {
+    const prev = prevMatches[i]!
+    if (prev.routeId === routeId && prev.id !== matchId) return true
+  }
+  return false
 }
 
 function findPrevMatch(matches: RouteMatch[], routeId: string) {
