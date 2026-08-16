@@ -1,8 +1,9 @@
+// @vitest-environment node
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -17,14 +18,9 @@ const serverMarkers = [
   'attachRouterServerSsrUtils',
 ]
 
-async function loadEsbuild() {
-  try {
-    return await import('esbuild')
-  } catch {
-    const viteDir = dirname(require.resolve('vite'))
-    const esbuildPath = require.resolve('esbuild', { paths: [viteDir] })
-    return import(pathToFileURL(esbuildPath).href)
-  }
+function loadEsbuild(): { build: (options: Record<string, unknown>) => Promise<unknown> } {
+  const viteDir = dirname(require.resolve('vite'))
+  return require(require.resolve('esbuild', { paths: [viteDir] }))
 }
 
 const dirs: Array<string> = []
