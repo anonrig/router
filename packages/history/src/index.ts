@@ -68,11 +68,10 @@ const STATE_INDEX = '__TSR_index'
 const POP_STATE = 'popstate'
 const BEFORE_UNLOAD = 'beforeunload'
 
-type TryNavigateArgs = {
-  task: () => void
-  type: 'PUSH' | 'REPLACE' | 'BACK' | 'FORWARD' | 'GO'
-  navigateOpts?: NavigateOptions
-} & ({ type: 'PUSH' | 'REPLACE'; path: string; state: any } | { type: 'BACK' | 'FORWARD' | 'GO' })
+const PUSH_ACTION = { type: 'PUSH' } as const
+const REPLACE_ACTION = { type: 'REPLACE' } as const
+const BACK_ACTION = { type: 'BACK' } as const
+const FORWARD_ACTION = { type: 'FORWARD' } as const
 
 export const createHistory = /*#__PURE__*/ function createHistory(opts: {
   getLocation: () => HistoryLocation
@@ -92,42 +91,61 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
 }): RouterHistory {
   let location = opts.getLocation()
   const subscribers = new Set<(opts: SubscriberArgs) => void>()
+  const notifyOnIndexChange = opts.notifyOnIndexChange ?? true
 
   const notify = (action: SubscriberHistoryAction) => {
     location = opts.getLocation()
-    subscribers.forEach((subscriber) => subscriber({ location, action }))
+    if (subscribers.size === 0) return
+    const args: SubscriberArgs = { location, action }
+    for (const subscriber of subscribers) subscriber(args)
   }
 
   const handleIndexChange = (action: SubscriberHistoryAction) => {
-    if (opts.notifyOnIndexChange ?? true) notify(action)
+    if (notifyOnIndexChange) notify(action)
     else location = opts.getLocation()
   }
 
-  const tryNavigation = async ({ task, navigateOpts, ...actionInfo }: TryNavigateArgs) => {
-    const ignoreBlocker = navigateOpts?.ignoreBlocker ?? false
-    if (ignoreBlocker) {
-      task()
-      return
+  const shouldRunBlockers = (navigateOpts?: NavigateOptions) => {
+    if (navigateOpts?.ignoreBlocker === true) return false
+    if (typeof document === 'undefined') return false
+    const blockers = opts.getBlockers?.()
+    return blockers != null && blockers.length > 0
+  }
+
+  const runPushBlockers = (
+    type: 'PUSH' | 'REPLACE',
+    path: string,
+    state: any,
+    task: () => void,
+  ) => {
+    const blockers = opts.getBlockers!()
+    const nextLocation = parseHref(path, state)
+    const blockerArgs: BlockerFnArgs = {
+      currentLocation: location,
+      nextLocation,
+      action: type,
     }
 
-    const blockers = opts.getBlockers?.() ?? []
-    const isPushOrReplace = actionInfo.type === 'PUSH' || actionInfo.type === 'REPLACE'
-    if (typeof document !== 'undefined' && blockers.length && isPushOrReplace) {
-      for (const blocker of blockers) {
-        const nextLocation = parseHref(actionInfo.path, actionInfo.state)
-        const isBlocked = await blocker.blockerFn({
-          currentLocation: location,
-          nextLocation,
-          action: actionInfo.type,
-        })
-        if (isBlocked) {
+    const step = (start: number): void | Promise<void> => {
+      for (let i = start; i < blockers.length; i++) {
+        const result = blockers[i]!.blockerFn(blockerArgs)
+        if (result != null && typeof (result as Promise<unknown>).then === 'function') {
+          return (result as Promise<unknown>).then((isBlocked) => {
+            if (isBlocked) {
+              opts.onBlocked?.()
+              return
+            }
+            return step(i + 1)
+          })
+        }
+        if (result) {
           opts.onBlocked?.()
           return
         }
       }
+      task()
     }
-
-    task()
+    return step(0)
   }
 
   return {
@@ -145,62 +163,38 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
       }
     },
     push: (path, state, navigateOpts) => {
-      const currentIndex = location.state[STATE_INDEX]
-      state = assignKeyAndIndex(currentIndex + 1, state)
-      tryNavigation({
-        task: () => {
-          opts.pushState(path, state)
-          notify({ type: 'PUSH' })
-        },
-        navigateOpts,
-        type: 'PUSH',
-        path,
-        state,
-      })
+      const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
+      if (shouldRunBlockers(navigateOpts)) {
+        return runPushBlockers('PUSH', path, nextState, () => {
+          opts.pushState(path, nextState)
+          notify(PUSH_ACTION)
+        })
+      }
+      opts.pushState(path, nextState)
+      notify(PUSH_ACTION)
     },
     replace: (path, state, navigateOpts) => {
-      const currentIndex = location.state[STATE_INDEX]
-      state = assignKeyAndIndex(currentIndex, state)
-      tryNavigation({
-        task: () => {
-          opts.replaceState(path, state)
-          notify({ type: 'REPLACE' })
-        },
-        navigateOpts,
-        type: 'REPLACE',
-        path,
-        state,
-      })
+      const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
+      if (shouldRunBlockers(navigateOpts)) {
+        return runPushBlockers('REPLACE', path, nextState, () => {
+          opts.replaceState(path, nextState)
+          notify(REPLACE_ACTION)
+        })
+      }
+      opts.replaceState(path, nextState)
+      notify(REPLACE_ACTION)
     },
-    go: (index, navigateOpts) => {
-      tryNavigation({
-        task: () => {
-          opts.go(index)
-          handleIndexChange({ type: 'GO', index })
-        },
-        navigateOpts,
-        type: 'GO',
-      })
+    go: (index) => {
+      opts.go(index)
+      handleIndexChange({ type: 'GO', index })
     },
     back: (navigateOpts) => {
-      tryNavigation({
-        task: () => {
-          opts.back(navigateOpts?.ignoreBlocker ?? false)
-          handleIndexChange({ type: 'BACK' })
-        },
-        navigateOpts,
-        type: 'BACK',
-      })
+      opts.back(navigateOpts?.ignoreBlocker === true)
+      handleIndexChange(BACK_ACTION)
     },
     forward: (navigateOpts) => {
-      tryNavigation({
-        task: () => {
-          opts.forward(navigateOpts?.ignoreBlocker ?? false)
-          handleIndexChange({ type: 'FORWARD' })
-        },
-        navigateOpts,
-        type: 'FORWARD',
-      })
+      opts.forward(navigateOpts?.ignoreBlocker === true)
+      handleIndexChange(FORWARD_ACTION)
     },
     canGoBack: () => location.state[STATE_INDEX] !== 0,
     createHref: (str) => opts.createHref(str),
@@ -220,13 +214,15 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
 }
 
 function assignKeyAndIndex(index: number, state: HistoryState | undefined) {
-  if (!state) state = {}
   const key = createRandomKey()
+  if (state == null) {
+    return { key, __TSR_key: key, __TSR_index: index }
+  }
   return {
     ...state,
     key,
     __TSR_key: key,
-    [STATE_INDEX]: index,
+    __TSR_index: index,
   } as ParsedHistoryState
 }
 
@@ -455,9 +451,13 @@ export const createMemoryHistory = /*#__PURE__*/ function createMemoryHistory(
   let index = opts.initialIndex
     ? Math.min(Math.max(opts.initialIndex, 0), entries.length - 1)
     : entries.length - 1
-  const states = entries.map((_entry, i) => assignKeyAndIndex(i, undefined))
+  const states = new Array<ParsedHistoryState>(entries.length)
+  for (let i = 0; i < entries.length; i++) {
+    states[i] = assignKeyAndIndex(i, undefined)
+  }
 
-  const getLocation = () => parseHref(entries[index]!, states[index])
+  let current = parseHref(entries[index]!, states[index])
+  const getLocation = () => current
 
   let blockers: Array<NavigationBlocker> = []
 
@@ -466,25 +466,33 @@ export const createMemoryHistory = /*#__PURE__*/ function createMemoryHistory(
     getLength: () => entries.length,
     pushState: (path, state) => {
       if (index < entries.length - 1) {
-        entries.splice(index + 1)
-        states.splice(index + 1)
+        entries.length = index + 1
+        states.length = index + 1
       }
       states.push(state)
       entries.push(path)
-      index = Math.max(entries.length - 1, 0)
+      index = entries.length - 1
+      current = parseHref(path, state)
     },
     replaceState: (path, state) => {
       states[index] = state
       entries[index] = path
+      current = parseHref(path, state)
     },
     back: () => {
-      index = Math.max(index - 1, 0)
+      if (index === 0) return
+      index -= 1
+      current = parseHref(entries[index]!, states[index])
     },
     forward: () => {
-      index = Math.min(index + 1, entries.length - 1)
+      if (index >= entries.length - 1) return
+      index += 1
+      current = parseHref(entries[index]!, states[index])
     },
     go: (n) => {
-      index = Math.min(Math.max(index + n, 0), entries.length - 1)
+      const next = index + n
+      index = next < 0 ? 0 : next >= entries.length ? entries.length - 1 : next
+      current = parseHref(entries[index]!, states[index])
     },
     createHref: (path) => path,
     getBlockers: () => blockers,
@@ -532,7 +540,6 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
     }
   }
 
-  const addedKey = createRandomKey()
   const pathEnd =
     hashIndex > 0
       ? searchIndex > 0
@@ -550,10 +557,17 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
       searchIndex > -1
         ? sanitizedHref.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex)
         : '',
-    state: state || { [STATE_INDEX]: 0, key: addedKey, __TSR_key: addedKey },
+    state: state ?? defaultHistoryState(),
   }
 }
 
+function defaultHistoryState(): ParsedHistoryState {
+  const key = createRandomKey()
+  return { __TSR_index: 0, key, __TSR_key: key }
+}
+
+let keySeq = 0
+
 function createRandomKey() {
-  return (Math.random() + 1).toString(36).substring(7)
+  return (++keySeq).toString(36)
 }
