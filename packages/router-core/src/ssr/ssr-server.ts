@@ -376,6 +376,8 @@ function mergeRequestAssetsIntoRootRoute(
   }
 }
 
+const EMPTY_SSR = Object.freeze({ manifest: undefined })
+
 export function attachRouterServerSsrUtils({
   router,
   manifest,
@@ -385,61 +387,66 @@ export function attachRouterServerSsrUtils({
   manifest: ServerManifest | undefined
   getRequestAssets?: () => ManifestRouteAssets | undefined
 }) {
-  router.ssr = {
-    get manifest() {
-      if (!manifest) return manifest
+  router.ssr =
+    manifest || getRequestAssets
+      ? {
+          get manifest() {
+            if (!manifest) return manifest
 
-      const requestAssets = getRequestAssets?.()
-      const matches = _getRenderedMatches(router.stores.matches.get())
-      const hasAssets = hasRequestAssets(requestAssets)
+            const requestAssets = getRequestAssets?.()
+            const matches = _getRenderedMatches(router.stores.matches.get())
+            const hasAssets = hasRequestAssets(requestAssets)
 
-      if (!hasAssets && !manifest.inlineCss) {
-        return manifest
-      }
+            if (!hasAssets && !manifest.inlineCss) {
+              return manifest
+            }
 
-      let inlineCssAsset: Manifest['inlineStyle'] | undefined
-      let routes = manifest.routes
-      if (manifest.inlineCss) {
-        const cacheKey = getMatchedRoutesCacheKey(matches)
-        const preparedManifest = getPreparedMatchedManifestRoutes(manifest, matches, cacheKey)
-        inlineCssAsset = getInlineCssAssetForPreparedRoutes(manifest, preparedManifest)
-        if (preparedManifest.hasStrippedRoutes) {
-          routes = { ...manifest.routes, ...preparedManifest.routes }
+            let inlineCssAsset: Manifest['inlineStyle'] | undefined
+            let routes = manifest.routes
+            if (manifest.inlineCss) {
+              const cacheKey = getMatchedRoutesCacheKey(matches)
+              const preparedManifest = getPreparedMatchedManifestRoutes(manifest, matches, cacheKey)
+              inlineCssAsset = getInlineCssAssetForPreparedRoutes(manifest, preparedManifest)
+              if (preparedManifest.hasStrippedRoutes) {
+                routes = { ...manifest.routes, ...preparedManifest.routes }
+              }
+            }
+
+            if (!hasAssets) {
+              return {
+                ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
+                ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
+                routes,
+              }
+            }
+
+            const rootRoute = routes[rootRouteId]
+
+            // Merge request-scoped assets into root route without mutating cached manifest
+            return {
+              ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
+              ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
+              routes: {
+                ...routes,
+                [rootRouteId]: mergeRequestAssetsIntoRootRoute(rootRoute, requestAssets),
+              },
+            }
+          },
         }
-      }
-
-      if (!hasAssets) {
-        return {
-          ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
-          ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
-          routes,
-        }
-      }
-
-      const rootRoute = routes[rootRouteId]
-
-      // Merge request-scoped assets into root route without mutating cached manifest
-      return {
-        ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
-        ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
-        routes: {
-          ...routes,
-          [rootRouteId]: mergeRequestAssetsIntoRootRoute(rootRoute, requestAssets),
-        },
-      }
-    },
-  }
+      : EMPTY_SSR
   let _dehydrated = false
   let _serializationFinished = false
   let streamFastPathReserved = false
-  const renderFinishedListeners: Array<() => void> = []
-  const injectedHtmlListeners: Array<() => void> = []
-  const serializationFinishedListeners: Array<() => void> = []
-  const cleanupListeners: Array<() => void> = []
+  let renderFinishedListeners: Array<() => void> | undefined
+  let injectedHtmlListeners: Array<() => void> | undefined
+  let serializationFinishedListeners: Array<() => void> | undefined
+  let cleanupListeners: Array<() => void> | undefined
   let cleanupStarted = false
   let injectedHtmlBuffer = ''
+  let scriptBuffer: ScriptBuffer | undefined
 
-  const callListeners = (listeners: Array<() => void>, errorPrefix: string) => {
+  const callListeners = (listeners: Array<() => void> | undefined, errorPrefix: string) => {
+    if (!listeners?.length) return
     const snapshot = listeners.slice()
     for (const l of snapshot) {
       try {
@@ -450,14 +457,17 @@ export function attachRouterServerSsrUtils({
     }
   }
 
-  const removeListener = (listeners: Array<() => void>, listener: () => void) => {
+  const removeListener = (listeners: Array<() => void> | undefined, listener: () => void) => {
+    if (!listeners) return
     const index = listeners.indexOf(listener)
     if (index >= 0) listeners.splice(index, 1)
   }
 
-  const scriptBuffer = new ScriptBuffer((script) => {
-    serverSsr.injectScript(script)
-  })
+  const getScriptBuffer = () => {
+    return (scriptBuffer ??= new ScriptBuffer((script) => {
+      serverSsr.injectScript(script)
+    }))
+  }
 
   const serverSsr: ServerSsr = {
     injectHtml: (html: string) => {
@@ -551,10 +561,13 @@ export function attachRouterServerSsrUtils({
           serializationCompleteSignaled = true
           _serializationFinished = true
 
-          const listeners = serializationFinishedListeners.slice()
-          serializationFinishedListeners.length = 0
+          const listeners = serializationFinishedListeners
+          serializationFinishedListeners = undefined
+          if (!listeners?.length) return
+          const snapshot = listeners.slice()
+          listeners.length = 0
 
-          for (const l of listeners) {
+          for (const l of snapshot) {
             try {
               l()
             } catch (err) {
@@ -565,14 +578,16 @@ export function attachRouterServerSsrUtils({
 
         const finishScriptSerialization = () => {
           if (serializationCompleteSignaled || cleanupStarted) return
-          scriptBuffer.enqueue(GLOBAL_TSR + '.e()')
+          const buffer = getScriptBuffer()
+          buffer.enqueue(GLOBAL_TSR + '.e()')
           // Must synchronously notify injected HTML listeners before signaling
           // completion; otherwise the held </body> tail could flush ahead of the
           // end script.
-          scriptBuffer.flush()
+          buffer.flush()
           signalSerializationComplete()
         }
 
+        const buffer = getScriptBuffer()
         crossSerializeStream(dehydratedRouter, {
           refs: new Map(),
           plugins,
@@ -581,7 +596,7 @@ export function attachRouterServerSsrUtils({
             if (trackPlugins.didRun) {
               serialized = P_PREFIX + serialized + P_SUFFIX
             }
-            scriptBuffer.enqueue(serialized)
+            buffer.enqueue(serialized)
           },
           onError: (err: unknown) => {
             console.error('Serialization error:', err)
@@ -612,9 +627,9 @@ export function attachRouterServerSsrUtils({
         !cleanupStarted &&
         _serializationFinished &&
         !streamFastPathReserved &&
-        renderFinishedListeners.length === 0 &&
+        !renderFinishedListeners?.length &&
         !injectedHtmlBuffer &&
-        !scriptBuffer.hasPending()
+        !scriptBuffer?.hasPending()
       ) {
         streamFastPathReserved = true
         return true
@@ -623,12 +638,12 @@ export function attachRouterServerSsrUtils({
     },
     onInjectedHtml: (listener) => {
       if (cleanupStarted) return () => {}
-      injectedHtmlListeners.push(listener)
+      ;(injectedHtmlListeners ??= []).push(listener)
       return () => removeListener(injectedHtmlListeners, listener)
     },
     onRenderFinished: (listener) => {
       if (cleanupStarted || streamFastPathReserved) return
-      renderFinishedListeners.push(listener)
+      ;(renderFinishedListeners ??= []).push(listener)
     },
     onSerializationFinished: (listener) => {
       if (cleanupStarted) return () => {}
@@ -640,19 +655,25 @@ export function attachRouterServerSsrUtils({
         }
         return () => {}
       }
-      serializationFinishedListeners.push(listener)
+      ;(serializationFinishedListeners ??= []).push(listener)
       return () => removeListener(serializationFinishedListeners, listener)
     },
     onCleanup: (listener) => {
       if (cleanupStarted) return
-      cleanupListeners.push(listener)
+      ;(cleanupListeners ??= []).push(listener)
     },
     setRenderFinished: () => {
       if (cleanupStarted) return
-      scriptBuffer.liftBarrier()
-      const listeners = renderFinishedListeners.slice()
-      renderFinishedListeners.length = 0
-      for (const l of listeners) {
+      getScriptBuffer().liftBarrier()
+      const listeners = renderFinishedListeners
+      if (!listeners?.length) {
+        if (_serializationFinished) getScriptBuffer().flush()
+        return
+      }
+      renderFinishedListeners = undefined
+      const snapshot = listeners.slice()
+      listeners.length = 0
+      for (const l of snapshot) {
         try {
           l()
         } catch (err) {
@@ -660,11 +681,11 @@ export function attachRouterServerSsrUtils({
         }
       }
       if (_serializationFinished) {
-        scriptBuffer.flush()
+        getScriptBuffer().flush()
       }
     },
     takeBufferedScripts() {
-      const scripts = scriptBuffer.takeAll()
+      const scripts = scriptBuffer?.takeAll()
       if (!scripts) return undefined
       const serverBufferedScript: RouterManagedTag = {
         tag: 'script',
@@ -678,7 +699,7 @@ export function attachRouterServerSsrUtils({
       return serverBufferedScript
     },
     liftScriptBarrier() {
-      scriptBuffer.liftBarrier()
+      getScriptBuffer().liftBarrier()
     },
     takeBufferedHtml() {
       if (!injectedHtmlBuffer) {
@@ -694,30 +715,37 @@ export function attachRouterServerSsrUtils({
       // listener runs exactly once and reentry is a no-op.
       if (cleanupStarted) return
       cleanupStarted = true
-      const listeners = cleanupListeners.slice()
-      cleanupListeners.length = 0
-      for (const l of listeners) {
-        try {
-          l()
-        } catch (err) {
-          console.error('Error in SSR cleanup listener:', err)
+      const listeners = cleanupListeners
+      cleanupListeners = undefined
+      if (listeners?.length) {
+        const snapshot = listeners.slice()
+        listeners.length = 0
+        for (const l of snapshot) {
+          try {
+            l()
+          } catch (err) {
+            console.error('Error in SSR cleanup listener:', err)
+          }
         }
       }
-      renderFinishedListeners.length = 0
-      injectedHtmlListeners.length = 0
-      serializationFinishedListeners.length = 0
+      renderFinishedListeners = undefined
+      injectedHtmlListeners = undefined
+      serializationFinishedListeners = undefined
       injectedHtmlBuffer = ''
-      scriptBuffer.cleanup()
+      scriptBuffer?.cleanup()
       router.serverSsr = undefined
     },
   }
 
   router.serverSsr = serverSsr
-  for (const listener of router.serverSsrLifecycle?.onServerSsrAttach ?? []) {
-    try {
-      listener(serverSsr)
-    } catch (err) {
-      console.error('SSR attach listener error:', err)
+  const attachListeners = router.serverSsrLifecycle?.onServerSsrAttach
+  if (attachListeners) {
+    for (const listener of attachListeners) {
+      try {
+        listener(serverSsr)
+      } catch (err) {
+        console.error('SSR attach listener error:', err)
+      }
     }
   }
 }

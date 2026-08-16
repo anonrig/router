@@ -43,7 +43,7 @@ describe('ssr requests', () => {
       request: new Request(`http://localhost${path}`),
     })
     await handler(
-      async ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
+      ({ responseHeaders }) => new Response(null, { status: 200, headers: responseHeaders }),
     )
   })
 })
