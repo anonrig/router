@@ -157,8 +157,8 @@ Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip
 
 | Package         | @anonrig |    gzip |     TanStack |        gzip |
 | --------------- | -------: | ------: | -----------: | ----------: |
-| `@react-router` | 120.2 kB | 33.4 kB | **104.4 kB** | **29.5 kB** |
-| `@router-core`  | 104.1 kB | 29.0 kB |  **74.7 kB** | **21.6 kB** |
+| `@react-router` | 117.8 kB | 32.8 kB | **104.4 kB** | **29.5 kB** |
+| `@router-core`  | 101.6 kB | 28.4 kB |  **74.7 kB** | **21.6 kB** |
 
 TanStack is still smaller on both client graphs. The extra bytes are the match / search / SSR interners that the compare suite measures. Re-run with `pnpm size`.
 
