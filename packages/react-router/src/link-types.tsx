@@ -1,4 +1,3 @@
-// @ts-nocheck — type surface; runtime Link lives in link.tsx
 'use client'
 
 import * as React from 'react'
@@ -731,8 +730,8 @@ const composeHandlers =
   }
 
 function getHrefOption(
-  publicHref: string,
-  external: boolean,
+  publicHref: string | undefined,
+  external: boolean | undefined,
   history: AnyRouter['history'],
   disabled: boolean | undefined,
 ) {
@@ -742,7 +741,7 @@ function getHrefOption(
     return { href: publicHref, external: true }
   }
   return {
-    href: history.createHref(publicHref) || '/',
+    href: history.createHref(publicHref ?? '') || '/',
     external: false,
   }
 }

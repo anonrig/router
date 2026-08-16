@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { isServer } from '@anonrig/router-core/is-server'
 import type { AnyRouter } from './router'
 import type { ParsedLocation } from './location'

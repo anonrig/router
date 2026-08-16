@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Keep this filename free of a secondary extension so declaration generation
 // can rewrite relative imports for both ESM and CJS.
 import { isNotFound } from './not-found'
@@ -452,8 +451,10 @@ function releaseOwnedFlight(
       !current[0 /* controller */].signal.aborted &&
       !(process.env.NODE_ENV !== 'production' && current[6 /* refresh */]) &&
       !current[3 /* matches */].includes(match) &&
-      current[3 /* matches */].some((candidate) => candidate.id === match.id) &&
-      current[3 /* matches */].some((candidate) => candidate.isFetching === 'beforeLoad')
+      current[3 /* matches */].some((candidate: AnyRouteMatch) => candidate.id === match.id) &&
+      current[3 /* matches */].some(
+        (candidate: AnyRouteMatch) => candidate.isFetching === 'beforeLoad',
+      )
     ) {
       // Keep work discoverable only while the current lane is still running
       // beforeLoad. Loader planning performs the matching zero-owner sweep.
@@ -2407,7 +2408,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   }
   const handoff: NonNullable<AnyRouter['_handoff']> = [
     claim,
-    (matches) => {
+    (matches: AnyRouteMatch[] | undefined) => {
       if (router._handoff !== handoff) {
         return
       }
@@ -2440,7 +2441,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
       for (let index = prefix; index < matches.length; index++) {
         const match = matches[index]!
         const hydrated = candidates[index]
-        if (hydrated?.id === match.id && hydrated._ctx) {
+        if (hydrated?.id === match.id && hydrated?._ctx) {
           match._ctx = hydrated._ctx
         }
         match.abortController = controller

@@ -1,5 +1,4 @@
-// @ts-nocheck
-export default function (storageKey, key) {
+export default function (storageKey: string, key: string) {
   let byKey
 
   try {

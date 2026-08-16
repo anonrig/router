@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Keep this filename free of a secondary extension so declaration generation
 // can rewrite relative imports for both ESM and CJS.
 import { isNotFound } from './not-found'
@@ -67,7 +66,7 @@ export type ServerLoadResult =
   | { type: 'redirect'; redirect: AnyRedirect }
 
 function getRoute(router: AnyRouter, match: AnyRouteMatch): AnyRoute {
-  return router.routesById[match.routeId]
+  return router.routesById[match.routeId]!
 }
 
 function normalize(value: unknown, rejected: boolean): LoaderOutcome {
@@ -310,7 +309,7 @@ function getLoaderContext(
     params: match.params,
     deps: match.loaderDeps,
     preload: false,
-    parentMatchPromise: tasks[index - 1]?.match,
+    parentMatchPromise: tasks[index - 1]?.match as LoaderFnContext['parentMatchPromise'],
     abortController: match.abortController,
     context: match.context,
     location: lane.location,
@@ -752,8 +751,15 @@ function canUseFastServerLane(router: AnyRouter, matches: Array<AnyRouteMatch>):
     if (options?.beforeLoad || options?.context || options?.onError) return false
     if (options?.notFoundComponent || options?.errorComponent) return false
     if (options?.head || options?.scripts || options?.headers) return false
-    if (typeof options?.component?.preload === 'function') return false
-    if (typeof options?.pendingComponent?.preload === 'function') return false
+    if (typeof (options?.component as { preload?: unknown } | undefined)?.preload === 'function') {
+      return false
+    }
+    if (
+      typeof (options?.pendingComponent as { preload?: unknown } | undefined)?.preload ===
+      'function'
+    ) {
+      return false
+    }
     if (options?.loader) loaders++
   }
   return loaders <= 1

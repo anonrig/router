@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { memo, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { isNotFound, rootRouteId } from '@anonrig/router-core'
 import { CatchBoundary, ErrorComponent } from './catch-boundary'
@@ -99,7 +98,7 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
       route.options.notFoundComponent ??
       router.options.defaultNotFoundComponent ??
       DefaultGlobalNotFound
-    return <NotFound data={match.notFoundError?.data} />
+    return <NotFound data={(match.notFoundError as { data?: unknown } | undefined)?.data} />
   }
 
   const Comp = route.options.component ?? router.options.defaultComponent ?? Outlet
@@ -108,7 +107,7 @@ export const Match = memo(function Match({ routeId }: { routeId: string }) {
     search: match.search,
     context: match.context,
     routeId,
-  })
+  } as any)
   const resetKey =
     remountDeps !== undefined
       ? JSON.stringify(remountDeps)

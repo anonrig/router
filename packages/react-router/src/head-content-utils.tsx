@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as React from 'react'
 import { useStore } from '@tanstack/react-store'
 import {
@@ -104,7 +103,7 @@ function buildTagsFromMatches(
   if (manifest) {
     matches.forEach((match) => {
       const css = manifest.routes[match.routeId]?.css
-      css?.forEach((link) => {
+      css?.forEach((link: any) => {
         const resolvedLink = resolveManifestCssLink(link)
         manifestCssTags.push({
           tag: 'link',
@@ -136,7 +135,7 @@ function buildTagsFromMatches(
   const preloadLinks: Array<RouterManagedTag> = []
   if (manifest) {
     matches.forEach((match) => {
-      manifest.routes[match.routeId]?.preloads?.forEach((preload) => {
+      manifest.routes[match.routeId]?.preloads?.forEach((preload: string) => {
         preloadLinks.push({
           tag: 'link',
           attrs: {

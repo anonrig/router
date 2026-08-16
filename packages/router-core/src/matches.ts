@@ -97,11 +97,11 @@ export const isMatch = <TMatch, TPath extends string>(
 }
 
 export interface DefaultRouteMatchExtensions {
-  scripts?: unknown
-  links?: unknown
-  headScripts?: unknown
-  meta?: unknown
-  styles?: unknown
+  scripts?: any[]
+  links?: any[]
+  headScripts?: any[]
+  meta?: any[]
+  styles?: any[]
 }
 
 export interface RouteMatchExtensions extends DefaultRouteMatchExtensions {}

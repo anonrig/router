@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { invariant } from './invariant'
 import { joinPaths, trimPathLeft, trimPathRight } from './path'
 import { notFound } from './not-found'
@@ -695,6 +694,8 @@ export interface Route<
   >
   /** @internal */
   _lazy?: Promise<void> | true
+  /** @internal Generated route stubs load options through `.lazy()`. */
+  _lazyOptions?: boolean
   rank: number
   to: TrimPathRight<TFullPath>
   init: (opts: { originalIndex: number }) => void
@@ -1608,6 +1609,8 @@ export class BaseRoute<
   >
   /** @internal */
   _lazy?: Promise<void> | true
+  /** @internal Generated route stubs load options through `.lazy()`. */
+  _lazyOptions?: boolean
   constructor(
     options?: RouteOptions<
       TRegister,
@@ -1880,7 +1883,7 @@ export class BaseRoute<
     >
   > = (lazyFn) => {
     this.lazyFn = lazyFn
-    return this
+    return this as any
   }
 
   /**
