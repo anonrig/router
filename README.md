@@ -1,3 +1,5 @@
+> **Experimental.** This project is under active development. APIs, performance, and compatibility can change without notice. Do not use it in production.
+
 <div align="center">
 
 <img src="assets/logo.svg" width="72" height="72" alt="@anonrig/router" />
