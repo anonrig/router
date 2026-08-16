@@ -47,7 +47,7 @@ export const Match = memo(function MatchImpl({ routeId }: { routeId: string }) {
 
   if (isServer ?? router.isServer) {
     const match =
-      router.stores.byRoute.get(routeId)?.get() ??
+      router.stores.byRoute[routeId]?.get() ??
       router.stores.matches.get().find((item: AnyRouteMatch) => item.routeId === routeId)
     return match ? <MatchView router={router} match={match} /> : null
   }

@@ -1,4 +1,4 @@
-import { arraysEqual, createStringMap, functionalUpdate } from './utils'
+import { arraysEqual, functionalUpdate } from './utils'
 
 import type { AnyRoute } from './route'
 import type { RouterState } from './router'
@@ -66,7 +66,7 @@ export interface RouterStores<in out TRouteTree extends AnyRoute> {
   matches: ReadableStore<Array<AnyRouteMatch>>
   __store: RouterReadableStore<RouterState<TRouteTree>>
 
-  byRoute: ReturnType<typeof createStringMap<MatchStore>>
+  byRoute: Record<string, MatchStore>
 
   /**
    * Get the stable atom for a route's presented match. The atom remains in the
@@ -84,7 +84,7 @@ export function createRouterStores<TRouteTree extends AnyRoute>(
   const { createMutableStore, createReadonlyStore, batch } = config
 
   // non reactive utilities
-  const byRoute = createStringMap<MatchStore>()
+  const byRoute: Record<string, MatchStore> = Object.create(null)
 
   // atoms
   const status = createMutableStore<RouterState<TRouteTree>['status']>('idle')
@@ -95,7 +95,7 @@ export function createRouterStores<TRouteTree extends AnyRoute>(
   const ids = createMutableStore<Array<string>>([])
 
   // 1st order derived stores
-  const matches = createReadonlyStore(() => ids.get().map((id) => byRoute.get(id)!.get()!))
+  const matches = createReadonlyStore(() => ids.get().map((id) => byRoute[id]!.get()!))
 
   // compatibility "big" state store
   const __store = createReadonlyStore(() => ({
@@ -109,10 +109,10 @@ export function createRouterStores<TRouteTree extends AnyRoute>(
   }))
 
   function getMatchStore(routeId: string): MatchStore {
-    let matchStore = byRoute.get(routeId)
+    let matchStore = byRoute[routeId]
     if (!matchStore) {
       matchStore = createMutableStore<AnyRouteMatch | undefined>(undefined)
-      byRoute.set(routeId, matchStore)
+      byRoute[routeId] = matchStore
     }
     return matchStore
   }
@@ -154,7 +154,7 @@ export function createRouterStores<TRouteTree extends AnyRoute>(
 
       for (const id of previousIds) {
         if (!nextIds.includes(id)) {
-          byRoute.get(id)!.set(() => undefined)
+          byRoute[id]!.set(() => undefined)
         }
       }
 

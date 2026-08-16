@@ -56,6 +56,7 @@ import {
   createControlledPromise,
   createLRUCache,
   createStringMap,
+  objectValues,
   rememberBounded,
   decodePath,
   deepEqual,
@@ -449,7 +450,7 @@ export class RouterCore<
   stores: any
   batch: (fn: () => void) => void = runNow
   _rendered: any[] | undefined
-  _cache = createStringMap<any>()
+  _cache: Record<string, any> = Object.create(null)
   _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>>
   _committed: any[] = []
   _tx?: any
@@ -1069,7 +1070,7 @@ export class RouterCore<
     const invalidIds = new Set(
       [
         ...committedMatches,
-        ...this._cache.values(),
+        ...objectValues(this._cache),
         ...[...(preloads?.values() ?? [])].flat(),
         ...(this._tx?.[3] ?? []),
       ]
@@ -1101,7 +1102,8 @@ export class RouterCore<
     }
 
     this._committed = committedMatches.map(invalidateMatch)
-    for (const [id, match] of this._cache) {
+    for (const id in this._cache) {
+      const match = this._cache[id]!
       if (invalidIds.has(id)) {
         match.invalid = true
         if (opts?.forcePending) match.status = 'pending'
@@ -1126,7 +1128,8 @@ export class RouterCore<
     const filter = opts?.filter
     const discarded: Array<RouteMatch> = []
     const discardedIds: Array<string> = []
-    for (const [id, match] of cached) {
+    for (const id in cached) {
+      const match = cached[id]!
       if (!filter || filter(match as any)) {
         discardedIds.push(id)
         discarded.push(match)
@@ -1139,7 +1142,7 @@ export class RouterCore<
         discarded.push(...matches)
       }
     }
-    for (const id of discardedIds) cached.delete(id)
+    for (const id of discardedIds) delete cached[id]
     for (const controller of abort) preloads?.delete(controller)
     for (const match of discarded as Array<RouteMatch & { _flight?: any }>) {
       const flight = match._flight
@@ -1426,7 +1429,7 @@ export class RouterCore<
             match.status = 'success'
             match.isFetching = false
             match.context = context
-            this._cache.set(match.id, { data: value, updatedAt: 0 })
+            this._cache[match.id] = { data: value, updatedAt: 0 }
             return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
           })
         }
@@ -1435,7 +1438,7 @@ export class RouterCore<
         match.status = 'success'
         match.isFetching = false
         match.context = context
-        this._cache.set(match.id, { data, updatedAt: 0 })
+        this._cache[match.id] = { data, updatedAt: 0 }
         if (match.cause === 'enter') opts.onEnter?.(loaderContext as any)
         else opts.onStay?.(loaderContext as any)
       } catch {
@@ -1497,7 +1500,7 @@ export class RouterCore<
     const prevResolved = this.stores.resolvedLocation.get()
     this._committed = matches
     for (let i = 0; i < matches.length; i++) {
-      this._cache.set(matches[i]!.id, matches[i]!)
+      this._cache[matches[i]!.id] = matches[i]!
     }
     this.batch(() => {
       this.stores.status.set('idle')
@@ -1736,7 +1739,7 @@ export class RouterCore<
           if (isRedirect(data)) throw data
           if (isNotFound(data)) throw data
           match.loaderData = data
-          this._cache.set(match.id, { data, updatedAt: Date.now() })
+          this._cache[match.id] = { data, updatedAt: Date.now() }
         }
 
         match.status = 'success'
@@ -1833,7 +1836,7 @@ export class RouterCore<
     this.redirectHops = 0
     this._committed = matches
     for (let i = 0; i < matches.length; i++) {
-      this._cache.set(matches[i]!.id, matches[i]!)
+      this._cache[matches[i]!.id] = matches[i]!
     }
     const change = getLocationChangeInfo(location, prevResolved)
     this.emit({ type: 'onLoad', ...change })
@@ -2078,8 +2081,7 @@ export class RouterCore<
       const existingMatch =
         process.env.NODE_ENV !== 'production' && opts?._rematerialize
           ? undefined
-          : (this._cache.get(matchId) ??
-            (previousMatch?.id === matchId ? previousMatch : undefined))
+          : (this._cache[matchId] ?? (previousMatch?.id === matchId ? previousMatch : undefined))
 
       strictParams = existingMatch?._strictParams ?? Object.assign(usedParams ?? {}, strictParams)
       let paramsError: unknown

@@ -1,7 +1,7 @@
 // Keep this filename free of a secondary extension so declaration generation
 // can rewrite relative imports for both ESM and CJS.
 import { isNotFound } from './not-found'
-import { createStringMap, type StringMap } from './utils'
+import { createStringMap, objectValues } from './utils'
 import { isRedirect } from './redirect'
 import { getLocationChangeInfo, runRouteLifecycle } from './router'
 import { hydrateSsrMatchId } from './ssr/ssr-match-id'
@@ -215,7 +215,7 @@ type CoordinatorRouter = AnyRouter & {
 type PublicationCheckpoint = {
   previousMatches: Array<AnyRouteMatch>
   previousPresentation: Array<AnyRouteMatch>
-  previousCache: StringMap<AnyRouteMatch>
+  previousCache: Record<string, AnyRouteMatch>
   commitPromise: CoordinatorRouter['_commitPromise']
   published: boolean
 }
@@ -529,7 +529,7 @@ function setFetching(
   if (owner && router._tx?.[0 /* controller */] !== owner) {
     return
   }
-  const store = router.stores.byRoute.get(match.routeId)
+  const store = router.stores.byRoute[match.routeId]
   const presented = store?.get()
   if (presented?.id === match.id) {
     store!.set({ ...presented, isFetching: value })
@@ -660,7 +660,7 @@ export function cacheLoaderMatch(
   match: SettledMatch,
   planned: AnyRouteMatch | undefined,
 ): void {
-  const current = router._cache.get(match.id) as WorkMatch | undefined
+  const current = router._cache[match.id] as WorkMatch | undefined
   if (
     current !== planned ||
     router._committed.some(
@@ -678,7 +678,7 @@ export function cacheLoaderMatch(
   if (cached._flight) {
     cached._flight[2 /* leases */]++
   }
-  router._cache.set(match.id, cached)
+  router._cache[match.id] = cached
   if (current) {
     releaseFlight(router, current)
   }
@@ -708,7 +708,7 @@ function createLoaderTask(
   const match = lane[1 /* matches */][index]!
   const route = getRoute(router, match)
   const preload = !!options[4 /* preload */]
-  const plannedCacheMatch = router._cache.get(match.id)
+  const plannedCacheMatch = router._cache[match.id]
   let configured
   let reload = false
   let reloadFailure: LoaderOutcome | undefined
@@ -1435,9 +1435,9 @@ function commitMatches(
     }
   }
   const cut = _getRenderedMatches(matches).length
-  const cached = createStringMap<AnyRouteMatch>()
+  const cached: Record<string, AnyRouteMatch> = Object.create(null)
   const now = Date.now()
-  for (const match of [...previous, ...previousCached.values()]) {
+  for (const match of [...previous, ...objectValues(previousCached)]) {
     // Rendered-prefix ids and settled successes anywhere in the lane are
     // authoritative: retaining an older same-id generation would shadow them
     // at the next planning pass. Unsettled beyond-boundary matches are not —
@@ -1462,17 +1462,15 @@ function commitMatches(
     ) {
       continue
     }
-    cached.set(
-      match.id,
-      previousCached.get(match.id) === match
+    cached[match.id] =
+      previousCached[match.id] === match
         ? match
         : ({
             ...match,
             _flight: undefined,
             isFetching: false,
             context: {},
-          } as WorkMatch),
-    )
+          } as WorkMatch)
   }
   // The lane becomes committed before publication can synchronously reenter.
   tx[3 /* matches */] = []
@@ -1480,8 +1478,8 @@ function commitMatches(
   publishMatches(router, matches)
   transferMatchResources(
     router,
-    [...previousCached.values(), ...previous],
-    [...matches, ...cached.values()],
+    [...objectValues(previousCached), ...previous],
+    [...matches, ...objectValues(cached)],
   )
   runRouteLifecycle(router, previous, matches, () => router._tx === tx)
 }
@@ -1497,7 +1495,7 @@ function commitRefreshMatches(
   for (const match of matches) {
     match.preload = false
   }
-  const cached = createStringMap<AnyRouteMatch>()
+  const cached: Record<string, AnyRouteMatch> = Object.create(null)
   // Delay releasing the previous owners until the HMR render is acknowledged.
   // Old generations must not become reusable cache entries after refresh.
   tx[3 /* matches */] = []
@@ -1520,7 +1518,7 @@ function settlePublication(router: CoordinatorRouter, checkpoint: PublicationChe
   transferMatchResources(
     router,
     [...checkpoint.previousCache.values(), ...checkpoint.previousMatches],
-    [...router._cache.values(), ...router._committed],
+    [...objectValues(router._cache), ...router._committed],
   )
 }
 
@@ -1535,7 +1533,7 @@ function rollbackPublication(
     return false
   }
 
-  const discarded = [...router._cache.values(), ...router._committed]
+  const discarded = [...objectValues(router._cache), ...router._committed]
   const restored = [...checkpoint.previousCache.values(), ...checkpoint.previousMatches]
   router._cache = checkpoint.previousCache
   router._committed = checkpoint.previousMatches
@@ -1710,9 +1708,9 @@ async function runBackground(
     return
   }
   for (const match of projected[1 /* matches */] as Array<WorkMatch>) {
-    const cached = router._cache.get(match.id) as WorkMatch | undefined
+    const cached = router._cache[match.id] as WorkMatch | undefined
     if (cached?._flight && cached._flight === match._flight) {
-      router._cache.delete(match.id)
+      delete router._cache[match.id]
       releaseFlight(router, cached)
     }
   }
@@ -2233,7 +2231,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
             error: undefined,
             preload: true,
           } as SettledMatch,
-          router._cache.get(match.id),
+          router._cache[match.id],
         )
       }
     }

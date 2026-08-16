@@ -752,6 +752,12 @@ export function evictOldest<V>(store: Record<string, V>) {
   if (first !== undefined) delete store[first]
 }
 
+export function objectValues<T>(store: Record<string, T>): T[] {
+  const out: T[] = []
+  for (const key in store) out.push(store[key]!)
+  return out
+}
+
 export function createLRUCache<K, V>(max = 1000) {
   const store: Record<string, V> = Object.create(null)
   let size = 0
