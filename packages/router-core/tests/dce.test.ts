@@ -26,7 +26,7 @@ async function bundle(
   source: string,
   opts: { filename?: string } = {},
 ): Promise<{ entry: string; chunks: Record<string, string> }> {
-  const dir = await mkdtemp(join(tmpdir(), 'anonrig-dce-'))
+  const dir = await mkdtemp(join(tmpdir(), 'fast-router-dce-'))
   dirs.push(dir)
   const filename = opts.filename ?? 'entry.ts'
   const entry = join(dir, filename)

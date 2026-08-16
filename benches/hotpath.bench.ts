@@ -52,13 +52,13 @@ const processed = buildLargeTree(8, 3)
 const needle = '/s0-7/s0-7-1-7/s0-7-1-7-2-7'
 
 describe('query string', () => {
-  bench('anonrig encode', () => {
+  bench('fast-router encode', () => {
     oursEncode(sample)
   })
   bench('URLSearchParams encode', () => {
     tanstackStyleEncode(sample)
   })
-  bench('anonrig decode', () => {
+  bench('fast-router decode', () => {
     oursDecode(encoded)
   })
   bench('URLSearchParams decode', () => {
@@ -67,25 +67,25 @@ describe('query string', () => {
 })
 
 describe('path', () => {
-  bench('anonrig cleanPath', () => {
+  bench('fast-router cleanPath', () => {
     cleanPath('/a//b///c/d//e')
   })
   bench('regex cleanPath', () => {
     regexCleanPath('/a//b///c/d//e')
   })
-  bench('anonrig resolvePath', () => {
+  bench('fast-router resolvePath', () => {
     resolvePath({ base: '/a/b/c', to: '../../d/e' })
   })
-  bench('anonrig interpolatePath', () => {
+  bench('fast-router interpolatePath', () => {
     interpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
   })
 })
 
 describe('match', () => {
-  bench('anonrig findRouteMatch large tree', () => {
+  bench('fast-router findRouteMatch large tree', () => {
     findRouteMatch(processed, needle)
   })
-  bench('anonrig findRouteMatch 1000 lookups', () => {
+  bench('fast-router findRouteMatch 1000 lookups', () => {
     for (let i = 0; i < 1000; i++) findRouteMatch(processed, needle)
   })
 })

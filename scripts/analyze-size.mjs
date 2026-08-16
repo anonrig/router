@@ -6,7 +6,7 @@ import { build } from 'vite'
 const repo = resolve(import.meta.dirname, '..')
 const cache = join(repo, 'node_modules/.cache')
 await mkdir(cache, { recursive: true })
-const dir = await mkdtemp(join(cache, 'anonrig-analyze-'))
+const dir = await mkdtemp(join(cache, 'fast-router-analyze-'))
 const entry = join(dir, 'entry.tsx')
 await writeFile(
   entry,

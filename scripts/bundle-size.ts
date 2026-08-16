@@ -62,7 +62,7 @@ async function bundle(
 ): Promise<Sizes> {
   const cache = join(repo, 'node_modules/.cache')
   await mkdir(cache, { recursive: true })
-  const dir = await mkdtemp(join(cache, 'anonrig-size-'))
+  const dir = await mkdtemp(join(cache, 'fast-router-size-'))
   try {
     const entry = join(dir, filename)
     await writeFile(entry, source)
