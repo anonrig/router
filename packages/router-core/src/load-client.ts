@@ -310,10 +310,11 @@ function normalizeLaneError(
 }
 
 /** Load deferred route options for generated stubs. Component-only `.lazy()` is unchanged. */
-export async function ensureRouteOptions(route: AnyRoute, signal?: AbortSignal): Promise<void> {
+export function ensureRouteOptions(route: AnyRoute, signal?: AbortSignal): void | Promise<void> {
   if (!route._lazyOptions || !route.lazyFn || route._lazy === true) return
   const loading = loadRouteChunk(route, false)
-  if (loading) await (signal ? waitFor(loading, signal) : loading)
+  if (!loading) return
+  return signal ? waitFor(loading, signal) : loading
 }
 
 export function navigateFrom(router: AnyRouter, location: ParsedLocation) {
@@ -338,7 +339,8 @@ async function contextualize(
   for (let index = options[7 /* resolvedPrefix */] ?? 0; index < end; index++) {
     const match = matches[index]!
     const route = getRoute(router, match)
-    await ensureRouteOptions(route, signal)
+    const pendingOptions = ensureRouteOptions(route, signal)
+    if (pendingOptions) await pendingOptions
 
     match.abortController = options[0 /* controller */]
     // Contextualization is serial, so the previous match already contains the
