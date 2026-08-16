@@ -61,6 +61,23 @@ export type UseBlockerOpts<
   withResolver?: TWithResolver
 }
 
+function toBlockerLocation(router: AnyRouter, location: any) {
+  const parsed =
+    location && typeof location.search === 'object' && !Array.isArray(location.search)
+      ? location
+      : (router.parseLocation?.(location) ?? location ?? {})
+  const matches = router.matchRoutes?.(parsed) ?? []
+  const last = matches[matches.length - 1]
+  const route = last ? router.routesById?.[last.routeId] : undefined
+  return {
+    routeId: last?.routeId ?? route?.id,
+    fullPath: last?.fullPath ?? route?.fullPath ?? parsed.pathname,
+    pathname: parsed.pathname,
+    params: last?.params ?? {},
+    search: parsed.search && typeof parsed.search === 'object' ? parsed.search : {},
+  }
+}
+
 export function useBlocker<
   TRouter extends AnyRouter = RegisteredRouter,
   TWithResolver extends boolean = false,
@@ -82,11 +99,17 @@ export function useBlocker(opts?: any): any {
     return router.history.block({
       blockerFn: async (args: any) => {
         const current = optsRef.current
+        if (current && typeof current !== 'function' && current.disabled) return false
         const fn =
           typeof current === 'function'
             ? current
             : (current?.shouldBlockFn ?? (current as any)?.blockerFn)
-        const should = fn ? await fn(args) : true
+        const mapped = {
+          action: args.action,
+          current: toBlockerLocation(router, args.currentLocation ?? args.current),
+          next: toBlockerLocation(router, args.nextLocation ?? args.next),
+        }
+        const should = fn ? await fn(mapped) : true
         if (!should) return false
         if (typeof current !== 'function' && current?.withResolver) {
           return await new Promise<boolean>((resolve) => {
