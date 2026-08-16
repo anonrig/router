@@ -23,6 +23,12 @@ describe('qss', () => {
     expect(decode('q=hello+world')).toEqual({ q: 'hello world' })
   })
 
+  it('encodes lone surrogates the same way as URLSearchParams', () => {
+    const lone = '\uD800'
+    expect(encode({ q: lone })).toBe(`q=${encodeURIComponent('\uFFFD')}`)
+    expect(encode({ q: lone })).toBe(new URLSearchParams({ q: lone }).toString())
+  })
+
   it('returns a fresh object so callers can mutate the result', () => {
     const first = decode('foo=bar')
     first.foo = 'mutated'

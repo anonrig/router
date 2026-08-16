@@ -5,7 +5,7 @@ import {
   SEGMENT_TYPE_WILDCARD,
   parseSegment,
 } from './parse-segment'
-import { evictOldest } from './utils'
+import { encodeURIComponentWellFormed, evictOldest } from './utils'
 
 export function joinPaths(paths: Array<string | undefined>) {
   let out = ''
@@ -255,7 +255,7 @@ export function compileDecodeCharMap(pathParamsAllowedCharacters: ReadonlyArray<
   const keys: string[] = []
   for (let i = 0; i < pathParamsAllowedCharacters.length; i++) {
     const char = pathParamsAllowedCharacters[i]!
-    const key = encodeURIComponent(char)
+    const key = encodeURIComponentWellFormed(char)
     charMap[key] = char
     keys.push(key)
   }
@@ -298,7 +298,7 @@ function isUnreservedPathValue(value: string) {
 
 function encodePathParam(value: string, decoder?: InterpolatePathOptions['decoder']) {
   if (!decoder && isUnreservedPathValue(value)) return value
-  const encoded = encodeURIComponent(value)
+  const encoded = encodeURIComponentWellFormed(value)
   const decoded = decoder?.(encoded) ?? encoded
   // Browsers leave these in pathnames; encodeURIComponent is stricter.
   return decoded.replace(/%21/gi, '!')

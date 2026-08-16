@@ -1,3 +1,5 @@
+import { encodeURIComponentWellFormed } from './utils'
+
 /**
  * Fast query-string encode/decode.
  *
@@ -26,7 +28,7 @@ function encodeString(str: string): string {
       space = true
       continue
     }
-    const encoded = encodeURIComponent(str)
+    const encoded = encodeURIComponentWellFormed(str)
     const hasSpace = encoded.indexOf('%20') !== -1
     const hasOpen = encoded.indexOf('(') !== -1
     const hasClose = encoded.indexOf(')') !== -1

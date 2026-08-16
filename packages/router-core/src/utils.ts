@@ -727,6 +727,15 @@ export function decodePath(path: string) {
  * encodePathLikeUrl('/path/日本語') // '/path/%E6%97%A5%E6%9C%AC%E8%AA%9E'
  * encodePathLikeUrl('/path/already%20encoded') // '/path/already%20encoded' (preserved)
  */
+/**
+ * `encodeURIComponent` throws `URIError` on lone surrogates. `isWellFormed`
+ * is a native UTF-16 scan; `toWellFormed` replaces unpaired surrogates with
+ * U+FFFD, the same as `URLSearchParams`.
+ */
+export function encodeURIComponentWellFormed(str: string): string {
+  return encodeURIComponent(str.isWellFormed() ? str : str.toWellFormed())
+}
+
 export function encodePathLikeUrl(path: string): string {
   // Encode whitespace and non-ASCII characters that browsers encode in URLs
   const pathLen = path.length
@@ -741,7 +750,7 @@ export function encodePathLikeUrl(path: string): string {
   const encoded = needsEncode
     ? // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
       // eslint-disable-next-line no-control-regex
-      path.replace(/\s|[^\u0000-\u007F]/gu, encodeURIComponent)
+      path.replace(/\s|[^\u0000-\u007F]/gu, encodeURIComponentWellFormed)
     : path
   // Browsers leave [] in pathnames; interpolatePath keeps them encoded so core
   // path tests stay strict. Public hrefs unescape them for Link/history.
