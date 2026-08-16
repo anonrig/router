@@ -20,7 +20,7 @@ A from-scratch React 19.2 router. Same public names. Faster navigations. Faster 
 
 |                        |                           |                          |
 | :--------------------: | :-----------------------: | :----------------------: |
-|       **2.87×**        |        **19.04×**         |        **72,528**        |
+|       **2.90×**        |        **19.80×**         |        **70,830**        |
 | faster warm `navigate` | faster warm `router.load` | cold `router.load` / sec |
 
 <sub>Same machine, same loops, published TanStack Router 1.170. Re-run with <code>pnpm bench:compare</code>.</sub>
@@ -110,9 +110,9 @@ On a 4-core Intel Xeon, Linux, Node 24, single process, in memory, no HTTP serve
 
 |                        |      @anonrig | TanStack |            |
 | ---------------------- | ------------: | -------: | ---------: |
-| Warm `navigate`        |   **148,525** |   51,696 |  **2.87×** |
-| Warm `router.load`     | **2,649,003** |  139,158 | **19.04×** |
-| SSR cold `router.load` |    **72,528** |   35,641 |  **2.03×** |
+| Warm `navigate`        |   **143,975** |   49,573 |  **2.90×** |
+| Warm `router.load`     | **2,662,598** |  134,504 | **19.80×** |
+| SSR cold `router.load` |    **70,830** |   37,056 |  **1.91×** |
 
 </div>
 
@@ -132,20 +132,20 @@ pnpm bench:compare
 
 | Operation                        |      @anonrig |   TanStack | vs TanStack |
 | -------------------------------- | ------------: | ---------: | ----------: |
-| Query-string encode              |     2,590,186 |  2,722,901 |       0.95× |
-| Query-string decode              |     1,116,462 |  1,421,466 |       0.79× |
-| `defaultStringifySearch` (×1000) |     **4,268** |      2,849 |   **1.50×** |
-| `parseHref`                      | **6,329,868** |  3,575,003 |   **1.77×** |
-| `cleanPath`                      |     8,289,207 |  7,344,894 |       1.13× |
-| `resolvePath`                    |     3,592,458 |  4,253,641 |       0.84× |
-| `interpolatePath`                | **2,354,200** |  2,241,709 |   **1.05×** |
-| Route match (large tree)         |    21,687,585 | 19,456,463 |       1.11× |
-| Encode 100 typical SSR match IDs |        26,624 |     27,828 |       0.96× |
-| History `push`                   | **3,092,323** |  1,277,921 |   **2.42×** |
-| Warm `navigate`                  |   **148,525** |     51,696 |   **2.87×** |
-| Warm `router.load`               | **2,649,003** |    139,158 |  **19.04×** |
-| SSR cold `router.load` req/s     |    **72,528** |     35,641 |   **2.03×** |
-| `createRequestHandler` req/s     |    **17,066** |      7,060 |   **2.42×** |
+| Query-string encode              |     2,550,013 |  2,728,890 |       0.93× |
+| Query-string decode              |     1,134,657 |  1,434,480 |       0.79× |
+| `defaultStringifySearch` (×1000) |     **4,199** |      2,946 |   **1.43×** |
+| `parseHref`                      | **6,006,037** |  3,656,085 |   **1.64×** |
+| `cleanPath`                      |     8,347,541 |  7,474,099 |       1.12× |
+| `resolvePath`                    |     3,561,347 |  4,217,796 |       0.84× |
+| `interpolatePath`                | **2,378,700** |  2,293,248 |   **1.04×** |
+| Route match (large tree)         |    21,426,408 | 20,045,869 |       1.07× |
+| Encode 100 typical SSR match IDs |        28,404 |     29,374 |       0.97× |
+| History `push`                   | **3,043,458** |  1,326,664 |   **2.29×** |
+| Warm `navigate`                  |   **143,975** |     49,573 |   **2.90×** |
+| Warm `router.load`               | **2,662,598** |    134,504 |  **19.80×** |
+| SSR cold `router.load` req/s     |    **70,830** |     37,056 |   **1.91×** |
+| `createRequestHandler` req/s     |    **17,921** |     11,475 |   **1.56×** |
 
 TanStack's query-string encode/decode still win those microbenches. History `push` no longer allocates a Promise on the unblocked path, and `parseHref` skips random-key work when state is already set. Warm `load()` is the headline: a settled server router returns immediately instead of re-entering the SSR lane. Cold `createRouter().load()` now shares TurboFan-compiled prototype methods instead of per-instance class-field arrows. `interpolatePath` is a small dispatcher so the simple `$param` path can compile. This router is also ahead on stringify, warm navigation, and `createRequestHandler`.
 
@@ -157,8 +157,8 @@ Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip
 
 | Package         |     @anonrig |        gzip |    TanStack |        gzip |
 | --------------- | -----------: | ----------: | ----------: | ----------: |
-| `@react-router` | **115.7 kB** | **31.9 kB** |    122.4 kB |     33.5 kB |
-| `@router-core`  |      99.0 kB |     27.6 kB | **87.4 kB** | **24.6 kB** |
+| `@react-router` | **118.7 kB** | **32.6 kB** |    122.4 kB |     33.5 kB |
+| `@router-core`  |      99.3 kB |     27.7 kB | **87.4 kB** | **24.6 kB** |
 
 This router is smaller on `@react-router`. TanStack is still smaller on `@router-core`. Re-run with `pnpm size`.
 
