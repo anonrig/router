@@ -74,7 +74,7 @@ type TryNavigateArgs = {
   navigateOpts?: NavigateOptions
 } & ({ type: 'PUSH' | 'REPLACE'; path: string; state: any } | { type: 'BACK' | 'FORWARD' | 'GO' })
 
-export function createHistory(opts: {
+export const createHistory = /*#__PURE__*/ function createHistory(opts: {
   getLocation: () => HistoryLocation
   getLength: () => number
   pushState: (path: string, state: any) => void
@@ -230,7 +230,7 @@ function assignKeyAndIndex(index: number, state: HistoryState | undefined) {
   } as ParsedHistoryState
 }
 
-export function createBrowserHistory(opts?: {
+export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(opts?: {
   parseLocation?: () => HistoryLocation
   createHref?: (path: string) => string
   window?: any
@@ -427,7 +427,9 @@ export function createBrowserHistory(opts?: {
   return history
 }
 
-export function createHashHistory(opts?: { window?: any }): RouterHistory {
+export const createHashHistory = /*#__PURE__*/ function createHashHistory(opts?: {
+  window?: any
+}): RouterHistory {
   const win = opts?.window ?? (typeof document !== 'undefined' ? window : (undefined as any))
   return createBrowserHistory({
     window: win,
@@ -443,7 +445,7 @@ export function createHashHistory(opts?: { window?: any }): RouterHistory {
   })
 }
 
-export function createMemoryHistory(
+export const createMemoryHistory = /*#__PURE__*/ function createMemoryHistory(
   opts: {
     initialEntries: Array<string>
     initialIndex?: number

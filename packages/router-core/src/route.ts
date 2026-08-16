@@ -2015,25 +2015,19 @@ export interface RouteLike {
   }
 }
 
-export function createRoute(options: any = {}) {
-  return new BaseRoute(options as any)
-}
+export const createRoute = /*#__PURE__*/ (options: any = {}) => new BaseRoute(options as any)
 
-export function createRootRoute(options: any = {}) {
-  return new BaseRootRoute(options as any)
-}
+export const createRootRoute = /*#__PURE__*/ (options: any = {}) =>
+  new BaseRootRoute(options as any)
 
-export function createRootRouteWithContext<TContext = any>() {
+export const createRootRouteWithContext = /*#__PURE__*/ <TContext = any>() => {
   return (options: any = {}) => new BaseRootRoute(options as any)
 }
 
-export function rootRouteWithContext<TContext = any>() {
-  return createRootRouteWithContext<TContext>()
-}
+export const rootRouteWithContext = /*#__PURE__*/ <TContext = any>() =>
+  createRootRouteWithContext<TContext>()
 
-export function createRouteMask(opts: any) {
-  return opts
-}
+export const createRouteMask = /*#__PURE__*/ (opts: any) => opts
 
 export class NotFoundRoute extends BaseRoute {
   constructor(options: any = {}) {

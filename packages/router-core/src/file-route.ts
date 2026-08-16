@@ -11,7 +11,7 @@ import type {
 } from './route'
 import type { AnyValidator } from './validators'
 
-export function createFileRoute(path: string) {
+export const createFileRoute = /*#__PURE__*/ (path: string) => {
   return (options: any = {}) => {
     const opts: any = { ...options }
     if (!opts.path && !opts.id) {
@@ -23,11 +23,11 @@ export function createFileRoute(path: string) {
   }
 }
 
-export function createLazyFileRoute(_path: string) {
+export const createLazyFileRoute = /*#__PURE__*/ (_path: string) => {
   return (options: any = {}) => ({ options, isLazy: true })
 }
 
-export function createLazyRoute(_id: string) {
+export const createLazyRoute = /*#__PURE__*/ (_id: string) => {
   return (options: any = {}) => ({ options, isLazy: true })
 }
 

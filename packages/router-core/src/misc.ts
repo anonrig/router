@@ -24,9 +24,7 @@ export function stripSearchParams(keys: string[] | true | Record<string, any>) {
   }
 }
 
-export function createRouterConfig(opts: any = {}) {
-  return opts
-}
+export const createRouterConfig = /*#__PURE__*/ (opts: any = {}) => opts
 
 export function lazyFn<T extends (...args: any[]) => any>(fn: T): T {
   return fn

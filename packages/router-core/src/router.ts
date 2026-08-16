@@ -15,7 +15,7 @@ import {
   type RouteMatchResult,
 } from './match'
 import { isNotFound, notFound, type NotFoundError } from './not-found'
-import { isServer, loadServerRoute } from './is-server'
+import { isServer } from './is-server'
 import {
   loadClientRoute,
   loadRouteChunk,
@@ -1132,6 +1132,7 @@ export class RouterCore<
 
   load = async (opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> => {
     if (isServer || this.isServer) {
+      const { loadServerRoute } = await import('./load-server')
       return loadServerRoute(this, opts)
     }
     this.updateLatestLocation()
@@ -1845,7 +1846,7 @@ export class RouterCore<
   }
 }
 
-export const createRouter: CreateRouterFn = (options) => new RouterCore(options)
+export const createRouter: CreateRouterFn = /*#__PURE__*/ (options) => new RouterCore(options)
 
 if (process.env.NODE_ENV !== 'production') {
   RouterCore.prototype._replaceRouteChunk = replaceRouteChunk

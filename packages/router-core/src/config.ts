@@ -17,7 +17,7 @@ export interface RouterConfigTypes<in out TSerializationAdapters, in out TDefaul
   defaultSsr: TDefaultSsr
 }
 
-export const createRouterConfig = <
+export const createRouterConfig = /*#__PURE__*/ <
   const TSerializationAdapters extends ReadonlyArray<AnySerializationAdapter> = [],
   TDefaultSsr extends SSROption = SSROption,
 >(

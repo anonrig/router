@@ -349,7 +349,7 @@ export function createRoute<
   TSSR,
   TServerMiddlewares
 > {
-  return new Route<
+  return /*#__PURE__*/ new Route<
     TRegister,
     TParentRoute,
     TPath,
@@ -586,7 +586,7 @@ export function createRootRoute<
   TServerMiddlewares,
   THandlers
 > {
-  return new RootRoute<
+  return /*#__PURE__*/ new RootRoute<
     TRegister,
     TSearchValidator,
     TRouterContext,

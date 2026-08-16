@@ -196,14 +196,15 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(p
   return createElement('a', { ...rest, ...linkProps, ref: setRefs, children: resolvedChildren })
 }) as unknown as import('./link-types').LinkComponent<'a'>
 
-export const createLink = ((Comp: any) => {
+export const createLink = /*#__PURE__*/ ((Comp: any) => {
   return forwardRef((props: any, forwardedRef) => {
     const linkProps = useLinkProps(props)
     return createElement(Comp, { ...props, ...linkProps, ref: forwardedRef })
   })
 }) as typeof import('./link-types').createLink
 
-export const linkOptions = ((opts: any) => opts) as typeof import('./link-types').linkOptions
+export const linkOptions = /*#__PURE__*/ ((opts: any) =>
+  opts) as typeof import('./link-types').linkOptions
 
 export type {
   UseLinkPropsOptions,

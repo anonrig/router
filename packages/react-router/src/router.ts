@@ -15,7 +15,7 @@ declare module '@anonrig/router-core' {
   }
 }
 
-export const createRouter: CreateRouterFn = (options) => {
+export const createRouter: CreateRouterFn = /*#__PURE__*/ (options) => {
   return new Router(options)
 }
 
