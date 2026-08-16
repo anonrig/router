@@ -107,19 +107,18 @@ export function createRequestHandler<TRouter extends AnyRouter>({
 
       // normalizing and sanitizing the pathname here for server, so we always deal with the same format during SSR.
       const { url } = getNormalizedURL(request.url, 'http://localhost')
-      const origin = getOrigin(request)
+      const origin = router.options.origin ?? getOrigin(request)
       const href = url.href.replace(url.origin, '')
-
-      // Create a history for the router
-      const history = createMemoryHistory({
-        initialEntries: [href],
-      })
-
-      // Update the router with the history and context
-      router.update({
-        history,
-        origin: router.options.origin ?? origin,
-      })
+      const current = router.history?.location
+      const currentHref = current ? current.pathname + current.search + current.hash : ''
+      if (!current || currentHref !== href || router.origin !== origin) {
+        router.update({
+          history: createMemoryHistory({
+            initialEntries: [href],
+          }),
+          origin,
+        })
+      }
 
       await router.load({
         _signal: request.signal,
