@@ -10,6 +10,7 @@
     ".": "./src/index.ts",
     "./is-server": "./src/is-server.ts",
     "./isServer": "./src/is-server.ts",
+    "./new-process-route-tree": "./src/new-process-route-tree.ts",
     "./scroll-restoration-script": {
       "browser": "./src/scroll-restoration-script/client.ts",
       "default": "./src/scroll-restoration-script/server.ts"

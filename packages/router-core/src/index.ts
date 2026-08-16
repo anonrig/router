@@ -106,13 +106,13 @@ export { isMatch } from './matches'
 export {
   _getAssetMatches,
   _getRenderedMatches,
-  hydrate,
   loadRouteChunk,
   loadClientRoute,
   preloadClientRoute,
-  refreshClientRoute,
   replaceRouteChunk,
 } from './load-client'
+export { refreshClientRoute } from './load-hmr'
+export { hydrate } from './load-hydrate'
 export type {
   AnyMatchAndValue,
   FindValueByIndex,

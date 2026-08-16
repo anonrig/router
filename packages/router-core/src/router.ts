@@ -1,8 +1,8 @@
 import {
   createBrowserHistory,
   parseHref,
-  type RouterHistory,
   type HistoryLocation,
+  type RouterHistory,
 } from '@anonrig/history'
 import {
   buildRouteBranch,
@@ -14,13 +14,12 @@ import {
   processRouteTree,
   type ProcessedTree,
 } from './match'
-import { isNotFound, notFound, type NotFoundError } from './not-found'
+import { isNotFound } from './not-found'
 import { isServer } from './is-server'
 import {
   loadClientRoute,
   loadRouteChunk,
   preloadClientRoute,
-  refreshClientRoute,
   replaceRouteChunk,
 } from './load-client'
 import { PathParamError, SearchParamError } from './misc'
@@ -53,7 +52,6 @@ import {
   createRouterStores,
 } from './stores'
 import {
-  createControlledPromise,
   createLRUCache,
   createStringMap,
   objectValues,
@@ -66,7 +64,6 @@ import {
   functionalUpdate,
   isDangerousProtocol,
   isPromise,
-  last,
   nullReplaceEqualDeep,
   replaceEqualDeep,
 } from './utils'
@@ -362,29 +359,12 @@ export type RouterEvents = Record<string, RouterEvent>
 export type RouterListener = (event: RouterEvent) => void
 export type ListenerFn = RouterListener
 
-let matchSeq = 0
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 const RESOLVED: Promise<void> = Promise.resolve()
 let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 
-function nextMatchId(routeId: string, pathname: string) {
-  return `${routeId}-${pathname}-${++matchSeq}`
-}
-
 function lastMatch(matches: RouteMatch[] | undefined) {
   return matches && matches.length ? matches[matches.length - 1] : undefined
-}
-
-function applySearchValidator(route: AnyRoute, search: Record<string, any>) {
-  const validator = route.options?.validateSearch
-  if (!validator) return search
-  try {
-    const validated = validateSearch(validator, search)
-    return validated && typeof validated === 'object' ? { ...search, ...validated } : search
-  } catch (err: any) {
-    if (err instanceof SearchParamError) throw err
-    throw new SearchParamError(err?.message ?? String(err), { cause: err })
-  }
 }
 
 const runNow = (fn: () => void) => fn()
@@ -1340,7 +1320,7 @@ export class RouterCore<
     const warm = this.tryWarmLoad(location, id)
     if (warm === true) return
     if (warm) return warm
-    return this.runLoadFallback(location, id)
+    return loadClientRoute(this)
   }
 
   private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
@@ -1495,7 +1475,7 @@ export class RouterCore<
         if (isPromise(data)) {
           return Promise.resolve(data).then((value) => {
             if (isRedirect(value) || isNotFound(value)) {
-              return this.runLoadFallback(location, id)
+              return loadClientRoute(this)
             }
             match.loaderData = value
             match.status = 'success'
@@ -1505,7 +1485,7 @@ export class RouterCore<
             return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
           })
         }
-        if (isRedirect(data) || isNotFound(data)) return this.runLoadFallback(location, id)
+        if (isRedirect(data) || isNotFound(data)) return loadClientRoute(this)
         match.loaderData = data
         match.status = 'success'
         match.isFetching = false
@@ -1514,7 +1494,7 @@ export class RouterCore<
         if (match.cause === 'enter') opts.onEnter?.(loaderContext as any)
         else opts.onStay?.(loaderContext as any)
       } catch {
-        return this.runLoadFallback(location, id)
+        return loadClientRoute(this)
       }
     }
 
@@ -1605,323 +1585,6 @@ export class RouterCore<
     }
   }
 
-  private async runLoadFallback(location: ParsedLocation, id: number): Promise<void> {
-    this.emit({
-      type: 'onBeforeLoad',
-      fromLocation: this.state.resolvedLocation,
-      toLocation: location,
-    })
-
-    const found = findRouteMatch(
-      this.processedTree,
-      location.pathname,
-      this.options.caseSensitive ?? false,
-    )
-
-    let matchResults = found
-    let notFoundError: NotFoundError | undefined
-    if (!matchResults) {
-      notFoundError = notFound({ _global: true })
-      matchResults = [
-        {
-          route: this.routesById[rootRouteId] as any,
-          params: {},
-          rawParams: {},
-        },
-      ]
-    }
-
-    const prevMatches = this.state.matches ?? []
-    const prevByRoute: Record<string, RouteMatch> = Object.create(null)
-    for (let i = 0; i < prevMatches.length; i++) {
-      const prev = prevMatches[i]!
-      prevByRoute[prev.routeId] = prev
-    }
-
-    const matches: RouteMatch[] = new Array(matchResults.length)
-    for (let i = 0; i < matchResults.length; i++) {
-      const result = matchResults[i]!
-      const prev = prevByRoute[result.route.id]
-      const sameParams = prev && deepEqual(prev.params, result.params)
-      const samePath = prev && prev.pathname === location.pathname
-      if (prev && sameParams && samePath && !prev.invalid) {
-        prev.search = location.search
-        prev.cause = 'stay'
-        if (!prev.abortController || prev.abortController.signal.aborted) {
-          prev.abortController = new AbortController()
-        }
-        prev._forcePending = prev._forcePending || this._forcePending
-        prev.publicHref = location.publicHref
-        matches[i] = prev
-        continue
-      }
-      const route = result.route as AnyRoute
-      const routerContext = this.options.context
-      matches[i] = {
-        id: nextMatchId(result.route.id, location.pathname),
-        routeId: result.route.id,
-        route,
-        pathname: location.pathname,
-        params: result.params,
-        rawParams: result.rawParams,
-        status: 'pending' as const,
-        isFetching: 'loader',
-        context: routerContext ? { ...routerContext } : EMPTY_OBJ,
-        search: location.search,
-        updatedAt: Date.now(),
-        abortController: new AbortController(),
-        cause: prev ? ('stay' as const) : ('enter' as const),
-        invalid: false,
-        _forcePending: this._forcePending || prev?._forcePending,
-        meta:
-          (route.options as any).head?.({
-            matches: [],
-            match: undefined,
-            params: result.params,
-            loaderData: undefined,
-          }) ?? (route.options as any).meta,
-        links: (route.options as any).links,
-        scripts: (route.options as any).scripts,
-        headScripts: (route.options as any).headScripts,
-        styles: (route.options as any).styles,
-        publicHref: location.publicHref,
-      } as RouteMatch
-    }
-
-    if (notFoundError) {
-      const lastMatch = last(matches)
-      if (lastMatch) {
-        lastMatch.status = 'notFound'
-        lastMatch.notFoundError = notFoundError
-        lastMatch.globalNotFound = true
-      }
-    }
-
-    let needsAsync = false
-    for (let i = 0; i < matches.length; i++) {
-      const route = this.routesById[matches[i]!.routeId]!
-      const options = route.options
-      if ((route.lazyFn && !route._lazy) || options.beforeLoad || options.loader) {
-        needsAsync = true
-        break
-      }
-    }
-    if (needsAsync) {
-      this.batch(() => {
-        this.stores.state.set({
-          ...this.state,
-          status: 'pending',
-          isLoading: true,
-          isTransitioning: true,
-          pendingMatches: matches,
-          location,
-        })
-      })
-    }
-
-    const routerContext = this.options.context
-    let context: Record<string, any> = routerContext ? { ...routerContext } : EMPTY_OBJ
-    const parentPromises: Promise<void>[] = []
-
-    for (let i = 0; i < matches.length; i++) {
-      if (id !== this.loadId) return
-      const match = matches[i]!
-      const route = this.routesById[match.routeId]!
-      const parentPromise = parentPromises[i - 1]
-      const opts = route.options
-      const needsAsync = (route.lazyFn && !route._lazy) || opts.beforeLoad || opts.loader
-      let finish: ReturnType<typeof createControlledPromise<void>> | undefined
-
-      try {
-        let search = location.search
-        try {
-          search = applySearchValidator(route, location.search)
-          match.search =
-            search === location.search ? location.search : { ...location.search, ...search }
-        } catch (err) {
-          match.searchError = err
-          match.search = location.search
-        }
-
-        if (!needsAsync) {
-          match.context = context
-          match.status = 'success'
-          match._forcePending = false
-          match.isFetching = false
-          match.updatedAt = Date.now()
-          const hook = match.cause === 'enter' ? opts.onEnter : opts.onStay
-          if (hook) {
-            hook({
-              abortController: match.abortController,
-              preload: false,
-              params: match.params,
-              rawParams: match.rawParams,
-              cause: match.cause,
-              location,
-              navigate: this.navigate,
-              search: match.search,
-              context,
-              route,
-              matches,
-              parentMatchPromise: parentPromise,
-            } as any)
-          }
-          parentPromises.push(RESOLVED)
-          continue
-        }
-
-        finish = createControlledPromise<void>()
-        parentPromises.push(finish)
-
-        const loaderContext = {
-          abortController: match.abortController,
-          preload: false,
-          params: match.params,
-          rawParams: match.rawParams,
-          cause: match.cause,
-          location,
-          navigate: this.navigate,
-          search: match.search,
-          context,
-          route,
-          matches,
-          parentMatchPromise: parentPromise,
-        }
-
-        if (route.lazyFn && !route._lazy) {
-          const lazyMod = (await route.lazyFn()) as any
-          const lazyRoute = lazyMod?.default ?? lazyMod
-          if (lazyRoute?.options) Object.assign(route.options, lazyRoute.options)
-          route._lazy = true
-        }
-
-        if (route.options.beforeLoad) {
-          const before = await route.options.beforeLoad(loaderContext)
-          if (isRedirect(before)) throw before
-          if (isNotFound(before)) throw before
-          if (before && typeof before === 'object') {
-            context = { ...context, ...before }
-          }
-        }
-        match.context = context
-
-        if (route.options.loader) {
-          loaderContext.context = context
-          const data = await route.options.loader(loaderContext)
-          if (isRedirect(data)) throw data
-          if (isNotFound(data)) throw data
-          match.loaderData = data
-          this._cache[match.id] = { data, updatedAt: Date.now() }
-        }
-
-        match.status = 'success'
-        match._forcePending = false
-        match.isFetching = false
-        match.updatedAt = Date.now()
-
-        loaderContext.context = context
-        if (match.cause === 'enter') route.options.onEnter?.(loaderContext as any)
-        else route.options.onStay?.(loaderContext as any)
-
-        finish.resolve()
-      } catch (err) {
-        if (isRedirect(err)) {
-          match.status = 'redirected' as RouteMatch['status']
-          match.isFetching = false
-          finish?.resolve()
-          if (id !== this.loadId) return
-          const dest = err.options
-          if (dest.href && dest.reloadDocument) {
-            if (typeof document !== 'undefined') window.location.assign(dest.href)
-            return
-          }
-          this.redirectHops++
-          if (this.redirectHops > 20) {
-            this.redirectHops = 0
-            match.status = 'error'
-            match.error = new Error('Redirect loop detected')
-            match.isFetching = false
-            continue
-          }
-          await this.navigate({ ...dest, replace: dest.replace ?? true })
-          this.redirectHops = 0
-          return
-        }
-        if (isNotFound(err)) {
-          match.status = 'notFound'
-          match.notFoundError = err
-          match.isFetching = false
-          finish?.resolve()
-          continue
-        }
-        match.status = 'error'
-        match.error = err
-        match.isFetching = false
-        route.options.onCatch?.(err as Error)
-        finish?.resolve()
-      }
-    }
-
-    if (id !== this.loadId) return
-
-    for (let i = 0; i < prevMatches.length; i++) {
-      const left = prevMatches[i]!
-      let still = false
-      for (let j = 0; j < matches.length; j++) {
-        if (matches[j]!.routeId === left.routeId) {
-          still = true
-          break
-        }
-      }
-      if (still) continue
-      this.routesById[left.routeId]?.options.onLeave?.({
-        params: left.params,
-        search: left.search,
-        context: left.context,
-        cause: 'leave',
-      } as any)
-    }
-
-    let statusCode = 200
-    for (let i = 0; i < matches.length; i++) {
-      const status = matches[i]!.status
-      if (status === 'notFound') {
-        statusCode = 404
-        break
-      }
-      if (status === 'error') statusCode = 500
-    }
-    const prevResolved = this.state.resolvedLocation
-    this.batch(() => {
-      this.stores.state.set({
-        status: 'idle',
-        isLoading: false,
-        isTransitioning: false,
-        matches,
-        pendingMatches: undefined,
-        location,
-        resolvedLocation: location,
-        statusCode,
-      })
-    })
-
-    this.redirectHops = 0
-    this._committed = matches
-    for (let i = 0; i < matches.length; i++) {
-      this._cache[matches[i]!.id] = matches[i]!
-    }
-    const change = getLocationChangeInfo(location, prevResolved)
-    this.emit({ type: 'onLoad', ...change })
-    this.emit({ type: 'onResolved', ...change })
-    this.emit({ type: 'onRendered', ...change })
-    const rendered = this._rendered
-    if (rendered?.[1]) {
-      const settle = rendered[1]
-      rendered.length = 0
-      settle(true)
-    }
-  }
-
   getMatchedRoutes(pathname: string) {
     const path = trimPathRight(pathname || '/')
     const cache = this.processedTree.matchedRoutesCache
@@ -1943,10 +1606,18 @@ export class RouterCore<
         last.route,
       ]
     } else {
-      const match = findRouteMatch(path, this.processedTree, true)
-      result = match
-        ? [match.branch || [this.routesById[rootRouteId]!], match.rawParams, match.route]
-        : [[this.routesById[rootRouteId]!], Object.create(null), undefined]
+      const match = findRouteMatchFromTree(
+        this.processedTree,
+        path,
+        this.options.caseSensitive ?? false,
+        true,
+      )
+      if (match?.length) {
+        const last = match[match.length - 1]!
+        result = [buildRouteBranch(last.route as AnyRoute), last.rawParams, last.route]
+      } else {
+        result = [[this.routesById[rootRouteId]!], Object.create(null), undefined]
+      }
     }
     if (cache) cache[path] = result
     return result
@@ -2308,6 +1979,7 @@ if (process.env.NODE_ENV !== 'production') {
   RouterCore.prototype._refreshRoute = async function () {
     this._serverResult = undefined
     this.updateLatestLocation()
+    const { refreshClientRoute } = await import('./load-hmr')
     await refreshClientRoute(this)
   }
 }

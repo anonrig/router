@@ -4,7 +4,7 @@ import {
   SEGMENT_TYPE_PATHNAME,
   SEGMENT_TYPE_WILDCARD,
   parseSegment,
-} from './match'
+} from './parse-segment'
 import { evictOldest } from './utils'
 
 export function joinPaths(paths: Array<string | undefined>) {

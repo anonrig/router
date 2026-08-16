@@ -30,7 +30,7 @@ function resolveUnder(baseDir: string, rest: string) {
 const specialSubpaths: Record<string, string> = {
   '@tanstack/router-core/new-process-route-tree': resolve(
     root,
-    'packages/router-core/src/match.ts',
+    'packages/router-core/src/new-process-route-tree.ts',
   ),
   '@tanstack/router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
   '@tanstack/router-core/scroll-restoration-script': resolve(
@@ -145,8 +145,8 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/router-core/src/lru-cache.ts'),
   },
   {
-    find: '@tanstack/router-core/new-process-route-tree',
-    replacement: resolve(root, 'packages/router-core/src/match.ts'),
+    find: /^@tanstack\/router-core\/new-process-route-tree$/,
+    replacement: resolve(root, 'packages/router-core/src/new-process-route-tree.ts'),
   },
   {
     find: '@tanstack/router-core/isServer',

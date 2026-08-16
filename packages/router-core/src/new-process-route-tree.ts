@@ -11,7 +11,7 @@ export {
   buildRouteBranch,
   processRouteMasks,
   trimPathRight,
-} from './match'
+} from './match-compat'
 
 export type {
   SegmentKind,
@@ -19,4 +19,4 @@ export type {
   RouteMatchResult,
   AnyRouteLike,
   SegmentNode,
-} from './match'
+} from './match-compat'

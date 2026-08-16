@@ -20,9 +20,5 @@
         "tests/tanstack/setup-tests.tsx",
       ],
     },
-    "packages/router-core": {
-      // Drop-in for @tanstack/router-core/new-process-route-tree.
-      "entry": ["src/new-process-route-tree.ts"],
-    },
   },
 }
