@@ -225,6 +225,7 @@ pnpm bench                # vitest benches
 pnpm bench:compare        # head-to-head vs published TanStack
 pnpm size                 # client min+gzip vs published TanStack
 pnpm lint && pnpm fmt:check
+pnpm knip                 # unused files, dependencies, and exports
 ```
 
 ## License

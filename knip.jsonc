@@ -1,0 +1,28 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Workspace package consumed through @tanstack/react-router path aliases.
+  "ignoreDependencies": ["@anonrig/react-router"],
+  "treatConfigHintsAsErrors": true,
+  "ignoreIssues": {
+    // Public / TanStack-compatible library surface. Unused files and
+    // dependencies still fail; unused named exports in src do not.
+    "packages/**/src/**": ["exports", "types", "duplicates", "nsExports", "nsTypes", "enumMembers"],
+    // Vendored TanStack tests keep helpers that this repo does not call.
+    "tests/**": ["exports", "types", "duplicates"],
+  },
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{ts,mjs}",
+        "benches/**/*.{ts,tsx}",
+        "tests/**/*.{test,spec}.{ts,tsx}",
+        "tests/**/*.test-d.{ts,tsx}",
+        "tests/tanstack/setup-tests.tsx",
+      ],
+    },
+    "packages/router-core": {
+      // Drop-in for @tanstack/router-core/new-process-route-tree.
+      "entry": ["src/new-process-route-tree.ts"],
+    },
+  },
+}

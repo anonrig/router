@@ -25,7 +25,8 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "knip": "knip"
   },
   "devDependencies": {
     "@anonrig/history": "workspace:*",
@@ -44,6 +45,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "combinate": "^1.1.11",
     "jsdom": "^30.0.1",
+    "knip": "6.32.2",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
     "oxlint-tsgolint": "^7.0.2001",
