@@ -682,64 +682,61 @@ export function arraysEqual<T>(a: Array<T>, b: Array<T>) {
   return true
 }
 
-export type StringMap<V> = {
-  get(key: string): V | undefined
-  set(key: string, value: V): StringMap<V>
-  has(key: string): boolean
-  delete(key: string): boolean
-  clear(): void
-  readonly size: number
-  keys(): Iterator<string>
-  values(): IterableIterator<V>
-  [Symbol.iterator](): IterableIterator<[string, V]>
+/** Null-prototype string dictionary. Faster than Map for string keys. */
+export class StringMap<V> {
+  private store: Record<string, V> = Object.create(null)
+  private _size = 0
+
+  get(key: string): V | undefined {
+    return this.store[key]
+  }
+
+  set(key: string, value: V) {
+    if (!(key in this.store)) this._size++
+    this.store[key] = value
+    return this
+  }
+
+  has(key: string) {
+    return key in this.store
+  }
+
+  delete(key: string) {
+    if (!(key in this.store)) return false
+    delete this.store[key]
+    this._size--
+    return true
+  }
+
+  clear() {
+    const store = this.store
+    for (const key in store) delete store[key]
+    this._size = 0
+  }
+
+  get size() {
+    return this._size
+  }
+
+  keys(): Iterator<string> {
+    return (function* (store: Record<string, V>) {
+      for (const key in store) yield key
+    })(this.store)
+  }
+
+  *values(): IterableIterator<V> {
+    const store = this.store
+    for (const key in store) yield store[key]!
+  }
+
+  *[Symbol.iterator](): IterableIterator<[string, V]> {
+    const store = this.store
+    for (const key in store) yield [key, store[key]!]
+  }
 }
 
-/** Null-prototype string dictionary. Faster than Map for string keys. */
-export function createStringMap<V>(): StringMap<V> {
-  const store: Record<string, V> = Object.create(null)
-  let size = 0
-  const map: StringMap<V> = {
-    get(key) {
-      return store[key]
-    },
-    set(key, value) {
-      if (!(key in store)) size++
-      store[key] = value
-      return map
-    },
-    has(key) {
-      return key in store
-    },
-    delete(key) {
-      if (!(key in store)) return false
-      delete store[key]
-      size--
-      return true
-    },
-    clear() {
-      for (const key in store) delete store[key]
-      size = 0
-    },
-    get size() {
-      return size
-    },
-    keys() {
-      return (function* () {
-        for (const key in store) yield key
-      })()
-    },
-    values() {
-      return (function* () {
-        for (const key in store) yield store[key]!
-      })()
-    },
-    [Symbol.iterator]() {
-      return (function* () {
-        for (const key in store) yield [key, store[key]!]
-      })()
-    },
-  }
-  return map
+export function createStringMap<V>() {
+  return new StringMap<V>()
 }
 
 export function rememberBounded<V>(map: StringMap<V>, key: string, value: V, max: number) {
