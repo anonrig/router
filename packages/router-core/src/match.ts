@@ -1142,9 +1142,26 @@ function matchPathPattern(
   caseSensitive: boolean,
   fuzzy: boolean,
 ): Record<string, string> | null {
-  const rawParams: Record<string, string> = Object.create(null)
-  let patternIndex = pattern.charCodeAt(0) === 47 ? 1 : 0
-  let pathIndex = pathname.charCodeAt(0) === 47 ? 1 : 0
+  return matchPathFrom(
+    pattern,
+    pathname,
+    caseSensitive,
+    fuzzy,
+    pattern.charCodeAt(0) === 47 ? 1 : 0,
+    pathname.charCodeAt(0) === 47 ? 1 : 0,
+    Object.create(null),
+  )
+}
+
+function matchPathFrom(
+  pattern: string,
+  pathname: string,
+  caseSensitive: boolean,
+  fuzzy: boolean,
+  patternIndex: number,
+  pathIndex: number,
+  rawParams: Record<string, string>,
+): Record<string, string> | null {
   const patternEnd = pattern.length
   const pathEnd = pathname.length
   const parsed = new Uint16Array(6) as ParsedSegment
@@ -1160,7 +1177,7 @@ function matchPathPattern(
     const prefix = marker > 0 ? part.slice(0, marker) : ''
     const name = pattern.slice(parsed[2], parsed[3])
     const suffix = pattern.slice(parsed[4], partEnd)
-    patternIndex = partEnd + (pattern.charCodeAt(partEnd) === 47 ? 1 : 0)
+    const nextPatternIndex = partEnd + (pattern.charCodeAt(partEnd) === 47 ? 1 : 0)
 
     if (pathIndex < pathEnd && pathname.charCodeAt(pathIndex) === 47) pathIndex++
     const slash = pathname.indexOf('/', pathIndex)
@@ -1170,9 +1187,10 @@ function matchPathPattern(
     if (kind === SEGMENT_TYPE_PATHNAME) {
       const expected = pattern.slice(parsed[1], partEnd)
       if (!segmentEquals(segment, expected, caseSensitive)) {
-        if (fuzzy && patternIndex >= patternEnd) break
+        if (fuzzy && nextPatternIndex >= patternEnd) break
         return null
       }
+      patternIndex = nextPatternIndex
       pathIndex = segmentEnd
       continue
     }
@@ -1181,20 +1199,35 @@ function matchPathPattern(
       const rest = pathname.slice(pathIndex)
       if (prefix && !rest.startsWith(prefix)) return null
       if (suffix && !rest.endsWith(suffix)) return null
-      if (name) rawParams[name] = rest
+      const value = rest.slice(prefix.length, suffix ? rest.length - suffix.length : rest.length)
+      rawParams['*'] = value
+      rawParams._splat = value
       return rawParams
     }
 
     if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
       if (segment && segmentStartsWith(segment, prefix, suffix, caseSensitive)) {
-        rawParams[name] = unwrapAffix(segment, prefix, suffix)
-        pathIndex = segmentEnd
+        const value = unwrapAffix(segment, prefix, suffix)
+        const consumed = Object.assign(Object.create(null), rawParams)
+        if (value) consumed[name] = value
+        const matched = matchPathFrom(
+          pattern,
+          pathname,
+          caseSensitive,
+          fuzzy,
+          nextPatternIndex,
+          segmentEnd,
+          consumed,
+        )
+        if (matched) return matched
       }
+      patternIndex = nextPatternIndex
       continue
     }
 
     if (!segment || !segmentStartsWith(segment, prefix, suffix, caseSensitive)) return null
     rawParams[name] = unwrapAffix(segment, prefix, suffix)
+    patternIndex = nextPatternIndex
     pathIndex = segmentEnd
   }
 
