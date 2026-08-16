@@ -433,10 +433,14 @@ export function processRouteTree<T extends AnyRouteLike>(
 
   walk(routeTree, 0)
 
-  // Build the official segment tree from declared `children` before we rewrite
-  // those arrays from `parentRoute`. Some TanStack tests attach a route via
-  // `addChildren` on a different parent than `getParentRoute`.
-  const segmentTree = buildSegmentTree(routeTree, caseSensitive)
+  // Snapshot declared children before rewriting arrays from `parentRoute`.
+  // Some TanStack tests attach a route via `addChildren` on a different parent
+  // than `getParentRoute`; the official segment tree must keep that shape.
+  const declaredChildren = new Map<AnyRouteLike, AnyRouteLike['children']>()
+  for (let i = 0; i < flatRoutes.length; i++) {
+    const route = flatRoutes[i]!
+    declaredChildren.set(route, route.children)
+  }
 
   const childLists = new Map<AnyRouteLike, AnyRouteLike[]>()
   for (let i = 0; i < flatRoutes.length; i++) {
@@ -471,13 +475,12 @@ export function processRouteTree<T extends AnyRouteLike>(
     }
   }
 
-  const processedTree: ProcessedTree = {
+  const processedTree = {
     root,
     routesById,
     routesByPath,
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
-    segmentTree,
     singleCache: createLRUCache<string, SegmentTreeNode>(1000),
     segmentMatchCache: createLRUCache<string, SegmentMatch | null>(1000),
     flatCache: null,
@@ -486,9 +489,28 @@ export function processRouteTree<T extends AnyRouteLike>(
     matchedTemplateCache: Object.create(null),
     hasSearchWork,
     optionalNames: optionalNamesThisTree.slice(),
-  }
+  } as ProcessedTree
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
+
+  let segmentTree: SegmentTreeNode | undefined
+  const getSegmentTree = () => {
+    if (segmentTree) return segmentTree
+    for (const [route, kids] of declaredChildren) route.children = kids
+    segmentTree = buildSegmentTree(routeTree, caseSensitive)
+    for (const [parent, list] of childLists) parent.children = list
+    return segmentTree
+  }
   const result = { ...processedTree, processedTree }
+  Object.defineProperty(processedTree, 'segmentTree', {
+    get: getSegmentTree,
+    enumerable: true,
+    configurable: true,
+  })
+  Object.defineProperty(result, 'segmentTree', {
+    get: getSegmentTree,
+    enumerable: true,
+    configurable: true,
+  })
   processedTreeCache.set(routeTree, { caseSensitive, children, tree: result })
   return result
 }
