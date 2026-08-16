@@ -11,9 +11,7 @@ export function useStore<T, U = T>(
   select: (state: T) => U = defaultSelect,
   isEqual: (a: U, b: U) => boolean = Object.is,
 ): U {
-  const cacheRef = useRef<{ source: T; selected: U; select: typeof select } | undefined>(
-    undefined,
-  )
+  const cacheRef = useRef<{ source: T; selected: U; select: typeof select } | undefined>(undefined)
 
   const getSnapshot = useCallback(() => {
     const source = store.get()
