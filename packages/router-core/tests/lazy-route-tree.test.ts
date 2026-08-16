@@ -15,10 +15,12 @@ function lazyRoute(opts: {
       ? { id: opts.id, getParentRoute: opts.parent }
       : { id: opts.id, path: opts.path, getParentRoute: opts.parent }) as any,
   )
-  return route.lazy(async () => {
+  const lazy = route.lazy(async () => {
     const loaded = await opts.load()
     return { options: { id: opts.id, ...loaded.options } } as any
   })
+  ;(lazy as any)._lazyOptions = true
+  return lazy
 }
 
 describe('lazy file routes', () => {

@@ -309,9 +309,9 @@ function normalizeLaneError(
   return normalizeError(route, cause)
 }
 
-/** Load lazy route options (loader, beforeLoad, context) without waiting on components. */
+/** Load deferred route options for generated stubs. Component-only `.lazy()` is unchanged. */
 export async function ensureRouteOptions(route: AnyRoute, signal?: AbortSignal): Promise<void> {
-  if (!route.lazyFn || route._lazy === true) return
+  if (!route._lazyOptions || !route.lazyFn || route._lazy === true) return
   const loading = loadRouteChunk(route, false)
   if (loading) await (signal ? waitFor(loading, signal) : loading)
 }

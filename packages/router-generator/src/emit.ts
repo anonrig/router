@@ -62,6 +62,7 @@ export function emitRouteTreeRuntime(options: EmitRouteTreeOptions): string {
   lines.push('    const loaded = mod.Route ?? mod.default')
   lines.push('    return { options: { id: key, ...loaded?.options } }')
   lines.push('  })')
+  lines.push('  route._lazyOptions = true')
   lines.push('  byId[key] = route')
   lines.push('  ;(children[parentId] ??= []).push(route)')
   lines.push('}')
