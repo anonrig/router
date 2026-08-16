@@ -109,6 +109,7 @@ function lastSegment(key: string) {
 }
 
 function isPathlessKey(key: string) {
+  if (key.endsWith('/') && key !== '/') return false
   const segment = lastSegment(key)
   return (segment.startsWith('_') && segment !== '__root__') || segment.startsWith('@')
 }

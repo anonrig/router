@@ -3,7 +3,7 @@
 import { isNotFound } from './not-found'
 import { createStringMap, objectValues } from './utils'
 import { isRedirect } from './redirect'
-import { getLocationChangeInfo, runRouteLifecycle } from './router'
+import { getLocationChangeInfo, matchParentContext, runRouteLifecycle } from './router'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
 import type { NotFoundError } from './not-found'
@@ -343,7 +343,7 @@ async function contextualize(
     match.abortController = options[0 /* controller */]
     // Contextualization is serial, so the previous match already contains the
     // complete parent context for this route.
-    const parentContext = matches[index - 1]?.context ?? router.options.context ?? {}
+    const parentContext = matchParentContext(matches, index, match) ?? router.options.context ?? {}
     const common = {
       params: match.params,
       location,

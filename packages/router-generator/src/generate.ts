@@ -8,6 +8,7 @@ export type GenerateRouteTreeOptions = {
   generatedRouteTree?: string
   runtimeImport?: string
   rootImport?: string
+  slotImport?: string
 }
 
 export type GeneratedRouteTree = {
@@ -50,6 +51,7 @@ export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedR
     routesDirectory,
     runtimeImport: options.runtimeImport,
     rootImport: options.rootImport,
+    slotImport: options.slotImport,
   }
   const runtime = emitRouteTreeRuntime(payload)
   const types = emitRouteTreeTypes(payload)

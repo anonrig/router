@@ -225,6 +225,34 @@ describe('parallel route slots', () => {
     expect(router.state.matches.some((match) => match.routeId === '/@admin/panel')).toBe(true)
   })
 
+  test('main child context does not inherit an interleaved slot', async () => {
+    const root = createRootRoute({
+      beforeLoad: () => ({ from: 'root' }),
+    })
+    const dashboard = createRoute({
+      getParentRoute: () => root,
+      path: '/dashboard',
+      beforeLoad: ({ context }: { context: { from: string } }) => ({
+        from: `${context.from}/dashboard`,
+      }),
+      loader: ({ context }: { context: { from: string } }) => context,
+    })
+    const modal = createSlotRoute({
+      slot: 'modal',
+      getParentRoute: () => root,
+      beforeLoad: () => ({ from: 'modal' }),
+    })
+    root.addChildren([dashboard, modal])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/dashboard'] }),
+    })
+    await router.load()
+    const dash = router.state.matches.find((match) => match.routeId === '/dashboard')
+    expect(dash?.context).toMatchObject({ from: 'root/dashboard' })
+    expect(dash?.loaderData).toMatchObject({ from: 'root/dashboard' })
+  })
+
   test('enabled: false keeps a slot closed', async () => {
     const root = createRootRoute()
     const index = createRoute({ getParentRoute: () => root, path: '/' })

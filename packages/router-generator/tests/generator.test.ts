@@ -75,6 +75,10 @@ describe('scanRoutes', () => {
     expect(byKey['/dashboard/@activity']?.slot).toBe('activity')
     expect(byKey['/dashboard/@activity']?.parentId).toBe('/dashboard')
     expect(byKey['/dashboard/@activity']?.isSlotRoot).toBe(true)
+    expect(byKey['/dashboard/@activity/']?.path).toBe('/')
+    expect(byKey['/dashboard/@activity/']?.isPathless).toBe(false)
+    expect(byKey['/dashboard/@activity/']?.isSlotRoot).toBe(false)
+    expect(byKey['/dashboard/@activity/']?.parentId).toBe('/dashboard/@activity')
   })
 
   it('walks dirents once and skips node_modules, dot dirs, and split files', () => {
@@ -131,6 +135,24 @@ describe('generateRouteTree', () => {
     expect(types).toContain('fullPaths: keyof FileRoutesByFullPath')
     expect(types).toContain("declare module '@anonrig/router-core'")
     expect(types).not.toContain('typeof ')
+  })
+
+  it('imports createSlotRoute from the React package so Outlet wiring is installed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'anonrig-gen-slots-'))
+    const routes = join(dir, 'routes')
+    write(routes, '__root.tsx')
+    write(routes, 'dashboard.tsx')
+    write(routes, 'dashboard.@activity.tsx')
+    write(routes, 'dashboard.@activity.index.tsx')
+    const generated = join(dir, 'routeTree.gen.ts')
+    generateRouteTree({
+      routesDirectory: routes,
+      generatedRouteTree: generated,
+    })
+    const runtime = readFileSync(generated, 'utf8')
+    expect(runtime).toContain("import { createRoute } from '@anonrig/router-core'")
+    expect(runtime).toContain("import { createSlotRoute } from '@anonrig/react-router'")
+    expect(runtime).toContain('createSlotRoute({ getParentRoute, slot })')
   })
 
   it('does not rewrite unchanged generated files', () => {

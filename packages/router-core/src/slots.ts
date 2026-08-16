@@ -451,6 +451,19 @@ function lastNonSlotMatch(matches: any[]) {
   return matches[matches.length - 1]
 }
 
+function parentMatchContext(matches: any[] | undefined, index: number, match: any) {
+  if (!matches) return
+  if (match.slot) {
+    for (let i = 0; i < matches.length; i++) {
+      if (matches[i].routeId === match.slotParentId) return matches[i].context
+    }
+    return
+  }
+  for (let i = index - 1; i >= 0; i--) {
+    if (!matches[i].slot) return matches[i].context
+  }
+}
+
 let slotRuntimeInstalled = false
 function ensureSlotRuntime() {
   if (slotRuntimeInstalled) return
@@ -465,6 +478,7 @@ function ensureSlotRuntime() {
     a: (router, dest, currentSearch, nextSearch) =>
       applySlotSearchUpdates(router, dest, currentSearch, nextSearch, on),
     l: lastNonSlotMatch,
+    p: parentMatchContext,
   })
 }
 

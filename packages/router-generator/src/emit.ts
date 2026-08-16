@@ -7,6 +7,7 @@ export type EmitRouteTreeOptions = {
   routesDirectory: string
   runtimeImport?: string
   rootImport?: string
+  slotImport?: string
 }
 
 function toPosix(value: string) {
@@ -28,6 +29,9 @@ export function emitRouteTreeRuntime(options: EmitRouteTreeOptions): string {
   const children = options.routes.filter((route) => !route.isRoot)
   const root = options.routes.find((route) => route.isRoot)
   const hasSlots = children.some((route) => route.isSlotRoot || route.key.includes('/@'))
+  const slotImport =
+    options.slotImport ??
+    (runtimeImport.includes('react-router') ? runtimeImport : '@anonrig/react-router')
 
   const lines: Array<string> = [
     '/* eslint-disable */',
@@ -36,7 +40,9 @@ export function emitRouteTreeRuntime(options: EmitRouteTreeOptions): string {
     '// Runtime only: types live in routeTree.types.ts and are erased from the bundle.',
     '',
     hasSlots
-      ? `import { createRoute, createSlotRoute } from '${runtimeImport}'`
+      ? slotImport === runtimeImport
+        ? `import { createRoute, createSlotRoute } from '${runtimeImport}'`
+        : `import { createRoute } from '${runtimeImport}'\nimport { createSlotRoute } from '${slotImport}'`
       : `import { createRoute } from '${runtimeImport}'`,
   ]
 

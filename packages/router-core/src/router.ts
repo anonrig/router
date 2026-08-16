@@ -378,6 +378,7 @@ type SlotRuntime = {
   d(router: any, dest: any, current: any): any
   a(router: any, dest: any, currentSearch: any, nextSearch: any): any
   l(matches: any[]): any
+  p(matches: any[], index: number, match: any): any
 }
 
 let slotRuntime: SlotRuntime | undefined
@@ -388,6 +389,10 @@ export function setSlotRuntime(runtime: SlotRuntime) {
 function lastMatch(matches: RouteMatch[] | undefined) {
   if (!matches?.length) return undefined
   return slotRuntime?.l?.(matches) ?? matches[matches.length - 1]
+}
+
+export function matchParentContext(matches: any[], index: number, match: any) {
+  return slotRuntime?.p?.(matches, index, match) ?? matches[index - 1]?.context
 }
 
 function collectSimpleParamKeys(path: string): string[] | null {
