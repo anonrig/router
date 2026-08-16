@@ -40,7 +40,7 @@ class MemoryHistory implements RouterHistory {
   private entries: Array<string>
   private states: Array<ParsedHistoryState>
   private index: number
-  private compactEnabled: boolean
+  private readonly compactEnabled: boolean
   private _subscribers?: Set<(opts: SubscriberArgs) => void>
   private blockers?: Array<NavigationBlocker>
 
