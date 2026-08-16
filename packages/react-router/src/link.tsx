@@ -11,7 +11,7 @@ import {
   type ReactNode,
   type TouchEvent,
 } from 'react'
-import { exactPathTest, functionalUpdate, preloadWarning } from '@anonrig/router-core'
+import { exactPathTest, preloadWarning } from '@anonrig/router-core'
 import { useIntersectionObserver } from './utils'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
@@ -214,5 +214,3 @@ export type {
   CreateLinkProps,
   LinkComponentRoute,
 } from './link-types'
-
-void functionalUpdate

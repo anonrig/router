@@ -82,6 +82,7 @@ describe('dead code elimination', () => {
       export const router = createRouter({ routeTree: createRootRoute() })
     `)
     expect(entry).toContain('createRouter')
+    expect(entry).not.toContain('tsr-scroll-restoration-v1_3')
     expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
     const asyncCode = Object.entries(chunks)
       .filter(([name]) => name !== 'entry.js')

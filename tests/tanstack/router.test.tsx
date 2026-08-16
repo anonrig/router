@@ -818,6 +818,7 @@ describe('router emits events during rendering', () => {
       history: createMemoryHistory({ initialEntries: ['/'] }),
       scrollRestoration: true,
     })
+    await router._scrollReady
 
     const mockOnRendered = vi.fn()
     const unsub = router.subscribe('onRendered', mockOnRendered)

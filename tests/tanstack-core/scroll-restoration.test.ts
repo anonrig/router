@@ -24,6 +24,11 @@ function createRouter(
   })
 }
 
+async function ready(router: ReturnType<typeof createRouter>) {
+  await router._scrollReady
+  return router
+}
+
 afterEach(() => {
   document.body.replaceChildren()
   window.sessionStorage.clear()
@@ -56,14 +61,14 @@ function emitNavigation(
 }
 
 describe('setupScrollRestoration', () => {
-  test('sets up scroll restoration when scrollRestoration is true', () => {
+  test('sets up scroll restoration when scrollRestoration is true', async () => {
     const windowAddEventListener = vi.spyOn(window, 'addEventListener')
     const documentAddEventListener = vi.spyOn(document, 'addEventListener')
     const previousScrollRestoration = window.history.scrollRestoration
 
     window.history.scrollRestoration = 'auto'
 
-    const router = createRouter({ scrollRestoration: true })
+    const router = await ready(createRouter({ scrollRestoration: true }))
 
     expect(router._scroll.restoring).toBe(true)
     expect(router._scroll.restoration).toBe(true)
@@ -78,16 +83,18 @@ describe('setupScrollRestoration', () => {
     window.history.scrollRestoration = previousScrollRestoration
   })
 
-  test('snapshots the live position when it changed after the latest scroll event', () => {
+  test('snapshots the live position when it changed after the latest scroll event', async () => {
     const element = document.createElement('div')
     element.id = 'unit-live-snapshot-element'
     document.body.append(element)
     vi.stubGlobal('scrollTo', vi.fn())
 
-    const router = createRouter({
-      scrollRestoration: true,
-      getScrollRestorationKey: (location) => location.pathname,
-    })
+    const router = await ready(
+      createRouter({
+        scrollRestoration: true,
+        getScrollRestorationKey: (location) => location.pathname,
+      }),
+    )
     const source = getLocation(router, '/unit-live-snapshot-source')
     const destination = getLocation(router, '/unit-live-snapshot-destination')
 
@@ -102,16 +109,18 @@ describe('setupScrollRestoration', () => {
     expect(element.scrollTop).toBe(120)
   })
 
-  test('snapshots the live window position when it changed after the latest scroll event', () => {
+  test('snapshots the live window position when it changed after the latest scroll event', async () => {
     const windowScrollTo = vi.fn()
     vi.stubGlobal('scrollTo', windowScrollTo)
     vi.stubGlobal('scrollX', 0)
     vi.stubGlobal('scrollY', 80)
 
-    const router = createRouter({
-      scrollRestoration: true,
-      getScrollRestorationKey: (location) => location.pathname,
-    })
+    const router = await ready(
+      createRouter({
+        scrollRestoration: true,
+        getScrollRestorationKey: (location) => location.pathname,
+      }),
+    )
     const source = getLocation(router, '/unit-live-window-snapshot-source')
     const destination = getLocation(router, '/unit-live-window-snapshot-destination')
 
@@ -161,7 +170,7 @@ describe('setupScrollRestoration', () => {
     },
   )
 
-  test('restores a configured element independently from the window', () => {
+  test('restores a configured element independently from the window', async () => {
     const element = document.createElement('div')
     element.id = 'unit-restored-element'
     element.dataset.scrollRestorationId = 'unit-restored-element'
@@ -174,11 +183,13 @@ describe('setupScrollRestoration', () => {
     const windowScrollTo = vi.fn()
     vi.stubGlobal('scrollTo', windowScrollTo)
 
-    const router = createRouter({
-      scrollRestoration: true,
-      scrollToTopSelectors: ['#unit-restored-element'],
-      getScrollRestorationKey: (location) => location.pathname,
-    })
+    const router = await ready(
+      createRouter({
+        scrollRestoration: true,
+        scrollToTopSelectors: ['#unit-restored-element'],
+        getScrollRestorationKey: (location) => location.pathname,
+      }),
+    )
     const source = getLocation(router, '/unit-element-source')
     const destination = getLocation(router, '/unit-element-destination')
 
@@ -206,7 +217,7 @@ describe('setupScrollRestoration', () => {
     })
   })
 
-  test('resets an uncached configured element when the window restores', () => {
+  test('resets an uncached configured element when the window restores', async () => {
     const element = document.createElement('div')
     element.id = 'unit-reset-element'
     document.body.append(element)
@@ -221,11 +232,13 @@ describe('setupScrollRestoration', () => {
     vi.stubGlobal('scrollY', 120)
     vi.stubGlobal('scrollTo', windowScrollTo)
 
-    const router = createRouter({
-      scrollRestoration: true,
-      scrollToTopSelectors: ['#unit-reset-element'],
-      getScrollRestorationKey: (location) => location.pathname,
-    })
+    const router = await ready(
+      createRouter({
+        scrollRestoration: true,
+        scrollToTopSelectors: ['#unit-reset-element'],
+        getScrollRestorationKey: (location) => location.pathname,
+      }),
+    )
     const source = getLocation(router, '/unit-window-source')
     const destination = getLocation(router, '/unit-window-destination')
 
@@ -253,7 +266,7 @@ describe('setupScrollRestoration', () => {
     })
   })
 
-  test('resets a configured element when its cached selector becomes stale', () => {
+  test('resets a configured element when its cached selector becomes stale', async () => {
     const element = document.createElement('div')
     element.id = 'unit-stale-selector-element'
     element.dataset.scrollRestorationId = 'unit-stale-selector-source'
@@ -265,11 +278,13 @@ describe('setupScrollRestoration', () => {
     element.scrollTo = elementScrollTo as typeof element.scrollTo
     vi.stubGlobal('scrollTo', vi.fn())
 
-    const router = createRouter({
-      scrollRestoration: true,
-      scrollToTopSelectors: [() => element],
-      getScrollRestorationKey: (location) => location.pathname,
-    })
+    const router = await ready(
+      createRouter({
+        scrollRestoration: true,
+        scrollToTopSelectors: [() => element],
+        getScrollRestorationKey: (location) => location.pathname,
+      }),
+    )
     const source = getLocation(router, '/unit-stale-selector-source')
     const destination = getLocation(router, '/unit-stale-selector-destination')
 
@@ -293,16 +308,18 @@ describe('setupScrollRestoration', () => {
     })
   })
 
-  test('does not resolve configured selectors for hash navigation without source entries', () => {
+  test('does not resolve configured selectors for hash navigation without source entries', async () => {
     const element = document.createElement('div')
     document.body.append(element)
     const getElement = vi.fn(() => element)
 
-    const router = createRouter({
-      scrollRestoration: true,
-      scrollToTopSelectors: [getElement],
-      getScrollRestorationKey: (location) => location.pathname,
-    })
+    const router = await ready(
+      createRouter({
+        scrollRestoration: true,
+        scrollToTopSelectors: [getElement],
+        getScrollRestorationKey: (location) => location.pathname,
+      }),
+    )
     const source = getLocation(router, '/unit-hash-source')
     const destination = {
       ...getLocation(router, '/unit-hash-destination'),

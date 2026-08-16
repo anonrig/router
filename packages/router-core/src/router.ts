@@ -36,7 +36,7 @@ import type { ParsedLocation } from './location'
 import type { AnyRouteMatch as PublicRouteMatch } from './matches'
 import type { AnyContext as RouteAnyContext, AnyRoute } from './route'
 import type { BuildLocationFn, NavigateFn } from './router-provider'
-import { setupScrollRestoration } from './scroll-restoration'
+import { setupDefaultScroll } from './scroll-default'
 import {
   applySearchMiddleware,
   extractStrictParams,
@@ -432,6 +432,8 @@ export class RouterCore<
     restoration?: boolean
     reset?: boolean
   } = { next: true }
+  /** @internal */
+  _scrollReady?: Promise<void>
   rewrite?: any
   _hasSearchWork = false
   private readonly getStoreConfig = defaultGetStoreConfig
@@ -479,7 +481,6 @@ export class RouterCore<
   }
 
   private loadId = 0
-  private readonly pendingLoad: Promise<void> | undefined
   private unsubHistory?: () => void
   private _committing = false
 
@@ -640,7 +641,14 @@ export class RouterCore<
       if (!this.stores) {
         this.stores = this.createStores(this.latestLocation)
         if (!(isServer ?? this.isServer)) {
-          setupScrollRestoration(this)
+          if (this.options.scrollRestoration) {
+            this._scrollReady = (async () => {
+              const { setupScrollRestoration } = await import('./scroll-restoration')
+              setupScrollRestoration(this)
+            })()
+          } else {
+            setupDefaultScroll(this)
+          }
         }
       } else {
         this.stores.location.set(this.latestLocation)

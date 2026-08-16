@@ -25,16 +25,20 @@ export function joinPaths(paths: Array<string | undefined>) {
 const cleanCache = new Map<string, string>()
 const CLEAN_CACHE_MAX = 32
 
+function setBounded<V>(cache: Map<string, V>, key: string, value: V, max: number) {
+  if (cache.size >= max && !cache.has(key)) {
+    const first = cache.keys().next().value
+    if (first !== undefined) cache.delete(first)
+  }
+  cache.set(key, value)
+}
+
 export function cleanPath(path: string) {
   const cached = cleanCache.get(path)
   if (cached !== undefined) return cached
   const first = path.indexOf('//')
   const result = first === -1 ? path : collapseSlashes(path, first)
-  if (cleanCache.size >= CLEAN_CACHE_MAX && !cleanCache.has(path)) {
-    const firstKey = cleanCache.keys().next().value
-    if (firstKey !== undefined) cleanCache.delete(firstKey)
-  }
-  cleanCache.set(path, result)
+  setBounded(cleanCache, path, result, CLEAN_CACHE_MAX)
   return result
 }
 
@@ -109,11 +113,7 @@ function rememberResolved(
 ) {
   if (!key || !cache) return result
   if (cache === defaultResolveCache) {
-    if (defaultResolveCache.size >= RESOLVE_CACHE_MAX && !defaultResolveCache.has(key)) {
-      const first = defaultResolveCache.keys().next().value
-      if (first !== undefined) defaultResolveCache.delete(first)
-    }
-    defaultResolveCache.set(key, result)
+    setBounded(defaultResolveCache, key, result, RESOLVE_CACHE_MAX)
     return result
   }
   cache.set(key, result)
@@ -296,14 +296,7 @@ const simpleInterpolateCache = new Map<string, SimplePart[] | null>()
 const SIMPLE_INTERPOLATE_CACHE_MAX = 256
 
 function rememberSimpleParts(path: string, parts: SimplePart[] | null) {
-  if (
-    simpleInterpolateCache.size >= SIMPLE_INTERPOLATE_CACHE_MAX &&
-    !simpleInterpolateCache.has(path)
-  ) {
-    const first = simpleInterpolateCache.keys().next().value
-    if (first !== undefined) simpleInterpolateCache.delete(first)
-  }
-  simpleInterpolateCache.set(path, parts)
+  setBounded(simpleInterpolateCache, path, parts, SIMPLE_INTERPOLATE_CACHE_MAX)
   return parts
 }
 
