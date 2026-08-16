@@ -28,7 +28,8 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "knip": "knip",
-    "release": "pnpm -r --filter './packages/*' publish --access public --no-git-checks --provenance"
+    "release": "pnpm -r --filter './packages/*' publish --access public --no-git-checks --provenance",
+    "release:version": "node scripts/bump-release.mjs"
   },
   "devDependencies": {
     "@tanstack/history": "^1.162.1",

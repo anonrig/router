@@ -266,13 +266,16 @@ pnpm knip                 # unused files, dependencies, and exports
 
 ## Publishing
 
-The public packages are `fast-router-react`, `fast-router-core`, `fast-router-history`, and `fast-router-generator`. The repo root stays private.
+The public packages are `fast-router-react`, `fast-router-core`, `fast-router-history`, and `fast-router-generator`. The repo root stays private. Versions stay in lockstep.
 
-1. Keep the four package versions in lockstep.
-2. Push a `v*` tag (`v0.1.0`) from the commit you want on npm.
-3. The [Release](.github/workflows/release.yml) workflow runs the same checks as CI, then publishes with provenance.
+Release from GitHub Actions:
 
-Configure [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) for `anonrig/router` and `release.yml`, or add an `NPM_TOKEN` repository secret.
+1. Add an `NPM_TOKEN` repository secret, or configure [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) for `anonrig/router` and `release.yml`.
+2. Open [Release](https://github.com/anonrig/router/actions/workflows/release.yml) → **Run workflow**.
+3. Leave **bump** on `none` to publish the version already in the package files, or choose `patch` / `minor` / `major`. An exact **version** overrides the bump.
+4. The job runs the same checks as CI, publishes with provenance, pushes a `v*` tag, and opens a GitHub Release.
+
+Pushing a `v*` tag yourself also starts the same publish job. Use **dry_run** on the workflow to print the npm publish plan without shipping.
 
 ## License
 

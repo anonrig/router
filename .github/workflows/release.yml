@@ -1,13 +1,32 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: How to move the lockstep package version
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+          - prerelease
+        default: none
+      version:
+        description: Exact version (optional, overrides bump)
+        type: string
+        required: false
+      dry_run:
+        description: Run checks and print the publish plan without publishing
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 concurrency:
@@ -20,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -44,7 +65,73 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm test:tanstack-react:ci
+
+      - name: Bump versions
+        if: github.event_name == 'workflow_dispatch'
+        id: bump
+        env:
+          RELEASE_BUMP: ${{ inputs.bump }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          extra=()
+          if [ -n "$RELEASE_VERSION" ]; then
+            extra+=(--version "$RELEASE_VERSION")
+          fi
+          VERSION=$(node scripts/bump-release.mjs --bump "$RELEASE_BUMP" "${extra[@]}")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing $VERSION"
+
+      - name: Resolve tag version
+        if: github.event_name == 'push'
+        id: tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json packages/*/package.json
+          if git diff --cached --quiet; then
+            echo "Version files already at $VERSION"
+          else
+            git commit -m "Release $TAG"
+          fi
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists"
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+          fi
+          git push origin HEAD
+          git push origin "$TAG"
+
       - name: Publish packages
+        if: github.event_name == 'push' || !inputs.dry_run
         run: pnpm release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry-run publish
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: pnpm release --dry-run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' || !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.bump.outputs.tag || steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists"
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
