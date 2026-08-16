@@ -433,32 +433,6 @@ export function processRouteTree<T extends AnyRouteLike>(
 
   walk(routeTree, 0)
 
-  // Snapshot declared children before rewriting arrays from `parentRoute`.
-  // Some TanStack tests attach a route via `addChildren` on a different parent
-  // than `getParentRoute`; the official segment tree must keep that shape.
-  const declaredChildren = new Map<AnyRouteLike, AnyRouteLike['children']>()
-  for (let i = 0; i < flatRoutes.length; i++) {
-    const route = flatRoutes[i]!
-    declaredChildren.set(route, route.children)
-  }
-
-  const childLists = new Map<AnyRouteLike, AnyRouteLike[]>()
-  for (let i = 0; i < flatRoutes.length; i++) {
-    const route = flatRoutes[i]!
-    if (route === routeTree) continue
-    const parent = route.parentRoute
-    if (!parent) continue
-    let list = childLists.get(parent)
-    if (!list) {
-      list = []
-      childLists.set(parent, list)
-    }
-    list.push(route)
-  }
-  for (const [parent, list] of childLists) {
-    parent.children = list
-  }
-
   const root = createNode()
   root.route = routeTree
   optionalNamesThisTree = []
@@ -493,16 +467,7 @@ export function processRouteTree<T extends AnyRouteLike>(
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
 
   let segmentTree: SegmentTreeNode | undefined
-  const getSegmentTree = () => {
-    if (segmentTree) return segmentTree
-    for (const [route, kids] of declaredChildren) {
-      if (kids === undefined) delete route.children
-      else route.children = kids
-    }
-    segmentTree = buildSegmentTree(routeTree, caseSensitive)
-    for (const [parent, list] of childLists) parent.children = list
-    return segmentTree
-  }
+  const getSegmentTree = () => (segmentTree ??= buildSegmentTree(routeTree, caseSensitive))
   const result = { ...processedTree, processedTree }
   Object.defineProperty(processedTree, 'segmentTree', {
     get: getSegmentTree,
