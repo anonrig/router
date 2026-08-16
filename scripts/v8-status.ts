@@ -1,7 +1,13 @@
 /**
  * Report V8 optimization status for hot-path functions.
  *
- *   node --allow-natives-syntax --experimental-transform-types --import ./scripts/register-ts.mjs scripts/v8-status.ts
+ *   node --allow-natives-syntax --fuzzing --experimental-transform-types --import ./scripts/register-ts.mjs scripts/v8-status.ts
+ *
+ * `--fuzzing` is required: `%PrepareFunctionForOptimization` can OSR, and
+ * recent V8 CHECKs `v8_flags.fuzzing` in that path (Node 24/25 abort).
+ *
+ * `router.navigate` / `router.buildLocation` are bound wrappers. Status the
+ * prototype implementations: `executeNavigate` and `executeBuildLocation`.
  *
  * Node 24 / V8 bits:
  *   1 fn  2 never-opt  8 maybe-deopted  16 optimized
@@ -27,9 +33,33 @@ import {
 
 const natives = (src: string) => new Function('fn', `return ${src}`) as (fn: Function) => any
 
-const getOptimizationStatus = natives('%GetOptimizationStatus(fn)')
-const prepare = natives('%PrepareFunctionForOptimization(fn)')
-const optimizeNext = natives('%OptimizeFunctionOnNextCall(fn)')
+const getOptimizationStatusUnsafe = natives('%GetOptimizationStatus(fn)')
+const prepareUnsafe = natives('%PrepareFunctionForOptimization(fn)')
+const optimizeNextUnsafe = natives('%OptimizeFunctionOnNextCall(fn)')
+
+function assertOptimizable(fn: unknown): asserts fn is Function {
+  if (typeof fn !== 'function') {
+    throw new TypeError('V8 natives require a function')
+  }
+  if (isBound(fn)) {
+    throw new TypeError('V8 natives cannot status a bound function')
+  }
+}
+
+function getOptimizationStatus(fn: Function) {
+  assertOptimizable(fn)
+  return getOptimizationStatusUnsafe(fn)
+}
+
+function prepare(fn: Function) {
+  assertOptimizable(fn)
+  prepareUnsafe(fn)
+}
+
+function optimizeNext(fn: Function) {
+  assertOptimizable(fn)
+  optimizeNextUnsafe(fn)
+}
 
 function describe(status: number): string {
   const flags: string[] = []
@@ -144,11 +174,19 @@ const rows: Array<[string, unknown, boolean]> = [
   ['router.load (own)', router.load, Object.hasOwn(router, 'load')],
   ['RouterCore.load (proto)', proto.load, Object.hasOwn(proto, 'load')],
   ['router.navigate (own)', router.navigate, Object.hasOwn(router, 'navigate')],
-  ['RouterCore.navigate (proto)', proto.navigate, Object.hasOwn(proto, 'navigate')],
+  [
+    'RouterCore.executeNavigate (proto)',
+    proto.executeNavigate,
+    Object.hasOwn(proto, 'executeNavigate'),
+  ],
   ['router.parseLocation (own)', router.parseLocation, Object.hasOwn(router, 'parseLocation')],
   ['RouterCore.parseLocation (proto)', proto.parseLocation, Object.hasOwn(proto, 'parseLocation')],
   ['router.buildLocation (own)', router.buildLocation, Object.hasOwn(router, 'buildLocation')],
-  ['RouterCore.buildLocation (proto)', proto.buildLocation, Object.hasOwn(proto, 'buildLocation')],
+  [
+    'RouterCore.executeBuildLocation (proto)',
+    proto.executeBuildLocation,
+    Object.hasOwn(proto, 'executeBuildLocation'),
+  ],
   [
     'router.updateLatestLocation (own)',
     router.updateLatestLocation,
@@ -168,7 +206,11 @@ for (const [name, fn, own] of rows) {
   console.log(`${name}\t${own}\t${safeStatus(fn)}`)
 }
 
-function forceOptimize(name: string, fn: Function, run: () => void) {
+function forceOptimize(name: string, fn: unknown, run: () => void) {
+  if (typeof fn !== 'function' || isBound(fn)) {
+    console.log(`force ${name}\t${safeStatus(fn)}`)
+    return
+  }
   try {
     prepare(fn)
     run()
@@ -195,9 +237,12 @@ forceOptimize('RouterCore.load', proto.load, () => {})
 forceOptimize('RouterCore.parseLocation', proto.parseLocation, () =>
   router.parseLocation(router.history.location, router.latestLocation),
 )
-forceOptimize('RouterCore.buildLocation', proto.buildLocation, () =>
+forceOptimize('RouterCore.executeBuildLocation', proto.executeBuildLocation, () =>
   router.buildLocation({ to: '/posts/$id', params: { id: '1' } }),
 )
+forceOptimize('RouterCore.executeNavigate', proto.executeNavigate, () => {
+  void router.navigate({ href: '/about' })
+})
 forceOptimize('RouterCore.updateLatestLocation', proto.updateLatestLocation, () =>
   router.updateLatestLocation(),
 )
@@ -211,7 +256,12 @@ console.log(
   `fresh.parseLocation === proto.parseLocation\t${fresh.parseLocation === proto.parseLocation}`,
 )
 console.log(`fresh.load status\t${safeStatus(fresh.load)}`)
-console.log(`bound navigate === proto.navigate\t${router.navigate === proto.navigate}`)
+console.log(
+  `bound navigate === proto.executeNavigate\t${router.navigate === proto.executeNavigate}`,
+)
+console.log(
+  `bound buildLocation === proto.executeBuildLocation\t${router.buildLocation === proto.executeBuildLocation}`,
+)
 
 for (let i = 0; i < 50; i++) {
   await createRouter({
