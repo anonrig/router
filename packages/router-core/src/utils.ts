@@ -641,10 +641,15 @@ export function encodePathLikeUrl(path: string): string {
 
   // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
   // eslint-disable-next-line no-control-regex
-  if (!/\s|[^\u0000-\u007F]/.test(path)) return path
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
-  // eslint-disable-next-line no-control-regex
-  return path.replace(/\s|[^\u0000-\u007F]/gu, encodeURIComponent)
+  const encoded = !/\s|[^\u0000-\u007F]/.test(path)
+    ? path
+    : // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
+      // eslint-disable-next-line no-control-regex
+      path.replace(/\s|[^\u0000-\u007F]/gu, encodeURIComponent)
+  // Browsers leave [] in pathnames; interpolatePath keeps them encoded so core
+  // path tests stay strict. Public hrefs unescape them for Link/history.
+  if (encoded.indexOf('%5') === -1) return encoded
+  return encoded.replace(/%5B/gi, '[').replace(/%5D/gi, ']')
 }
 
 /**

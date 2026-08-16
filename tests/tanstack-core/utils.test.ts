@@ -1060,6 +1060,7 @@ describe('encodePathLikeUrl', () => {
     // encodePathLikeUrl encodes whitespace and non-ASCII, but not other ASCII special chars
     expect(encodePathLikeUrl('/path/file name.pdf')).toBe('/path/file%20name.pdf')
     expect(encodePathLikeUrl('/path/file[1].pdf')).toBe('/path/file[1].pdf')
+    expect(encodePathLikeUrl('/path/file%5B1%5D.pdf')).toBe('/path/file[1].pdf')
     expect(encodePathLikeUrl('/path#section')).toBe('/path#section')
   })
 
