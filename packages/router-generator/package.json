@@ -2,9 +2,6 @@
   "name": "@anonrig/router-generator",
   "version": "0.0.0",
   "license": "MIT",
-  "engines": {
-    "node": ">=24"
-  },
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
@@ -15,5 +12,8 @@
   },
   "scripts": {
     "build": "echo 'source package'"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

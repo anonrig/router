@@ -2,9 +2,6 @@
   "name": "@anonrig/router-core",
   "version": "0.0.0",
   "license": "MIT",
-  "engines": {
-    "node": ">=24"
-  },
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
@@ -26,5 +23,8 @@
     "cookie-es": "^3.0.0",
     "seroval": "^1.6.2",
     "seroval-plugins": "^1.6.2"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
