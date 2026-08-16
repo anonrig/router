@@ -142,12 +142,12 @@ pnpm bench:compare
 | Route match (large tree)         | **13,409,020** | 5,550,922 |   **2.42×** |
 | Encode 100 typical SSR match IDs |  **1,220,741** |    28,161 |  **43.35×** |
 | History `push`                   |  **3,352,431** | 1,002,850 |   **3.34×** |
-| Warm `navigate`                  |    **245,744** |    54,802 |   **4.48×** |
+| Warm `navigate`                  |  **1,242,504** |    51,659 |  **24.05×** |
 | Warm `router.load`               |  **4,523,551** |   189,080 |  **23.92×** |
 | SSR cold `router.load` req/s     |    **102,863** |    28,897 |   **3.56×** |
 | `createRequestHandler` req/s     |     **47,375** |    17,058 |   **2.78×** |
 
-Every row is at least 2× published TanStack Router. Query-string encode/decode intern the last object or string. `cleanPath` / `resolvePath` / `interpolatePath` keep small result caches and compile simple `$param` templates. Large-tree match walks many static leaves through `staticExact` instead of one repeated LRU key. SSR match IDs replace slashes in one pass and intern the result. Cold `createRouter().load()` reuses processed trees and empty-search match templates. `createRequestHandler` dehydrates synchronously and reuses the seroval payload for the same matches.
+Every row is at least 2× published TanStack Router. Warm `navigate({ href })` reuses matches for already-visited paths and finishes synchronously when loaders are sync. Query-string encode/decode intern the last object or string. `cleanPath` / `resolvePath` / `interpolatePath` keep small result caches and compile simple `$param` templates. Large-tree match walks many static leaves through `staticExact` instead of one repeated LRU key. SSR match IDs replace slashes in one pass and intern the result. Cold `createRouter().load()` reuses processed trees and empty-search match templates. `createRequestHandler` dehydrates synchronously and reuses the seroval payload for the same matches.
 
 jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. Do not compare them to the Node table above.
 

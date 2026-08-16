@@ -61,6 +61,7 @@ import {
   encodePathLikeUrl,
   functionalUpdate,
   isDangerousProtocol,
+  isPromise,
   last,
   nullReplaceEqualDeep,
   replaceEqualDeep,
@@ -408,6 +409,7 @@ export class RouterCore<
   batch: (fn: () => void) => void = (fn) => fn()
   _rendered: any[] | undefined
   _cache = new Map<string, any>()
+  _matchesByPath?: Map<string, RouteMatch[]>
   _committed: any[] = []
   _tx?: any
   _flights?: Map<string, any>
@@ -822,7 +824,13 @@ export class RouterCore<
 
   private redirectHops = 0
 
-  private async executeNavigate({ to, reloadDocument, href, publicHref, ...rest }: any = {}) {
+  private executeNavigate({
+    to,
+    reloadDocument,
+    href,
+    publicHref,
+    ...rest
+  }: any = {}): Promise<void> {
     let hrefIsUrl = false
     if (href) {
       const first = href.charCodeAt(0)
@@ -830,11 +838,11 @@ export class RouterCore<
         hrefIsUrl = URL.canParse(`${href}`)
       }
     }
-    if (hrefIsUrl && !reloadDocument) reloadDocument = true
     if (
       href &&
       to === undefined &&
       !reloadDocument &&
+      !hrefIsUrl &&
       !publicHref &&
       !this.rewrite &&
       !this._hasSearchWork &&
@@ -848,6 +856,24 @@ export class RouterCore<
     ) {
       return this.navigateHrefFast(href, rest)
     }
+    return this.executeNavigateSlow({
+      to,
+      reloadDocument: hrefIsUrl ? true : reloadDocument,
+      href,
+      publicHref,
+      hrefIsUrl,
+      ...rest,
+    })
+  }
+
+  private async executeNavigateSlow({
+    to,
+    reloadDocument,
+    href,
+    publicHref,
+    hrefIsUrl,
+    ...rest
+  }: any = {}): Promise<void> {
     if (reloadDocument) {
       if (to !== undefined || !href) {
         const location = this.buildLocation({ to, ...rest } as any)
@@ -930,10 +956,12 @@ export class RouterCore<
     }
 
     this.shouldViewTransition = false
+    this._matchesByPath?.clear()
     return this.load({ sync: opts?.sync })
   }
 
   clearCache(opts?: Parameters<ClearCacheFn<this>>[0]) {
+    this._matchesByPath?.clear()
     const cached = this._cache
     const preloads = this._preloads
     const filter = opts?.filter
@@ -1012,20 +1040,24 @@ export class RouterCore<
     return true
   }
 
-  private async navigateHrefFast(href: string, rest: any): Promise<void> {
+  private navigateHrefFast(href: string, rest: any): Promise<void> {
     const currentIndex = this.history.location.state?.__TSR_index
     const parsed = parseHref(href, {
       __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
     })
     const searchStr = parsed.search
-    const search = (this.options.parseSearch ?? defaultParseSearch)(searchStr)
-    const hash = (parsed.hash || '').replace(/^#/, '')
+    const hashRaw = parsed.hash
+    const hash = !hashRaw ? '' : hashRaw.charCodeAt(0) === 35 ? hashRaw.slice(1) : hashRaw
     const hashStr = hash ? `#${hash}` : ''
+    const pathname = parsed.pathname
+    const hrefFull = `${pathname}${searchStr}${hashStr}`
     const location: ParsedLocation = {
-      href: `${parsed.pathname}${searchStr}${hashStr}`,
-      publicHref: `${parsed.pathname}${searchStr}${hashStr}`,
-      pathname: parsed.pathname,
-      search,
+      href: hrefFull,
+      publicHref: hrefFull,
+      pathname,
+      search: searchStr
+        ? (this.options.parseSearch ?? defaultParseSearch)(searchStr)
+        : Object.create(null),
       searchStr,
       hash,
       state: parsed.state ?? {},
@@ -1034,38 +1066,310 @@ export class RouterCore<
 
     const prev = this.latestLocation
     const same =
-      prev &&
-      prev.pathname === location.pathname &&
-      prev.searchStr === location.searchStr &&
-      prev.hash === location.hash
+      prev && prev.pathname === pathname && prev.searchStr === searchStr && prev.hash === hash
 
     this.latestLocation = location
     this._pendingLocation = location
 
     if (!same) {
       this._committing = true
-      this.history[rest.replace ? 'replace' : 'push'](
-        location.publicHref ?? location.href,
-        location.state,
-        {
-          ignoreBlocker: rest.ignoreBlocker,
-        },
-      )
+      this.history[rest.replace ? 'replace' : 'push'](hrefFull, location.state, {
+        ignoreBlocker: rest.ignoreBlocker,
+      })
       this.history.flush?.()
       this._committing = false
     }
 
     const id = ++this.loadId
-    try {
-      await this.runLoad(location, id)
-    } finally {
-      if (this._pendingLocation === location) this._pendingLocation = undefined
-      this._commitPromise?.resolve()
-      this._commitPromise = undefined
+    const loaded = this.runLoad(location, id)
+    if (isPromise(loaded)) {
+      return loaded.then(
+        () => this.finishHrefNav(location),
+        (err) => {
+          this.finishHrefNav(location)
+          throw err
+        },
+      )
+    }
+    this.finishHrefNav(location)
+    return RESOLVED
+  }
+
+  private finishHrefNav(location: ParsedLocation) {
+    if (this._pendingLocation === location) this._pendingLocation = undefined
+    this._commitPromise?.resolve()
+    this._commitPromise = undefined
+  }
+
+  private runLoad(location: ParsedLocation, id: number): void | Promise<void> {
+    const warm = this.tryWarmLoad(location, id)
+    if (warm === true) return
+    if (warm) return warm
+    return this.runLoadFallback(location, id)
+  }
+
+  private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
+    if (this._forcePending || this._handoff || this._tx || this._refreshNextLoad) return false
+
+    const cacheKey = location.searchStr
+      ? `${location.pathname}\0${location.searchStr}`
+      : location.pathname
+    const cached = this._matchesByPath?.get(cacheKey)
+    if (cached && this.canReuseWarmMatches(cached)) {
+      if (this.subscribers.size) {
+        this.emit({
+          type: 'onBeforeLoad',
+          fromLocation: this.stores.resolvedLocation.get(),
+          toLocation: location,
+        })
+      }
+      this.completeWarmLoad(location, cached)
+      return true
+    }
+
+    const found = findRouteMatch(
+      this.processedTree,
+      location.pathname,
+      this.options.caseSensitive ?? false,
+    )
+    if (!found) return false
+
+    for (let i = 0; i < found.length; i++) {
+      const route = found[i]!.route as AnyRoute
+      if ((route.lazyFn && !route._lazy) || route.options.beforeLoad) return false
+    }
+
+    if (this.subscribers.size) {
+      this.emit({
+        type: 'onBeforeLoad',
+        fromLocation: this.stores.resolvedLocation.get(),
+        toLocation: location,
+      })
+    }
+
+    const prevMatches = this._committed
+    const prevByRoute = prevMatches.length > 4 ? null : prevMatches
+    const prevMap = prevMatches.length > 4 ? new Map<string, RouteMatch>() : null
+    if (prevMap) {
+      for (let i = 0; i < prevMatches.length; i++) {
+        const prev = prevMatches[i]!
+        prevMap.set(prev.routeId, prev)
+      }
+    }
+
+    const routerContext = this.options.context
+    const context = routerContext ? { ...routerContext } : EMPTY_OBJ
+    const matches: RouteMatch[] = new Array(found.length)
+
+    for (let i = 0; i < found.length; i++) {
+      const result = found[i]!
+      const prev = prevMap
+        ? prevMap.get(result.route.id)
+        : findPrevMatch(prevByRoute!, result.route.id)
+      const sameParams = prev && deepEqual(prev.params, result.params)
+      const samePath = prev && prev.pathname === location.pathname
+      if (prev && sameParams && samePath && !prev.invalid) {
+        prev.search = location.search
+        prev.cause = 'stay'
+        prev.publicHref = location.publicHref
+        prev._forcePending = prev._forcePending || this._forcePending
+        matches[i] = prev
+        continue
+      }
+      const route = result.route as AnyRoute
+      const options = route.options
+      const needsLoad = !!options.loader
+      matches[i] = {
+        id: `${result.route.id}-${location.pathname}`,
+        routeId: result.route.id,
+        route,
+        pathname: location.pathname,
+        params: result.params,
+        rawParams: result.rawParams,
+        status: needsLoad ? 'pending' : 'success',
+        isFetching: needsLoad ? 'loader' : false,
+        context,
+        search: location.search,
+        updatedAt: 0,
+        abortController: needsLoad ? new AbortController() : noopAbortController,
+        cause: prev ? ('stay' as const) : ('enter' as const),
+        invalid: false,
+        _forcePending: this._forcePending || prev?._forcePending,
+        publicHref: location.publicHref,
+      } as RouteMatch
+    }
+
+    const next = this.finishWarmMatches(location, id, matches, cacheKey, 0, context)
+    return next ?? true
+  }
+
+  private finishWarmMatches(
+    location: ParsedLocation,
+    id: number,
+    matches: RouteMatch[],
+    cacheKey: string,
+    start: number,
+    context: Record<string, any>,
+  ): void | Promise<void> {
+    for (let i = start; i < matches.length; i++) {
+      if (id !== this.loadId) return
+      const match = matches[i]!
+      const route = this.routesById[match.routeId]!
+      const opts = route.options
+      if (match.status === 'success' && match.cause === 'stay' && !match.invalid) {
+        match.context = context
+        continue
+      }
+      if (!opts.loader) {
+        match.context = context
+        match.status = 'success'
+        match.isFetching = false
+        const hook = match.cause === 'enter' ? opts.onEnter : opts.onStay
+        if (hook) {
+          hook({
+            abortController: match.abortController,
+            preload: false,
+            params: match.params,
+            rawParams: match.rawParams,
+            cause: match.cause,
+            location,
+            navigate: this.navigate,
+            search: match.search,
+            context,
+            route,
+            matches,
+          } as any)
+        }
+        continue
+      }
+
+      const loaderContext = {
+        abortController: match.abortController,
+        preload: false,
+        params: match.params,
+        rawParams: match.rawParams,
+        cause: match.cause,
+        location,
+        navigate: this.navigate,
+        search: match.search,
+        context,
+        route,
+        matches,
+      }
+      try {
+        const data = opts.loader(loaderContext)
+        if (isPromise(data)) {
+          return Promise.resolve(data).then((value) => {
+            if (isRedirect(value) || isNotFound(value)) {
+              return this.runLoadFallback(location, id)
+            }
+            match.loaderData = value
+            match.status = 'success'
+            match.isFetching = false
+            match.context = context
+            this._cache.set(match.id, { data: value, updatedAt: 0 })
+            return this.finishWarmMatches(location, id, matches, cacheKey, i + 1, context)
+          })
+        }
+        if (isRedirect(data) || isNotFound(data)) return this.runLoadFallback(location, id)
+        match.loaderData = data
+        match.status = 'success'
+        match.isFetching = false
+        match.context = context
+        this._cache.set(match.id, { data, updatedAt: 0 })
+        if (match.cause === 'enter') opts.onEnter?.(loaderContext as any)
+        else opts.onStay?.(loaderContext as any)
+      } catch {
+        return this.runLoadFallback(location, id)
+      }
+    }
+
+    if (id !== this.loadId) return
+    this.leaveWarmMatches(matches)
+    this.completeWarmLoad(location, matches)
+    rememberWarmMatches(this, cacheKey, matches)
+  }
+
+  private canReuseWarmMatches(matches: RouteMatch[]) {
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i]!
+      if (match.status !== 'success' || match.invalid || match.isFetching) return false
+      const route = this.routesById[match.routeId]
+      const shouldReload = route?.options?.shouldReload
+      if (shouldReload === true || typeof shouldReload === 'function') return false
+      if ((route?.lazyFn && !route._lazy) || route?.options?.beforeLoad) return false
+    }
+    return true
+  }
+
+  private leaveWarmMatches(matches: RouteMatch[]) {
+    const prevMatches = this._committed
+    for (let i = 0; i < prevMatches.length; i++) {
+      const left = prevMatches[i]!
+      const hook = this.routesById[left.routeId]?.options.onLeave
+      if (!hook) continue
+      let still = false
+      for (let j = 0; j < matches.length; j++) {
+        if (matches[j]!.routeId === left.routeId) {
+          still = true
+          break
+        }
+      }
+      if (still) continue
+      hook({
+        params: left.params,
+        search: left.search,
+        context: left.context,
+        cause: 'leave',
+      } as any)
     }
   }
 
-  private async runLoad(location: ParsedLocation, id: number): Promise<void> {
+  private completeWarmLoad(location: ParsedLocation, matches: RouteMatch[]) {
+    let statusCode = 200
+    for (let i = 0; i < matches.length; i++) {
+      const status = matches[i]!.status
+      if (status === 'notFound') {
+        statusCode = 404
+        break
+      }
+      if (status === 'error') statusCode = 500
+    }
+    const prevResolved = this.stores.resolvedLocation.get()
+    this._committed = matches
+    for (let i = 0; i < matches.length; i++) {
+      this._cache.set(matches[i]!.id, matches[i]!)
+    }
+    this.stores.status.set('idle')
+    this.stores.location.set(location)
+    this.stores.resolvedLocation.set(location)
+    this.stores.setMatches(matches)
+    this.stores.state.set({
+      status: 'idle',
+      isLoading: false,
+      isTransitioning: false,
+      matches,
+      pendingMatches: undefined,
+      location,
+      resolvedLocation: location,
+      statusCode,
+    })
+    this.redirectHops = 0
+    if (this.subscribers.size) {
+      const change = getLocationChangeInfo(location, prevResolved)
+      this.emit({ type: 'onLoad', ...change })
+      this.emit({ type: 'onResolved', ...change })
+      this.emit({ type: 'onRendered', ...change })
+    }
+    const rendered = this._rendered
+    if (rendered?.[1]) {
+      const settle = rendered[1]
+      rendered.length = 0
+      settle(true)
+    }
+  }
+
+  private async runLoadFallback(location: ParsedLocation, id: number): Promise<void> {
     this.emit({
       type: 'onBeforeLoad',
       fromLocation: this.state.resolvedLocation,
@@ -2018,6 +2322,28 @@ function parseHistoryLocation(
     hash: decodePath(url.hash.replace(/^#/, '')).path,
     state: replaceEqualDeep(previous?.state, location.state),
   }
+}
+
+const WARM_MATCH_CACHE_MAX = 64
+
+function findPrevMatch(matches: RouteMatch[], routeId: string) {
+  for (let i = 0; i < matches.length; i++) {
+    if (matches[i]!.routeId === routeId) return matches[i]
+  }
+  return undefined
+}
+
+function rememberWarmMatches(
+  router: { _matchesByPath?: Map<string, RouteMatch[]> },
+  key: string,
+  matches: RouteMatch[],
+) {
+  const cache = (router._matchesByPath ??= new Map())
+  if (cache.size >= WARM_MATCH_CACHE_MAX && !cache.has(key)) {
+    const first = cache.keys().next().value
+    if (first !== undefined) cache.delete(first)
+  }
+  cache.set(key, matches)
 }
 
 function resolveNextParams(spec: unknown, base: Record<string, unknown>): Record<string, unknown> {
