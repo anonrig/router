@@ -3,6 +3,7 @@ import {
   compileDecodeCharMap,
   exactPathTest,
   interpolatePath,
+  joinPaths,
   removeTrailingSlash,
   resolvePath,
   trimPathLeft,
@@ -1228,6 +1229,54 @@ describe('parsePathname', () => {
     ] satisfies ParsePathnameTestScheme)('$name', ({ to, expected }) => {
       const result = parsePathname(to)
       expect(result).toEqual(expected)
+    })
+  })
+
+  describe('joinPaths edge cases', () => {
+    it('handles empty string segments without injecting unintended extra slashes', () => {
+      expect(joinPaths(['/posts', ''])).toBe('/posts')
+      expect(joinPaths(['/posts', '', '42'])).toBe('/posts/42')
+      expect(joinPaths(['', '/posts', ''])).toBe('/posts')
+      expect(joinPaths([undefined, '/posts', undefined, '42'])).toBe('/posts/42')
+    })
+
+    it('joins root and nested paths cleanly without duplicate slashes', () => {
+      expect(joinPaths(['/', '/about'])).toBe('/about')
+      expect(joinPaths(['/', 'about'])).toBe('/about')
+      expect(joinPaths(['/a/b/', '/c/d'])).toBe('/a/b/c/d')
+    })
+  })
+
+  describe('resolvePath absolute paths with trailingSlash policy', () => {
+    it('resolves absolute path with trailingSlash: "always"', () => {
+      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'always' })).toBe('/settings/')
+      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'always' })).toBe('/settings/')
+      expect(resolvePath({ base: '/dashboard', to: '/', trailingSlash: 'always' })).toBe('/')
+    })
+
+    it('resolves absolute path with trailingSlash: "never"', () => {
+      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'never' })).toBe('/settings')
+      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'never' })).toBe('/settings')
+      expect(resolvePath({ base: '/dashboard', to: '/', trailingSlash: 'never' })).toBe('/')
+    })
+
+    it('resolves absolute path with trailingSlash: "preserve"', () => {
+      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'preserve' })).toBe('/settings/')
+      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'preserve' })).toBe('/settings')
+      expect(resolvePath({ base: '/dashboard', to: '/', trailingSlash: 'preserve' })).toBe('/')
+    })
+  })
+
+  describe('resolvePath relative navigation past root boundary', () => {
+    it('clamps at root when relative steps exceed depth', () => {
+      expect(resolvePath({ base: '/a/b', to: '../../..' })).toBe('/')
+      expect(resolvePath({ base: '/a/b', to: '../../../../c' })).toBe('/c')
+    })
+
+    it('applies trailingSlash policy when clamped at root', () => {
+      expect(resolvePath({ base: '/a', to: '../..', trailingSlash: 'always' })).toBe('/')
+      expect(resolvePath({ base: '/a', to: '../../c', trailingSlash: 'always' })).toBe('/c/')
+      expect(resolvePath({ base: '/a', to: '../../c/', trailingSlash: 'never' })).toBe('/c')
     })
   })
 })
