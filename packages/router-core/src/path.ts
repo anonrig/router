@@ -399,7 +399,7 @@ function encodeParam(
   params: InterpolatePathOptions['params'],
   decoder: InterpolatePathOptions['decoder'],
 ): any {
-  const value = params[key]
+  const value = key === '_splat' ? params._splat ?? params['*'] : params[key]
   if (typeof value !== 'string') return value
   if (key === '_splat') {
     let safe = true
@@ -485,7 +485,7 @@ function interpolateBracedParams(
     }
 
     if (kind === SEGMENT_TYPE_WILDCARD) {
-      const splat = params._splat
+      const splat = params._splat ?? params['*']
       usedParams._splat = splat
       usedParams['*'] = splat
       const prefix = path.substring(start, segment[1])
