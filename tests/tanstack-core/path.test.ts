@@ -3,6 +3,7 @@ import {
   compileDecodeCharMap,
   exactPathTest,
   interpolatePath,
+  joinPaths,
   removeTrailingSlash,
   resolvePath,
   trimPathLeft,
@@ -45,6 +46,12 @@ describe.each([{ basepath: '/' }, { basepath: '/app' }, { basepath: '/app/' }])(
     it('should handle strings with multiple slashes', () => {
       const input = 'https://example.com/path/to/resource/'
       const expectedOutput = 'https://example.com/path/to/resource'
+      const result = removeTrailingSlash(input, basepath)
+      expect(result).toBe(expectedOutput)
+    })
+    it('should preserve basepath root when value matches basepath', () => {
+      const input = '/app/'
+      const expectedOutput = basepath === '/app' || basepath === '/app/' ? '/app/' : '/app'
       const result = removeTrailingSlash(input, basepath)
       expect(result).toBe(expectedOutput)
     })
@@ -1228,6 +1235,14 @@ describe('parsePathname', () => {
     ] satisfies ParsePathnameTestScheme)('$name', ({ to, expected }) => {
       const result = parsePathname(to)
       expect(result).toEqual(expected)
+    })
+  })
+
+  describe('joinPaths edge cases', () => {
+    it('handles empty string segments without injecting unintended extra slashes', () => {
+      expect(joinPaths(['/posts', ''])).toBe('/posts')
+      expect(joinPaths(['/posts', '', '42'])).toBe('/posts/42')
+      expect(joinPaths(['', '/posts', ''])).toBe('/posts')
     })
   })
 })
