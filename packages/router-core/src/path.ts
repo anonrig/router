@@ -11,7 +11,7 @@ export function joinPaths(paths: Array<string | undefined>) {
   let out = ''
   for (let i = 0; i < paths.length; i++) {
     const val = paths[i]
-    if (val === undefined) continue
+    if (!val) continue
     if (out.length && out.charCodeAt(out.length - 1) !== 47 && val.charCodeAt(0) !== 47) {
       out += '/'
     } else if (out.length && out.charCodeAt(out.length - 1) === 47 && val.charCodeAt(0) === 47) {
@@ -90,12 +90,13 @@ export function trimPath(path: string) {
 
 export function removeTrailingSlash(value: string, basepath: string): string {
   if (!value || value === '/' || value.charCodeAt(value.length - 1) !== 47) return value
-  if (value.length === basepath.length + 1) {
-    let i = 0
-    for (; i < basepath.length; i++) {
-      if (value.charCodeAt(i) !== basepath.charCodeAt(i)) break
+  const baseLen = basepath.length
+  if (baseLen > 0) {
+    const baseEndsWithSlash = basepath.charCodeAt(baseLen - 1) === 47
+    const targetLen = baseEndsWithSlash ? baseLen : baseLen + 1
+    if (value.length === targetLen && value.startsWith(basepath)) {
+      return value
     }
-    if (i === basepath.length) return value
   }
   return value.slice(0, -1)
 }
@@ -160,13 +161,23 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
     return cached
   }
 
-  if (isAbsolute && trailingSlash === 'never' && !hasDotSegment(to)) {
+  if (isAbsolute && !hasDotSegment(to)) {
     const result = cleanPath(to) || '/'
-    const trimmed =
-      result.length > 1 && result.charCodeAt(result.length - 1) === 47
-        ? result.slice(0, -1)
-        : result
-    return finishResolve(cache, key, trimmed, base, to, trailingSlash, !cache)
+    const hasSlash = result.length > 1 && result.charCodeAt(result.length - 1) === 47
+    let finalPath = result
+    if (trailingSlash === 'never' && hasSlash) {
+      finalPath = result.slice(0, -1)
+    } else if (trailingSlash === 'always' && !hasSlash && result !== '/') {
+      finalPath = result + '/'
+    } else if (trailingSlash === 'preserve') {
+      const toEndedWithSlash = to.length > 1 && to.charCodeAt(to.length - 1) === 47
+      if (toEndedWithSlash && !hasSlash && result !== '/') {
+        finalPath = result + '/'
+      } else if (!toEndedWithSlash && hasSlash) {
+        finalPath = result.slice(0, -1)
+      }
+    }
+    return finishResolve(cache, key, finalPath, base, to, trailingSlash, !cache)
   }
 
   let baseSegments: Array<string>
