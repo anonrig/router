@@ -382,6 +382,18 @@ describe.each([{ server: true }, { server: false }])(
           params: { _splat: 'sean/cassiere' },
           result: '/users/sean/cassiere',
         },
+        {
+          name: 'should interpolate the path with asterisk (*) splat param at the end',
+          path: '/users/$',
+          params: { '*': '123' },
+          result: '/users/123',
+        },
+        {
+          name: 'should interpolate the path with asterisk (*) splat param containing slashes',
+          path: '/users/$',
+          params: { '*': 'sean/cassiere' },
+          result: '/users/sean/cassiere',
+        },
       ])('$name', ({ path, params, decoder, result }) => {
         expect(
           interpolatePath({
