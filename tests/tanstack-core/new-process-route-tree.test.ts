@@ -1449,6 +1449,61 @@ describe('findRouteMatch', () => {
 
       expect(findRouteMatch('/a', processedTree)?.route.id).toBe('/_layout/a')
     })
+    it('nested pathless layout index route does not overwrite root index route', () => {
+      const rootIndex: any = {
+        id: '/_home/index',
+        fullPath: '/',
+        path: '/',
+        options: { path: '/', id: '/_home/index' },
+      }
+      const dashboardRoute: any = {
+        id: '/dashboard',
+        fullPath: '/dashboard',
+        path: '/dashboard',
+        options: { path: '/dashboard', id: '/dashboard' },
+      }
+      const authLayout: any = {
+        id: '/dashboard/_auth',
+        options: { id: '/dashboard/_auth' },
+        parentRoute: dashboardRoute,
+      }
+      const dashboardIndex: any = {
+        id: '/dashboard/_auth/index',
+        fullPath: '/dashboard/',
+        path: '/',
+        options: { path: '/', id: '/dashboard/_auth/index' },
+        parentRoute: authLayout,
+      }
+
+      const tree: any = {
+        id: '__root__',
+        fullPath: '/',
+        path: '/',
+        isRoot: true,
+        options: { path: '/' },
+        children: [
+          rootIndex,
+          {
+            ...dashboardRoute,
+            children: [
+              {
+                ...authLayout,
+                children: [dashboardIndex],
+              },
+            ],
+          },
+        ],
+      }
+      rootIndex.parentRoute = tree
+      dashboardRoute.parentRoute = tree
+      authLayout.parentRoute = dashboardRoute
+      dashboardIndex.parentRoute = authLayout
+
+      const { processedTree } = processRouteTree(tree)
+
+      expect(findRouteMatch('/', processedTree)?.route.id).toBe('/_home/index')
+      expect(findRouteMatch('/dashboard', processedTree)?.route.id).toBe('/dashboard/_auth/index')
+    })
     it('builds segment tree correctly', () => {
       const tree = {
         path: '/',
