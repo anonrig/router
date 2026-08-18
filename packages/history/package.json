@@ -15,7 +15,8 @@
   },
   "files": [
     "src",
-    "LICENSE"
+    "LICENSE",
+    "README.md"
   ],
   "type": "module",
   "sideEffects": false,
