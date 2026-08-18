@@ -4,6 +4,7 @@ import {
   Link,
   Outlet,
   RouterProvider,
+  createFileRoute,
   createMemoryHistory,
   createRootRoute,
   createRoute,
@@ -82,6 +83,77 @@ describe('RouterProvider', () => {
 
     render(<RouterProvider router={router} />)
     expect(await screen.findByText('world-true')).toBeInTheDocument()
+  })
+})
+
+describe('createFileRoute', () => {
+  it('binds id and fullPath from the file path so lazy stubs stay hookable', () => {
+    const profile = createFileRoute('/$username/_profile')({})
+    expect(profile.isRoot).toBe(false)
+    expect(profile.id).toBe('/$username/_profile')
+    expect(profile.fullPath).toBe('/$username')
+
+    const index = createFileRoute('/$username/_profile/')({})
+    expect(index.id).toBe('/$username/_profile/')
+    expect(index.fullPath).toBe('/$username/')
+
+    const listIndex = createFileRoute('/i/lists/$listId/')({})
+    expect(listIndex.fullPath).toBe('/i/lists/$listId/')
+  })
+
+  it('reads params from the file Route after a generator-style lazy stub load', async () => {
+    const Profile = createFileRoute('/$username/_profile')({
+      component: function ProfileLayout() {
+        const { username } = Profile.useParams()
+        return (
+          <div>
+            <span>profile:{username}</span>
+            <span>from:{Profile.fullPath}</span>
+            <Outlet />
+          </div>
+        )
+      },
+    })
+    const ProfileIndex = createFileRoute('/$username/_profile/')({
+      component: function ProfilePosts() {
+        return <div>posts</div>
+      },
+    })
+
+    const root = createRootRoute({
+      component: function Root() {
+        return <Outlet />
+      },
+    })
+
+    function stub(
+      id: string,
+      path: string | undefined,
+      parent: () => any,
+      fileRoute: { options: Record<string, unknown> },
+    ) {
+      const route = createRoute({ getParentRoute: parent })
+      route.update(
+        (path === undefined
+          ? { id, getParentRoute: parent }
+          : { id, path, getParentRoute: parent }) as any,
+      )
+      route.lazy(async () => ({ options: { id, ...fileRoute.options } }) as any)
+      ;(route as any)._lazyOptions = true
+      return route
+    }
+
+    const profileStub = stub('/$username/_profile', '/$username', () => root, Profile)
+    const indexStub = stub('/$username/_profile/', '/', () => profileStub, ProfileIndex)
+    const router = createRouter({
+      routeTree: root.addChildren([profileStub.addChildren([indexStub])]),
+      history: createMemoryHistory({ initialEntries: ['/jack'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('profile:jack')).toBeInTheDocument()
+    expect(screen.getByText('from:/$username')).toBeInTheDocument()
+    expect(screen.getByText('posts')).toBeInTheDocument()
   })
 })
 
