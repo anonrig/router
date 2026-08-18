@@ -631,12 +631,15 @@ function routeApiUseNavigate(this: { id: string }) {
   return useNavigate({ from: router.routesById[this.id as string]?.fullPath })
 }
 
-function bindRouteLink(self: { id: string; fullPath?: string }) {
+function bindRouteLink<TFrom extends string>(self: {
+  id: unknown
+  fullPath?: string
+}): LinkComponentRoute<TFrom> {
   return React.forwardRef((props: any, ref: React.ForwardedRef<HTMLAnchorElement>) => {
     const router = useRouter()
     const from = self.fullPath ?? router.routesById[self.id as string]?.fullPath
     return <Link ref={ref} from={from as never} {...props} />
-  })
+  }) as unknown as LinkComponentRoute<TFrom>
 }
 
 const routeHookApi = {
