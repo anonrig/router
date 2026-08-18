@@ -57,11 +57,7 @@ const NOT_FOUND = 2
 const REDIRECTED = 3
 const CANCELED = 4
 
-type RedirectOutcome = [
-  kind: typeof REDIRECTED,
-  redirect: AnyRedirect,
-  location?: ParsedLocation,
-]
+type RedirectOutcome = [kind: typeof REDIRECTED, redirect: AnyRedirect, location?: ParsedLocation]
 
 type LoaderOutcome =
   | [kind: typeof SUCCESS, data: unknown]
@@ -228,9 +224,7 @@ function materializeRedirect(
   while (outcome[0 /* kind */] === REDIRECTED) {
     const redirect = outcome[1 /* redirect */]
     if (
-      redirect.options.reloadDocument
-        ? options[4 /* preload */]
-        : options[1 /* redirects */] >= 20
+      redirect.options.reloadDocument ? options[4 /* preload */] : options[1 /* redirects */] >= 20
     ) {
       return outcome
     }
@@ -1356,17 +1350,16 @@ function finishPending(router: CoordinatorRouter, tx: LoadTransaction): void {
   const session = router._pending
   if (
     router._tx === tx ||
-    !router._tx?.[3 /* matches */].some((match) => match.id === session?.[1 /* boundaryId */])
+    !router._tx?.[3 /* matches */].some(
+      (match: AnyRouteMatch) => match.id === session?.[1 /* boundaryId */],
+    )
   ) {
     clearTimeout(session?.[3 /* revealTimer */])
     router._pending = undefined
   }
 }
 
-async function awaitPendingMinimum(
-  router: CoordinatorRouter,
-  tx: LoadTransaction,
-): Promise<void> {
+async function awaitPendingMinimum(router: CoordinatorRouter, tx: LoadTransaction): Promise<void> {
   const session = router._pending
   if (!session) {
     return
@@ -1887,10 +1880,7 @@ export async function loadClientRoute(
   })
   // Cold loads have no committed UI to retain, but provisional not-found
   // matches must wait for lazy routes to place the final boundary.
-  if (
-    resolvedPrefix ||
-    (!router._committed.length && !matches.some((match) => match._notFound))
-  ) {
+  if (resolvedPrefix || (!router._committed.length && !matches.some((match) => match._notFound))) {
     offerPending(router, tx)
   }
   try {

@@ -1,13 +1,5 @@
 import { runInNewContext } from 'node:vm'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  onTestFinished,
-  test,
-  vi,
-} from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
 import {
   BaseRootRoute,
@@ -146,9 +138,7 @@ describe('hydration asset currentness', () => {
     })
     const serverRouter = createTestRouter({
       routeTree: serverRootRoute.addChildren([
-        serverParentRoute.addChildren([
-          serverChildRoute.addChildren([serverTailRoute]),
-        ]),
+        serverParentRoute.addChildren([serverChildRoute.addChildren([serverTailRoute])]),
       ]),
       history: createMemoryHistory({
         initialEntries: ['/parent/child/tail'],
@@ -197,9 +187,11 @@ describe('hydration asset currentness', () => {
 
     await hydrate(router)
 
-    expect(
-      _getAssetMatches(router.state.matches).map((match) => match.routeId),
-    ).toEqual([rootRoute.id, parentRoute.id, childRoute.id])
+    expect(_getAssetMatches(router.state.matches).map((match) => match.routeId)).toEqual([
+      rootRoute.id,
+      parentRoute.id,
+      childRoute.id,
+    ])
     expect(childContext).toHaveBeenCalledOnce()
     expect(childHead).toHaveBeenCalledOnce()
     expect(router.state.matches[2]?.meta).toEqual([
@@ -221,9 +213,7 @@ describe('hydration asset currentness', () => {
       loader: () => 'server child data',
     })
     const serverRouter = createTestRouter({
-      routeTree: serverRootRoute.addChildren([
-        serverParentRoute.addChildren([serverChildRoute]),
-      ]),
+      routeTree: serverRootRoute.addChildren([serverParentRoute.addChildren([serverChildRoute])]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
       isServer: true,
     })
@@ -265,9 +255,11 @@ describe('hydration asset currentness', () => {
       expect(router.state.status).toBe('pending')
     })
     expect(continuationAssetEnd).toBe(3)
-    expect(
-      _getAssetMatches(router.state.matches).map((match) => match.routeId),
-    ).toEqual([rootRoute.id, parentRoute.id, childRoute.id])
+    expect(_getAssetMatches(router.state.matches).map((match) => match.routeId)).toEqual([
+      rootRoute.id,
+      parentRoute.id,
+      childRoute.id,
+    ])
     expect(router.state.matches[1]?._assetEnd).toBe(3)
 
     childLoaderResult.resolve('client child data')
@@ -506,9 +498,7 @@ describe('hydration asset currentness', () => {
 
   test('a synchronous context navigation prevents stale hydration assets from running', async () => {
     const oldHead = vi.fn(() => ({ meta: [{ title: 'Old route' }] }))
-    const oldScripts = vi.fn(() => [
-      { children: 'window.oldHydrationLaneRan = true' },
-    ])
+    const oldScripts = vi.fn(() => [{ children: 'window.oldHydrationLaneRan = true' }])
     const newHead = vi.fn(() => ({ meta: [{ title: 'New route' }] }))
 
     let navigation: Promise<void> | undefined
@@ -590,9 +580,7 @@ describe('hydration asset currentness', () => {
       loader: serverChildLoader,
     })
     const serverRouter = createTestRouter({
-      routeTree: serverRootRoute.addChildren([
-        serverParentRoute.addChildren([serverChildRoute]),
-      ]),
+      routeTree: serverRootRoute.addChildren([serverParentRoute.addChildren([serverChildRoute])]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
       isServer: true,
     })
@@ -649,18 +637,17 @@ describe('hydration asset currentness', () => {
       parentRoute.id,
       childRoute.id,
     ])
-    expect(
-      router.state.matches.find((match) => match.routeId === parentRoute.id),
-    ).toMatchObject({
+    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
       status: 'pending',
       error: transportedError,
     })
     expect(parentBeforeLoad).not.toHaveBeenCalled()
     expect(childBeforeLoad).not.toHaveBeenCalled()
     expect(childLoader).not.toHaveBeenCalled()
-    expect(
-      _getAssetMatches(router.state.matches).map((match) => match.routeId),
-    ).toEqual([rootRoute.id, parentRoute.id])
+    expect(_getAssetMatches(router.state.matches).map((match) => match.routeId)).toEqual([
+      rootRoute.id,
+      parentRoute.id,
+    ])
 
     await router.load()
 

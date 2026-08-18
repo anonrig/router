@@ -68,7 +68,6 @@ describe('redirect', () => {
       expect(router.state.status).toBe('idle')
     })
 
-
     test('renders the source error boundary when building a redirect target fails', async () => {
       const boom = new Error('redirect search failed')
       const rootRoute = createRootRoute({ component: Outlet })
@@ -88,9 +87,7 @@ describe('redirect', () => {
             },
           })
         },
-        errorComponent: ({ error }) => (
-          <div data-testid="source-error">{error.message}</div>
-        ),
+        errorComponent: ({ error }) => <div data-testid="source-error">{error.message}</div>,
       })
       const targetRoute = createRoute({
         getParentRoute: () => rootRoute,
@@ -98,11 +95,7 @@ describe('redirect', () => {
         component: () => <div>Target</div>,
       })
       const router = createRouter({
-        routeTree: rootRoute.addChildren([
-          indexRoute,
-          sourceRoute,
-          targetRoute,
-        ]),
+        routeTree: rootRoute.addChildren([indexRoute, sourceRoute, targetRoute]),
         history,
       })
 
@@ -111,9 +104,7 @@ describe('redirect', () => {
 
       await act(() => router.navigate({ to: '/source' }))
 
-      expect(await screen.findByTestId('source-error')).toHaveTextContent(
-        boom.message,
-      )
+      expect(await screen.findByTestId('source-error')).toHaveTextContent(boom.message)
       expect(screen.queryByText('Home')).not.toBeInTheDocument()
       expect(screen.queryByText('Target')).not.toBeInTheDocument()
       expect(window.location.pathname).toBe('/source')

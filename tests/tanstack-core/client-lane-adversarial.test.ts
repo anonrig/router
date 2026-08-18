@@ -173,7 +173,6 @@ describe('adversarial client lane ownership', () => {
     expect(cOnEnter).toHaveBeenCalledTimes(1)
   })
 
-
   test('supersession cancels lazy not-found boundary lookup without leaking pending ownership', async () => {
     const lazyStarted = createControlledPromise<void>()
     const lazyGate = createControlledPromise<any>()

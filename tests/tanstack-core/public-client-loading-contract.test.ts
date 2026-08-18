@@ -51,7 +51,6 @@ describe('public client loading contracts', () => {
     })
   })
 
-
   test('a successor retains committed UI until its pending context is ready', async () => {
     const initialPublished = createControlledPromise<void>()
     const initialRenderAck = createControlledPromise<boolean>()

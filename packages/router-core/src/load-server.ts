@@ -124,9 +124,7 @@ function materializeRedirect(
     return outcome
   } catch (cause) {
     signal?.throwIfAborted()
-    return notify
-      ? normalizeError(router, lane, route, cause, signal, false)
-      : [ERROR, cause]
+    return notify ? normalizeError(router, lane, route, cause, signal, false) : [ERROR, cause]
   }
 }
 
@@ -274,7 +272,10 @@ async function contextualize(
     }
     const validationError = match.paramsError ?? match.searchError
     if (validationError !== undefined) {
-      failure = [index, stampNotFound(match, normalizeError(router, lane, route, validationError, signal))]
+      failure = [
+        index,
+        stampNotFound(match, normalizeError(router, lane, route, validationError, signal)),
+      ]
       end = index
       break
     }
@@ -388,10 +389,7 @@ function createLoaderTask(
             return [SKIPPED]
           }
           if (result[0] === REDIRECTED) {
-            return stampNotFound(
-              match,
-              materializeRedirect(router, lane, route, result, signal),
-            )
+            return stampNotFound(match, materializeRedirect(router, lane, route, result, signal))
           }
           if (result[0] === ERROR) {
             result = normalizeError(router, lane, route, result[1], signal)

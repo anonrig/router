@@ -1,11 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  redirect,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, redirect } from '@tanstack/router-core'
 import { createTestRouter, loadServerResponse } from './router-test-utils'
 
 describe('redirect target errors', () => {
@@ -458,9 +453,7 @@ describe('redirect target errors', () => {
     })
     await vi.waitFor(() => expect(sourceLoader).toHaveBeenCalledOnce())
 
-    loaderGate.resolve(
-      redirect({ to: '/target', search: searchUpdater } as any),
-    )
+    loaderGate.resolve(redirect({ to: '/target', search: searchUpdater } as any))
     const [firstMatches, secondMatches] = await Promise.all([first, second])
 
     expect(sourceLoader).toHaveBeenCalledOnce()

@@ -1,19 +1,6 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  onTestFinished,
-  test,
-  vi,
-} from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
-import {
-  BaseRootRoute,
-  BaseRoute,
-  createControlledPromise,
-  redirect,
-} from '@tanstack/router-core'
+import { BaseRootRoute, BaseRoute, createControlledPromise, redirect } from '@tanstack/router-core'
 import { createTestRouter } from './router-test-utils'
 
 beforeEach(() => {
@@ -324,12 +311,8 @@ describe('HMR route refresh', () => {
     await refreshPublished
 
     const navigationSettled = vi.fn()
-    const navigation = router
-      .navigate({ to: '/destination' })
-      .then(navigationSettled)
-    await vi.waitFor(() =>
-      expect(router.state.location.pathname).toBe('/destination'),
-    )
+    const navigation = router.navigate({ to: '/destination' }).then(navigationSettled)
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/destination'))
     expect(refreshSettled).not.toHaveBeenCalled()
     expect(navigationSettled).not.toHaveBeenCalled()
 

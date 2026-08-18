@@ -2314,7 +2314,6 @@ describe('buildLocation - _fromLocation override', () => {
     expect(location.pathname).toBe('/users/456/settings')
   })
 
-
   test('href options are not mutated', async () => {
     const rootRoute = new BaseRootRoute({})
     const postsRoute = new BaseRoute({

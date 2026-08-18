@@ -133,7 +133,6 @@ describe('route boundary component preloads', () => {
     expect(match?.error).toBe(routeError)
   })
 
-
   test('an ancestor error boundary ignores a hidden descendant component failure', async () => {
     const componentGate = createControlledPromise<void>()
     const routeError = new Error('parent loader failed')
