@@ -1365,6 +1365,15 @@ async function awaitPendingMinimum(router: CoordinatorRouter, tx: LoadTransactio
     return
   }
   clearTimeout(session[3 /* revealTimer */])
+  const ack = session[4 /* ack */]
+  if (ack && ack !== true) {
+    try {
+      await waitFor(ack, tx[0 /* controller */].signal)
+    } catch {}
+    if (router._pending !== session) {
+      return
+    }
+  }
   const remaining = session[2 /* deadline */] - Date.now()
   if (
     !session[4 /* ack */] ||
