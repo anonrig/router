@@ -58,7 +58,6 @@ export type {
   RouteContext,
   PreloadableObj,
   RoutePathOptions,
-  StaticDataRouteOption,
   RoutePathOptionsIntersection,
   UpdatableStaticRouteOption,
   MetaDescriptor,
@@ -98,7 +97,6 @@ export type {
   IntersectAssign,
   ResolveValidatorInput,
   ResolveValidatorOutput,
-  Register,
   AnyValidator,
   DefaultValidator,
   ValidatorFn,
@@ -113,7 +111,6 @@ export type {
   Validator,
   ValidatorAdapter,
   ValidatorObj,
-  FileRoutesByPath,
   RouteById,
   RootRouteOptions,
   CreateFileRoute,
@@ -145,6 +142,12 @@ export type {
   RegisteredSerializableInput,
   Serializable,
 } from 'speedy-router-core'
+
+export interface Register {}
+
+export interface StaticDataRouteOption {}
+
+export interface FileRoutesByPath {}
 
 export {
   createHistory,
@@ -332,3 +335,13 @@ export { HeadContent } from './head-content'
 export { useTags } from './head-content-utils'
 export { Scripts } from './scripts'
 export type * from './ssr/serializer'
+
+type SpeedyRegister = Register
+type SpeedyStaticDataRouteOption = StaticDataRouteOption
+type SpeedyFileRoutesByPath = FileRoutesByPath
+
+declare module 'speedy-router-core' {
+  interface Register extends SpeedyRegister {}
+  interface StaticDataRouteOption extends SpeedyStaticDataRouteOption {}
+  interface FileRoutesByPath extends SpeedyFileRoutesByPath {}
+}
