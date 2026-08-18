@@ -333,19 +333,6 @@ export function isPlainArray(value: unknown): value is Array<unknown> {
  * Perform a deep equality check with options for partial comparison and
  * ignoring `undefined` values. Optimized for router state comparisons.
  */
-function ownComparableKeys(obj: object, ignoreUndefined: boolean) {
-  const keys: Array<string | symbol> = Object.getOwnPropertyNames(obj)
-  const symbols = Object.getOwnPropertySymbols(obj)
-  for (let i = 0; i < symbols.length; i++) keys.push(symbols[i]!)
-  if (!ignoreUndefined) return keys
-  let n = 0
-  for (let i = 0; i < keys.length; i++) {
-    if ((obj as any)[keys[i]!] !== undefined) keys[n++] = keys[i]!
-  }
-  keys.length = n
-  return keys
-}
-
 export function deepEqual(
   a: any,
   b: any,
