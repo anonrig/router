@@ -78,11 +78,18 @@ describe('TanStack public export surface', () => {
     const core = require(resolve(root, 'packages/router-core/package.json'))
     const react = require(resolve(root, 'packages/react-router/package.json'))
 
-    expect(core.exports['./isServer']).toBe('./src/is-server.ts')
-    expect(core.exports['./scroll-restoration-script']).toEqual({
-      browser: './src/scroll-restoration-script/client.ts',
-      default: './src/scroll-restoration-script/server.ts',
+    expect(core.exports['./isServer']).toEqual({
+      types: './dist/is-server.d.ts',
+      default: './dist/is-server.js',
     })
-    expect(react.exports['.']['react-server']).toBe('./src/index.rsc.ts')
+    expect(core.exports['./scroll-restoration-script']).toEqual({
+      types: './dist/scroll-restoration-script/server.d.ts',
+      browser: './dist/scroll-restoration-script/client.js',
+      default: './dist/scroll-restoration-script/server.js',
+    })
+    expect(react.exports['.']['react-server']).toEqual({
+      types: './dist/index.d.ts',
+      default: './dist/index.rsc.js',
+    })
   })
 })

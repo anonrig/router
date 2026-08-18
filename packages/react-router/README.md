@@ -254,6 +254,8 @@ pnpm knip                 # unused files, dependencies, and exports
 
 The public packages are `speedy-router`, `speedy-router-core`, `speedy-router-history`, and `speedy-router-generator`. The repo root stays private. Versions stay in lockstep. Releases run from [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
+Published tarballs contain compiled ESM JavaScript and `.d.ts` files in `dist/`. TypeScript source stays in the git repo. `pnpm build` emits `dist` before `pnpm release`.
+
 Trusted publishing cannot create a package's first version. Bootstrap once with a token, then switch to OIDC.
 
 ### 1. First publish (token)

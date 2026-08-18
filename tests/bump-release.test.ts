@@ -46,9 +46,9 @@ describe('bump-release', () => {
   })
 
   test('asserts the lockstep version matches a tag', () => {
-    expect(readLockstepVersion()).toBe('0.1.0')
-    expect(assertLockstepVersion('0.1.0')).toBe('0.1.0')
+    const current = readLockstepVersion()
+    expect(assertLockstepVersion(current)).toBe(current)
     expect(() => assertLockstepVersion('9.9.9')).toThrow('does not match')
-    expect(() => assertLockstepVersion('v0.1.0')).toThrow('invalid version')
+    expect(() => assertLockstepVersion(`v${current}`)).toThrow('invalid version')
   })
 })

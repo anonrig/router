@@ -44,15 +44,6 @@ importers:
       combinate:
         specifier: ^1.1.11
         version: 1.1.11
-      speedy-router-core:
-        specifier: workspace:*
-        version: link:packages/router-core
-      speedy-router-history:
-        specifier: workspace:*
-        version: link:packages/history
-      speedy-router:
-        specifier: workspace:*
-        version: link:packages/react-router
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1
@@ -77,6 +68,15 @@ importers:
       seroval:
         specifier: ^1.6.2
         version: 1.6.2
+      speedy-router:
+        specifier: workspace:*
+        version: link:packages/react-router
+      speedy-router-core:
+        specifier: workspace:*
+        version: link:packages/router-core
+      speedy-router-history:
+        specifier: workspace:*
+        version: link:packages/history
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -94,35 +94,39 @@ importers:
 
   packages/react-router:
     dependencies:
-      speedy-router-core:
-        specifier: workspace:*
-        version: link:../router-core
-      speedy-router-history:
-        specifier: workspace:*
-        version: link:../history
       react:
         specifier: ~19.2.0
         version: 19.2.8
       react-dom:
         specifier: ~19.2.0
         version: 19.2.8(react@19.2.8)
+      speedy-router-core:
+        specifier: workspace:*
+        version: link:../router-core
+      speedy-router-history:
+        specifier: workspace:*
+        version: link:../history
 
   packages/router-core:
     dependencies:
       cookie-es:
         specifier: ^3.1.1
         version: 3.1.1
-      speedy-router-history:
-        specifier: workspace:*
-        version: link:../history
       seroval:
         specifier: ^1.6.2
         version: 1.6.2
       seroval-plugins:
         specifier: ^1.6.2
         version: 1.6.2(seroval@1.6.2)
+      speedy-router-history:
+        specifier: workspace:*
+        version: link:../history
 
-  packages/router-generator: {}
+  packages/router-generator:
+    dependencies:
+      vite:
+        specifier: '>=6'
+        version: 8.2.1(@types/node@24.13.3)(jiti@2.7.0)(yaml@2.9.0)
 
 packages:
 

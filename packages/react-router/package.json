@@ -14,27 +14,55 @@
     "directory": "packages/react-router"
   },
   "files": [
-    "src",
+    "dist",
     "LICENSE",
     "README.md"
   ],
   "type": "module",
   "sideEffects": false,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "react-server": "./src/index.rsc.ts",
-      "default": "./src/index.ts"
+      "react-server": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.rsc.js"
+      },
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
-    "./ssr/server": "./src/ssr/server.ts",
-    "./ssr/client": "./src/ssr/client.ts",
-    "./ssr/router-client": "./src/ssr/router-client.tsx",
-    "./ssr/RouterClient": "./src/ssr/router-client.tsx",
-    "./ssr/render-router-to-stream": "./src/ssr/render-router-to-stream.tsx",
-    "./ssr/renderRouterToStream": "./src/ssr/render-router-to-stream.tsx",
-    "./ClientOnly": "./src/client-only.tsx",
-    "./Scripts": "./src/scripts.tsx",
+    "./ssr/server": {
+      "types": "./dist/ssr/server.d.ts",
+      "default": "./dist/ssr/server.js"
+    },
+    "./ssr/client": {
+      "types": "./dist/ssr/client.d.ts",
+      "default": "./dist/ssr/client.js"
+    },
+    "./ssr/router-client": {
+      "types": "./dist/ssr/router-client.d.ts",
+      "default": "./dist/ssr/router-client.js"
+    },
+    "./ssr/RouterClient": {
+      "types": "./dist/ssr/router-client.d.ts",
+      "default": "./dist/ssr/router-client.js"
+    },
+    "./ssr/render-router-to-stream": {
+      "types": "./dist/ssr/render-router-to-stream.d.ts",
+      "default": "./dist/ssr/render-router-to-stream.js"
+    },
+    "./ssr/renderRouterToStream": {
+      "types": "./dist/ssr/render-router-to-stream.d.ts",
+      "default": "./dist/ssr/render-router-to-stream.js"
+    },
+    "./ClientOnly": {
+      "types": "./dist/client-only.d.ts",
+      "default": "./dist/client-only.js"
+    },
+    "./Scripts": {
+      "types": "./dist/scripts.d.ts",
+      "default": "./dist/scripts.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -42,7 +70,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "echo 'source package'"
+    "build": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ../../scripts/register-ts.mjs ../../scripts/build-packages.ts --package react-router"
   },
   "dependencies": {
     "speedy-router-core": "workspace:*",

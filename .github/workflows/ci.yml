@@ -65,6 +65,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm test:types
+      - run: pnpm build
       - name: TanStack core runtime
         env:
           NODE_OPTIONS: --max-old-space-size=4096

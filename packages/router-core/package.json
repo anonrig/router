@@ -14,28 +14,56 @@
     "directory": "packages/router-core"
   },
   "files": [
-    "src",
+    "dist",
     "LICENSE",
     "README.md"
   ],
   "type": "module",
   "sideEffects": false,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./is-server": "./src/is-server.ts",
-    "./isServer": "./src/is-server.ts",
-    "./new-process-route-tree": "./src/new-process-route-tree.ts",
-    "./scroll-restoration-script": {
-      "browser": "./src/scroll-restoration-script/client.ts",
-      "default": "./src/scroll-restoration-script/server.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
-    "./ssr/server": "./src/ssr/server.ts",
-    "./ssr/client": "./src/ssr/client.ts",
-    "./ssr/ssr-match-id": "./src/ssr/ssr-match-id.ts",
-    "./ssr/serializer/transformer": "./src/ssr/serializer/transformer-types.ts",
-    "./utils": "./src/utils.ts",
+    "./is-server": {
+      "types": "./dist/is-server.d.ts",
+      "default": "./dist/is-server.js"
+    },
+    "./isServer": {
+      "types": "./dist/is-server.d.ts",
+      "default": "./dist/is-server.js"
+    },
+    "./new-process-route-tree": {
+      "types": "./dist/new-process-route-tree.d.ts",
+      "default": "./dist/new-process-route-tree.js"
+    },
+    "./scroll-restoration-script": {
+      "types": "./dist/scroll-restoration-script/server.d.ts",
+      "browser": "./dist/scroll-restoration-script/client.js",
+      "default": "./dist/scroll-restoration-script/server.js"
+    },
+    "./ssr/server": {
+      "types": "./dist/ssr/server.d.ts",
+      "default": "./dist/ssr/server.js"
+    },
+    "./ssr/client": {
+      "types": "./dist/ssr/client.d.ts",
+      "default": "./dist/ssr/client.js"
+    },
+    "./ssr/ssr-match-id": {
+      "types": "./dist/ssr/ssr-match-id.d.ts",
+      "default": "./dist/ssr/ssr-match-id.js"
+    },
+    "./ssr/serializer/transformer": {
+      "types": "./dist/ssr/serializer/transformer-types.d.ts",
+      "default": "./dist/ssr/serializer/transformer-types.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "default": "./dist/utils.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -43,7 +71,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "echo 'source package'"
+    "build": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ../../scripts/register-ts.mjs ../../scripts/build-packages.ts --package router-core"
   },
   "dependencies": {
     "cookie-es": "^3.1.1",
