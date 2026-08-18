@@ -1,5 +1,3 @@
-/// <reference path="./core-augmentation.d.ts" />
-
 export {
   defer,
   isMatch,
@@ -341,3 +339,13 @@ export { HeadContent } from './head-content'
 export { useTags } from './head-content-utils'
 export { Scripts } from './scripts'
 export type * from './ssr/serializer'
+
+type SpeedyRegister = Register
+type SpeedyStaticDataRouteOption = StaticDataRouteOption
+type SpeedyFileRoutesByPath = FileRoutesByPath
+
+declare module 'speedy-router-core' {
+  interface Register extends SpeedyRegister {}
+  interface StaticDataRouteOption extends SpeedyStaticDataRouteOption {}
+  interface FileRoutesByPath extends SpeedyFileRoutesByPath {}
+}
