@@ -37,7 +37,7 @@ export {
   hydrate,
   _getAssetMatches,
   _getRenderedMatches,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 
 export type {
   AnyRoute,
@@ -144,7 +144,7 @@ export type {
   SerializerExtensions,
   RegisteredSerializableInput,
   Serializable,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 
 export {
   createHistory,
@@ -246,7 +246,7 @@ export type {
   RouteMask,
   MatchRouteOptions,
   CreateLazyFileRoute,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 export type {
   UseLinkPropsOptions,
   ActiveLinkOptions,
@@ -285,6 +285,7 @@ export {
   createRouteMask,
   NotFoundRoute,
 } from './route'
+export { createSlotRoute, Slots } from './slots'
 export type {
   AnyRootRoute,
   AsyncRouteComponent,

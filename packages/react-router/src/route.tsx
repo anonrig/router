@@ -1,4 +1,4 @@
-import { BaseRootRoute, BaseRoute, BaseRouteApi, notFound } from '@anonrig/router-core'
+import { BaseRootRoute, BaseRoute, BaseRouteApi, notFound } from 'speedy-router-core'
 import React from 'react'
 import { useLoaderData } from './use-loader-data'
 import { useLoaderDeps } from './use-loader-deps'
@@ -9,6 +9,7 @@ import { useMatch } from './use-match'
 import { useRouteContext } from './use-route-context'
 import { useRouter } from './use-router'
 import { Link } from './link'
+import { Outlet } from './match'
 import type {
   AnyContext,
   AnyRoute,
@@ -34,7 +35,7 @@ import type {
   RouterCore,
   ToMaskOptions,
   UseNavigateResult,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 import type { UseLoaderDataRoute } from './use-loader-data'
 import type { UseMatchRoute } from './use-match'
 import type { UseLoaderDepsRoute } from './use-loader-deps'
@@ -43,7 +44,7 @@ import type { UseSearchRoute } from './use-search'
 import type { UseRouteContextRoute } from './use-route-context'
 import type { LinkComponentRoute } from './link'
 
-declare module '@anonrig/router-core' {
+declare module 'speedy-router-core' {
   export interface UpdatableRouteOptionsExtensions {
     component?: RouteComponent
     errorComponent?: false | null | undefined | ErrorRouteComponent
@@ -284,6 +285,10 @@ export class Route<
       return <Link ref={ref} from={this.fullPath as never} {...props} />
     },
   ) as unknown as LinkComponentRoute<TFullPath>
+
+  Outlet = Outlet
+
+  declare Slots: (props: { children: (slots: any[]) => React.ReactNode }) => React.ReactNode
 }
 
 /**

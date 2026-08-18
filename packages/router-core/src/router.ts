@@ -3,7 +3,7 @@ import {
   parseHref,
   type HistoryLocation,
   type RouterHistory,
-} from '@anonrig/history'
+} from 'speedy-router-history'
 import {
   buildRouteBranch,
   findFlatMatch,
@@ -16,12 +16,7 @@ import {
 } from './match'
 import { isNotFound } from './not-found'
 import { isServer } from './is-server'
-import {
-  loadClientRoute,
-  loadRouteChunk,
-  preloadClientRoute,
-  replaceRouteChunk,
-} from './load-client'
+import { loadRouteChunk, replaceRouteChunk } from './load-chunk'
 import { PathParamError, SearchParamError } from './misc'
 import { compileDecodeCharMap, interpolatePath, resolvePath, trimPath, trimPathRight } from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
@@ -254,6 +249,7 @@ export interface RouterOptions<
   serializer?: any
   serializationAdapters?: any[]
   routeMasks?: any[]
+  slotPrefix?: string
   hydrate?: (data: any) => any
   additionalContext?: Record<string, any>
   defaultSsr?: any
@@ -332,6 +328,7 @@ export type NavigateOptions = {
   _includeValidateSearch?: boolean
   _isRedirect?: boolean
   _isNavigate?: boolean
+  slots?: Record<string, any>
 }
 
 export type ToOptions = NavigateOptions
@@ -360,9 +357,54 @@ export type ListenerFn = RouterListener
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 export const RESOLVED: Promise<void> = Promise.resolve()
 let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let loadClientRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let preloadClientRouteCached: ((router: any, opts?: any) => Promise<any>) | undefined
+
+function importLoadClient(router: any, opts?: any) {
+  if (loadClientRouteCached) return loadClientRouteCached(router, opts)
+  return import('./load-client').then(({ loadClientRoute }) => {
+    loadClientRouteCached = loadClientRoute
+    return loadClientRoute(router, opts)
+  })
+}
+
+function importPreloadClient(router: any, opts?: any) {
+  if (preloadClientRouteCached) return preloadClientRouteCached(router, opts)
+  return import('./load-client').then(({ preloadClientRoute }) => {
+    preloadClientRouteCached = preloadClientRoute
+    return preloadClientRoute(router, opts)
+  })
+}
+
+/** Registered only when `createSlotRoute` is imported. Short keys keep the default graph small. */
+type SlotRuntime = {
+  o: WeakSet<object>
+  s(routeTree: any): void
+  i(
+    routeTree: any,
+    routesById: Record<string, any>,
+    routesByPath: Record<string, any>,
+    caseSensitive: boolean,
+  ): boolean
+  m(router: any, location: any, matches: any[]): any[]
+  d(router: any, dest: any, current: any): any
+  a(router: any, dest: any, currentSearch: any, nextSearch: any): any
+  l(matches: any[]): any
+  p(matches: any[], index: number, match: any): any
+}
+
+let slotRuntime: SlotRuntime | undefined
+export function setSlotRuntime(runtime: SlotRuntime) {
+  slotRuntime ??= runtime
+}
 
 function lastMatch(matches: RouteMatch[] | undefined) {
-  return matches && matches.length ? matches[matches.length - 1] : undefined
+  if (!matches?.length) return undefined
+  return slotRuntime?.l?.(matches) ?? matches[matches.length - 1]
+}
+
+export function matchParentContext(matches: any[], index: number, match: any) {
+  return slotRuntime?.p?.(matches, index, match) ?? matches[index - 1]?.context
 }
 
 let lastSimpleParamPath = ''
@@ -989,12 +1031,7 @@ export class RouterCore<
 
     if (this.options.routeTree && this.options.routeTree !== prevTree) {
       this.routeTree = this.options.routeTree as TRouteTree
-      this.processedTree = processRouteTree(
-        this.routeTree as any,
-        this.options.caseSensitive ?? false,
-      )
-      this.routesById = this.processedTree.routesById as any
-      this.routesByPath = this.processedTree.routesByPath as any
+      this.processRouteTree()
     }
     const notFoundRoute = this.options.notFoundRoute
     if (notFoundRoute && this.routesById) {
@@ -1059,6 +1096,14 @@ export class RouterCore<
 
   buildRouteTree() {
     if (!this.routeTree) return this
+    this.processRouteTree()
+    this._hasSearchWork = !!this.processedTree.hasSearchWork
+    return this
+  }
+
+  private processRouteTree() {
+    const runtime = slotRuntime
+    runtime?.s(this.routeTree)
     this.processedTree = processRouteTree(
       this.routeTree as any,
       this.options.caseSensitive ?? false,
@@ -1067,7 +1112,18 @@ export class RouterCore<
     this.routesByPath = this.processedTree.routesByPath as any
     this._hasSearchWork = !!this.processedTree.hasSearchWork
     this._hasSearchMiddleware = !!this.processedTree.hasSearchMiddleware
-    return this
+    if (runtime) {
+      runtime.o[
+        runtime.i(
+          this.routeTree,
+          this.routesById,
+          this.routesByPath,
+          this.options.caseSensitive ?? false,
+        )
+          ? 'add'
+          : 'delete'
+      ](this)
+    }
   }
 
   parseLocation(locationToParse: HistoryLocation, previous?: ParsedLocation): ParsedLocation {
@@ -1101,9 +1157,9 @@ export class RouterCore<
   }
 
   private executeBuildLocation(opts: NavigateOptions = {}): ParsedLocation {
-    const dest = opts
     const current =
-      dest._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
+      opts._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
+    const dest = slotRuntime?.d(this, opts, current) ?? opts
     const matches = this.stores?.matches?.get?.()?.length
       ? this.stores.matches.get()
       : this.state?.matches?.length
@@ -1259,6 +1315,7 @@ export class RouterCore<
       rest.hash == null &&
       rest.mask == null &&
       rest.from == null &&
+      !slotRuntime?.o.has(this) &&
       !rest._isRedirect
     ) {
       return this.navigateHrefFast(href, rest)
@@ -1283,7 +1340,8 @@ export class RouterCore<
       rest.state == null &&
       rest.params !== true &&
       rest.params !== false &&
-      typeof rest.params !== 'function'
+      typeof rest.params !== 'function' &&
+      !slotRuntime?.o.has(this)
     ) {
       const fast = this.tryNavigateToFast(to, rest)
       if (fast) return fast
@@ -1453,7 +1511,7 @@ export class RouterCore<
       this._commitPromise = undefined
       return RESOLVED
     }
-    return Promise.resolve(loadClientRoute(this, opts)).then(() => undefined)
+    return Promise.resolve(importLoadClient(this, opts)).then(() => undefined)
   }
 
   private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
@@ -1626,12 +1684,12 @@ export class RouterCore<
     const warm = this.tryWarmLoad(location, id)
     if (warm === true) return
     if (warm) return warm
-    return loadClientRoute(this)
+    return importLoadClient(this)
   }
 
   private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
     if (this._forcePending || this._handoff || this._tx || this._refreshNextLoad) return false
-    if (this.subscribers.size || this.options.hydrate) return false
+    if (this.subscribers.size || this.options.hydrate || slotRuntime?.o.has(this)) return false
 
     const cacheKey = location.searchStr
       ? `${location.pathname}\0${location.searchStr}`
@@ -1833,7 +1891,7 @@ export class RouterCore<
         return Promise.resolve(data.value).then(
           (value) => {
             if (isRedirect(value) || isNotFound(value)) {
-              return loadClientRoute(this)
+              return importLoadClient(this)
             }
             match.loaderData = value
             match.status = 'success'
@@ -1846,7 +1904,7 @@ export class RouterCore<
           (cause) => this.settleWarmFailure(location, id, matches, match, route, cause),
         )
       }
-      if (isRedirect(data.value) || isNotFound(data.value)) return loadClientRoute(this)
+      if (isRedirect(data.value) || isNotFound(data.value)) return importLoadClient(this)
       match.loaderData = data.value
       match.status = 'success'
       match.isFetching = false
@@ -1869,12 +1927,12 @@ export class RouterCore<
     route: AnyRoute,
     cause: unknown,
   ): void | Promise<void> {
-    if (isRedirect(cause) || isNotFound(cause)) return loadClientRoute(this)
+    if (isRedirect(cause) || isNotFound(cause)) return importLoadClient(this)
     let error = cause
     try {
       route.options.onError?.(error)
     } catch (onErrorCause) {
-      if (isRedirect(onErrorCause) || isNotFound(onErrorCause)) return loadClientRoute(this)
+      if (isRedirect(onErrorCause) || isNotFound(onErrorCause)) return importLoadClient(this)
       error = onErrorCause
     }
     match.status = 'error'
@@ -2094,7 +2152,7 @@ export class RouterCore<
   }
 
   preloadRoute(opts: NavigateOptions = {}) {
-    return preloadClientRoute(this, opts)
+    return importPreloadClient(this, opts)
   }
 
   loadRouteChunk = loadRouteChunk
@@ -2112,13 +2170,22 @@ export class RouterCore<
   }
 
   matchRoutes(pathnameOrNext: string | ParsedLocation, locationSearchOrOpts?: any, opts?: any) {
-    if (typeof pathnameOrNext === 'string') {
-      return this.matchRoutesInternal(
-        { pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation,
-        opts,
-      )
-    }
-    return this.matchRoutesInternal(pathnameOrNext, locationSearchOrOpts)
+    const matches =
+      typeof pathnameOrNext === 'string'
+        ? this.matchRoutesInternal(
+            { pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation,
+            opts,
+          )
+        : this.matchRoutesInternal(pathnameOrNext, locationSearchOrOpts)
+    const runtime = slotRuntime
+    if (!runtime?.o.has(this)) return matches
+    return runtime.m(
+      this,
+      typeof pathnameOrNext === 'string'
+        ? ({ pathname: pathnameOrNext, search: locationSearchOrOpts } as ParsedLocation)
+        : pathnameOrNext,
+      matches,
+    )
   }
 
   private matchRoutesInternal(next: ParsedLocation, opts?: any): RouteMatch[] {
@@ -2538,9 +2605,9 @@ function resolveBuildSearch(
         // matchRoutes reports the error
       }
     }
-    return validatedSearch
+    nextSearch = validatedSearch
   }
-  return nextSearch
+  return slotRuntime?.a(router, dest, currentSearch, nextSearch) ?? nextSearch
 }
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {

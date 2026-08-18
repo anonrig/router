@@ -1,7 +1,22 @@
 {
-  "name": "@anonrig/react-router",
-  "version": "0.0.0",
+  "name": "speedy-router",
+  "version": "0.1.0",
+  "description": "The TanStack Router API. Rebuilt for the hot path.",
+  "homepage": "https://github.com/anonrig/router#readme",
+  "bugs": {
+    "url": "https://github.com/anonrig/router/issues"
+  },
   "license": "MIT",
+  "author": "Yagiz Nizipli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anonrig/router.git",
+    "directory": "packages/react-router"
+  },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
@@ -21,12 +36,16 @@
     "./Scripts": "./src/scripts.tsx",
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "echo 'source package'"
   },
   "dependencies": {
-    "@anonrig/history": "workspace:*",
-    "@anonrig/router-core": "workspace:*"
+    "speedy-router-core": "workspace:*",
+    "speedy-router-history": "workspace:*"
   },
   "peerDependencies": {
     "react": "~19.2.0",

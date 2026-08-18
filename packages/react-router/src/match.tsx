@@ -1,12 +1,12 @@
-import { memo, Suspense, useContext, useMemo } from 'react'
+import { memo, Suspense, useContext, useMemo, type ReactNode } from 'react'
 import {
   isNotFound,
   rootRouteId,
   type AnyRoute,
   type AnyRouteMatch,
   type RootRouteOptions,
-} from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/is-server'
+} from 'speedy-router-core'
+import { isServer } from 'speedy-router-core/is-server'
 import { CatchBoundary, ErrorComponent } from './catch-boundary'
 import { ClientOnly } from './client-only'
 import { errorResetContext, matchContext } from './match-context'
@@ -200,7 +200,20 @@ export const MatchInner = memo(function MatchInnerImpl({ match }: { match: AnyRo
   return out
 })
 
-export const Outlet = memo(function OutletImpl() {
+let outletSlot:
+  | ((
+      matches: AnyRouteMatch[],
+      parentIndex: number,
+      routeId: string,
+      props?: { slot?: string; fallback?: ReactNode },
+    ) => { id?: string; e?: ReactNode })
+  | undefined
+
+export function setOutletSlot(fn: NonNullable<typeof outletSlot>) {
+  outletSlot ??= fn
+}
+
+export const Outlet = memo(function OutletImpl(props?: { slot?: string; fallback?: ReactNode }) {
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const nonRouteComponent = useContext(nonRouteComponentContext!)
@@ -223,13 +236,14 @@ export const Outlet = memo(function OutletImpl() {
   const parentMatch = matches[parentIndex]
   const parentGlobalNotFound = !!parentMatch?._notFound
   const parentNotFoundError = parentMatch?.error
-  const childRouteId = matches[parentIndex + 1]?.routeId
+  const slotted = outletSlot?.(matches, parentIndex, routeId, props)
+  const childRouteId = slotted ? slotted.id : matches[parentIndex + 1]?.routeId
 
   if (parentGlobalNotFound) {
     return renderRouteNotFound(router, router.routesById[routeId]!, parentNotFoundError)
   }
 
-  if (!childRouteId) return null
+  if (!childRouteId) return slotted?.e ?? null
 
   const nextMatch = <Match routeId={childRouteId} />
   if (routeId === rootRouteId) {

@@ -4,8 +4,8 @@ import {
   createSsrStreamResponse,
   transformPipeableStreamWithRouter,
   transformReadableStreamWithRouter,
-} from '@anonrig/router-core/ssr/server'
-import type { AnyRouter } from '@anonrig/router-core'
+} from 'speedy-router-core/ssr/server'
+import type { AnyRouter } from 'speedy-router-core'
 import type { ReadableStream } from 'node:stream/web'
 import type { ReactNode } from 'react'
 

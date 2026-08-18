@@ -1,6 +1,6 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react'
-import { deepEqual } from '@anonrig/router-core'
-import type { Store } from '@anonrig/router-core'
+import { deepEqual } from 'speedy-router-core'
+import type { Store } from 'speedy-router-core'
 
 function defaultSelect<T, U>(state: T): U {
   return state as unknown as U

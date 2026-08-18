@@ -107,10 +107,9 @@ export {
   _getAssetMatches,
   _getRenderedMatches,
   loadRouteChunk,
-  loadClientRoute,
-  preloadClientRoute,
   replaceRouteChunk,
-} from './load-client'
+} from './load-chunk'
+export { loadClientRoute, preloadClientRoute } from './load-client'
 export { refreshClientRoute } from './load-hmr'
 export { hydrate } from './load-hydrate'
 export type {
@@ -522,6 +521,8 @@ export {
 } from './match'
 export type { ProcessedTree, RouteMatchResult, SegmentKind } from './match'
 export { isServer } from './is-server'
+export { createSlotRoute, listParentSlots, markSlotRoute } from './slots'
+export type { SlotNavigateDest, SlotNavigateTo, SlotRenderInfo } from './slots'
 export {
   createFileRoute,
   createLazyFileRoute,

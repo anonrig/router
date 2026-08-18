@@ -1,7 +1,22 @@
 {
-  "name": "@anonrig/router-generator",
-  "version": "0.0.0",
+  "name": "speedy-router-generator",
+  "version": "0.1.0",
+  "description": "Compact lazy routeTree.gen.ts generator for speedy-router.",
+  "homepage": "https://github.com/anonrig/router#readme",
+  "bugs": {
+    "url": "https://github.com/anonrig/router/issues"
+  },
   "license": "MIT",
+  "author": "Yagiz Nizipli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anonrig/router.git",
+    "directory": "packages/router-generator"
+  },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
@@ -9,6 +24,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./vite": "./src/vite.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "echo 'source package'"

@@ -102,6 +102,9 @@ export interface DefaultRouteMatchExtensions {
   headScripts?: any[]
   meta?: any[]
   styles?: any[]
+  slot?: string
+  slotParentId?: string
+  slotNames?: string[]
 }
 
 export interface RouteMatchExtensions extends DefaultRouteMatchExtensions {}

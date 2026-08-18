@@ -1,10 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { isServer } from '@anonrig/router-core/is-server'
+import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
 import { useHydrated } from './client-only'
-import type { RouterManagedTag } from '@anonrig/router-core'
+import type { RouterManagedTag } from 'speedy-router-core'
 
 const INLINE_CSS_HYDRATION_ATTR = 'data-tsr-inline-css'
 

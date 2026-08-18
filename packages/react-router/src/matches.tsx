@@ -12,8 +12,8 @@ import {
   type RegisteredRouter,
   type ResolveRoute,
   type ToSubOptionsProps,
-} from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/is-server'
+} from 'speedy-router-core'
+import { isServer } from 'speedy-router-core/is-server'
 import { CatchBoundary } from './catch-boundary'
 import { Match, renderPending } from './match'
 import { errorResetContext, matchContext } from './match-context'
@@ -24,7 +24,7 @@ import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import { useStore } from './use-store'
 import { useMatch } from './use-match'
-import { deepEqual } from '@anonrig/router-core'
+import { deepEqual } from 'speedy-router-core'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
 
 export function Matches() {

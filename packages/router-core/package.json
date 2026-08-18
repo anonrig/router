@@ -1,7 +1,22 @@
 {
-  "name": "@anonrig/router-core",
-  "version": "0.0.0",
+  "name": "speedy-router-core",
+  "version": "0.1.0",
+  "description": "Matcher, navigation, loaders, and search params for speedy-router.",
+  "homepage": "https://github.com/anonrig/router#readme",
+  "bugs": {
+    "url": "https://github.com/anonrig/router/issues"
+  },
   "license": "MIT",
+  "author": "Yagiz Nizipli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anonrig/router.git",
+    "directory": "packages/router-core"
+  },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
@@ -22,14 +37,18 @@
     "./utils": "./src/utils.ts",
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "echo 'source package'"
   },
   "dependencies": {
-    "@anonrig/history": "workspace:*",
     "cookie-es": "^3.1.1",
     "seroval": "^1.6.2",
-    "seroval-plugins": "^1.6.2"
+    "seroval-plugins": "^1.6.2",
+    "speedy-router-history": "workspace:*"
   },
   "engines": {
     "node": ">=24"
