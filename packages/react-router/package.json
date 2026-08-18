@@ -1,6 +1,6 @@
 {
   "name": "speedy-router",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "The TanStack Router API. Rebuilt for the hot path.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
