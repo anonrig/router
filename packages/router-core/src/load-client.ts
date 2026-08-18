@@ -1281,11 +1281,17 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
     if (!component || typeof delay !== 'number' || delay === Infinity) {
       // A pending-ineligible boundary (no fallback, or infinite delay) owns
       // presentation here. Retire any deeper pendingMinMs so a successor can
-      // commit as soon as this earlier match settles.
+      // commit as soon as this earlier match settles. Do not mark a deeper
+      // session as already-acked — that would skip a later pending offer if
+      // the leftover reveal never painted. Always cancel the leftover timer.
       if (session) {
+        clearTimeout(session[3 /* revealTimer */])
+        session[3 /* revealTimer */] = undefined
         session[0 /* generation */] = tx
         session[2 /* deadline */] = 0
-        session[4 /* ack */] = true
+        if (session[1 /* boundaryId */] === match.id) {
+          session[4 /* ack */] = true
+        }
       }
       return
     }
