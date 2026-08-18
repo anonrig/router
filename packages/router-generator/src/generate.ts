@@ -4,11 +4,12 @@ import { emitRouteTreeRuntime, emitRouteTreeTypes } from './emit'
 import { scanRoutes } from './scan'
 
 export type GenerateRouteTreeOptions = {
-  routesDirectory: string
+  routesDirectory?: string
   generatedRouteTree?: string
   runtimeImport?: string
   rootImport?: string
   slotImport?: string
+  routeFileIgnorePattern?: string | RegExp
 }
 
 export type GeneratedRouteTree = {
@@ -41,10 +42,13 @@ function writeIfChanged(filePath: string, contents: string, ensuredDirs: Set<str
 }
 
 export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedRouteTree {
-  const routesDirectory = resolve(options.routesDirectory)
+  const routesDirectory = resolve(options.routesDirectory ?? './src/routes')
   const runtimePath = resolve(options.generatedRouteTree ?? './src/routeTree.gen.ts')
   const typesPath = typesPathFor(runtimePath)
-  const routes = scanRoutes({ routesDirectory })
+  const routes = scanRoutes({
+    routesDirectory,
+    routeFileIgnorePattern: options.routeFileIgnorePattern,
+  })
   const payload = {
     routes,
     generatedRouteTree: runtimePath,

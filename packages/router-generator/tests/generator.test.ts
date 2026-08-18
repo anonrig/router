@@ -53,6 +53,64 @@ describe('scanRoutes', () => {
     expect(byKey['/blog_/$slug']?.path).toBe('/blog/$slug')
   })
 
+  it('keeps pathful prefixes on underscore layout files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-layout-'))
+    write(dir, '__root.tsx')
+    write(dir, '$username/_profile.tsx')
+    write(dir, '$username/_profile/index.tsx')
+    write(dir, '$username/_profile/affiliates.tsx')
+    write(dir, '$username/_followers.tsx')
+    write(dir, '$username/_followers/followers.tsx')
+    write(dir, 'i/spaces/$spaceId/_space.tsx')
+    write(dir, 'i/spaces/$spaceId/_space/index.tsx')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const byKey = Object.fromEntries(
+      scanned.filter((route) => !route.isRoot).map((route) => [route.key, route]),
+    )
+
+    expect(byKey['/$username/_profile']?.path).toBe('/$username')
+    expect(byKey['/$username/_profile']?.parentId).toBe('__root__')
+    expect(byKey['/$username/_profile/']?.parentId).toBe('/$username/_profile')
+    expect(byKey['/$username/_profile/']?.path).toBe('/')
+    expect(byKey['/$username/_profile/affiliates']?.path).toBe('/affiliates')
+    expect(byKey['/$username/_followers']?.path).toBe('/$username')
+    expect(byKey['/$username/_followers/followers']?.path).toBe('/followers')
+    expect(byKey['/i/spaces/$spaceId/_space']?.path).toBe('/i/spaces/$spaceId')
+    expect(byKey['/i/spaces/$spaceId/_space/']?.path).toBe('/')
+  })
+
+  it('treats unescaped dots as nested path segments, like TanStack', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-flat-'))
+    write(dir, '__root.tsx')
+    write(dir, 'lists.tsx')
+    write(dir, 'lists/$listId.tsx')
+    write(dir, 'lists/$listId.index.tsx')
+    write(dir, 'lists/$listId.followers.tsx')
+    write(dir, 'posts.$postId.tsx')
+    write(dir, 'posts_.$postId.edit.tsx')
+    write(dir, 'files/script[.]js.tsx')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const byKey = Object.fromEntries(
+      scanned.filter((route) => !route.isRoot).map((route) => [route.key, route]),
+    )
+
+    expect(byKey['/lists/$listId/']?.parentId).toBe('/lists/$listId')
+    expect(byKey['/lists/$listId/']?.id).toBe('/')
+    expect(byKey['/lists/$listId/']?.path).toBe('/')
+    expect(byKey['/lists/$listId/followers']?.parentId).toBe('/lists/$listId')
+    expect(byKey['/lists/$listId/followers']?.id).toBe('/followers')
+    expect(byKey['/lists/$listId/followers']?.path).toBe('/followers')
+    expect(byKey['/posts/$postId']?.parentId).toBe('__root__')
+    expect(byKey['/posts/$postId']?.path).toBe('/posts/$postId')
+    expect(byKey['/posts_/$postId/edit']?.parentId).toBe('__root__')
+    expect(byKey['/posts_/$postId/edit']?.path).toBe('/posts/$postId/edit')
+    expect(byKey['/files/script.js']?.path).toBe('/files/script.js')
+    expect(byKey['/lists/$listId.index']).toBeUndefined()
+    expect(byKey['/lists/$listId.followers']).toBeUndefined()
+  })
+
   it('maps @slotName files to slot roots and slot children', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-slot-routes-'))
     write(dir, '__root.tsx')
@@ -100,6 +158,28 @@ describe('scanRoutes', () => {
       scanRoutes({ routesDirectory: join(tmpdir(), 'speedy-router-missing-routes') }),
     ).toThrow(/routesDirectory does not exist/)
   })
+
+  it('honors TanStack routeFileIgnorePattern for colocated tests and generated files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-ignore-'))
+    write(dir, '__root.tsx')
+    write(dir, 'home.tsx')
+    write(dir, 'home.test.ts')
+    write(dir, 'home.e2e.ts')
+    write(dir, 'settings/index.tsx')
+    write(dir, 'settings/index.test.ts')
+    write(dir, 'posts/__generated__/PostQuery.graphql.ts')
+
+    const scanned = scanRoutes({
+      routesDirectory: dir,
+      routeFileIgnorePattern: '\\.test\\.|\\.e2e\\.|__generated__',
+    })
+    const fileIds = scanned
+      .filter((route) => !route.isRoot)
+      .map((route) => route.fileId)
+      .toSorted()
+
+    expect(fileIds).toEqual(['home', 'settings/index'])
+  })
 })
 
 describe('generateRouteTree', () => {
@@ -135,6 +215,24 @@ describe('generateRouteTree', () => {
     expect(types).toContain('fullPaths: keyof FileRoutesByFullPath')
     expect(types).toContain("declare module 'speedy-router-core'")
     expect(types).not.toContain('typeof ')
+  })
+
+  it('types fullPath without pathless underscore segments', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-pathless-'))
+    const routes = join(dir, 'routes')
+    write(routes, '__root.tsx')
+    write(routes, '$username/_profile.tsx')
+    write(routes, '$username/_profile/affiliates.tsx')
+    const generated = join(dir, 'routeTree.gen.ts')
+    const result = generateRouteTree({
+      routesDirectory: routes,
+      generatedRouteTree: generated,
+    })
+    const types = readFileSync(result.typesPath, 'utf8')
+    expect(types).toContain('"/$username/affiliates": {}')
+    expect(types).toContain('fullPath: "/$username/affiliates"')
+    expect(types).toContain('path: "/$username"')
+    expect(types).not.toContain('fullPath: "/$username/_profile/affiliates"')
   })
 
   it('imports createSlotRoute from the React package so Outlet wiring is installed', () => {

@@ -9,6 +9,7 @@ import {
   createRoute,
   createRouter,
   getRouteApi,
+  useElementScrollRestoration,
 } from '../src'
 
 afterEach(() => {
@@ -81,5 +82,26 @@ describe('RouterProvider', () => {
 
     render(<RouterProvider router={router} />)
     expect(await screen.findByText('world-true')).toBeInTheDocument()
+  })
+})
+
+describe('useElementScrollRestoration', () => {
+  it('returns undefined when no cached offset exists', async () => {
+    function Home() {
+      const restoration = useElementScrollRestoration({
+        getElement: () => window,
+      })
+      return <h1>{restoration ? `${restoration.scrollY}` : 'none'}</h1>
+    }
+    const rootRoute = createRootRoute({
+      component: Home,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('none')).toBeInTheDocument()
   })
 })

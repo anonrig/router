@@ -1,5 +1,10 @@
 import { dirname, relative, sep } from 'node:path'
-import type { ScannedRoute } from './scan'
+import { urlPathFromId, type ScannedRoute } from './scan'
+
+function typePath(path: string | undefined) {
+  if (!path) return ''
+  return path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path
+}
 
 export type EmitRouteTreeOptions = {
   routes: Array<ScannedRoute>
@@ -118,15 +123,14 @@ export function emitRouteTreeTypes(options: Pick<EmitRouteTreeOptions, 'routes'>
   const byPath: Array<string> = []
 
   for (const route of children) {
-    const fullPath =
-      route.path === undefined ? route.key.replace(/\/_[^/]+/g, '') || '/' : route.key
+    const fullPath = urlPathFromId(route.key) ?? '/'
     const to = fullPath.endsWith('/') && fullPath !== '/' ? fullPath.slice(0, -1) : fullPath
     byFullPath.push(`    ${JSON.stringify(fullPath)}: {}`)
     byTo.push(`    ${JSON.stringify(to)}: {}`)
     byId.push(`    ${JSON.stringify(route.key)}: {}`)
     byPath.push(`    ${JSON.stringify(route.key)}: {
       id: ${JSON.stringify(route.key)}
-      path: ${JSON.stringify(route.path ?? '')}
+      path: ${JSON.stringify(typePath(route.path))}
       fullPath: ${JSON.stringify(fullPath)}
       preLoaderRoute: unknown
       parentRoute: unknown
