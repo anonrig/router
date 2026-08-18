@@ -384,14 +384,14 @@ function createLoaderTask(
           (cause) => normalize(cause, true),
         )
         .then((result): LoaderOutcome => {
+          if (signal?.aborted || match.abortController.signal.reason === lane) {
+            return [SKIPPED]
+          }
           if (result[0] === REDIRECTED) {
             return stampNotFound(
               match,
               materializeRedirect(router, lane, route, result, signal),
             )
-          }
-          if (signal?.aborted || match.abortController.signal.reason === lane) {
-            return [SKIPPED]
           }
           if (result[0] === ERROR) {
             result = normalizeError(router, lane, route, result[1], signal)

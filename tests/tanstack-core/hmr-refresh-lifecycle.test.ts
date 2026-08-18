@@ -280,7 +280,7 @@ describe('HMR route refresh', () => {
     expect(signals[2]?.aborted).toBe(false)
     expect(router.state.matches.at(-1)?.loaderData).toBe(3)
     expect(router.state.status).toBe('idle')
-    expect(router._cache.size).toBe(0)
+    expect(router._cache.size ?? Object.keys(router._cache).length).toBe(0)
   })
 
   test('a published refresh waits for the navigation that supersedes it', async () => {

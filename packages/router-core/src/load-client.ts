@@ -873,7 +873,7 @@ async function getNotFoundBoundary(
       try {
         await waitFor(loading, signal)
       } catch (cause) {
-        if (cause === signal) {
+        if (cause === signal && signal.aborted) {
           throw cause
         }
       }
@@ -1049,7 +1049,7 @@ async function reduceLane(
         controller.signal,
       )
     } catch (cause) {
-      if (cause === controller.signal) {
+      if (cause === controller.signal && controller.signal.aborted) {
         discardBackground(router, lane)
         return [CANCELED]
       }
@@ -1102,7 +1102,7 @@ export async function projectLane(
         match.styles = head?.styles
         match.scripts = scripts
       } catch (cause) {
-        if (cause === signal) {
+        if (cause === signal && signal.aborted) {
           break
         }
         console.error(cause)
@@ -1887,7 +1887,10 @@ export async function loadClientRoute(
   })
   // Cold loads have no committed UI to retain, but provisional not-found
   // matches must wait for lazy routes to place the final boundary.
-  if (!resolvedLocation && !matches.some((match) => match._notFound)) {
+  if (
+    resolvedPrefix ||
+    (!router._committed.length && !matches.some((match) => match._notFound))
+  ) {
     offerPending(router, tx)
   }
   try {
