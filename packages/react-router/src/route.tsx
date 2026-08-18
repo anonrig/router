@@ -92,7 +92,7 @@ export class RouteApi<TId, TRouter extends AnyRouter = RegisteredRouter> extends
    */
   constructor({ id }: { id: TId }) {
     super({ id })
-    Object.assign(this, routeApiHookApi)
+    assignBoundHooks(this, routeApiHookApi)
     this.Link = bindRouteLink(this)
   }
 
@@ -196,7 +196,7 @@ export class Route<
     >,
   ) {
     super(options)
-    Object.assign(this, routeHookApi)
+    assignBoundHooks(this, routeHookApi)
     this.Link = bindRouteLink(this)
     this.Outlet = Outlet
   }
@@ -414,7 +414,7 @@ export class RootRoute<
     >,
   ) {
     super(options)
-    Object.assign(this, routeHookApi)
+    assignBoundHooks(this, routeHookApi)
     this.Link = bindRouteLink(this)
   }
 
@@ -660,4 +660,13 @@ const routeApiHookApi = {
   useLoaderDeps: routeApiUseLoaderDeps,
   useLoaderData: routeApiUseLoaderData,
   useNavigate: routeApiUseNavigate,
+}
+
+function assignBoundHooks(
+  self: object,
+  api: Record<string, (this: any, ...args: any[]) => any>,
+) {
+  for (const key in api) {
+    ;(self as any)[key] = api[key]!.bind(self)
+  }
 }

@@ -25,6 +25,44 @@ describe('getRouteApi', () => {
       expect(route[name as keyof typeof route]).toBeDefined()
     }
   })
+
+  it('keeps this when a hook is destructured from getRouteApi', async () => {
+    const { useLoaderData } = getRouteApi('/')
+    const rootRoute = createRootRoute()
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      loader: () => ({ hello: 'detached-api' }),
+      component: () => <div>{useLoaderData().hello}</div>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('detached-api')).toBeInTheDocument()
+  })
+
+  it('keeps this when a hook is destructured from createRoute', async () => {
+    const rootRoute = createRootRoute()
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      loader: () => ({ hello: 'detached-route' }),
+      component: () => {
+        const { useLoaderData } = indexRoute
+        return <div>{useLoaderData().hello}</div>
+      },
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('detached-route')).toBeInTheDocument()
+  })
 })
 
 describe('RouterProvider', () => {
