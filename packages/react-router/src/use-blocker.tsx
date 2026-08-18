@@ -87,7 +87,12 @@ export function useBlocker<
 export function useBlocker(opts?: any): any {
   const router = useRouter()
   const optsRef = useRef(opts)
-  const [status, setStatus] = useState<'idle' | 'blocked'>('idle')
+  const [state, setState] = useState<{
+    status: 'idle' | 'blocked'
+    current?: any
+    next?: any
+    action?: HistoryAction
+  }>({ status: 'idle' })
   const proceedRef = useRef<(() => void) | undefined>(undefined)
   const resetRef = useRef<(() => void) | undefined>(undefined)
 
@@ -125,13 +130,18 @@ export function useBlocker(opts?: any): any {
         if (!should) return false
         if (typeof current !== 'function' && current?.withResolver) {
           return await new Promise<boolean>((resolve) => {
-            setStatus('blocked')
+            setState({
+              status: 'blocked',
+              current: mapped.current,
+              next: mapped.next,
+              action: mapped.action,
+            })
             proceedRef.current = () => {
-              setStatus('idle')
+              setState({ status: 'idle' })
               resolve(false)
             }
             resetRef.current = () => {
-              setStatus('idle')
+              setState({ status: 'idle' })
               resolve(true)
             }
           })
@@ -142,10 +152,24 @@ export function useBlocker(opts?: any): any {
     })
   }, [router])
 
+  if (state.status === 'blocked') {
+    return {
+      status: 'blocked',
+      current: state.current,
+      next: state.next,
+      action: state.action,
+      proceed: () => proceedRef.current?.(),
+      reset: () => resetRef.current?.(),
+    } as any
+  }
+
   return {
-    status,
-    proceed: () => proceedRef.current?.(),
-    reset: () => resetRef.current?.(),
+    status: 'idle',
+    current: undefined,
+    next: undefined,
+    action: undefined,
+    proceed: undefined,
+    reset: undefined,
   } as any
 }
 
