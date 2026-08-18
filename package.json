@@ -1,6 +1,6 @@
 {
   "name": "speedy-router-monorepo",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "description": "The TanStack Router API. Rebuilt for the hot path.",
   "license": "MIT",
