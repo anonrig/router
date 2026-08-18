@@ -11,7 +11,13 @@
  * Utility rows use rotating unique inputs so last-value intern caches miss.
  * A settled `router.load()` no-op is not published.
  */
+import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
+
+const require = createRequire(import.meta.url)
+function tanstackVersion(name: string) {
+  return (require(`${name}/package.json`) as { version: string }).version
+}
 import './bench-compare-self.ts'
 import {
   createMemoryHistory as oursCreateMemoryHistory,
@@ -456,7 +462,7 @@ function printRows(
   console.log('Same-machine comparison (higher ops/s is better)')
   console.log(`Node ${process.version}`)
   console.log(
-    'TanStack: @tanstack/router-core 1.171.24, @tanstack/history 1.162.1, @tanstack/react-router 1.170.29',
+    `TanStack: @tanstack/router-core ${tanstackVersion('@tanstack/router-core')}, @tanstack/history ${tanstackVersion('@tanstack/history')}, @tanstack/react-router ${tanstackVersion('@tanstack/react-router')}`,
   )
   console.log(
     `Loader-call parity: typed ${loaders.typed}/${loaders.typed}, changing-params ${loaders.fresh}/${loaders.fresh} (default staleTime 0)`,
