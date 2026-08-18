@@ -167,7 +167,7 @@ export function useLinkProps(
       const location = state.location
       if (typeof props.to === 'string' && !isSafeInternal(props.to) && props.to.indexOf(':') > -1) {
         const external = resolveExternalLink(undefined, props.to, router.protocolAllowlist)
-        if (external) return [external, external, false]
+        if (external) return [props.disabled ? undefined : external, external, false]
       }
       const next = router.buildLocation({
         _fromLocation: location,
@@ -185,8 +185,9 @@ export function useLinkProps(
         props.to,
         router.protocolAllowlist,
       )
+      const resolvedHref = props.disabled ? undefined : (external ?? builtHref)
       return [
-        external ?? builtHref,
+        resolvedHref,
         external,
         resolveIsActive(location, next, props.activeOptions, router.basepath),
       ]
@@ -267,6 +268,10 @@ export function useLinkProps(
   useEffect(() => cancelPreload, [cancelPreload, preload, preloadDelay, props.to])
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (props.disabled) {
+      e.preventDefault()
+      return
+    }
     props.onClick?.(e)
     if (externalLink) return
     const elementTarget = (e.currentTarget as HTMLAnchorElement).getAttribute('target')
@@ -278,8 +283,7 @@ export function useLinkProps(
       e.metaKey ||
       e.altKey ||
       e.ctrlKey ||
-      e.shiftKey ||
-      props.disabled
+      e.shiftKey
     ) {
       return
     }
@@ -331,7 +335,7 @@ export function useLinkProps(
     ...omitInternalProps(props as Record<string, unknown>),
     ...resolvedActiveProps,
     ...resolvedInactiveProps,
-    href: externalLink || href,
+    href: props.disabled ? undefined : externalLink || href,
     ref,
     className: className || undefined,
     style,
