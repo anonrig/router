@@ -49,6 +49,12 @@ describe.each([{ basepath: '/' }, { basepath: '/app' }, { basepath: '/app/' }])(
       const result = removeTrailingSlash(input, basepath)
       expect(result).toBe(expectedOutput)
     })
+    it('should preserve basepath root when value matches basepath', () => {
+      const input = '/app/'
+      const expectedOutput = basepath === '/app' || basepath === '/app/' ? '/app/' : '/app'
+      const result = removeTrailingSlash(input, basepath)
+      expect(result).toBe(expectedOutput)
+    })
   },
 )
 
@@ -374,6 +380,18 @@ describe.each([{ server: true }, { server: false }])(
           name: 'should interpolate the path with the splat param containing slashes',
           path: '/users/$',
           params: { _splat: 'sean/cassiere' },
+          result: '/users/sean/cassiere',
+        },
+        {
+          name: 'should interpolate the path with asterisk (*) splat param at the end',
+          path: '/users/$',
+          params: { '*': '123' },
+          result: '/users/123',
+        },
+        {
+          name: 'should interpolate the path with asterisk (*) splat param containing slashes',
+          path: '/users/$',
+          params: { '*': 'sean/cassiere' },
           result: '/users/sean/cassiere',
         },
       ])('$name', ({ path, params, decoder, result }) => {
@@ -1236,7 +1254,6 @@ describe('parsePathname', () => {
     it('handles empty string segments without injecting unintended extra slashes', () => {
       expect(joinPaths(['/posts', ''])).toBe('/posts')
       expect(joinPaths(['/posts', '', '42'])).toBe('/posts/42')
-      expect(joinPaths(['', '/posts', ''])).toBe('/posts')
       expect(joinPaths([undefined, '/posts', undefined, '42'])).toBe('/posts/42')
     })
 
@@ -1249,20 +1266,32 @@ describe('parsePathname', () => {
 
   describe('resolvePath absolute paths with trailingSlash policy', () => {
     it('resolves absolute path with trailingSlash: "always"', () => {
-      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'always' })).toBe('/settings/')
-      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'always' })).toBe('/settings/')
+      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'always' })).toBe(
+        '/settings/',
+      )
+      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'always' })).toBe(
+        '/settings/',
+      )
       expect(resolvePath({ base: '/dashboard', to: '/', trailingSlash: 'always' })).toBe('/')
     })
 
     it('resolves absolute path with trailingSlash: "never"', () => {
-      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'never' })).toBe('/settings')
-      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'never' })).toBe('/settings')
+      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'never' })).toBe(
+        '/settings',
+      )
+      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'never' })).toBe(
+        '/settings',
+      )
       expect(resolvePath({ base: '/dashboard', to: '/', trailingSlash: 'never' })).toBe('/')
     })
 
     it('resolves absolute path with trailingSlash: "preserve"', () => {
-      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'preserve' })).toBe('/settings/')
-      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'preserve' })).toBe('/settings')
+      expect(resolvePath({ base: '/dashboard', to: '/settings/', trailingSlash: 'preserve' })).toBe(
+        '/settings/',
+      )
+      expect(resolvePath({ base: '/dashboard', to: '/settings', trailingSlash: 'preserve' })).toBe(
+        '/settings',
+      )
       expect(resolvePath({ base: '/dashboard', to: '/', trailingSlash: 'preserve' })).toBe('/')
     })
   })

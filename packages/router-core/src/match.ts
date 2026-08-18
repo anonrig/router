@@ -406,10 +406,19 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
   return current
 }
 
+function findNearestAncestorPath(route: AnyRouteLike | undefined): string {
+  let cursor = route
+  while (cursor && !cursor.isRoot) {
+    const p = cursor.fullPath || cursor.path
+    if (p && p !== '/') return p
+    cursor = cursor.parentRoute
+  }
+  return ''
+}
+
 function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: boolean) {
   if (isPathless(route) || (isIndex(route) && !route.isRoot)) {
-    const parent = route.parentRoute
-    const parentPath = parent && !parent.isRoot ? parent.fullPath || parent.path || '' : ''
+    const parentPath = findNearestAncestorPath(route.parentRoute)
     const parentNode = parentPath ? walkPath(node, parentPath, caseSensitive) : node
     if (isPathless(route)) {
       if (!parentNode.pathless) parentNode.pathless = []

@@ -90,12 +90,13 @@ export function trimPath(path: string) {
 
 export function removeTrailingSlash(value: string, basepath: string): string {
   if (!value || value === '/' || value.charCodeAt(value.length - 1) !== 47) return value
-  if (value.length === basepath.length + 1) {
-    let i = 0
-    for (; i < basepath.length; i++) {
-      if (value.charCodeAt(i) !== basepath.charCodeAt(i)) break
+  const baseLen = basepath.length
+  if (baseLen > 0) {
+    const baseEndsWithSlash = basepath.charCodeAt(baseLen - 1) === 47
+    const targetLen = baseEndsWithSlash ? baseLen : baseLen + 1
+    if (value.length === targetLen && value.startsWith(basepath)) {
+      return value
     }
-    if (i === basepath.length) return value
   }
   return value.slice(0, -1)
 }
@@ -398,7 +399,7 @@ function encodeParam(
   params: InterpolatePathOptions['params'],
   decoder: InterpolatePathOptions['decoder'],
 ): any {
-  const value = params[key]
+  const value = key === '_splat' ? (params._splat ?? params['*']) : params[key]
   if (typeof value !== 'string') return value
   if (key === '_splat') {
     let safe = true
@@ -484,7 +485,7 @@ function interpolateBracedParams(
     }
 
     if (kind === SEGMENT_TYPE_WILDCARD) {
-      const splat = params._splat
+      const splat = params._splat ?? params['*']
       usedParams._splat = splat
       usedParams['*'] = splat
       const prefix = path.substring(start, segment[1])
