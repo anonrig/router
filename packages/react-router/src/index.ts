@@ -1,3 +1,5 @@
+import './core-augmentation'
+
 export {
   defer,
   isMatch,
@@ -58,7 +60,6 @@ export type {
   RouteContext,
   PreloadableObj,
   RoutePathOptions,
-  StaticDataRouteOption,
   RoutePathOptionsIntersection,
   UpdatableStaticRouteOption,
   MetaDescriptor,
@@ -98,7 +99,6 @@ export type {
   IntersectAssign,
   ResolveValidatorInput,
   ResolveValidatorOutput,
-  Register,
   AnyValidator,
   DefaultValidator,
   ValidatorFn,
@@ -113,7 +113,6 @@ export type {
   Validator,
   ValidatorAdapter,
   ValidatorObj,
-  FileRoutesByPath,
   RouteById,
   RootRouteOptions,
   CreateFileRoute,
@@ -145,6 +144,16 @@ export type {
   RegisteredSerializableInput,
   Serializable,
 } from 'speedy-router-core'
+
+export interface Register {
+  router?: any
+  config?: any
+  ssr?: any
+}
+
+export interface StaticDataRouteOption {}
+
+export interface FileRoutesByPath {}
 
 export {
   createHistory,
