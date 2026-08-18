@@ -662,10 +662,7 @@ const routeApiHookApi = {
   useNavigate: routeApiUseNavigate,
 }
 
-function assignBoundHooks(
-  self: object,
-  api: Record<string, (this: any, ...args: any[]) => any>,
-) {
+function assignBoundHooks(self: object, api: Record<string, (this: any, ...args: any[]) => any>) {
   for (const key in api) {
     ;(self as any)[key] = api[key]!.bind(self)
   }

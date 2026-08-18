@@ -33,7 +33,9 @@ describe('getRouteApi', () => {
       getParentRoute: () => rootRoute,
       path: '/',
       loader: () => ({ hello: 'detached-api' }),
-      component: () => <div>{useLoaderData().hello}</div>,
+      component: function DetachedApi() {
+        return <div>{useLoaderData().hello}</div>
+      },
     })
     const router = createRouter({
       routeTree: rootRoute.addChildren([indexRoute]),
@@ -50,7 +52,7 @@ describe('getRouteApi', () => {
       getParentRoute: () => rootRoute,
       path: '/',
       loader: () => ({ hello: 'detached-route' }),
-      component: () => {
+      component: function DetachedRoute() {
         const { useLoaderData } = indexRoute
         return <div>{useLoaderData().hello}</div>
       },
