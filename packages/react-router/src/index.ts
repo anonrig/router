@@ -176,7 +176,8 @@ export {
 
 export { lazyRouteComponent } from './lazy-route-component'
 
-export { useLinkProps, createLink, Link, linkOptions } from './link'
+export { useLinkProps, Link } from './link'
+export { createLink, linkOptions } from './link-factories'
 export type {
   InferDescendantToPaths,
   RelativeToPath,
@@ -260,15 +261,15 @@ export type {
   LinkComponentRoute,
 } from './link-types'
 
+export { Matches } from './matches'
 export {
-  Matches,
   useMatchRoute,
   MatchRoute,
   useMatches,
   useParentMatches,
   useChildMatches,
-} from './matches'
-export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './matches'
+} from './matches-hooks'
+export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './matches-hooks'
 
 export { Match, MatchInner, Outlet, renderPending } from './match'
 
@@ -310,7 +311,8 @@ export type { UseElementScrollRestorationOptions } from './scroll-restoration'
 export type { UseBlockerOpts, ShouldBlockFn } from './use-blocker'
 export { useBlocker, Block } from './use-blocker'
 
-export { useNavigate, Navigate } from './use-navigate'
+export { useNavigate } from './use-navigate'
+export { Navigate } from './navigate'
 export { useParams } from './use-params'
 export { useSearch } from './use-search'
 export { useRouteContext } from './use-route-context'

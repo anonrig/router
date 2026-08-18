@@ -91,6 +91,8 @@ describe('dead code elimination', () => {
     expect(asyncCode).toContain('loadServerRoute')
     expect(entry).not.toContain('runClientTransaction')
     expect(asyncCode).toContain('runClientTransaction')
+    expect(entry).not.toContain('_getAssetMatches')
+    expect(entry).not.toContain('_getRenderedMatches')
   })
 
   it('drops unused Scripts and HeadContent from a client react-router import', async () => {

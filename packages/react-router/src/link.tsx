@@ -375,21 +375,6 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(p
   return createElement('a', { ...anchorProps, ref: setRefs, children: resolvedChildren })
 }) as unknown as import('./link-types').LinkComponent<'a'>
 
-export const createLink = /*#__PURE__*/ ((Comp: any) => {
-  return forwardRef((props: any, forwardedRef) => {
-    const { children, ...rest } = props
-    const linkProps = useLinkProps(rest)
-    const resolvedChildren =
-      typeof children === 'function'
-        ? children({ isActive: (linkProps as any)['data-status'] === 'active' })
-        : children
-    return createElement(Comp, { ...linkProps, ref: forwardedRef, children: resolvedChildren })
-  })
-}) as typeof import('./link-types').createLink
-
-export const linkOptions = /*#__PURE__*/ ((opts: any) =>
-  opts) as typeof import('./link-types').linkOptions
-
 export type {
   UseLinkPropsOptions,
   ActiveLinkOptions,

@@ -342,7 +342,10 @@
         "packages/react-router/src/transitioner.tsx",
         "packages/react-router/src/link.tsx",
         "packages/react-router/src/match.tsx",
-        "packages/react-router/src/matches.tsx"
+        "packages/react-router/src/matches.tsx",
+        "packages/react-router/src/matches-hooks.tsx",
+        "packages/react-router/src/navigate.tsx",
+        "packages/react-router/src/link-factories.tsx"
       ],
       "rules": {
         "react/react-compiler": "off"
