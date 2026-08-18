@@ -65,8 +65,9 @@ function bindFileRoutePath(route: Record<string, unknown>, path?: string) {
   route.isRoot = false
   if (typeof path !== 'string' || path === '') return
   route._id = path
-  const fullPath = fileRouteFullPath(path)
-  if (fullPath === undefined) return
+  // Pure pathless ids (`/_auth`, `/@modal`) have no URL segments. Match
+  // generator `urlPathFromId(...) ?? '/'` and Route.init() under root.
+  const fullPath = fileRouteFullPath(path) ?? '/'
   route._fullPath = fullPath
   route._to = fullPath !== '/' && fullPath.endsWith('/') ? fullPath.slice(0, -1) : fullPath
 }

@@ -99,6 +99,11 @@ describe('createFileRoute', () => {
 
     const listIndex = createFileRoute('/i/lists/$listId/')({})
     expect(listIndex.fullPath).toBe('/i/lists/$listId/')
+
+    const auth = createFileRoute('/_auth')({})
+    expect(auth.id).toBe('/_auth')
+    expect(auth.fullPath).toBe('/')
+    expect(auth.to).toBe('/')
   })
 
   it('reads params from the file Route after a generator-style lazy stub load', async () => {
