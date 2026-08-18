@@ -17,11 +17,11 @@ import {
   isDangerousProtocol,
   preloadWarning,
   removeTrailingSlash,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 import { useIntersectionObserver } from './utils'
 import { useRouter } from './use-router'
 import { useStore } from './use-store'
-import type { ActiveOptions, NavigateOptions, ParsedLocation } from '@anonrig/router-core'
+import type { ActiveOptions, NavigateOptions, ParsedLocation } from 'speedy-router-core'
 
 export type LinkProps = NavigateOptions &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
@@ -44,7 +44,7 @@ const STATIC_ACTIVE_OBJECT = { className: 'active' }
 const STATIC_DISABLED_PROPS = { role: 'link', 'aria-disabled': true }
 const STATIC_ACTIVE_PROPS = { 'data-status': 'active', 'aria-current': 'page' }
 
-const INTERNAL_LINK_KEYS = new Set([
+export const INTERNAL_LINK_KEYS = new Set([
   'to',
   'from',
   'params',

@@ -17,7 +17,7 @@ function write(dir: string, file: string, body = 'export const Route = {}\n') {
 
 describe('scanRoutes', () => {
   it('maps TanStack file names to compact parent/id/path records', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'anonrig-routes-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-'))
     write(dir, '__root.tsx')
     write(dir, 'index.tsx')
     write(dir, 'about.tsx')
@@ -53,8 +53,36 @@ describe('scanRoutes', () => {
     expect(byKey['/blog_/$slug']?.path).toBe('/blog/$slug')
   })
 
+  it('maps @slotName files to slot roots and slot children', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-slot-routes-'))
+    write(dir, '__root.tsx')
+    write(dir, 'dashboard.tsx')
+    write(dir, 'dashboard.@activity.tsx')
+    write(dir, 'dashboard.@activity.index.tsx')
+    write(dir, '@modal.tsx')
+    write(dir, '@modal.users.$id.tsx')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const byKey = Object.fromEntries(
+      scanned.filter((route) => !route.isRoot).map((route) => [route.key, route]),
+    )
+
+    expect(byKey['/@modal']?.slot).toBe('modal')
+    expect(byKey['/@modal']?.isSlotRoot).toBe(true)
+    expect(byKey['/@modal']?.path).toBeUndefined()
+    expect(byKey['/@modal/users/$id']?.parentId).toBe('/@modal')
+    expect(byKey['/@modal/users/$id']?.path).toBe('/users/$id')
+    expect(byKey['/dashboard/@activity']?.slot).toBe('activity')
+    expect(byKey['/dashboard/@activity']?.parentId).toBe('/dashboard')
+    expect(byKey['/dashboard/@activity']?.isSlotRoot).toBe(true)
+    expect(byKey['/dashboard/@activity/']?.path).toBe('/')
+    expect(byKey['/dashboard/@activity/']?.isPathless).toBe(false)
+    expect(byKey['/dashboard/@activity/']?.isSlotRoot).toBe(false)
+    expect(byKey['/dashboard/@activity/']?.parentId).toBe('/dashboard/@activity')
+  })
+
   it('walks dirents once and skips node_modules, dot dirs, and split files', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'anonrig-routes-skip-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-skip-'))
     write(dir, '__root.tsx')
     write(dir, 'visible.tsx')
     write(dir, 'node_modules/hidden.tsx')
@@ -68,15 +96,15 @@ describe('scanRoutes', () => {
   })
 
   it('throws when the routes directory is missing', () => {
-    expect(() => scanRoutes({ routesDirectory: join(tmpdir(), 'anonrig-missing-routes') })).toThrow(
-      /routesDirectory does not exist/,
-    )
+    expect(() =>
+      scanRoutes({ routesDirectory: join(tmpdir(), 'speedy-router-missing-routes') }),
+    ).toThrow(/routesDirectory does not exist/)
   })
 })
 
 describe('generateRouteTree', () => {
   it('emits a runtime file that static-imports only the root route', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'anonrig-gen-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx', 'export const Route = { options: {} }\n')
     for (let i = 0; i < 40; i++) {
@@ -105,12 +133,30 @@ describe('generateRouteTree', () => {
     expect(runtime).not.toContain('interface FileRoutesByFullPath')
     expect(types).toContain('export interface FileRouteTypes')
     expect(types).toContain('fullPaths: keyof FileRoutesByFullPath')
-    expect(types).toContain("declare module '@anonrig/router-core'")
+    expect(types).toContain("declare module 'speedy-router-core'")
     expect(types).not.toContain('typeof ')
   })
 
+  it('imports createSlotRoute from the React package so Outlet wiring is installed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-slots-'))
+    const routes = join(dir, 'routes')
+    write(routes, '__root.tsx')
+    write(routes, 'dashboard.tsx')
+    write(routes, 'dashboard.@activity.tsx')
+    write(routes, 'dashboard.@activity.index.tsx')
+    const generated = join(dir, 'routeTree.gen.ts')
+    generateRouteTree({
+      routesDirectory: routes,
+      generatedRouteTree: generated,
+    })
+    const runtime = readFileSync(generated, 'utf8')
+    expect(runtime).toContain("import { createRoute } from 'speedy-router-core'")
+    expect(runtime).toContain("import { createSlotRoute } from 'speedy-router'")
+    expect(runtime).toContain('createSlotRoute({ getParentRoute, slot })')
+  })
+
   it('does not rewrite unchanged generated files', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'anonrig-gen-idempotent-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-idempotent-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx')
     write(routes, 'index.tsx')
@@ -132,7 +178,7 @@ describe('generateRouteTree', () => {
   })
 
   it('keeps route module bodies out of the initial client chunk', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'anonrig-dce-tree-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-dce-tree-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx', 'export const Route = { options: { marker: "ROOT_ONLY" } }\n')
     write(routes, 'index.tsx', 'export const Route = { options: { marker: "INDEX_ROUTE_BODY" } }\n')
@@ -156,9 +202,9 @@ describe('generateRouteTree', () => {
       entry: join(dir, 'entry.ts'),
       outDir: join(dir, 'out'),
       alias: {
-        '@anonrig/history': join(repoRoot, 'packages/history/src/index.ts'),
-        '@anonrig/router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
-        '@anonrig/router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
+        'speedy-router-history': join(repoRoot, 'packages/history/src/index.ts'),
+        'speedy-router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
+        'speedy-router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
       },
     })
     expect(entry).toContain('ROOT_ONLY')

@@ -5,12 +5,12 @@
  * is 0 on both sides, so typed and changing-params rows must call the post
  * loader the same number of times.
  */
-import { createMemoryHistory as createOursMemoryHistory } from '@anonrig/history'
+import { createMemoryHistory as createOursMemoryHistory } from 'speedy-router-history'
 import {
   createRootRoute as createOursRootRoute,
   createRoute as createOursRoute,
   createRouter as createOursRouter,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 import { createMemoryHistory as createTanStackMemoryHistory } from '@tanstack/history'
 import {
   createRootRoute as createTanStackRootRoute,

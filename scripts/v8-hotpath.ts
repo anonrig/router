@@ -2,7 +2,7 @@
  * Exercise hot-path functions long enough for TurboFan, then keep going
  * so --trace-deopt / --prof see the steady state.
  */
-import { createMemoryHistory, parseHref } from '@anonrig/history'
+import { createMemoryHistory, parseHref } from 'speedy-router-history'
 import {
   cleanPath,
   createRootRoute,
@@ -13,7 +13,7 @@ import {
   encode,
   interpolatePath,
   resolvePath,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 import { findRouteMatch, processRouteTree } from '../packages/router-core/src/match.ts'
 
 const sample = { token: 'foo', page: 12, q: 'hello world', flag: true }

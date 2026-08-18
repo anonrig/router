@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { createMemoryHistory } from '@anonrig/history'
+import { createMemoryHistory } from 'speedy-router-history'
 import { createRootRoute, createRoute } from '../src/route'
 import { createRouter } from '../src/router'
 

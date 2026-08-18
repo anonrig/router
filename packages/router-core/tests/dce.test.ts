@@ -26,7 +26,7 @@ async function bundle(
   source: string,
   opts: { filename?: string } = {},
 ): Promise<{ entry: string; chunks: Record<string, string> }> {
-  const dir = await mkdtemp(join(tmpdir(), 'anonrig-dce-'))
+  const dir = await mkdtemp(join(tmpdir(), 'speedy-router-dce-'))
   dirs.push(dir)
   const filename = opts.filename ?? 'entry.ts'
   const entry = join(dir, filename)
@@ -36,10 +36,10 @@ async function bundle(
     entry,
     outDir: join(dir, 'out'),
     alias: {
-      '@anonrig/history': join(root, 'packages/history/src/index.ts'),
-      '@anonrig/router-core': join(root, 'packages/router-core/src/index.ts'),
-      '@anonrig/router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
-      '@anonrig/react-router': join(root, 'packages/react-router/src/index.ts'),
+      'speedy-router-history': join(root, 'packages/history/src/index.ts'),
+      'speedy-router-core': join(root, 'packages/router-core/src/index.ts'),
+      'speedy-router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
+      'speedy-router': join(root, 'packages/react-router/src/index.ts'),
     },
     external: [
       'react',
@@ -58,7 +58,7 @@ async function bundle(
 describe('dead code elimination', () => {
   it('drops the router and SSR graph when only encode is imported', async () => {
     const { entry } = await bundle(`
-      import { encode } from '@anonrig/router-core'
+      import { encode } from 'speedy-router-core'
       console.log(encode({ a: 1 }))
     `)
     expect(entry).toContain('encode')
@@ -69,7 +69,7 @@ describe('dead code elimination', () => {
 
   it('does not pull server loaders through the isServer export', async () => {
     const { entry } = await bundle(`
-      import { isServer } from '@anonrig/router-core'
+      import { isServer } from 'speedy-router-core'
       console.log(isServer)
     `)
     expect(entry).toMatch(/document/)
@@ -78,7 +78,7 @@ describe('dead code elimination', () => {
 
   it('keeps load-server out of the client createRouter chunk', async () => {
     const { entry, chunks } = await bundle(`
-      import { createRootRoute, createRouter } from '@anonrig/router-core'
+      import { createRootRoute, createRouter } from 'speedy-router-core'
       export const router = createRouter({ routeTree: createRootRoute() })
     `)
     expect(entry).toContain('createRouter')
@@ -89,12 +89,14 @@ describe('dead code elimination', () => {
       .map(([, code]) => code)
       .join('\n')
     expect(asyncCode).toContain('loadServerRoute')
+    expect(entry).not.toContain('runClientTransaction')
+    expect(asyncCode).toContain('runClientTransaction')
   })
 
   it('drops unused Scripts and HeadContent from a client react-router import', async () => {
     const { entry } = await bundle(
       `
-        import { createRootRoute, createRouter } from '@anonrig/react-router'
+        import { createRootRoute, createRouter } from 'speedy-router'
         export const router = createRouter({ routeTree: createRootRoute() })
       `,
       { filename: 'entry.tsx' },

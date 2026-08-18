@@ -1,7 +1,7 @@
 /**
  * Head-to-head throughput: this repo vs published TanStack Router.
  *
- * `@anonrig/*` resolves through the workspace packages. `@tanstack/*` stays
+ * `speedy-router*` resolves through the workspace packages. `@tanstack/*` stays
  * on the published packages so the same operations can be timed head-to-head.
  *
  * Headline rows measure equivalent work on both sides: typed `to`/`params`
@@ -16,7 +16,7 @@ import './bench-compare-self.ts'
 import {
   createMemoryHistory as oursCreateMemoryHistory,
   parseHref as oursParseHref,
-} from '@anonrig/history'
+} from 'speedy-router-history'
 import {
   cleanPath as oursCleanPath,
   createRootRoute as oursCreateRootRoute,
@@ -27,9 +27,9 @@ import {
   encode as oursEncode,
   interpolatePath as oursInterpolatePath,
   resolvePath as oursResolvePath,
-} from '@anonrig/router-core'
-import { createRequestHandler as oursCreateRequestHandler } from '@anonrig/router-core/ssr/server'
-import { dehydrateSsrMatchId as oursDehydrateSsrMatchId } from '@anonrig/router-core/ssr/ssr-match-id'
+} from 'speedy-router-core'
+import { createRequestHandler as oursCreateRequestHandler } from 'speedy-router-core/ssr/server'
+import { dehydrateSsrMatchId as oursDehydrateSsrMatchId } from 'speedy-router-core/ssr/ssr-match-id'
 import {
   findRouteMatch as oursFindRouteMatch,
   processRouteTree as oursProcessRouteTree,
@@ -58,10 +58,72 @@ import {
 } from '../node_modules/@tanstack/router-core/dist/esm/new-process-route-tree.js'
 import { dehydrateSsrMatchId as tsDehydrateSsrMatchId } from '../node_modules/@tanstack/router-core/dist/esm/ssr/ssr-match-id.js'
 
-type Row = { name: string; ours: number; tanstack: number }
+type Row = {
+  name: string
+  ours: number
+  tanstack: number
+  oursBytes: number
+  tanstackBytes: number
+}
 
 function now() {
   return performance.now()
+}
+
+function heapUsed() {
+  return process.memoryUsage().heapUsed
+}
+
+function collectHeap(fn: () => void, ms: number) {
+  const warmupEnd = now() + 40
+  while (now() < warmupEnd) fn()
+  globalThis.gc?.()
+  const before = heapUsed()
+  let ops = 0
+  const start = now()
+  const end = start + ms
+  while (now() < end) {
+    fn()
+    ops++
+  }
+  return ops > 0 ? (heapUsed() - before) / ops : 0
+}
+
+async function collectHeapAsync(fn: () => Promise<void>, ms: number) {
+  const warmupEnd = now() + 40
+  while (now() < warmupEnd) await fn()
+  globalThis.gc?.()
+  const before = heapUsed()
+  let ops = 0
+  const start = now()
+  const end = start + ms
+  while (now() < end) {
+    await fn()
+    ops++
+  }
+  return ops > 0 ? (heapUsed() - before) / ops : 0
+}
+
+function median(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2
+}
+
+function measureSyncHeap(fn: () => void, ms = 250) {
+  const samples = [collectHeap(fn, ms), collectHeap(fn, ms), collectHeap(fn, ms)]
+  const usable = samples.filter((value) => value >= 0)
+  return Math.max(0, median(usable.length ? usable : samples))
+}
+
+async function measureAsyncHeap(fn: () => Promise<void>, ms = 250) {
+  const samples = [
+    await collectHeapAsync(fn, ms),
+    await collectHeapAsync(fn, ms),
+    await collectHeapAsync(fn, ms),
+  ]
+  const usable = samples.filter((value) => value >= 0)
+  return Math.max(0, median(usable.length ? usable : samples))
 }
 
 function measureSync(fn: () => void, ms = 1500) {
@@ -307,16 +369,53 @@ async function assertLoaderParity() {
 const microRows: Row[] = []
 const headlineRows: Row[] = []
 
-async function addSync(name: string, ours: () => void, tanstack: () => void) {
-  microRows.push({ name, ours: measureSync(ours), tanstack: measureSync(tanstack) })
+const syncJobs: Array<{ name: string; ours: () => void; tanstack: () => void }> = []
+const asyncJobs: Array<{
+  name: string
+  ours: () => Promise<void>
+  tanstack: () => Promise<void>
+}> = []
+
+function addSync(name: string, ours: () => void, tanstack: () => void) {
+  syncJobs.push({ name, ours, tanstack })
 }
 
-async function addAsync(name: string, ours: () => Promise<void>, tanstack: () => Promise<void>) {
-  headlineRows.push({
-    name,
-    ours: await measureAsync(ours),
-    tanstack: await measureAsync(tanstack),
-  })
+function addAsync(name: string, ours: () => Promise<void>, tanstack: () => Promise<void>) {
+  asyncJobs.push({ name, ours, tanstack })
+}
+
+async function finishRows() {
+  for (const job of syncJobs) {
+    microRows.push({
+      name: job.name,
+      ours: measureSync(job.ours),
+      tanstack: measureSync(job.tanstack),
+      oursBytes: 0,
+      tanstackBytes: 0,
+    })
+  }
+  for (const job of asyncJobs) {
+    headlineRows.push({
+      name: job.name,
+      ours: await measureAsync(job.ours),
+      tanstack: await measureAsync(job.tanstack),
+      oursBytes: 0,
+      tanstackBytes: 0,
+    })
+  }
+  globalThis.gc?.()
+  for (let i = 0; i < syncJobs.length; i++) {
+    const job = syncJobs[i]!
+    const row = microRows[i]!
+    row.oursBytes = measureSyncHeap(job.ours)
+    row.tanstackBytes = measureSyncHeap(job.tanstack)
+  }
+  for (let i = 0; i < asyncJobs.length; i++) {
+    const job = asyncJobs[i]!
+    const row = headlineRows[i]!
+    row.oursBytes = await measureAsyncHeap(job.ours)
+    row.tanstackBytes = await measureAsyncHeap(job.tanstack)
+  }
 }
 
 function fmt(n: number) {
@@ -332,7 +431,7 @@ function printTable(title: string, rows: Row[]) {
   console.log(title)
   console.log(
     'Operation'.padEnd(38) +
-      ' @anonrig'.padStart(14) +
+      'speedy-router'.padStart(14) +
       ' TanStack'.padStart(14) +
       ' vs TanStack'.padStart(14),
   )
@@ -604,4 +703,5 @@ if (section === 'micro') {
   )
 }
 
+await finishRows()
 console.log(`BENCH_JSON:${JSON.stringify([...microRows, ...headlineRows])}`)

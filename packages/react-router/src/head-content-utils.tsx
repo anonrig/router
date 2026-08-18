@@ -8,10 +8,10 @@ import {
   getAssetCrossOrigin,
   getScriptPreloadAttrs,
   resolveManifestCssLink,
-} from '@anonrig/router-core'
-import { isServer } from '@anonrig/router-core/is-server'
+} from 'speedy-router-core'
+import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
-import type { AnyRouteMatch, AssetCrossOriginConfig, RouterManagedTag } from '@anonrig/router-core'
+import type { AnyRouteMatch, AssetCrossOriginConfig, RouterManagedTag } from 'speedy-router-core'
 
 function buildTagsFromMatches(
   router: ReturnType<typeof useRouter>,

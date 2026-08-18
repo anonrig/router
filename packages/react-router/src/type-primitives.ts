@@ -9,7 +9,7 @@ import type {
   InferStrict,
   InferTo,
   RegisteredRouter,
-} from '@anonrig/router-core'
+} from 'speedy-router-core'
 import type { LinkComponentProps } from './link'
 import type { UseParamsOptions } from './use-params'
 import type { UseSearchOptions } from './use-search'
