@@ -4,10 +4,16 @@
  * Minified ESM via Vite 8 / Rolldown, production, React external.
  * Re-run with `pnpm size`.
  */
+import { createRequire } from 'node:module'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { scriptStringPlugin, viteBundle } from './vite-bundle.ts'
+
+const require = createRequire(import.meta.url)
+function tanstackVersion(name: string) {
+  return (require(`${name}/package.json`) as { version: string }).version
+}
 
 const repo = resolve(import.meta.dirname, '..')
 
@@ -130,7 +136,7 @@ console.log('')
 console.log('Client bundle size (Vite/Rolldown minify, gzip -9, React external)')
 console.log(`Node ${process.version}`)
 console.log(
-  'TanStack: @tanstack/react-router 1.170.29, @tanstack/router-core 1.171.24, @tanstack/history 1.162.1',
+  `TanStack: @tanstack/react-router ${tanstackVersion('@tanstack/react-router')}, @tanstack/router-core ${tanstackVersion('@tanstack/router-core')}, @tanstack/history ${tanstackVersion('@tanstack/history')}`,
 )
 console.log('')
 console.log(
