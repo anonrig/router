@@ -143,11 +143,7 @@ export type {
   Serializable,
 } from 'speedy-router-core'
 
-export interface Register {
-  router?: any
-  config?: any
-  ssr?: any
-}
+export interface Register {}
 
 export interface StaticDataRouteOption {}
 
