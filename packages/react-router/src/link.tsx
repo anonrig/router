@@ -268,11 +268,11 @@ export function useLinkProps(
   useEffect(() => cancelPreload, [cancelPreload, preload, preloadDelay, props.to])
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    props.onClick?.(e)
     if (props.disabled) {
       e.preventDefault()
       return
     }
-    props.onClick?.(e)
     if (externalLink) return
     const elementTarget = (e.currentTarget as HTMLAnchorElement).getAttribute('target')
     const effectiveTarget = props.target !== undefined ? props.target : elementTarget

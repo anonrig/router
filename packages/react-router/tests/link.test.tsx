@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import type { ReactNode } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   Link,
   Outlet,
@@ -14,7 +15,7 @@ afterEach(() => {
   cleanup()
 })
 
-function createTestRouter(component: () => React.ReactNode) {
+function createTestRouter(component: () => ReactNode) {
   const rootRoute = createRootRoute({
     component,
   })
@@ -50,10 +51,11 @@ describe('<Link> disabled external links', () => {
     expect(disabledLink).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('prevents default click action on disabled external links', async () => {
+  it('prevents default click action on disabled external links while still invoking onClick', async () => {
+    const handleClick = vi.fn()
     const router = createTestRouter(() => (
       <div>
-        <Link to="https://example.com" disabled>
+        <Link to="https://example.com" disabled onClick={handleClick}>
           Disabled External
         </Link>
       </div>
@@ -64,6 +66,7 @@ describe('<Link> disabled external links', () => {
     const disabledLink = await screen.findByText('Disabled External')
     const event = fireEvent.click(disabledLink)
 
+    expect(handleClick).toHaveBeenCalledTimes(1)
     // fireEvent.click returns false if e.preventDefault() was called
     expect(event).toBe(false)
   })
