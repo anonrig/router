@@ -1,5 +1,4 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   Outlet,
@@ -31,15 +30,19 @@ function BlockerComponent() {
       <div data-testid="action">{blocker.action ?? 'none'}</div>
       <div data-testid="has-proceed">{typeof blocker.proceed === 'function' ? 'yes' : 'no'}</div>
       <div data-testid="has-reset">{typeof blocker.reset === 'function' ? 'yes' : 'no'}</div>
-      <button data-testid="nav-btn" onClick={() => void router.navigate({ to: '/about' })}>
+      <button
+        type="button"
+        data-testid="nav-btn"
+        onClick={() => void router.navigate({ to: '/about' })}
+      >
         Navigate to About
       </button>
       {blocker.status === 'blocked' && (
         <>
-          <button data-testid="proceed-btn" onClick={() => blocker.proceed()}>
+          <button type="button" data-testid="proceed-btn" onClick={() => blocker.proceed()}>
             Proceed
           </button>
-          <button data-testid="reset-btn" onClick={() => blocker.reset()}>
+          <button type="button" data-testid="reset-btn" onClick={() => blocker.reset()}>
             Reset
           </button>
         </>
