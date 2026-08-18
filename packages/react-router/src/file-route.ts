@@ -36,6 +36,43 @@ import type { UseLoaderDataRoute } from './use-loader-data'
 import type { UseRouteContextRoute } from './use-route-context'
 
 /**
+ * FileRoutesByPath key → public URL path. Pathless `_` / `@` segments are
+ * dropped, matching speedy-router-generator's `urlPathFromId`.
+ */
+function fileRouteFullPath(id: string): string | undefined {
+  const trailingSlash = id.endsWith('/') && id !== '/'
+  const parts: Array<string> = []
+  for (const segment of id.split('/')) {
+    if (!segment) continue
+    if (segment.startsWith('_') || segment.startsWith('@')) continue
+    parts.push(segment.endsWith('_') ? segment.slice(0, -1) : segment)
+  }
+  if (parts.length === 0) {
+    if (id === '/' || trailingSlash) return '/'
+    return undefined
+  }
+  return `/${parts.join('/')}${trailingSlash ? '/' : ''}`
+}
+
+/**
+ * Generator-style trees keep a stub in `routeTree` and lazy-load this module.
+ * Hooks such as `Route.useParams()` read `this.id`, and `navigate({ from })`
+ * reads `this.fullPath`. Bind those from the `createFileRoute` path so the
+ * file-local Route object matches the stub even though `init()` never runs
+ * on it.
+ */
+function bindFileRoutePath(route: Record<string, unknown>, path?: string) {
+  route.isRoot = false
+  if (typeof path !== 'string' || path === '') return
+  route._id = path
+  // Pure pathless ids (`/_auth`, `/@modal`) have no URL segments. Match
+  // generator `urlPathFromId(...) ?? '/'` and Route.init() under root.
+  const fullPath = fileRouteFullPath(path) ?? '/'
+  route._fullPath = fullPath
+  route._to = fullPath !== '/' && fullPath.endsWith('/') ? fullPath.slice(0, -1) : fullPath
+}
+
+/**
  * Creates a file-based Route factory for a given path.
  *
  * Used by TanStack Router's file-based routing to associate a file with a
@@ -52,13 +89,10 @@ export function createFileRoute<
   TId extends RouteConstraints['TId'] = FileRoutesByPath[TFilePath]['id'],
   TPath extends RouteConstraints['TPath'] = FileRoutesByPath[TFilePath]['path'],
   TFullPath extends RouteConstraints['TFullPath'] = FileRoutesByPath[TFilePath]['fullPath'],
->(
-  // eslint-disable-next-line unused-imports/no-unused-vars
-  path?: TFilePath,
-): FileRoute<TFilePath, TParentRoute, TId, TPath, TFullPath>['createRoute'] {
+>(path?: TFilePath): FileRoute<TFilePath, TParentRoute, TId, TPath, TFullPath>['createRoute'] {
   return (options) => {
     const route = createRoute(options as any)
-    ;(route as any).isRoot = false
+    bindFileRoutePath(route as unknown as Record<string, unknown>, path as string | undefined)
     return route as any
   }
 }
@@ -153,7 +187,7 @@ export class FileRoute<
       }
     }
     const route = createRoute(options as any)
-    ;(route as any).isRoot = false
+    bindFileRoutePath(route as unknown as Record<string, unknown>, this.path as string | undefined)
     return route as any
   }
 }

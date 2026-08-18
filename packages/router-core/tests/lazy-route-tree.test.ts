@@ -109,4 +109,55 @@ describe('lazy file routes', () => {
     ])
     expect(router.state.matches.at(-1)?.loaderData).toEqual({ authed: true })
   })
+
+  it('matches sibling pathful underscore layouts by their children', async () => {
+    const root = createRootRoute()
+    const profile = lazyRoute({
+      id: '/$username/_profile',
+      path: '/$username',
+      parent: () => root,
+      load: async () => ({ options: { loader: () => ({ layout: 'profile' }) } }),
+    })
+    const profileIndex = lazyRoute({
+      id: '/',
+      path: '/',
+      parent: () => profile,
+      load: async () => ({ options: { loader: () => ({ page: 'posts' }) } }),
+    })
+    const followers = lazyRoute({
+      id: '/$username/_followers',
+      path: '/$username',
+      parent: () => root,
+      load: async () => ({ options: { loader: () => ({ layout: 'followers' }) } }),
+    })
+    const followersList = lazyRoute({
+      id: '/followers',
+      path: '/followers',
+      parent: () => followers,
+      load: async () => ({ options: { loader: () => ({ page: 'followers' }) } }),
+    })
+
+    const router = createRouter({
+      routeTree: root.addChildren([
+        profile.addChildren([profileIndex]),
+        followers.addChildren([followersList]),
+      ]),
+      history: createMemoryHistory({ initialEntries: ['/jack'] }),
+    })
+    await router.load()
+    expect(router.state.matches.map((match) => match.routeId)).toEqual([
+      '__root__',
+      '/$username/_profile',
+      '/$username/_profile/',
+    ])
+    expect(router.state.matches.at(-1)?.params).toEqual({ username: 'jack' })
+
+    await router.navigate({ to: '/$username/followers', params: { username: 'jack' } } as any)
+    expect(router.state.matches.map((match) => match.routeId)).toEqual([
+      '__root__',
+      '/$username/_followers',
+      '/$username/_followers/followers',
+    ])
+    expect(router.state.matches.at(-1)?.params).toEqual({ username: 'jack' })
+  })
 })
