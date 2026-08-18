@@ -2313,4 +2313,27 @@ describe('buildLocation - _fromLocation override', () => {
 
     expect(location.pathname).toBe('/users/456/settings')
   })
+
+
+  test('href options are not mutated', async () => {
+    const rootRoute = new BaseRootRoute({})
+    const postsRoute = new BaseRoute({
+      getParentRoute: () => rootRoute,
+      path: '/posts',
+    })
+    const router = createTestRouter({
+      routeTree: rootRoute.addChildren([postsRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    const options = Object.freeze({ href: '/posts?page=1#section' })
+
+    const location = router.buildLocation(options as any)
+
+    expect(location).toMatchObject({
+      pathname: '/posts',
+      search: { page: 1 },
+      hash: 'section',
+    })
+    expect(options).toEqual({ href: '/posts?page=1#section' })
+  })
 })

@@ -1,5 +1,13 @@
 import { runInNewContext } from 'node:vm'
-import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from 'vitest'
 import { createMemoryHistory } from '@tanstack/history'
 import {
   BaseRootRoute,
@@ -138,7 +146,9 @@ describe('hydration asset currentness', () => {
     })
     const serverRouter = createTestRouter({
       routeTree: serverRootRoute.addChildren([
-        serverParentRoute.addChildren([serverChildRoute.addChildren([serverTailRoute])]),
+        serverParentRoute.addChildren([
+          serverChildRoute.addChildren([serverTailRoute]),
+        ]),
       ]),
       history: createMemoryHistory({
         initialEntries: ['/parent/child/tail'],
@@ -187,11 +197,9 @@ describe('hydration asset currentness', () => {
 
     await hydrate(router)
 
-    expect(_getAssetMatches(router.state.matches).map((match) => match.routeId)).toEqual([
-      rootRoute.id,
-      parentRoute.id,
-      childRoute.id,
-    ])
+    expect(
+      _getAssetMatches(router.state.matches).map((match) => match.routeId),
+    ).toEqual([rootRoute.id, parentRoute.id, childRoute.id])
     expect(childContext).toHaveBeenCalledOnce()
     expect(childHead).toHaveBeenCalledOnce()
     expect(router.state.matches[2]?.meta).toEqual([
@@ -213,7 +221,9 @@ describe('hydration asset currentness', () => {
       loader: () => 'server child data',
     })
     const serverRouter = createTestRouter({
-      routeTree: serverRootRoute.addChildren([serverParentRoute.addChildren([serverChildRoute])]),
+      routeTree: serverRootRoute.addChildren([
+        serverParentRoute.addChildren([serverChildRoute]),
+      ]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
       isServer: true,
     })
@@ -255,11 +265,9 @@ describe('hydration asset currentness', () => {
       expect(router.state.status).toBe('pending')
     })
     expect(continuationAssetEnd).toBe(3)
-    expect(_getAssetMatches(router.state.matches).map((match) => match.routeId)).toEqual([
-      rootRoute.id,
-      parentRoute.id,
-      childRoute.id,
-    ])
+    expect(
+      _getAssetMatches(router.state.matches).map((match) => match.routeId),
+    ).toEqual([rootRoute.id, parentRoute.id, childRoute.id])
     expect(router.state.matches[1]?._assetEnd).toBe(3)
 
     childLoaderResult.resolve('client child data')
@@ -426,9 +434,10 @@ describe('hydration asset currentness', () => {
     expect(childLoader).toHaveBeenCalledTimes(1)
   })
 
-  test('failed HMR restores a partial hydration presentation and handoff', async () => {
+  test('published HMR consumes a partial hydration handoff before its successor converges', async () => {
     let hydrationController: AbortController | undefined
-    const childLoader = vi.fn(() => 'client child data')
+    let generation = 0
+    const childLoader = vi.fn(() => `client child data ${++generation}`)
     const rootRoute = new BaseRootRoute({
       context: ({ abortController }: { abortController: AbortController }) => {
         hydrationController ??= abortController
@@ -457,37 +466,49 @@ describe('hydration asset currentness', () => {
 
     await hydrate(router)
     const handoff = router._handoff
-    const startTransition = router.startTransition
-    router.startTransition = async (fn) => {
+    const firstAck = createControlledPromise<boolean>()
+    const firstPublished = createControlledPromise<void>()
+    let transitions = 0
+    router.startTransition = (fn) => {
+      transitions++
+      if (transitions === 1) {
+        fn()
+        firstPublished.resolve()
+        return firstAck
+      }
+      firstAck.resolve(false)
       fn()
-      throw new Error('HMR render failed')
+      return Promise.resolve(true)
     }
 
-    await router._refreshRoute!()
+    const firstRefresh = router._refreshRoute!()
+    await firstPublished
 
-    expect(router.state.matches.map((match) => match.routeId)).toEqual([
-      rootRoute.id,
-      childRoute.id,
-    ])
-    expect(router.state.matches[1]).toMatchObject({
-      status: 'pending',
-      ssr: false,
-    })
-    expect(router._handoff).toBe(handoff)
-    expect(hydrationController?.signal.aborted).toBe(false)
-
-    router.startTransition = startTransition
-    await router.load()
+    expect(handoff).toBeDefined()
+    expect(router._handoff).toBeUndefined()
+    expect(hydrationController?.signal.aborted).toBe(true)
     expect(router.state.matches[1]).toMatchObject({
       status: 'success',
-      loaderData: 'client child data',
+      ssr: false,
+      loaderData: 'client child data 1',
+    })
+
+    const secondRefresh = router._refreshRoute!()
+    await Promise.all([firstRefresh, secondRefresh])
+
+    expect(router._handoff).toBeUndefined()
+    expect(router.state.matches[1]).toMatchObject({
+      status: 'success',
+      loaderData: 'client child data 2',
     })
     expect(childLoader).toHaveBeenCalledTimes(2)
   })
 
   test('a synchronous context navigation prevents stale hydration assets from running', async () => {
     const oldHead = vi.fn(() => ({ meta: [{ title: 'Old route' }] }))
-    const oldScripts = vi.fn(() => [{ children: 'window.oldHydrationLaneRan = true' }])
+    const oldScripts = vi.fn(() => [
+      { children: 'window.oldHydrationLaneRan = true' },
+    ])
     const newHead = vi.fn(() => ({ meta: [{ title: 'New route' }] }))
 
     let navigation: Promise<void> | undefined
@@ -569,7 +590,9 @@ describe('hydration asset currentness', () => {
       loader: serverChildLoader,
     })
     const serverRouter = createTestRouter({
-      routeTree: serverRootRoute.addChildren([serverParentRoute.addChildren([serverChildRoute])]),
+      routeTree: serverRootRoute.addChildren([
+        serverParentRoute.addChildren([serverChildRoute]),
+      ]),
       history: createMemoryHistory({ initialEntries: ['/parent/child'] }),
       isServer: true,
     })
@@ -626,17 +649,18 @@ describe('hydration asset currentness', () => {
       parentRoute.id,
       childRoute.id,
     ])
-    expect(router.state.matches.find((match) => match.routeId === parentRoute.id)).toMatchObject({
+    expect(
+      router.state.matches.find((match) => match.routeId === parentRoute.id),
+    ).toMatchObject({
       status: 'pending',
       error: transportedError,
     })
     expect(parentBeforeLoad).not.toHaveBeenCalled()
     expect(childBeforeLoad).not.toHaveBeenCalled()
     expect(childLoader).not.toHaveBeenCalled()
-    expect(_getAssetMatches(router.state.matches).map((match) => match.routeId)).toEqual([
-      rootRoute.id,
-      parentRoute.id,
-    ])
+    expect(
+      _getAssetMatches(router.state.matches).map((match) => match.routeId),
+    ).toEqual([rootRoute.id, parentRoute.id])
 
     await router.load()
 
