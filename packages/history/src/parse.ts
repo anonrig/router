@@ -118,11 +118,11 @@ export function parseHref(href: string, state: ParsedHistoryState | undefined): 
   }
 
   const pathEnd =
-    hashIndex > 0
-      ? searchIndex > 0
+    hashIndex !== -1
+      ? searchIndex !== -1
         ? Math.min(hashIndex, searchIndex)
         : hashIndex
-      : searchIndex > 0
+      : searchIndex !== -1
         ? searchIndex
         : sanitizedHref.length
 
