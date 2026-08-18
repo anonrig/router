@@ -1,4 +1,4 @@
-import './core-augmentation'
+/// <reference path="./core-augmentation.d.ts" />
 
 export {
   defer,
