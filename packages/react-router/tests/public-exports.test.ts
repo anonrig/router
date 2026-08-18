@@ -26,6 +26,9 @@ describe('TanStack react-router public surface', () => {
 
   test('package.json exposes the react-server condition', () => {
     const react = require(resolve(root, 'packages/react-router/package.json'))
-    expect(react.exports['.']['react-server']).toBe('./src/index.rsc.ts')
+    expect(react.exports['.']['react-server']).toEqual({
+      types: './dist/index.d.ts',
+      default: './dist/index.rsc.js',
+    })
   })
 })

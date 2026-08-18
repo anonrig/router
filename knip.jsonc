@@ -9,6 +9,8 @@
     "packages/**/src/**": ["exports", "types", "duplicates", "nsExports", "nsTypes", "enumMembers"],
     // Vendored TanStack tests keep helpers that this repo does not call.
     "tests/**": ["exports", "types", "duplicates"],
+    // Optional peer: the vite export is type-only until an app uses the plugin.
+    "packages/router-generator/package.json": ["optionalPeerDependencies"],
   },
   "workspaces": {
     ".": {
@@ -19,6 +21,40 @@
         "tests/**/*.test-d.{ts,tsx}",
         "tests/tanstack/setup-tests.tsx",
       ],
+    },
+    "packages/history": {
+      "entry": ["src/index.ts"],
+    },
+    "packages/router-core": {
+      "entry": [
+        "src/index.ts",
+        "src/is-server.ts",
+        "src/new-process-route-tree.ts",
+        "src/utils.ts",
+        "src/ssr/server.ts",
+        "src/ssr/client.ts",
+        "src/ssr/ssr-match-id.ts",
+        "src/ssr/serializer/transformer-types.ts",
+        "src/scroll-restoration-script/client.ts",
+        "src/scroll-restoration-script/server.ts",
+        "src/scroll-restoration-inline.ts",
+        "src/ssr/tsr-script.ts",
+      ],
+    },
+    "packages/react-router": {
+      "entry": [
+        "src/index.ts",
+        "src/index.rsc.ts",
+        "src/client-only.tsx",
+        "src/scripts.tsx",
+        "src/ssr/server.ts",
+        "src/ssr/client.ts",
+        "src/ssr/router-client.tsx",
+        "src/ssr/render-router-to-stream.tsx",
+      ],
+    },
+    "packages/router-generator": {
+      "entry": ["src/index.ts", "src/vite.ts"],
     },
   },
 }

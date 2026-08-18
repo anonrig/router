@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "pnpm -r --filter './packages/*' run build",
+    "build": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/build-packages.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:tanstack": "node scripts/test-tanstack.mjs",
@@ -29,7 +29,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "knip": "knip",
-    "release": "pnpm -r --filter './packages/*' publish --access public --no-git-checks --provenance",
+    "release": "pnpm build && pnpm -r --filter './packages/*' publish --access public --no-git-checks --provenance",
     "release:version": "node scripts/bump-release.mjs"
   },
   "devDependencies": {

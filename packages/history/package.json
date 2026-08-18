@@ -14,23 +14,27 @@
     "directory": "packages/history"
   },
   "files": [
-    "src",
+    "dist",
     "LICENSE",
     "README.md"
   ],
   "type": "module",
   "sideEffects": false,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public",
     "provenance": true
   },
   "scripts": {
-    "build": "echo 'source package'"
+    "build": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ../../scripts/register-ts.mjs ../../scripts/build-packages.ts --package history"
   },
   "engines": {
     "node": ">=24"

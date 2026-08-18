@@ -2,6 +2,19 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { build, type Plugin } from 'vite'
 
+async function readScriptString(file: string) {
+  const candidates = [file, `${file}.ts`, `${file}.tsx`, `${file}.js`]
+  let lastError: unknown
+  for (const candidate of candidates) {
+    try {
+      return await readFile(candidate, 'utf8')
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError
+}
+
 function exactAliases(alias?: Record<string, string>) {
   if (!alias) return undefined
   return Object.entries(alias).map(([find, replacement]) => ({
@@ -40,7 +53,7 @@ export function scriptStringPlugin(opts: { stub?: boolean } = {}): Plugin {
     async load(id) {
       if (!id.includes('?script-string')) return
       const file = id.slice(0, id.indexOf('?'))
-      const contents = opts.stub ? '' : await readFile(file, 'utf8')
+      const contents = opts.stub ? '' : await readScriptString(file)
       return {
         code: `export default ${JSON.stringify(contents)}`,
         moduleType: 'js',
