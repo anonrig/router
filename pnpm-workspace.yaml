@@ -4,3 +4,8 @@ packages:
 allowBuilds:
   esbuild: set this to true or false
   rolldown: true
+
+# These comparison packages were published today; CI still needs them.
+minimumReleaseAgeExclude:
+  - '@tanstack/react-router'
+  - '@tanstack/router-core'
