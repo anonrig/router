@@ -198,7 +198,12 @@ This generator still exports `routeTree` for `createRouter({ routeTree })`. The 
 import { tanstackRouter } from 'speedy-router-generator/vite'
 
 export default defineConfig({
-  plugins: [tanstackRouter({ routesDirectory: './src/routes' })],
+  plugins: [
+    tanstackRouter({
+      routesDirectory: './src/routes',
+      routeFileIgnorePattern: '\\.test\\.|\\.e2e\\.|__generated__',
+    }),
+  ],
 })
 ```
 
@@ -208,11 +213,11 @@ Apps keep `createFileRoute('/posts/$id')` in each route file. Nothing new to cal
 
 TanStack's `renderRouterToStream` inspects `User-Agent` with `isbot` and, for crawlers, waits for React's `allReady` / `onAllReady` so the first byte is a complete document.
 
-This router never does that.
+This router never inspects User-Agent.
 
-Every SSR stream starts on `onShellReady` and flushes incrementally, including requests that look like bots. That keeps a dependency out of the hot path and avoids a User-Agent parse on every request.
+Every SSR stream starts on `onShellReady` by default and flushes incrementally. That keeps a dependency out of the hot path and avoids a User-Agent parse on every request.
 
-If you need crawlers to receive fully buffered HTML, wait for `stream.allReady` in your own render handler.
+If you need crawlers to receive fully buffered HTML, pass `isBot: true` (or a request predicate) to `renderRouterToStream`. That waits for React's `allReady` / `onAllReady` without adding `isbot`.
 
 ## Compatibility
 

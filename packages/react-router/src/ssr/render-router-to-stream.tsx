@@ -15,17 +15,49 @@ const isAbortError = (request: Request, error: unknown) =>
   (request.signal.aborted && error === request.signal.reason) ||
   (Error.isError(error) && error.name === 'AbortError')
 
+async function waitForReadyOrAbort(ready: Promise<void>, signal: AbortSignal) {
+  if (signal.aborted) {
+    throw signal.reason
+  }
+  const abort = Promise.withResolvers<never>()
+  const onAbort = () => abort.reject(signal.reason)
+  signal.addEventListener('abort', onAbort, { once: true })
+  try {
+    await Promise.race([ready, abort.promise])
+  } finally {
+    signal.removeEventListener('abort', onAbort)
+  }
+}
+
+function resolveIsBot(
+  isBot: boolean | ((request: Request) => boolean) | undefined,
+  request: Request,
+) {
+  return typeof isBot === 'function' ? isBot(request) : Boolean(isBot)
+}
+
+export type RenderRouterToStreamOptions = {
+  request: Request
+  router: AnyRouter
+  responseHeaders: Headers
+  children: ReactNode
+  /**
+   * When true (or when the function returns true), wait for React's
+   * `allReady` / `onAllReady` so the first byte is a complete document.
+   * Defaults to false: every request streams from `onShellReady`.
+   * User-Agent is never inspected.
+   */
+  isBot?: boolean | ((request: Request) => boolean)
+}
+
 export const renderRouterToStream = async ({
   request,
   router,
   responseHeaders,
   children,
-}: {
-  request: Request
-  router: AnyRouter
-  responseHeaders: Headers
-  children: ReactNode
-}) => {
+  isBot,
+}: RenderRouterToStreamOptions) => {
+  const isBotRequest = resolveIsBot(isBot, request)
   if (typeof ReactDOMServer.renderToReadableStream === 'function') {
     const stream = await ReactDOMServer.renderToReadableStream(children, {
       signal: request.signal,
@@ -37,6 +69,10 @@ export const renderRouterToStream = async ({
         }
       },
     })
+
+    if (isBotRequest) {
+      await waitForReadyOrAbort(stream.allReady, request.signal)
+    }
 
     const responseStream = transformReadableStreamWithRouter(
       router,
@@ -110,9 +146,17 @@ export const renderRouterToStream = async ({
       pipeable = ReactDOMServer.renderToPipeableStream(children, {
         nonce: router.options.ssr?.nonce,
         progressiveChunkSize: Number.POSITIVE_INFINITY,
-        onShellReady() {
-          pipeable!.pipe(reactAppPassthrough)
-        },
+        ...(isBotRequest
+          ? {
+              onAllReady() {
+                pipeable!.pipe(reactAppPassthrough)
+              },
+            }
+          : {
+              onShellReady() {
+                pipeable!.pipe(reactAppPassthrough)
+              },
+            }),
         onError: (error, info) => {
           if (!isAbortError(request, error)) {
             console.error('Error in renderToPipeableStream:', error, info)

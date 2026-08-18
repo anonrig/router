@@ -25,8 +25,12 @@ export type ScannedRoute = {
   isSlotRoot?: boolean
 }
 
+export type RouteFileIgnorePattern = string | RegExp
+
 export type ScanRoutesOptions = {
   routesDirectory: string
+  /** Same meaning as TanStack's `routeFileIgnorePattern`: matched against the POSIX path relative to `routesDirectory`. */
+  routeFileIgnorePattern?: RouteFileIgnorePattern
 }
 
 function toPosix(value: string) {
@@ -43,7 +47,20 @@ export function isRouteFile(name: string) {
   return true
 }
 
-function listRouteFiles(rootDir: string) {
+export function compileRouteFileIgnorePattern(pattern?: RouteFileIgnorePattern) {
+  if (!pattern) return undefined
+  return typeof pattern === 'string' ? new RegExp(pattern) : pattern
+}
+
+export function matchesRouteFileIgnorePattern(
+  relativePath: string,
+  pattern?: RouteFileIgnorePattern,
+) {
+  const ignore = compileRouteFileIgnorePattern(pattern)
+  return ignore ? ignore.test(relativePath) : false
+}
+
+function listRouteFiles(rootDir: string, ignore?: RegExp) {
   const files: Array<string> = []
   const stack = [rootDir]
   while (stack.length) {
@@ -63,12 +80,15 @@ function listRouteFiles(rootDir: string) {
       const entry = entries[i]!
       const name = entry.name
       if (name === 'node_modules' || name.charCodeAt(0) === 46 /* . */) continue
+      const fullPath = join(dir, name)
+      const relativePath = toPosix(relative(rootDir, fullPath))
+      if (ignore && (ignore.test(name) || ignore.test(relativePath))) continue
       if (entry.isDirectory()) {
-        stack.push(join(dir, name))
+        stack.push(fullPath)
         continue
       }
       if ((entry.isFile() || entry.isSymbolicLink()) && isRouteFile(name)) {
-        files.push(join(dir, name))
+        files.push(fullPath)
       }
     }
   }
@@ -79,17 +99,19 @@ function stripRouteToken(segments: Array<string>) {
   return segments.filter((segment) => segment !== 'route')
 }
 
-function normalizeSlotFileId(fileId: string) {
-  if (!fileId.includes('@')) return fileId
+const ESCAPED_DOT = '\0'
+
+/** TanStack flat routes: `.` nests; `[.]` is a literal dot in that segment. */
+function flattenRouteFileId(fileId: string) {
   return fileId
-    .replace(/\.@/g, '/@')
-    .replace(/(@[^./]+)\./g, '$1/')
+    .replace(/\[\.\]/g, ESCAPED_DOT)
     .replace(/\./g, '/')
+    .replaceAll(ESCAPED_DOT, '.')
 }
 
 function fileIdToKey(fileId: string) {
   if (fileId === '__root') return '__root__'
-  const raw = normalizeSlotFileId(fileId).split('/').filter(Boolean)
+  const raw = flattenRouteFileId(fileId).split('/').filter(Boolean)
   const segments = stripRouteToken(raw)
   if (segments.length === 0) return '/'
   const last = segments[segments.length - 1]!
@@ -119,8 +141,7 @@ function slotNameOf(key: string) {
   return segment.startsWith('@') ? segment.slice(1) : undefined
 }
 
-function urlPathFromId(id: string, pathless: boolean): string | undefined {
-  if (pathless) return undefined
+export function urlPathFromId(id: string): string | undefined {
   const trailingSlash = id.endsWith('/') && id !== '/'
   const parts: Array<string> = []
   for (const segment of id.split('/')) {
@@ -128,7 +149,10 @@ function urlPathFromId(id: string, pathless: boolean): string | undefined {
     if (segment.startsWith('_') || segment.startsWith('@')) continue
     parts.push(segment.endsWith('_') ? segment.slice(0, -1) : segment)
   }
-  if (parts.length === 0) return '/'
+  if (parts.length === 0) {
+    if (id === '/' || trailingSlash) return '/'
+    return undefined
+  }
   return `/${parts.join('/')}${trailingSlash ? '/' : ''}`
 }
 
@@ -158,7 +182,10 @@ function relativeId(key: string, parentId: string) {
 
 export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
   const rootDir = options.routesDirectory
-  const files = listRouteFiles(rootDir)
+  const files = listRouteFiles(
+    rootDir,
+    compileRouteFileIgnorePattern(options.routeFileIgnorePattern),
+  )
 
   const pending: Array<Omit<ScannedRoute, 'id' | 'path' | 'parentId' | 'isPathless'>> = []
   for (const filePath of files) {
@@ -193,7 +220,7 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
     routes.push({
       ...route,
       id,
-      path: urlPathFromId(id, pathless),
+      path: urlPathFromId(id),
       parentId,
       isPathless: pathless,
       slot,
