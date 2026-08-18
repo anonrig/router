@@ -1,4 +1,4 @@
-import { listParentSlots, markSlotRoute, type AnyRouteMatch } from '@anonrig/router-core'
+import { listParentSlots, markSlotRoute, type AnyRouteMatch } from 'speedy-router-core'
 import React, { useContext } from 'react'
 import { INTERNAL_LINK_KEYS } from './link'
 import { Outlet, setOutletSlot } from './match'

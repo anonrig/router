@@ -3,7 +3,7 @@ import {
   parseHref,
   type HistoryLocation,
   type RouterHistory,
-} from '@anonrig/history'
+} from 'speedy-router-history'
 import {
   buildRouteBranch,
   findFlatMatch,

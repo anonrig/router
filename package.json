@@ -1,6 +1,6 @@
 {
-  "name": "@anonrig/router",
-  "version": "0.0.0",
+  "name": "speedy-router-monorepo",
+  "version": "0.1.0",
   "private": true,
   "description": "The TanStack Router API. Rebuilt for the hot path.",
   "license": "MIT",
@@ -27,12 +27,11 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "knip": "knip"
+    "knip": "knip",
+    "release": "pnpm -r --filter './packages/*' publish --access public --no-git-checks --provenance",
+    "release:version": "node scripts/bump-release.mjs"
   },
   "devDependencies": {
-    "@anonrig/history": "workspace:*",
-    "@anonrig/react-router": "workspace:*",
-    "@anonrig/router-core": "workspace:*",
     "@tanstack/history": "^1.162.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.29",
@@ -53,6 +52,9 @@
     "react": "~19.2.0",
     "react-dom": "~19.2.0",
     "seroval": "^1.6.2",
+    "speedy-router": "workspace:*",
+    "speedy-router-core": "workspace:*",
+    "speedy-router-history": "workspace:*",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.1.10",

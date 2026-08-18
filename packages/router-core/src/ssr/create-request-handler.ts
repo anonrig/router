@@ -1,4 +1,4 @@
-import { createMemoryHistory } from '@anonrig/history'
+import { createMemoryHistory } from 'speedy-router-history'
 import { _getRenderedMatches } from '../load-chunk'
 import { mergeHeaders } from './headers'
 import { attachRouterServerSsrUtils, getNormalizedURL } from './ssr-server'

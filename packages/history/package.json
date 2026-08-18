@@ -1,13 +1,32 @@
 {
-  "name": "@anonrig/history",
-  "version": "0.0.0",
+  "name": "speedy-router-history",
+  "version": "0.1.0",
+  "description": "Browser, hash, and memory history for speedy-router.",
+  "homepage": "https://github.com/anonrig/router#readme",
+  "bugs": {
+    "url": "https://github.com/anonrig/router/issues"
+  },
   "license": "MIT",
+  "author": "Yagiz Nizipli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anonrig/router.git",
+    "directory": "packages/history"
+  },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "echo 'source package'"

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { createMemoryHistory } from '@anonrig/history'
-import { createRootRoute, createRoute, createRouter, createSlotRoute } from '@anonrig/router-core'
+import { createMemoryHistory } from 'speedy-router-history'
+import { createRootRoute, createRoute, createRouter, createSlotRoute } from 'speedy-router-core'
 
 function createSlotApp() {
   const root = createRootRoute()

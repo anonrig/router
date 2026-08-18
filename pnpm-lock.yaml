@@ -8,15 +8,6 @@ importers:
 
   .:
     devDependencies:
-      '@anonrig/history':
-        specifier: workspace:*
-        version: link:packages/history
-      '@anonrig/react-router':
-        specifier: workspace:*
-        version: link:packages/react-router
-      '@anonrig/router-core':
-        specifier: workspace:*
-        version: link:packages/router-core
       '@tanstack/history':
         specifier: ^1.162.1
         version: 1.162.1
@@ -53,6 +44,15 @@ importers:
       combinate:
         specifier: ^1.1.11
         version: 1.1.11
+      speedy-router-core:
+        specifier: workspace:*
+        version: link:packages/router-core
+      speedy-router-history:
+        specifier: workspace:*
+        version: link:packages/history
+      speedy-router:
+        specifier: workspace:*
+        version: link:packages/react-router
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1
@@ -94,12 +94,12 @@ importers:
 
   packages/react-router:
     dependencies:
-      '@anonrig/history':
-        specifier: workspace:*
-        version: link:../history
-      '@anonrig/router-core':
+      speedy-router-core:
         specifier: workspace:*
         version: link:../router-core
+      speedy-router-history:
+        specifier: workspace:*
+        version: link:../history
       react:
         specifier: ~19.2.0
         version: 19.2.8
@@ -109,12 +109,12 @@ importers:
 
   packages/router-core:
     dependencies:
-      '@anonrig/history':
-        specifier: workspace:*
-        version: link:../history
       cookie-es:
         specifier: ^3.1.1
         version: 3.1.1
+      speedy-router-history:
+        specifier: workspace:*
+        version: link:../history
       seroval:
         specifier: ^1.6.2
         version: 1.6.2

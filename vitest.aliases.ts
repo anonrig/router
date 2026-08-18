@@ -37,8 +37,8 @@ const specialSubpaths: Record<string, string> = {
     root,
     'packages/router-core/src/scroll-restoration-script/server.ts',
   ),
-  '@anonrig/router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
-  '@anonrig/router-core/scroll-restoration-script': resolve(
+  'speedy-router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
+  'speedy-router-core/scroll-restoration-script': resolve(
     root,
     'packages/router-core/src/scroll-restoration-script/server.ts',
   ),
@@ -71,10 +71,10 @@ function resolveTanstackId(id: string) {
       id.slice('@tanstack/router-core/'.length),
     )
   }
-  if (id.startsWith('@anonrig/router-core/')) {
+  if (id.startsWith('speedy-router-core/')) {
     return resolveUnder(
       resolve(root, 'packages/router-core/src'),
-      id.slice('@anonrig/router-core/'.length),
+      id.slice('speedy-router-core/'.length),
     )
   }
   if (id.startsWith('@tanstack/react-router/')) {
@@ -83,10 +83,10 @@ function resolveTanstackId(id: string) {
       id.slice('@tanstack/react-router/'.length),
     )
   }
-  if (id.startsWith('@anonrig/react-router/')) {
+  if (id.startsWith('speedy-router/')) {
     return resolveUnder(
       resolve(root, 'packages/react-router/src'),
-      id.slice('@anonrig/react-router/'.length),
+      id.slice('speedy-router/'.length),
     )
   }
   return undefined
@@ -157,11 +157,11 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
   },
   {
-    find: '@anonrig/router-core/isServer',
+    find: 'speedy-router-core/isServer',
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
   },
   {
-    find: /^@anonrig\/router-core\/scroll-restoration-script$/,
+    find: /^speedy-router-core\/scroll-restoration-script$/,
     replacement: resolve(root, 'packages/router-core/src/scroll-restoration-script/server.ts'),
   },
   {
@@ -201,32 +201,32 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/react-router/src/scripts.tsx'),
   },
   {
-    find: '@anonrig/router-core/ssr/server',
+    find: 'speedy-router-core/ssr/server',
     replacement: resolve(root, 'packages/router-core/src/ssr/server.ts'),
   },
   {
-    find: '@anonrig/router-core/ssr/client',
+    find: 'speedy-router-core/ssr/client',
     replacement: resolve(root, 'packages/router-core/src/ssr/client.ts'),
   },
   {
-    find: '@anonrig/router-core/is-server',
+    find: 'speedy-router-core/is-server',
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
   },
   {
-    find: '@anonrig/router-core/path',
+    find: 'speedy-router-core/path',
     replacement: resolve(root, 'packages/router-core/src/path.ts'),
   },
   {
-    find: '@anonrig/router-core/qss',
+    find: 'speedy-router-core/qss',
     replacement: resolve(root, 'packages/router-core/src/qss.ts'),
   },
-  { find: /^@anonrig\/history$/, replacement: resolve(root, 'packages/history/src/index.ts') },
+  { find: /^speedy-router-history$/, replacement: resolve(root, 'packages/history/src/index.ts') },
   {
-    find: /^@anonrig\/router-core$/,
+    find: /^speedy-router-core$/,
     replacement: resolve(root, 'packages/router-core/src/index.ts'),
   },
   {
-    find: /^@anonrig\/react-router$/,
+    find: /^speedy-router$/,
     replacement: resolve(root, 'packages/react-router/src/index.ts'),
   },
   { find: /^@tanstack\/history$/, replacement: resolve(root, 'packages/history/src/index.ts') },

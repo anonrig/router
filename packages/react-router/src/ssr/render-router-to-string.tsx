@@ -1,6 +1,6 @@
 import ReactDOMServer from 'react-dom/server'
 import type { ReactNode } from 'react'
-import type { AnyRouter } from '@anonrig/router-core'
+import type { AnyRouter } from 'speedy-router-core'
 
 export const renderRouterToString = async ({
   router,
