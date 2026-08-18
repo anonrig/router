@@ -12,8 +12,8 @@ import {
 } from '@tanstack/react-router'
 
 afterEach(() => {
-  cleanup()
   vi.useRealTimers()
+  cleanup()
 })
 
 describe('public presentation lane contracts', () => {

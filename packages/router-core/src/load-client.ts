@@ -1279,10 +1279,19 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
     const component =
       route.options.pendingComponent ?? (router.options as any).defaultPendingComponent
     if (!component || typeof delay !== 'number' || delay === Infinity) {
-      if (session?.[1 /* boundaryId */] === match.id) {
+      // A pending-ineligible boundary (no fallback, or infinite delay) owns
+      // presentation here. Retire any deeper pendingMinMs so a successor can
+      // commit as soon as this earlier match settles. Do not mark a deeper
+      // session as already-acked — that would skip a later pending offer if
+      // the leftover reveal never painted. Always cancel the leftover timer.
+      if (session) {
+        clearTimeout(session[3 /* revealTimer */])
+        session[3 /* revealTimer */] = undefined
         session[0 /* generation */] = tx
         session[2 /* deadline */] = 0
-        session[4 /* ack */] = true
+        if (session[1 /* boundaryId */] === match.id) {
+          session[4 /* ack */] = true
+        }
       }
       return
     }
@@ -1365,15 +1374,8 @@ async function awaitPendingMinimum(router: CoordinatorRouter, tx: LoadTransactio
     return
   }
   clearTimeout(session[3 /* revealTimer */])
-  const ack = session[4 /* ack */]
-  if (ack && ack !== true) {
-    try {
-      await waitFor(ack, tx[0 /* controller */].signal)
-    } catch {}
-    if (router._pending !== session) {
-      return
-    }
-  }
+  // Only an acknowledged fallback owns a minimum. An in-flight ack means the
+  // offer has not painted, so a terminal successor must not wait for it.
   const remaining = session[2 /* deadline */] - Date.now()
   if (
     !session[4 /* ack */] ||

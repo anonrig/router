@@ -151,6 +151,19 @@ describe('scanRoutes', () => {
     expect(fileIds).toEqual(['__root', 'visible'])
   })
 
+  it('sorts routes like TanStack: shallower keys before trailing-slash indexes', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-sort-'))
+    write(dir, '__root.tsx')
+    write(dir, 'explore/index.tsx')
+    write(dir, 'favorites.tsx')
+    write(dir, 'explore.tsx')
+    write(dir, 'i/index.tsx')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const keys = scanned.filter((route) => !route.isRoot).map((route) => route.key)
+    expect(keys).toEqual(['/explore', '/favorites', '/explore/', '/i/'])
+  })
+
   it('throws when the routes directory is missing', () => {
     expect(() =>
       scanRoutes({ routesDirectory: join(tmpdir(), 'speedy-router-missing-routes') }),
