@@ -1,2 +1,2 @@
 export { RouterClient } from './router-client'
-export * from 'fast-router-core/ssr/client'
+export * from 'speedy-router-core/ssr/client'

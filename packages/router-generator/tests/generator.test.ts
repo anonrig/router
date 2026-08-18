@@ -17,7 +17,7 @@ function write(dir: string, file: string, body = 'export const Route = {}\n') {
 
 describe('scanRoutes', () => {
   it('maps TanStack file names to compact parent/id/path records', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fast-router-routes-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-'))
     write(dir, '__root.tsx')
     write(dir, 'index.tsx')
     write(dir, 'about.tsx')
@@ -54,7 +54,7 @@ describe('scanRoutes', () => {
   })
 
   it('maps @slotName files to slot roots and slot children', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fast-router-slot-routes-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-slot-routes-'))
     write(dir, '__root.tsx')
     write(dir, 'dashboard.tsx')
     write(dir, 'dashboard.@activity.tsx')
@@ -82,7 +82,7 @@ describe('scanRoutes', () => {
   })
 
   it('walks dirents once and skips node_modules, dot dirs, and split files', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fast-router-routes-skip-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-skip-'))
     write(dir, '__root.tsx')
     write(dir, 'visible.tsx')
     write(dir, 'node_modules/hidden.tsx')
@@ -97,14 +97,14 @@ describe('scanRoutes', () => {
 
   it('throws when the routes directory is missing', () => {
     expect(() =>
-      scanRoutes({ routesDirectory: join(tmpdir(), 'fast-router-missing-routes') }),
+      scanRoutes({ routesDirectory: join(tmpdir(), 'speedy-router-missing-routes') }),
     ).toThrow(/routesDirectory does not exist/)
   })
 })
 
 describe('generateRouteTree', () => {
   it('emits a runtime file that static-imports only the root route', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fast-router-gen-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx', 'export const Route = { options: {} }\n')
     for (let i = 0; i < 40; i++) {
@@ -133,12 +133,12 @@ describe('generateRouteTree', () => {
     expect(runtime).not.toContain('interface FileRoutesByFullPath')
     expect(types).toContain('export interface FileRouteTypes')
     expect(types).toContain('fullPaths: keyof FileRoutesByFullPath')
-    expect(types).toContain("declare module 'fast-router-core'")
+    expect(types).toContain("declare module 'speedy-router-core'")
     expect(types).not.toContain('typeof ')
   })
 
   it('imports createSlotRoute from the React package so Outlet wiring is installed', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fast-router-gen-slots-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-slots-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx')
     write(routes, 'dashboard.tsx')
@@ -150,13 +150,13 @@ describe('generateRouteTree', () => {
       generatedRouteTree: generated,
     })
     const runtime = readFileSync(generated, 'utf8')
-    expect(runtime).toContain("import { createRoute } from 'fast-router-core'")
-    expect(runtime).toContain("import { createSlotRoute } from 'fast-router-react'")
+    expect(runtime).toContain("import { createRoute } from 'speedy-router-core'")
+    expect(runtime).toContain("import { createSlotRoute } from 'speedy-router'")
     expect(runtime).toContain('createSlotRoute({ getParentRoute, slot })')
   })
 
   it('does not rewrite unchanged generated files', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fast-router-gen-idempotent-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-idempotent-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx')
     write(routes, 'index.tsx')
@@ -178,7 +178,7 @@ describe('generateRouteTree', () => {
   })
 
   it('keeps route module bodies out of the initial client chunk', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fast-router-dce-tree-'))
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-dce-tree-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx', 'export const Route = { options: { marker: "ROOT_ONLY" } }\n')
     write(routes, 'index.tsx', 'export const Route = { options: { marker: "INDEX_ROUTE_BODY" } }\n')
@@ -202,9 +202,9 @@ describe('generateRouteTree', () => {
       entry: join(dir, 'entry.ts'),
       outDir: join(dir, 'out'),
       alias: {
-        'fast-router-history': join(repoRoot, 'packages/history/src/index.ts'),
-        'fast-router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
-        'fast-router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
+        'speedy-router-history': join(repoRoot, 'packages/history/src/index.ts'),
+        'speedy-router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
+        'speedy-router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
       },
     })
     expect(entry).toContain('ROOT_ONLY')

@@ -13,7 +13,7 @@
  *   1 fn  2 never-opt  8 maybe-deopted  16 optimized
  *   32 maglev  64 turbofan  128 interpreted  32768 baseline
  */
-import { createMemoryHistory, parseHref } from 'fast-router-history'
+import { createMemoryHistory, parseHref } from 'speedy-router-history'
 import {
   cleanPath,
   createRootRoute,
@@ -24,7 +24,7 @@ import {
   encode,
   interpolatePath,
   resolvePath,
-} from 'fast-router-core'
+} from 'speedy-router-core'
 import {
   findRouteMatch,
   findRouteMatchFromTree,

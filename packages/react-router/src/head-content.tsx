@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Asset } from './asset'
 import { useRouter } from './use-router'
 import { useTags } from './head-content-utils'
-import type { AssetCrossOriginConfig } from 'fast-router-core'
+import type { AssetCrossOriginConfig } from 'speedy-router-core'
 
 export interface HeadContentProps {
   assetCrossOrigin?: AssetCrossOriginConfig

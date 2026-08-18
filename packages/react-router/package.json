@@ -1,5 +1,5 @@
 {
-  "name": "fast-router-react",
+  "name": "speedy-router",
   "version": "0.1.0",
   "description": "The TanStack Router API. Rebuilt for the hot path.",
   "homepage": "https://github.com/anonrig/router#readme",
@@ -44,8 +44,8 @@
     "build": "echo 'source package'"
   },
   "dependencies": {
-    "fast-router-core": "workspace:*",
-    "fast-router-history": "workspace:*"
+    "speedy-router-core": "workspace:*",
+    "speedy-router-history": "workspace:*"
   },
   "peerDependencies": {
     "react": "~19.2.0",

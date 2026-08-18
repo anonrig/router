@@ -52,13 +52,13 @@ const processed = buildLargeTree(8, 3)
 const needle = '/s0-7/s0-7-1-7/s0-7-1-7-2-7'
 
 describe('query string', () => {
-  bench('fast-router-react encode', () => {
+  bench('speedy-router encode', () => {
     oursEncode(sample)
   })
   bench('URLSearchParams encode', () => {
     tanstackStyleEncode(sample)
   })
-  bench('fast-router-react decode', () => {
+  bench('speedy-router decode', () => {
     oursDecode(encoded)
   })
   bench('URLSearchParams decode', () => {
@@ -67,25 +67,25 @@ describe('query string', () => {
 })
 
 describe('path', () => {
-  bench('fast-router-react cleanPath', () => {
+  bench('speedy-router cleanPath', () => {
     cleanPath('/a//b///c/d//e')
   })
   bench('regex cleanPath', () => {
     regexCleanPath('/a//b///c/d//e')
   })
-  bench('fast-router-react resolvePath', () => {
+  bench('speedy-router resolvePath', () => {
     resolvePath({ base: '/a/b/c', to: '../../d/e' })
   })
-  bench('fast-router-react interpolatePath', () => {
+  bench('speedy-router interpolatePath', () => {
     interpolatePath({ path: '/posts/$slug/comments/$id', params: { slug: 'x', id: '1' } })
   })
 })
 
 describe('match', () => {
-  bench('fast-router-react findRouteMatch large tree', () => {
+  bench('speedy-router findRouteMatch large tree', () => {
     findRouteMatch(processed, needle)
   })
-  bench('fast-router-react findRouteMatch 1000 lookups', () => {
+  bench('speedy-router findRouteMatch 1000 lookups', () => {
     for (let i = 0; i < 1000; i++) findRouteMatch(processed, needle)
   })
 })

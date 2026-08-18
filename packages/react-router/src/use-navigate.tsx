@@ -6,7 +6,7 @@ import type {
   NavigateOptions,
   RegisteredRouter,
   UseNavigateResult,
-} from 'fast-router-core'
+} from 'speedy-router-core'
 
 export function useNavigate<
   TRouter extends AnyRouter = RegisteredRouter,

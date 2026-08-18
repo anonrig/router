@@ -1,7 +1,7 @@
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
-import type { AnyRouter, RegisteredRouter, RouterState } from 'fast-router-core'
+import type { AnyRouter, RegisteredRouter, RouterState } from 'speedy-router-core'
 
 export interface UseLocationBaseOptions<
   TRouter extends AnyRouter,

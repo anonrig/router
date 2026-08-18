@@ -1,7 +1,7 @@
 {
-  "name": "fast-router-generator",
+  "name": "speedy-router-generator",
   "version": "0.1.0",
-  "description": "Compact lazy routeTree.gen.ts generator for fast-router-react.",
+  "description": "Compact lazy routeTree.gen.ts generator for speedy-router.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
     "url": "https://github.com/anonrig/router/issues"

@@ -34,7 +34,7 @@ export function tanstackRouter(options: TanStackRouterPluginOptions): Plugin {
   }
 
   return {
-    name: 'fast-router-generator',
+    name: 'speedy-router-generator',
     buildStart() {
       run()
       this.addWatchFile(routesDirectory)

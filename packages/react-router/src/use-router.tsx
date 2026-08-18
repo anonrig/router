@@ -1,6 +1,6 @@
 import { useContext } from 'react'
 import { routerContext } from './router-context'
-import type { AnyRouter } from 'fast-router-core'
+import type { AnyRouter } from 'speedy-router-core'
 
 export function useRouter<TRouter extends AnyRouter = AnyRouter>(_opts?: {
   warn?: boolean

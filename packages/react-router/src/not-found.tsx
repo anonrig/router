@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react'
-import { isNotFound } from 'fast-router-core'
+import { isNotFound } from 'speedy-router-core'
 
 export function DefaultGlobalNotFound() {
   return <p>Not Found</p>

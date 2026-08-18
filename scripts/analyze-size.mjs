@@ -6,7 +6,7 @@ import { build } from 'vite'
 const repo = resolve(import.meta.dirname, '..')
 const cache = join(repo, 'node_modules/.cache')
 await mkdir(cache, { recursive: true })
-const dir = await mkdtemp(join(cache, 'fast-router-analyze-'))
+const dir = await mkdtemp(join(cache, 'speedy-router-analyze-'))
 const entry = join(dir, 'entry.tsx')
 await writeFile(
   entry,
@@ -17,7 +17,7 @@ await writeFile(
   createRootRoute,
   createRoute,
   createRouter,
-} from 'fast-router-react'
+} from 'speedy-router'
 `,
 )
 
@@ -32,19 +32,19 @@ try {
     resolve: {
       alias: [
         {
-          find: /^fast-router-history$/,
+          find: /^speedy-router-history$/,
           replacement: join(repo, 'packages/history/src/index.ts'),
         },
         {
-          find: /^fast-router-core$/,
+          find: /^speedy-router-core$/,
           replacement: join(repo, 'packages/router-core/src/index.ts'),
         },
         {
-          find: /^fast-router-core\/is-server$/,
+          find: /^speedy-router-core\/is-server$/,
           replacement: join(repo, 'packages/router-core/src/is-server.ts'),
         },
         {
-          find: /^fast-router-react$/,
+          find: /^speedy-router$/,
           replacement: join(repo, 'packages/react-router/src/index.ts'),
         },
       ],

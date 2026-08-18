@@ -1,7 +1,7 @@
-import { hydrate } from 'fast-router-core/ssr/client'
+import { hydrate } from 'speedy-router-core/ssr/client'
 import { Await } from '../awaited'
 import { RouterProvider } from '../router-provider'
-import type { AnyRouter } from 'fast-router-core'
+import type { AnyRouter } from 'speedy-router-core'
 
 let hydrationPromise: Promise<void> | undefined
 

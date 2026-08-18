@@ -1,7 +1,7 @@
 {
-  "name": "fast-router-history",
+  "name": "speedy-router-history",
   "version": "0.1.0",
-  "description": "Browser, hash, and memory history for fast-router-react.",
+  "description": "Browser, hash, and memory history for speedy-router.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
     "url": "https://github.com/anonrig/router/issues"

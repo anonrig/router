@@ -8,7 +8,7 @@ import type {
   ThrowConstraint,
   ThrowOrOptional,
   UseParamsResult,
-} from 'fast-router-core'
+} from 'speedy-router-core'
 
 export interface UseParamsBaseOptions<
   TRouter extends AnyRouter,

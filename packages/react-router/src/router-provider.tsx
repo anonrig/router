@@ -3,7 +3,7 @@ import {
   type AnyRouter,
   type RegisteredRouter,
   type RouterOptions,
-} from 'fast-router-core'
+} from 'speedy-router-core'
 import { Matches } from './matches'
 import { routerContext } from './router-context'
 

@@ -1,7 +1,7 @@
 {
-  "name": "fast-router-core",
+  "name": "speedy-router-core",
   "version": "0.1.0",
-  "description": "Matcher, navigation, loaders, and search params for fast-router-react.",
+  "description": "Matcher, navigation, loaders, and search params for speedy-router.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
     "url": "https://github.com/anonrig/router/issues"
@@ -46,9 +46,9 @@
   },
   "dependencies": {
     "cookie-es": "^3.1.1",
-    "fast-router-history": "workspace:*",
     "seroval": "^1.6.2",
-    "seroval-plugins": "^1.6.2"
+    "seroval-plugins": "^1.6.2",
+    "speedy-router-history": "workspace:*"
   },
   "engines": {
     "node": ">=24"

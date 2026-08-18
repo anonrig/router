@@ -1,4 +1,4 @@
-import { defineHandlerCallback } from 'fast-router-core/ssr/server'
+import { defineHandlerCallback } from 'speedy-router-core/ssr/server'
 import { renderRouterToString } from './render-router-to-string'
 import { RouterServer } from './router-server'
 

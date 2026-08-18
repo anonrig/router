@@ -14,15 +14,15 @@ const repo = resolve(import.meta.dirname, '..')
 const reactExternals = ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime']
 
 const oursAlias = {
-  'fast-router-history': join(repo, 'packages/history/src/index.ts'),
-  'fast-router-core': join(repo, 'packages/router-core/src/index.ts'),
-  'fast-router-core/is-server': join(repo, 'packages/router-core/src/is-server.ts'),
-  'fast-router-react': join(repo, 'packages/react-router/src/index.ts'),
+  'speedy-router-history': join(repo, 'packages/history/src/index.ts'),
+  'speedy-router-core': join(repo, 'packages/router-core/src/index.ts'),
+  'speedy-router-core/is-server': join(repo, 'packages/router-core/src/is-server.ts'),
+  'speedy-router': join(repo, 'packages/react-router/src/index.ts'),
 }
 
 const cases = [
   {
-    name: 'fast-router-react client',
+    name: 'speedy-router client',
     filename: 'entry.tsx',
     ours: `export {
   Link,
@@ -31,7 +31,7 @@ const cases = [
   createRootRoute,
   createRoute,
   createRouter,
-} from 'fast-router-react'
+} from 'speedy-router'
 `,
     tanstack: `export {
   Link,
@@ -44,9 +44,9 @@ const cases = [
 `,
   },
   {
-    name: 'fast-router-core client',
+    name: 'speedy-router-core client',
     filename: 'entry.ts',
-    ours: `export { createRootRoute, createRoute, createRouter } from 'fast-router-core'
+    ours: `export { createRootRoute, createRoute, createRouter } from 'speedy-router-core'
 `,
     tanstack: `export { BaseRootRoute, BaseRoute, RouterCore } from '@tanstack/router-core'
 `,
@@ -62,7 +62,7 @@ async function bundle(
 ): Promise<Sizes> {
   const cache = join(repo, 'node_modules/.cache')
   await mkdir(cache, { recursive: true })
-  const dir = await mkdtemp(join(cache, 'fast-router-size-'))
+  const dir = await mkdtemp(join(cache, 'speedy-router-size-'))
   try {
     const entry = join(dir, filename)
     await writeFile(entry, source)
@@ -135,7 +135,7 @@ console.log(
 console.log('')
 console.log(
   'Package'.padEnd(24) +
-    'fast-router-react'.padStart(12) +
+    'speedy-router'.padStart(12) +
     ' gzip'.padStart(10) +
     ' TanStack'.padStart(12) +
     ' gzip'.padStart(10) +

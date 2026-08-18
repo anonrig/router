@@ -1,7 +1,7 @@
 /**
  * Head-to-head throughput: this repo vs published TanStack Router.
  *
- * `fast-router-react*` resolves through the workspace packages. `@tanstack/*` stays
+ * `speedy-router*` resolves through the workspace packages. `@tanstack/*` stays
  * on the published packages so the same operations can be timed head-to-head.
  *
  * Headline rows measure equivalent work on both sides: typed `to`/`params`
@@ -18,7 +18,7 @@ import './bench-compare-self.ts'
 import {
   createMemoryHistory as oursCreateMemoryHistory,
   parseHref as oursParseHref,
-} from 'fast-router-history'
+} from 'speedy-router-history'
 import {
   cleanPath as oursCleanPath,
   createRootRoute as oursCreateRootRoute,
@@ -29,9 +29,9 @@ import {
   encode as oursEncode,
   interpolatePath as oursInterpolatePath,
   resolvePath as oursResolvePath,
-} from 'fast-router-core'
-import { createRequestHandler as oursCreateRequestHandler } from 'fast-router-core/ssr/server'
-import { dehydrateSsrMatchId as oursDehydrateSsrMatchId } from 'fast-router-core/ssr/ssr-match-id'
+} from 'speedy-router-core'
+import { createRequestHandler as oursCreateRequestHandler } from 'speedy-router-core/ssr/server'
+import { dehydrateSsrMatchId as oursDehydrateSsrMatchId } from 'speedy-router-core/ssr/ssr-match-id'
 import {
   findRouteMatch as oursFindRouteMatch,
   processRouteTree as oursProcessRouteTree,
@@ -342,7 +342,7 @@ function printTable(
   console.log(title)
   console.log(
     'Operation'.padEnd(38) +
-      'fast-router-react'.padStart(14) +
+      'speedy-router'.padStart(14) +
       ' TanStack'.padStart(14) +
       ' vs TanStack'.padStart(14),
   )

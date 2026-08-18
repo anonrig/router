@@ -4,11 +4,11 @@
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "fast-router-history": ["./packages/history/src/index.ts"],
-      "fast-router-core": ["./packages/router-core/src/index.ts"],
-      "fast-router-core/is-server": ["./packages/router-core/src/is-server.ts"],
-      "fast-router-core/utils": ["./packages/router-core/src/utils.ts"],
-      "fast-router-core/ssr/serializer/transformer": [
+      "speedy-router-history": ["./packages/history/src/index.ts"],
+      "speedy-router-core": ["./packages/router-core/src/index.ts"],
+      "speedy-router-core/is-server": ["./packages/router-core/src/is-server.ts"],
+      "speedy-router-core/utils": ["./packages/router-core/src/utils.ts"],
+      "speedy-router-core/ssr/serializer/transformer": [
         "./packages/router-core/src/ssr/serializer/transformer-types.ts"
       ],
       "@tanstack/history": ["./packages/history/src/index.ts"],

@@ -44,13 +44,13 @@ importers:
       combinate:
         specifier: ^1.1.11
         version: 1.1.11
-      fast-router-core:
+      speedy-router-core:
         specifier: workspace:*
         version: link:packages/router-core
-      fast-router-history:
+      speedy-router-history:
         specifier: workspace:*
         version: link:packages/history
-      fast-router-react:
+      speedy-router:
         specifier: workspace:*
         version: link:packages/react-router
       jsdom:
@@ -94,10 +94,10 @@ importers:
 
   packages/react-router:
     dependencies:
-      fast-router-core:
+      speedy-router-core:
         specifier: workspace:*
         version: link:../router-core
-      fast-router-history:
+      speedy-router-history:
         specifier: workspace:*
         version: link:../history
       react:
@@ -112,7 +112,7 @@ importers:
       cookie-es:
         specifier: ^3.1.1
         version: 3.1.1
-      fast-router-history:
+      speedy-router-history:
         specifier: workspace:*
         version: link:../history
       seroval:

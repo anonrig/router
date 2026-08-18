@@ -5,8 +5,8 @@ import {
   type AnyRoute,
   type AnyRouteMatch,
   type RootRouteOptions,
-} from 'fast-router-core'
-import { isServer } from 'fast-router-core/is-server'
+} from 'speedy-router-core'
+import { isServer } from 'speedy-router-core/is-server'
 import { CatchBoundary, ErrorComponent } from './catch-boundary'
 import { ClientOnly } from './client-only'
 import { errorResetContext, matchContext } from './match-context'

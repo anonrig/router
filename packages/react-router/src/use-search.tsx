@@ -8,7 +8,7 @@ import type {
   ThrowConstraint,
   ThrowOrOptional,
   UseSearchResult,
-} from 'fast-router-core'
+} from 'speedy-router-core'
 
 export interface UseSearchBaseOptions<
   TRouter extends AnyRouter,

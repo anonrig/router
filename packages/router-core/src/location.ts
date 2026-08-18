@@ -1,4 +1,4 @@
-import type { ParsedHistoryState } from 'fast-router-history'
+import type { ParsedHistoryState } from 'speedy-router-history'
 import type { AnySchema } from './validators'
 
 export interface ParsedLocation<TSearchObj extends AnySchema = {}> {

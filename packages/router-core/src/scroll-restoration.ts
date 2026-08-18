@@ -1,4 +1,4 @@
-import { isServer } from 'fast-router-core/is-server'
+import { isServer } from 'speedy-router-core/is-server'
 import type { AnyRouter } from './router'
 import type { ParsedLocation } from './location'
 

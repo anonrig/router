@@ -1,9 +1,9 @@
-import { RouterCore, type CreateRouterFn } from 'fast-router-core'
-import type { RouterHistory } from 'fast-router-history'
-import type { AnyRoute, TrailingSlashOption } from 'fast-router-core'
+import { RouterCore, type CreateRouterFn } from 'speedy-router-core'
+import type { RouterHistory } from 'speedy-router-history'
+import type { AnyRoute, TrailingSlashOption } from 'speedy-router-core'
 import type { ErrorRouteComponent, NotFoundRouteComponent, RouteComponent } from './route'
 
-declare module 'fast-router-core' {
+declare module 'speedy-router-core' {
   export interface RouterOptionsExtensions {
     defaultComponent?: RouteComponent
     defaultErrorComponent?: ErrorRouteComponent

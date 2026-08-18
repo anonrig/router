@@ -1,4 +1,4 @@
-import type { HistoryState, ParsedHistoryState } from 'fast-router-history'
+import type { HistoryState, ParsedHistoryState } from 'speedy-router-history'
 import type {
   AllParams,
   CatchAllPaths,
