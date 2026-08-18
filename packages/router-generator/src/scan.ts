@@ -130,6 +130,15 @@ function lastSegment(key: string) {
   return slash === -1 ? trimmed : trimmed.slice(slash + 1)
 }
 
+/** Same as TanStack `countSlashSeparatedParts`: `/explore` is 2, `/explore/` is 3. */
+function countSlashSeparatedParts(path: string) {
+  let count = 1
+  for (let i = 0; i < path.length; i++) {
+    if (path[i] === '/') count++
+  }
+  return count
+}
+
 function isPathlessKey(key: string) {
   if (key.endsWith('/') && key !== '/') return false
   const segment = lastSegment(key)
@@ -228,12 +237,14 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
     })
   }
 
+  // Same order as TanStack `sortRouteNodes`: root, slash-part count, then path.
+  // Slash count includes empty segments (`/explore/` is 3, `/explore` is 2) so
+  // index routes do not interleave with shallower siblings.
   routes.sort((left, right) => {
     if (left.isRoot !== right.isRoot) return left.isRoot ? -1 : 1
-    const depth = (key: string) => key.split('/').filter(Boolean).length
-    const delta = depth(left.key) - depth(right.key)
-    if (delta !== 0) return delta
-    return left.key.localeCompare(right.key)
+    const slashDelta = countSlashSeparatedParts(left.key) - countSlashSeparatedParts(right.key)
+    if (slashDelta !== 0) return slashDelta
+    return left.key < right.key ? -1 : left.key > right.key ? 1 : 0
   })
 
   return routes
