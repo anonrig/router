@@ -2,11 +2,11 @@ import { useMatch } from './use-match'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
 import type {
   AnyRouter,
-  RegisteredRouter,
   ResolveUseLoaderData,
   StrictOrFrom,
   UseLoaderDataResult,
 } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 
 export interface UseLoaderDataBaseOptions<
   TRouter extends AnyRouter,

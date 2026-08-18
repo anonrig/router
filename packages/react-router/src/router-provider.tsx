@@ -1,9 +1,5 @@
-import {
-  hasKeys,
-  type AnyRouter,
-  type RegisteredRouter,
-  type RouterOptions,
-} from 'speedy-router-core'
+import { hasKeys, type AnyRouter, type RouterOptions } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 import { Matches } from './matches'
 import { routerContext } from './router-context'
 

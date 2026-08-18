@@ -1,8 +1,9 @@
 import { useContext } from 'react'
 import { routerContext } from './router-context'
 import type { AnyRouter } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 
-export function useRouter<TRouter extends AnyRouter = AnyRouter>(_opts?: {
+export function useRouter<TRouter extends AnyRouter = RegisteredRouter>(_opts?: {
   warn?: boolean
 }): TRouter {
   const router = useContext(routerContext)

@@ -1,4 +1,4 @@
-export type NotFoundError = {
+export type NotFoundOptions = {
   global?: boolean
   _global?: boolean
   data?: any
@@ -8,10 +8,13 @@ export type NotFoundError = {
   isNotFound?: boolean
 }
 
-export function notFound(options: NotFoundError = {}) {
-  ;(options as any).isNotFound = true
-  if (options.throw) throw options
-  return options
+export type NotFoundError = Error & NotFoundOptions
+
+export function notFound(options: NotFoundOptions = {}): NotFoundError {
+  const error = options as NotFoundError
+  error.isNotFound = true
+  if (options.throw) throw error
+  return error
 }
 
 export function isNotFound(obj: any): obj is NotFoundError {

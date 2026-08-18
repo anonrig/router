@@ -9,11 +9,11 @@ import {
   type MakeRouteMatchUnion,
   type MaskOptions,
   type MatchRouteOptions,
-  type RegisteredRouter,
   type ResolveRoute,
   type ToSubOptionsProps,
 } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
+import type { RegisteredRouter } from './registered-router'
 import { CatchBoundary } from './catch-boundary'
 import { Match, renderPending } from './match'
 import { errorResetContext, matchContext } from './match-context'

@@ -4,7 +4,7 @@ import { notFound } from './not-found'
 import { redirect } from './redirect'
 import { rootRouteId } from './root'
 import type { LazyRoute } from './file-route'
-import type { NotFoundError } from './not-found'
+import type { NotFoundOptions } from './not-found'
 import type { RedirectFnRoute } from './redirect'
 import type { NavigateOptions, ParsePathParams } from './link'
 import type { ParsedLocation } from './location'
@@ -1920,7 +1920,7 @@ export class BaseRouteApi<TId, TRouter extends AnyRouter = RegisteredRouter> {
     this.id = id
   }
 
-  notFound = (opts?: NotFoundError) => {
+  notFound = (opts?: NotFoundOptions) => {
     return notFound({ routeId: this.id as string, ...opts })
   }
 

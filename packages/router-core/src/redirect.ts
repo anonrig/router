@@ -10,11 +10,12 @@ export type Redirect<
   TTo extends string | undefined = undefined,
   TMaskFrom extends string = TFrom,
   TMaskTo extends string = '.',
-> = Response & {
-  options: NavigateOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & {
-    _builtLocation?: ParsedLocation
+> = Response &
+  Error & {
+    options: NavigateOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & {
+      _builtLocation?: ParsedLocation
+    }
   }
-}
 
 export type RedirectOptions<
   TRouter extends AnyRouter = RegisteredRouter,
