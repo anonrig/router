@@ -1,6 +1,6 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { emitRouteTreeRuntime, emitRouteTreeTypes } from './emit'
+import { emitRouteTree } from './emit'
 import { scanRoutes } from './scan'
 
 export type GenerateRouteTreeOptions = {
@@ -10,18 +10,18 @@ export type GenerateRouteTreeOptions = {
   rootImport?: string
   slotImport?: string
   routeFileIgnorePattern?: string | RegExp
+  quoteStyle?: 'single' | 'double'
+  semicolons?: boolean
 }
 
 export type GeneratedRouteTree = {
   routesDirectory: string
   runtimePath: string
-  typesPath: string
-  runtime: string
-  types: string
+  generated: string
   routeCount: number
 }
 
-function typesPathFor(runtimePath: string) {
+function staleTypesPathFor(runtimePath: string) {
   return runtimePath
     .replace(/\.gen\.(ts|js|tsx|jsx)$/, '.types.ts')
     .replace(/routeTree\.ts$/, 'routeTree.types.ts')
@@ -41,33 +41,39 @@ function writeIfChanged(filePath: string, contents: string, ensuredDirs: Set<str
   writeFileSync(filePath, contents)
 }
 
+function removeIfExists(filePath: string) {
+  try {
+    unlinkSync(filePath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+}
+
 export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedRouteTree {
   const routesDirectory = resolve(options.routesDirectory ?? './src/routes')
   const runtimePath = resolve(options.generatedRouteTree ?? './src/routeTree.gen.ts')
-  const typesPath = typesPathFor(runtimePath)
   const routes = scanRoutes({
     routesDirectory,
     routeFileIgnorePattern: options.routeFileIgnorePattern,
   })
-  const payload = {
+  const generated = emitRouteTree({
     routes,
     generatedRouteTree: runtimePath,
     routesDirectory,
     runtimeImport: options.runtimeImport,
     rootImport: options.rootImport,
     slotImport: options.slotImport,
-  }
-  const runtime = emitRouteTreeRuntime(payload)
-  const types = emitRouteTreeTypes(payload)
+    quoteStyle: options.quoteStyle,
+    semicolons: options.semicolons,
+  })
   const ensuredDirs = new Set<string>()
-  writeIfChanged(runtimePath, runtime, ensuredDirs)
-  writeIfChanged(typesPath, types, ensuredDirs)
+  writeIfChanged(runtimePath, generated, ensuredDirs)
+  // Older speedy-router-generator versions wrote a sibling types file.
+  removeIfExists(staleTypesPathFor(runtimePath))
   return {
     routesDirectory,
     runtimePath,
-    typesPath,
-    runtime,
-    types,
+    generated,
     routeCount: routes.length,
   }
 }

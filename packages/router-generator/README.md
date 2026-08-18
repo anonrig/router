@@ -81,7 +81,7 @@ If you already know TanStack Router, you already know this router.
 - **Node 24 only.** `engines.node` is `>=24`. No compatibility tax for Node 22.
 - **Typed the same way.** Vendored TanStack type tests pass. Route trees, params, and search stay on the TanStack type surface.
 - **Measured in the open.** Head-to-head benches, heap per operation, and bundle sizes live in the repo. Re-run them. The tables are the same loop as `pnpm bench:compare`.
-- **Large trees stay small.** The generated `routeTree` still uses `createRoute` and `.lazy()`. Only the root route is statically imported. Other route modules load when they are matched. Types live in a separate file and do not use `typeof` every route.
+- **Same generated route tree.** `speedy-router-generator` emits TanStack's `routeTree.gen.ts` shape: eager `Route` imports, `.update()`, and `declare module '@tanstack/react-router'`. Alias `@tanstack/router-plugin` at the package manager.
 
 ## Quick start
 
@@ -100,12 +100,12 @@ pnpm bench:compare
 pnpm size
 ```
 
-| Package                                                | What you import                               |
-| ------------------------------------------------------ | --------------------------------------------- |
-| [`speedy-router`](packages/react-router)               | `RouterProvider`, `Link`, hooks, SSR bindings |
-| [`speedy-router-core`](packages/router-core)           | Matcher, navigation, loaders, search params   |
-| [`speedy-router-history`](packages/history)            | Browser, hash, and memory history             |
-| [`speedy-router-generator`](packages/router-generator) | Compact lazy `routeTree.gen.ts` + types       |
+| Package                                                | What you import                                      |
+| ------------------------------------------------------ | ---------------------------------------------------- |
+| [`speedy-router`](packages/react-router)               | `RouterProvider`, `Link`, hooks, SSR bindings        |
+| [`speedy-router-core`](packages/router-core)           | Matcher, navigation, loaders, search params          |
+| [`speedy-router-history`](packages/history)            | Browser, hash, and memory history                    |
+| [`speedy-router-generator`](packages/router-generator) | TanStack-compatible `routeTree.gen.ts` + Vite plugin |
 
 ## Performance
 
@@ -187,19 +187,28 @@ Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag de
 
 ## Large route trees
 
-TanStack's `routeTree.gen.ts` statically imports every route module and repeats every path as `typeof` aliases and union members. At a few hundred URLs that file becomes a TypeScript and bundle problem: tsserver crawls a giant generated module, and the initial JS graph includes every route even when the user only opened `/`.
-
-This generator still exports `routeTree` for `createRouter({ routeTree })`. The difference is how that file is built:
-
-- `routeTree.gen.ts` uses the existing `createRoute` + `.update()` + `.lazy()` APIs. Only the root route is a static import. Every other route is `() => import(...)`, so unused modules stay out of the initial chunk.
-- `routeTree.types.ts` holds `FileRouteTypes`. Path unions are `keyof` maps, not written-out `typeof` aliases, so the type file stays cheap for tsserver.
+The generator is a drop-in for `@tanstack/router-plugin`. It writes one `routeTree.gen.ts` with the same eager `Route` imports, `.update({ id, path, getParentRoute })`, `_addFileChildren` / `_addFileTypes`, and `FileRoutesByPath` module augmentation. Existing tools that read `fullPath` out of that file keep working.
 
 ```ts
-import { tanstackRouter } from 'speedy-router-generator/vite'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
 
 export default defineConfig({
-  plugins: [tanstackRouter({ routesDirectory: './src/routes' })],
+  plugins: [
+    tanstackRouter({
+      target: 'react',
+      autoCodeSplitting: true,
+      routeFileIgnorePattern: '\\.test\\.|\\.e2e\\.|__generated__',
+    }),
+  ],
 })
+```
+
+Point the TanStack package names at the speedy packages:
+
+```yaml
+# pnpm-workspace.yaml catalog
+'@tanstack/react-router': npm:speedy-router@0.1.4
+'@tanstack/router-plugin': npm:speedy-router-generator@0.1.4
 ```
 
 Apps keep `createFileRoute('/posts/$id')` in each route file. Nothing new to call at runtime.
@@ -208,11 +217,11 @@ Apps keep `createFileRoute('/posts/$id')` in each route file. Nothing new to cal
 
 TanStack's `renderRouterToStream` inspects `User-Agent` with `isbot` and, for crawlers, waits for React's `allReady` / `onAllReady` so the first byte is a complete document.
 
-This router never does that.
+This router never inspects User-Agent.
 
-Every SSR stream starts on `onShellReady` and flushes incrementally, including requests that look like bots. That keeps a dependency out of the hot path and avoids a User-Agent parse on every request.
+Every SSR stream starts on `onShellReady` by default and flushes incrementally. That keeps a dependency out of the hot path and avoids a User-Agent parse on every request.
 
-If you need crawlers to receive fully buffered HTML, wait for `stream.allReady` in your own render handler.
+If you need crawlers to receive fully buffered HTML, pass `isBot: true` (or a request predicate) to `renderRouterToStream`. That waits for React's `allReady` / `onAllReady` without adding `isbot`.
 
 ## Compatibility
 

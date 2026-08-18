@@ -7,5 +7,5 @@ export {
   matchesRouteFileIgnorePattern,
 } from './scan'
 export type { ScanRoutesOptions, ScannedRoute, RouteFileIgnorePattern } from './scan'
-export { emitRouteTreeRuntime, emitRouteTreeTypes } from './emit'
+export { emitRouteTree, routePathToVariable } from './emit'
 export type { EmitRouteTreeOptions } from './emit'
