@@ -1159,7 +1159,16 @@ export class RouterCore<
   private executeBuildLocation(opts: NavigateOptions = {}): ParsedLocation {
     const current =
       opts._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
-    const dest = slotRuntime?.d(this, opts, current) ?? opts
+    let dest = slotRuntime?.d(this, opts, current) ?? opts
+    if (dest.href) {
+      const parsed = parseHref(dest.href, {} as any)
+      dest = {
+        ...dest,
+        to: executeRewriteInput(this.rewrite, new URL(parsed.pathname, this.origin)).pathname,
+        search: (this.options.parseSearch ?? defaultParseSearch)(parsed.search),
+        hash: stripLeadingHash(parsed.hash || ''),
+      }
+    }
     const matches = this.stores?.matches?.get?.()?.length
       ? this.stores.matches.get()
       : this.state?.matches?.length
@@ -2082,11 +2091,15 @@ export class RouterCore<
       redirect.options.href = href
       redirect.headers.set('Location', href)
     } else if (locationHeader) {
-      const url = URL.parse(locationHeader)
-      if (url && this.origin && url.origin === this.origin) {
-        const href = url.pathname + url.search + url.hash
-        redirect.options.href = href
-        redirect.headers.set('Location', href)
+      try {
+        const url = new URL(locationHeader)
+        if (this.origin && url.origin === this.origin) {
+          const href = url.pathname + url.search + url.hash
+          redirect.options.href = href
+          redirect.headers.set('Location', href)
+        }
+      } catch {
+        // ignore invalid URLs
       }
     }
 
