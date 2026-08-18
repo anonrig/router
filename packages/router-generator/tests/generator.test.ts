@@ -1,13 +1,11 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { viteBundle } from '../../../scripts/vite-bundle.ts'
+import { routePathToVariable } from '../src/emit'
 import { generateRouteTree } from '../src/generate'
 import { scanRoutes } from '../src/scan'
-
-const repoRoot = join(import.meta.dirname, '../../..')
 
 function write(dir: string, file: string, body = 'export const Route = {}\n') {
   const full = join(dir, file)
@@ -182,39 +180,48 @@ describe('scanRoutes', () => {
   })
 })
 
+describe('routePathToVariable', () => {
+  it('matches TanStack identifier names', () => {
+    expect(routePathToVariable('/index')).toBe('Index')
+    expect(routePathToVariable('/404')).toBe('R404')
+    expect(routePathToVariable('/$username/_profile')).toBe('UsernameProfile')
+    expect(routePathToVariable('/$username/_profile/affiliates')).toBe('UsernameProfileAffiliates')
+    expect(routePathToVariable('/i/lists/$listId/index')).toBe('IListsListIdIndex')
+    expect(routePathToVariable('/i/rate-limited')).toBe('IRateLimited')
+    expect(routePathToVariable('/i/bounce/$')).toBe('IBounceSplat')
+  })
+})
+
 describe('generateRouteTree', () => {
-  it('emits a runtime file that static-imports only the root route', () => {
+  it('emits a TanStack-shaped single routeTree.gen.ts', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx', 'export const Route = { options: {} }\n')
-    for (let i = 0; i < 40; i++) {
-      write(
-        routes,
-        `page-${i}.tsx`,
-        `export const Route = { options: { marker: 'PAGE_${i}_BODY' } }\n`,
-      )
-    }
+    write(routes, 'index.tsx')
+    write(routes, 'settings.tsx')
+    write(routes, 'page-0.tsx')
     const generated = join(dir, 'routeTree.gen.ts')
     const result = generateRouteTree({
       routesDirectory: routes,
       generatedRouteTree: generated,
     })
 
-    expect(result.routeCount).toBe(41)
+    expect(result.routeCount).toBe(4)
     const runtime = readFileSync(generated, 'utf8')
-    const types = readFileSync(result.typesPath, 'utf8')
 
-    expect(runtime).toContain("import { Route as rootRoute } from './routes/__root'")
-    expect(runtime).toContain('createRoute')
-    expect(runtime).toContain('route.lazy')
-    expect(runtime).toContain('() => import("./routes/page-0")')
-    expect(runtime).not.toMatch(/import \{ Route as .+ \} from '\.\/routes\/page-/)
-    expect(runtime).not.toContain('PAGE_0_BODY')
-    expect(runtime).not.toContain('interface FileRoutesByFullPath')
-    expect(types).toContain('export interface FileRouteTypes')
-    expect(types).toContain('fullPaths: keyof FileRoutesByFullPath')
-    expect(types).toContain("declare module 'speedy-router-core'")
-    expect(types).not.toContain('typeof ')
+    expect(runtime).toContain("import { Route as rootRouteImport } from './routes/__root'")
+    expect(runtime).toContain("import { Route as IndexRouteImport } from './routes/index'")
+    expect(runtime).toContain("import { Route as SettingsRouteImport } from './routes/settings'")
+    expect(runtime).toContain('IndexRouteImport.update({')
+    expect(runtime).toContain("id: '/'")
+    expect(runtime).toContain('export interface FileRouteTypes')
+    expect(runtime).toContain("declare module '@tanstack/react-router'")
+    expect(runtime).toContain("declare module 'speedy-router'")
+    expect(runtime).toContain('._addFileChildren(rootRouteChildren)')
+    expect(runtime).toContain('._addFileTypes<FileRouteTypes>()')
+    expect(runtime).not.toContain('route.lazy')
+    expect(runtime).not.toContain('() => import(')
+    expect(existsSync(join(dir, 'routeTree.types.ts'))).toBe(false)
   })
 
   it('types fullPath without pathless underscore segments', () => {
@@ -224,18 +231,24 @@ describe('generateRouteTree', () => {
     write(routes, '$username/_profile.tsx')
     write(routes, '$username/_profile/affiliates.tsx')
     const generated = join(dir, 'routeTree.gen.ts')
-    const result = generateRouteTree({
+    generateRouteTree({
       routesDirectory: routes,
       generatedRouteTree: generated,
     })
-    const types = readFileSync(result.typesPath, 'utf8')
-    expect(types).toContain('"/$username/affiliates": {}')
-    expect(types).toContain('fullPath: "/$username/affiliates"')
-    expect(types).toContain('path: "/$username"')
-    expect(types).not.toContain('fullPath: "/$username/_profile/affiliates"')
+    const runtime = readFileSync(generated, 'utf8')
+    expect(runtime).toContain("fullPath: '/$username/affiliates'")
+    expect(runtime).toContain("path: '/$username'")
+    expect(runtime).toContain("id: '/$username/_profile'")
+    expect(runtime).toContain("id: '/affiliates'")
+    expect(runtime).not.toContain("fullPath: '/$username/_profile/affiliates'")
+    expect(runtime).toContain('UsernameProfileRouteImport.update({')
+    expect(runtime).toContain('UsernameProfileAffiliatesRouteImport.update({')
+    expect(runtime).toContain(
+      'const UsernameProfileRouteWithChildren = UsernameProfileRoute._addFileChildren',
+    )
   })
 
-  it('imports createSlotRoute from the React package so Outlet wiring is installed', () => {
+  it('eager-imports slot files instead of synthesizing createSlotRoute stubs', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-slots-'))
     const routes = join(dir, 'routes')
     write(routes, '__root.tsx')
@@ -248,9 +261,12 @@ describe('generateRouteTree', () => {
       generatedRouteTree: generated,
     })
     const runtime = readFileSync(generated, 'utf8')
-    expect(runtime).toContain("import { createRoute } from 'speedy-router-core'")
-    expect(runtime).toContain("import { createSlotRoute } from 'speedy-router'")
-    expect(runtime).toContain('createSlotRoute({ getParentRoute, slot })')
+    expect(runtime).toContain(
+      "import { Route as DashboardAtactivityRouteImport } from './routes/dashboard.@activity'",
+    )
+    expect(runtime).toContain('DashboardAtactivityRouteImport.update({')
+    expect(runtime).not.toContain('createSlotRoute')
+    expect(runtime).not.toContain("from 'speedy-router-core'")
   })
 
   it('does not rewrite unchanged generated files', () => {
@@ -264,50 +280,26 @@ describe('generateRouteTree', () => {
       generatedRouteTree: generated,
     })
     const runtimeBefore = statSync(first.runtimePath)
-    const typesBefore = statSync(first.typesPath)
     generateRouteTree({
       routesDirectory: routes,
       generatedRouteTree: generated,
     })
     expect(statSync(first.runtimePath).mtimeMs).toBe(runtimeBefore.mtimeMs)
-    expect(statSync(first.typesPath).mtimeMs).toBe(typesBefore.mtimeMs)
     expect(statSync(first.runtimePath).ino).toBe(runtimeBefore.ino)
-    expect(statSync(first.typesPath).ino).toBe(typesBefore.ino)
   })
 
-  it('keeps route module bodies out of the initial client chunk', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-dce-tree-'))
+  it('removes a leftover routeTree.types.ts from older generators', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-stale-types-'))
     const routes = join(dir, 'routes')
-    write(routes, '__root.tsx', 'export const Route = { options: { marker: "ROOT_ONLY" } }\n')
-    write(routes, 'index.tsx', 'export const Route = { options: { marker: "INDEX_ROUTE_BODY" } }\n')
-    write(
-      routes,
-      'settings.tsx',
-      'export const Route = { options: { marker: "SETTINGS_ROUTE_BODY" } }\n',
-    )
+    write(routes, '__root.tsx')
+    write(routes, 'index.tsx')
     const generated = join(dir, 'routeTree.gen.ts')
+    const staleTypes = join(dir, 'routeTree.types.ts')
+    writeFileSync(staleTypes, 'export type FileRouteTypes = never\n')
     generateRouteTree({
       routesDirectory: routes,
       generatedRouteTree: generated,
     })
-    writeFileSync(
-      join(dir, 'entry.ts'),
-      `import { routeTree } from './routeTree.gen.ts'\nexport { routeTree }\n`,
-    )
-
-    const { entry } = await viteBundle({
-      root: repoRoot,
-      entry: join(dir, 'entry.ts'),
-      outDir: join(dir, 'out'),
-      alias: {
-        'speedy-router-history': join(repoRoot, 'packages/history/src/index.ts'),
-        'speedy-router-core/is-server': join(repoRoot, 'packages/router-core/src/is-server.ts'),
-        'speedy-router-core': join(repoRoot, 'packages/router-core/src/index.ts'),
-      },
-    })
-    expect(entry).toContain('ROOT_ONLY')
-    expect(entry).not.toContain('INDEX_ROUTE_BODY')
-    expect(entry).not.toContain('SETTINGS_ROUTE_BODY')
-    expect(entry).toContain('import(')
+    expect(existsSync(staleTypes)).toBe(false)
   })
 })

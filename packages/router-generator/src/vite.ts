@@ -8,8 +8,6 @@ export type TanStackRouterPluginOptions = GenerateRouteTreeOptions & {
   target?: string
   autoCodeSplitting?: boolean
   enableRouteGeneration?: boolean
-  quoteStyle?: 'single' | 'double'
-  semicolons?: boolean
 }
 
 function toPosix(value: string) {
@@ -23,8 +21,8 @@ function isInsideDirectory(file: string, directory: string) {
 
 /**
  * Drop-in for `@tanstack/router-plugin/vite`.
- * Emits `routeTree` with `createRoute` + `.lazy()` so unused route modules
- * stay out of the initial bundle. Same app API: `createRouter({ routeTree })`.
+ * Emits the same `routeTree.gen.ts` shape: eager `Route` imports, `.update()`,
+ * and `declare module '@tanstack/react-router'`.
  */
 export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugin | undefined {
   if (options.enableRouteGeneration === false) {
@@ -46,6 +44,8 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
       rootImport: options.rootImport,
       slotImport: options.slotImport,
       routeFileIgnorePattern: options.routeFileIgnorePattern,
+      quoteStyle: options.quoteStyle,
+      semicolons: options.semicolons,
     }
   }
 
@@ -73,7 +73,7 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
   }
 
   return {
-    name: 'speedy-router-generator',
+    name: 'tanstack-router',
     configResolved(config) {
       resolved = resolveOptions(config)
       routesDirectory = resolved.routesDirectory ?? resolve(config.root, 'src/routes')
