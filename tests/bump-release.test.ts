@@ -1,11 +1,30 @@
-import { bumpSemver, nextVersion, parseArgs } from '../scripts/bump-release.mjs'
+import {
+  assertLockstepVersion,
+  bumpSemver,
+  nextVersion,
+  parseArgs,
+  readLockstepVersion,
+} from '../scripts/bump-release.mjs'
 import { describe, expect, test } from 'vitest'
 
 describe('bump-release', () => {
   test('parses bump and exact version flags', () => {
-    expect(parseArgs([])).toEqual({ bump: 'none', version: undefined })
-    expect(parseArgs(['--bump', 'patch'])).toEqual({ bump: 'patch', version: undefined })
-    expect(parseArgs(['--version', '1.2.3'])).toEqual({ bump: 'none', version: '1.2.3' })
+    expect(parseArgs([])).toEqual({ bump: 'none', version: undefined, check: undefined })
+    expect(parseArgs(['--bump', 'patch'])).toEqual({
+      bump: 'patch',
+      version: undefined,
+      check: undefined,
+    })
+    expect(parseArgs(['--version', '1.2.3'])).toEqual({
+      bump: 'none',
+      version: '1.2.3',
+      check: undefined,
+    })
+    expect(parseArgs(['--check', '0.1.0'])).toEqual({
+      bump: 'none',
+      version: undefined,
+      check: '0.1.0',
+    })
   })
 
   test('bumps semver in lockstep', () => {
@@ -24,5 +43,12 @@ describe('bump-release', () => {
   test('rejects invalid versions', () => {
     expect(() => nextVersion('0.1.0', 'none', 'v0.1.0')).toThrow('invalid version')
     expect(() => nextVersion('0.1.0', 'sideways', '')).toThrow('unknown bump')
+  })
+
+  test('asserts the lockstep version matches a tag', () => {
+    expect(readLockstepVersion()).toBe('0.1.0')
+    expect(assertLockstepVersion('0.1.0')).toBe('0.1.0')
+    expect(() => assertLockstepVersion('9.9.9')).toThrow('does not match')
+    expect(() => assertLockstepVersion('v0.1.0')).toThrow('invalid version')
   })
 })

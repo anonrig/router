@@ -85,7 +85,13 @@ If you already know TanStack Router, you already know this router.
 
 ## Quick start
 
-Node 24+, React 19.2, and React DOM 19.2 are required. Clone the workspace and import the packages:
+Node 24+, React 19.2, and React DOM 19.2 are required.
+
+```bash
+pnpm add fast-router-react
+```
+
+The other public packages are `fast-router-core`, `fast-router-history`, and `fast-router-generator`. Clone the workspace to develop or re-run the benches:
 
 ```bash
 pnpm install
@@ -266,16 +272,45 @@ pnpm knip                 # unused files, dependencies, and exports
 
 ## Publishing
 
-The public packages are `fast-router-react`, `fast-router-core`, `fast-router-history`, and `fast-router-generator`. The repo root stays private. Versions stay in lockstep.
+The public packages are `fast-router-react`, `fast-router-core`, `fast-router-history`, and `fast-router-generator`. The repo root stays private. Versions stay in lockstep. Releases run from [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
-Release from GitHub Actions:
+Trusted publishing cannot create a package's first version. Bootstrap once with a token, then switch to OIDC.
 
-1. Add an `NPM_TOKEN` repository secret, or configure [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) for `anonrig/router` and `release.yml`.
-2. Open [Release](https://github.com/anonrig/router/actions/workflows/release.yml) → **Run workflow**.
-3. Leave **bump** on `none` to publish the version already in the package files, or choose `patch` / `minor` / `major`. An exact **version** overrides the bump.
-4. The job runs the same checks as CI, publishes with provenance, pushes a `v*` tag, and opens a GitHub Release.
+### 1. First publish (token)
 
-Pushing a `v*` tag yourself also starts the same publish job. Use **dry_run** on the workflow to print the npm publish plan without shipping.
+1. Sign in at [npmjs.com](https://www.npmjs.com) as the owner who will hold the four package names.
+2. Create a granular access token with **Read and write** permission for new packages (or an Automation classic token).
+3. Either:
+   - add it as the `NPM_TOKEN` repository secret on `anonrig/router`, then run [Release](https://github.com/anonrig/router/actions/workflows/release.yml) with **bump** `none` (publishes `0.1.0`), or
+   - from a clean checkout of the release commit: `NPM_TOKEN=… pnpm release`.
+4. Confirm all four names exist: [fast-router-react](https://www.npmjs.com/package/fast-router-react), [fast-router-core](https://www.npmjs.com/package/fast-router-core), [fast-router-history](https://www.npmjs.com/package/fast-router-history), [fast-router-generator](https://www.npmjs.com/package/fast-router-generator).
+
+### 2. Trusted publishing (every later release)
+
+On each of the four package pages: **Settings → Trusted publisher → GitHub Actions**.
+
+| Field                | Value                                                 |
+| -------------------- | ----------------------------------------------------- |
+| Organization or user | `anonrig`                                             |
+| Repository           | `router`                                              |
+| Workflow filename    | `release.yml`                                         |
+| Environment          | leave blank (the workflow does not set `environment`) |
+| Allowed actions      | `npm publish`                                         |
+
+Then delete the `NPM_TOKEN` repository secret. The workflow only writes `.npmrc` when that secret is present; an empty token would skip the OIDC exchange.
+
+### 3. Cut a release
+
+Preferred: [Release](https://github.com/anonrig/router/actions/workflows/release.yml) → **Run workflow**.
+
+- **bump** `none` publishes the version already in the package files.
+- `patch` / `minor` / `major` / `prerelease` rewrites every package in lockstep, commits, and tags.
+- **version** overrides the bump with an exact semver.
+- **dry_run** runs the same checks and prints the npm plan without publishing.
+
+The job installs current npm (OIDC needs 11.5.1+), runs the same checks as CI, publishes with provenance, pushes a `v*` tag only if it is new or already points at `HEAD`, and opens a GitHub Release.
+
+Pushing a `v*` tag yourself also starts the job. The tag must match the lockstep version in every `package.json` (`v0.1.0` → `0.1.0`). A mismatched tag fails before publish.
 
 ## License
 

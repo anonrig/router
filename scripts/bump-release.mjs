@@ -23,13 +23,15 @@ const semver = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/
 export function parseArgs(argv) {
   let bump = 'none'
   let version
+  let check
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--bump') bump = argv[++i] ?? ''
     else if (arg === '--version') version = argv[++i] ?? ''
+    else if (arg === '--check') check = argv[++i] ?? ''
     else throw new Error(`unknown argument: ${arg}`)
   }
-  return { bump, version }
+  return { bump, version, check }
 }
 
 export function bumpSemver(current, kind) {
@@ -78,8 +80,35 @@ export function writeLockstepVersion(version, base = root) {
   }
 }
 
+export function readLockstepVersion(base = root) {
+  let expected
+  for (const file of files) {
+    const version = JSON.parse(readFileSync(join(base, file), 'utf8')).version
+    if (expected == null) expected = version
+    else if (version !== expected) {
+      throw new Error(`version mismatch: ${file} is ${version}, expected ${expected}`)
+    }
+  }
+  return expected
+}
+
+export function assertLockstepVersion(expected, base = root) {
+  if (expected == null || expected === '' || !semver.test(expected)) {
+    throw new Error(`invalid version: ${expected}`)
+  }
+  const current = readLockstepVersion(base)
+  if (current !== expected) {
+    throw new Error(`tag version ${expected} does not match package version ${current}`)
+  }
+  return current
+}
+
 function main() {
-  const { bump, version: exact } = parseArgs(process.argv.slice(2))
+  const { bump, version: exact, check } = parseArgs(process.argv.slice(2))
+  if (check != null && check !== '') {
+    process.stdout.write(assertLockstepVersion(check))
+    return
+  }
   const current = JSON.parse(
     readFileSync(join(root, 'packages/react-router/package.json'), 'utf8'),
   ).version

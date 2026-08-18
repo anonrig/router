@@ -14,7 +14,8 @@
     "directory": "packages/history"
   },
   "files": [
-    "src"
+    "src",
+    "LICENSE"
   ],
   "type": "module",
   "sideEffects": false,

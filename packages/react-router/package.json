@@ -14,7 +14,8 @@
     "directory": "packages/react-router"
   },
   "files": [
-    "src"
+    "src",
+    "LICENSE"
   ],
   "type": "module",
   "sideEffects": false,

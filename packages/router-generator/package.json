@@ -14,7 +14,8 @@
     "directory": "packages/router-generator"
   },
   "files": [
-    "src"
+    "src",
+    "LICENSE"
   ],
   "type": "module",
   "sideEffects": false,

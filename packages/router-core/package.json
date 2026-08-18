@@ -14,7 +14,8 @@
     "directory": "packages/router-core"
   },
   "files": [
-    "src"
+    "src",
+    "LICENSE"
   ],
   "type": "module",
   "sideEffects": false,
