@@ -174,14 +174,14 @@ jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. D
 
 ### Bundle size
 
-Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted.
+Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. Lazy route chunks, the client load coordinator, and SSR `load` are dynamic imports and are not counted.
 
 | Package              | speedy-router |    gzip |     TanStack |        gzip |
 | -------------------- | ------------: | ------: | -----------: | ----------: |
-| `speedy-router`      |      109.0 kB | 30.6 kB | **104.4 kB** | **29.5 kB** |
-| `speedy-router-core` |       89.2 kB | 24.9 kB |  **74.7 kB** | **21.6 kB** |
+| `speedy-router`      |      118.0 kB | 32.9 kB | **104.4 kB** | **29.5 kB** |
+| `speedy-router-core` |       98.4 kB | 27.0 kB |  **74.7 kB** | **21.6 kB** |
 
-TanStack is still smaller on both client graphs (1.04× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. The remaining extra is the warm-path / matcher interners. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs (1.11× gzip for `speedy-router`). Parallel route slots, `HeadContent` / `Scripts`, hash/memory history, and unused route hooks such as `useMatchRoute` are tree-shaken out of this graph. The remaining extra is the warm-path / matcher interners. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or the lazy-route chunk loader. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 

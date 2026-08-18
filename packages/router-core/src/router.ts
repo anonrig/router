@@ -16,7 +16,6 @@ import {
 } from './match'
 import { isNotFound } from './not-found'
 import { isServer } from './is-server'
-import { loadRouteChunk, replaceRouteChunk } from './load-chunk'
 import { PathParamError, SearchParamError } from './misc'
 import { compileDecodeCharMap, interpolatePath, resolvePath, trimPath, trimPathRight } from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
@@ -359,6 +358,20 @@ export const RESOLVED: Promise<void> = Promise.resolve()
 let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 let loadClientRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 let preloadClientRouteCached: ((router: any, opts?: any) => Promise<any>) | undefined
+let loadRouteChunkCached: typeof import('./load-chunk').loadRouteChunk | undefined
+
+function loadRouteChunk(
+  ...args: Parameters<typeof import('./load-chunk').loadRouteChunk>
+): ReturnType<typeof import('./load-chunk').loadRouteChunk> | Promise<void> {
+  if (loadRouteChunkCached) return loadRouteChunkCached(...args)
+  return import('./load-chunk').then(({ loadRouteChunk: load, replaceRouteChunk }) => {
+    loadRouteChunkCached = load
+    if (process.env.NODE_ENV !== 'production') {
+      RouterCore.prototype._replaceRouteChunk = replaceRouteChunk
+    }
+    return load(...args)
+  })
+}
 
 function importLoadClient(router: any, opts?: any) {
   if (loadClientRouteCached) return loadClientRouteCached(router, opts)
@@ -650,7 +663,7 @@ export class RouterCore<
   _flights?: ReturnType<typeof createStringMap<any>>
   _preloads?: Map<AbortController, any[]>
   _refreshNextLoad?: boolean
-  declare _replaceRouteChunk?: typeof replaceRouteChunk
+  declare _replaceRouteChunk?: (route: AnyRoute, lazyFn: AnyRoute['lazyFn']) => void
   declare _refreshRoute?: () => Promise<void>
   navigate!: NavigateFn
   buildLocation!: BuildLocationFn
@@ -2434,11 +2447,14 @@ export class RouterCore<
 export const createRouter: CreateRouterFn = /*#__PURE__*/ (options) => new RouterCore(options)
 
 if (process.env.NODE_ENV !== 'production') {
-  RouterCore.prototype._replaceRouteChunk = replaceRouteChunk
   RouterCore.prototype._refreshRoute = async function () {
     this._serverResult = undefined
     this.updateLatestLocation()
-    const { refreshClientRoute } = await import('./load-hmr')
+    const [{ replaceRouteChunk }, { refreshClientRoute }] = await Promise.all([
+      import('./load-chunk'),
+      import('./load-hmr'),
+    ])
+    this._replaceRouteChunk = replaceRouteChunk
     await refreshClientRoute(this)
   }
 }
