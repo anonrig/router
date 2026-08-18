@@ -1279,7 +1279,7 @@ function offerPending(router: CoordinatorRouter, tx: LoadTransaction): void {
     const component =
       route.options.pendingComponent ?? (router.options as any).defaultPendingComponent
     if (!component || typeof delay !== 'number' || delay === Infinity) {
-      if (session) {
+      if (session?.[1 /* boundaryId */] === match.id) {
         session[0 /* generation */] = tx
         session[2 /* deadline */] = 0
         session[4 /* ack */] = true
