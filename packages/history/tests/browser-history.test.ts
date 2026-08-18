@@ -90,4 +90,59 @@ describe('createBrowserHistory popstate blocker rollback', () => {
     expect(go).toHaveBeenCalledWith(3)
     history.destroy()
   })
+
+  test('does not call win.history.go when delta is 0 and does not leak ignoreNextPop', async () => {
+    const harness = createBrowserHistoryHarness()
+    const { history, nativeHistory, location, go, listeners } = harness
+
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/step1'
+    await listeners.popstate?.()
+    go.mockClear()
+
+    history.block({
+      blockerFn: () => true,
+    })
+
+    // Simulate same index popstate (delta = 0)
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.hash = '#hash'
+    await listeners.popstate?.()
+
+    // Must not call go(0)
+    expect(go).not.toHaveBeenCalled()
+
+    // Unblock and verify next popstate is not swallowed
+    history.destroy()
+    const unblockedHistory = createBrowserHistory({ window: harness.win })
+    nativeHistory.state = { __TSR_index: 2, __TSR_key: '2' }
+    location.pathname = '/step2'
+    await listeners.popstate?.()
+
+    expect(unblockedHistory.location.pathname).toBe('/step2')
+    unblockedHistory.destroy()
+  })
+
+  test('does not call win.history.go when delta is NaN (missing index)', async () => {
+    const harness = createBrowserHistoryHarness()
+    const { history, nativeHistory, location, go, listeners } = harness
+
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/step1'
+    await listeners.popstate?.()
+    go.mockClear()
+
+    history.block({
+      blockerFn: () => true,
+    })
+
+    // Simulate state missing __TSR_index (delta = NaN)
+    nativeHistory.state = {} as any
+    location.pathname = '/external'
+    await listeners.popstate?.()
+
+    // Must not call go(NaN) which would reload the page
+    expect(go).not.toHaveBeenCalled()
+    history.destroy()
+  })
 })

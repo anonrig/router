@@ -109,8 +109,8 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
             action,
           })
           if (isBlocked) {
-            ignoreNextPop = true
-            if (delta !== 0) {
+            if (Number.isFinite(delta) && delta !== 0) {
+              ignoreNextPop = true
               win.history.go(-delta)
             }
             history.notify(notify)
