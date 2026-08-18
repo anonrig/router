@@ -23,9 +23,9 @@ import type {
   Constrain,
   LinkOptions,
   ParsedLocation,
-  RegisteredRouter,
   RoutePaths,
 } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 import type { ReactNode } from 'react'
 import type { ValidateLinkOptions, ValidateLinkOptionsArray } from './type-primitives'
 

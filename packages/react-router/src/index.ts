@@ -1,3 +1,9 @@
+import type {
+  FileRoutesByPath as SpeedyFileRoutesByPath,
+  Register as SpeedyRegister,
+  StaticDataRouteOption as SpeedyStaticDataRouteOption,
+} from './augmentation'
+
 export {
   defer,
   isMatch,
@@ -118,6 +124,7 @@ export type {
   AnySerializationAdapter,
   SerializableExtensions,
   NotFoundError,
+  NotFoundOptions,
   LocationRewrite,
   LocationRewriteFunction,
   ValidateFromPath,
@@ -143,11 +150,7 @@ export type {
   Serializable,
 } from 'speedy-router-core'
 
-export interface Register {}
-
-export interface StaticDataRouteOption {}
-
-export interface FileRoutesByPath {}
+export type { Register, StaticDataRouteOption, FileRoutesByPath } from './augmentation'
 
 export {
   createHistory,
@@ -233,7 +236,6 @@ export type {
   LoaderFnContext,
   LazyRouteOptions,
   AnyRouter,
-  RegisteredRouter,
   RouterContextOptions,
   ControllablePromise,
   InjectedHtmlEntry,
@@ -336,9 +338,7 @@ export { useTags } from './head-content-utils'
 export { Scripts } from './scripts'
 export type * from './ssr/serializer'
 
-type SpeedyRegister = Register
-type SpeedyStaticDataRouteOption = StaticDataRouteOption
-type SpeedyFileRoutesByPath = FileRoutesByPath
+export type { RegisteredRouter } from './registered-router'
 
 declare module 'speedy-router-core' {
   interface Register extends SpeedyRegister {}

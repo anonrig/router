@@ -3,11 +3,11 @@ import { useRouter } from './use-router'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
 import type {
   AnyRouter,
-  RegisteredRouter,
   ResolveUseLoaderDeps,
   StrictOrFrom,
   UseLoaderDepsResult,
 } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 
 export interface UseLoaderDepsBaseOptions<
   TRouter extends AnyRouter,

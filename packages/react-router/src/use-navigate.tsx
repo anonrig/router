@@ -4,9 +4,9 @@ import type {
   AnyRouter,
   FromPathOption,
   NavigateOptions,
-  RegisteredRouter,
   UseNavigateResult,
 } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 
 export function useNavigate<
   TRouter extends AnyRouter = RegisteredRouter,

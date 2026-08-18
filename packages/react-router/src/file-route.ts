@@ -18,10 +18,9 @@ import type {
   Constrain,
   ConstrainLiteral,
   FileBaseRouteOptions,
-  FileRoutesByPath,
+  FileRoutesByPath as CoreFileRoutesByPath,
   LazyRouteOptions,
-  Register,
-  RegisteredRouter,
+  Register as CoreRegister,
   ResolveParams,
   Route,
   RouteById,
@@ -31,9 +30,17 @@ import type {
   UpdatableRouteOptions,
   UseNavigateResult,
 } from 'speedy-router-core'
+import type {
+  FileRoutesByPath as ReactFileRoutesByPath,
+  Register as ReactRegister,
+} from './augmentation'
+import type { RegisteredRouter } from './registered-router'
 import type { UseLoaderDepsRoute } from './use-loader-deps'
 import type { UseLoaderDataRoute } from './use-loader-data'
 import type { UseRouteContextRoute } from './use-route-context'
+
+type FileRoutesByPath = CoreFileRoutesByPath & ReactFileRoutesByPath
+type Register = CoreRegister & ReactRegister
 
 /**
  * FileRoutesByPath key → public URL path. Pathless `_` / `@` segments are

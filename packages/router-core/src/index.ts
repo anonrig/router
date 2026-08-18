@@ -440,7 +440,7 @@ export type {
 
 export { redirect, isRedirect, isResolvedRedirect, parseRedirect } from './redirect'
 
-export type { NotFoundError } from './not-found'
+export type { NotFoundError, NotFoundOptions } from './not-found'
 export { isNotFound, notFound } from './not-found'
 
 export {

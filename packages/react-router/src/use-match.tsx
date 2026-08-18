@@ -7,11 +7,11 @@ import type {
   AnyRouter,
   MakeRouteMatch,
   MakeRouteMatchUnion,
-  RegisteredRouter,
   StrictOrFrom,
   ThrowConstraint,
   ThrowOrOptional,
 } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 
 export interface UseMatchBaseOptions<
   TRouter extends AnyRouter,

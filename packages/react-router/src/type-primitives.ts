@@ -8,8 +8,8 @@ import type {
   InferShouldThrow,
   InferStrict,
   InferTo,
-  RegisteredRouter,
 } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 import type { LinkComponentProps } from './link'
 import type { UseParamsOptions } from './use-params'
 import type { UseSearchOptions } from './use-search'

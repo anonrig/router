@@ -16,10 +16,9 @@ import type {
   AnyRouter,
   ConstrainLiteral,
   ErrorComponentProps,
-  NotFoundError,
+  NotFoundOptions,
   NotFoundRouteProps,
   Register,
-  RegisteredRouter,
   ResolveFullPath,
   ResolveId,
   ResolveParams,
@@ -36,6 +35,7 @@ import type {
   ToMaskOptions,
   UseNavigateResult,
 } from 'speedy-router-core'
+import type { RegisteredRouter } from './registered-router'
 import type { UseLoaderDataRoute } from './use-loader-data'
 import type { UseMatchRoute } from './use-match'
 import type { UseLoaderDepsRoute } from './use-loader-deps'
@@ -137,7 +137,7 @@ export class RouteApi<TId, TRouter extends AnyRouter = RegisteredRouter> extends
     return useNavigate({ from: router.routesById[this.id as string]?.fullPath })
   }
 
-  notFound = (opts?: NotFoundError) => {
+  notFound = (opts?: NotFoundOptions) => {
     return notFound({ routeId: this.id as string, ...opts })
   }
 
