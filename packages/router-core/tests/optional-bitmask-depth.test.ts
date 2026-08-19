@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createRootRoute, createRoute } from '../src/route'
-import { processRouteTree, findSingleMatch } from '../src/match-compat'
+import { processRouteTree, findSingleMatch, findRouteMatch } from '../src/match-compat'
 
 describe('segment-tree deep optional bitmask', () => {
   it('keeps shallow optional params when a deep optional is skipped', () => {
@@ -39,7 +39,9 @@ describe('segment-tree deep optional bitmask', () => {
     })
     root.addChildren([auth.addChildren([login])])
     const { processedTree } = processRouteTree(root as any)
-    const match = findSingleMatch('/login', false, false, '/login', processedTree)
+    const match = findRouteMatch('/login', processedTree)
     expect(match).not.toBeNull()
+    expect(match?.route.id).toBe('/(auth)/login')
+    expect(match?.branch.map((r: any) => r.id)).toEqual(['__root__', '/(auth)', '/(auth)/login'])
   })
 })
