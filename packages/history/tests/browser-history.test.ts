@@ -1,14 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createBrowserHistory } from '../src/browser'
 
-function deferred<T>() {
-  let settle!: (value: T) => void
-  const promise = new Promise<T>((resolve) => {
-    settle = resolve
-  })
-  return { promise, resolve: settle }
-}
-
 function createBrowserHistoryHarness() {
   const location = {
     pathname: '/',
@@ -68,8 +60,8 @@ describe('createBrowserHistory popstate blocker rollback', () => {
     await listeners.popstate?.()
     go.mockClear()
 
-    const first = deferred<boolean>()
-    const second = deferred<boolean>()
+    const first = Promise.withResolvers<boolean>()
+    const second = Promise.withResolvers<boolean>()
     let call = 0
     history.block({
       blockerFn: () => (++call === 1 ? first.promise : second.promise),
