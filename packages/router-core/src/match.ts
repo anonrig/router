@@ -956,17 +956,21 @@ function considerTerminal(
     }
   } else {
     const chainBeforeRoute = terminal.chain.slice()
+    let candidate = terminal
     if (terminal.node.route && terminal.node.route !== rootRoute) {
       if (terminal.chain[terminal.chain.length - 1] !== terminal.node.route) {
-        terminal.chain.push(terminal.node.route)
+        candidate = {
+          ...terminal,
+          chain: terminal.chain.concat(terminal.node.route),
+        }
       }
     }
     // Intermediate optional nodes have no route of their own. Accepting them
     // lets `/{ -$locale}/$rooms` treat `/chambres` as a filled locale and win
     // over the real required-param match.
-    if (terminal.node.route && applyParamsParse(terminal)) {
-      terminal.parsed = parsedScore(terminal)
-      if (isBetterMatch(best, terminal)) best = terminal
+    if (terminal.node.route && applyParamsParse(candidate)) {
+      candidate.parsed = parsedScore(candidate)
+      if (isBetterMatch(best, candidate)) best = candidate
     }
     if (
       terminal.node.wildcardChild &&
@@ -1003,7 +1007,7 @@ function considerTerminal(
         node: child,
         index: frame.index,
         params: terminal.params,
-        chain: terminal.chain,
+        chain: terminal.chain.slice(),
         depth: terminal.depth + 1,
         parsed: terminal.parsed,
         statics: terminal.statics,

@@ -29,6 +29,23 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('does not include optional sibling routes in the selected chain', () => {
+    const root = createRootRoute()
+    const single = createRoute({
+      getParentRoute: () => root,
+      path: '/{-$id}',
+    })
+    const pair = createRoute({
+      getParentRoute: () => root,
+      path: '/{-$a}/{-$b}',
+    })
+    root.addChildren([single, pair])
+
+    const matches = findRouteMatch(processRouteTree(root as any), '/')
+
+    expect(matches?.map((match) => match.route.id)).toEqual(['__root__', '/{-$a}/{-$b}'])
+  })
+
   it('matches the index route', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/')
