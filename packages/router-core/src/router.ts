@@ -1027,6 +1027,8 @@ export class RouterCore<
 
     if (this.options.pathParamsAllowedCharacters) {
       this.pathParamsDecoder = compileDecodeCharMap(this.options.pathParamsAllowedCharacters)
+    } else {
+      this.pathParamsDecoder = undefined
     }
 
     const prevHistory = this.history

@@ -41,6 +41,19 @@ describe('matcher', () => {
     expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts'])
   })
 
+  it('reprocesses nested children added after the tree was cached', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/parent' })
+    root.addChildren([parent])
+    processRouteTree(root as any)
+
+    const child = createRoute({ getParentRoute: () => parent, path: '/child' })
+    parent.addChildren([child])
+
+    const processed = processRouteTree(root as any)
+    expect(findRouteMatch(processed, '/parent/child')?.at(-1)?.route.id).toBe('/parent/child')
+  })
+
   it('matches params', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/posts/tkdodo')
