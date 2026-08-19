@@ -156,6 +156,7 @@ describe('createBrowserHistory popstate blocker rollback', () => {
 
     // Must not call go(0)
     expect(go).not.toHaveBeenCalled()
+    expect(history.location.hash).toBe('#hash')
 
     // Unblock and verify next popstate is not swallowed
     history.destroy()

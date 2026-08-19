@@ -130,6 +130,9 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
             if (Number.isFinite(delta) && delta !== 0) {
               ignoreNextPop = true
               win.history.go(-delta)
+            } else {
+              currentLocation = nextLocation
+              history.notify(notify)
             }
             return
           }
