@@ -42,6 +42,31 @@ function occurrences(names: Array<string>, name: string): number {
   return names.filter((value) => value === name).length
 }
 
+/** The initializer node behind `export const <name> = ...` in an emitted module. */
+function exportedInit(code: string | null, name: string) {
+  const program = parseSync('emitted.tsx', code ?? '').program as any
+  for (const statement of program.body ?? []) {
+    const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : null
+    if (declaration?.type !== 'VariableDeclaration') continue
+    for (const declarator of declaration.declarations ?? []) {
+      if (declarator.id?.name === name) return declarator.init
+    }
+  }
+  return undefined
+}
+
+const methodBody =
+  'long enough route component body to force automatic splitting into a virtual module'
+
+function methodRoute(method: string) {
+  return `import { createFileRoute } from '@tanstack/react-router'
+const componentKey = 'component'
+export const Route = createFileRoute('/method')({
+  ${method}
+})
+`
+}
+
 const inboxRoute = `import { Outlet, createFileRoute, useParams } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 
@@ -97,12 +122,39 @@ export const Route = createFileRoute('/inbox')({
 
 describe('compileReferenceRoute', () => {
   it('splits object-method route components with valid syntax', () => {
-    const source = `import { createFileRoute } from '@tanstack/react-router'\nexport const Route = createFileRoute('/method')({ component() { return <main>long enough route component method to force automatic splitting into a separate generated virtual module</main> } })\n`
+    const source = methodRoute(`component() { return <main>${methodBody}</main> }`)
 
     const result = compileReferenceRoute(source, '/app/src/routes/method.tsx')
 
-    expect(result).toContain('component: lazyRouteComponent(')
+    expect(moduleShape(result).errors).toEqual([])
+    expect(result).toContain(
+      "component: lazyRouteComponent(() => import('./method.tsx?tsr-split=component'), 'component')",
+    )
     expect(result).not.toContain('componentlazyRouteComponent')
+  })
+
+  it('splits string-literal and computed-literal method keys', () => {
+    for (const method of [
+      `'component'() { return <main>${methodBody}</main> }`,
+      `['component']() { return <main>${methodBody}</main> }`,
+    ]) {
+      const result = compileReferenceRoute(methodRoute(method), '/app/src/routes/method.tsx')
+
+      expect(moduleShape(result).errors).toEqual([])
+      expect(result).toContain('component: lazyRouteComponent(')
+    }
+  })
+
+  it('leaves accessor and dynamic-key route options in the eager module', () => {
+    for (const method of [
+      `get component() { return <main>${methodBody}</main> }`,
+      `[componentKey]() { return <main>${methodBody}</main> }`,
+    ]) {
+      expect(compileReferenceRoute(methodRoute(method), '/app/src/routes/method.tsx')).toBeNull()
+      expect(
+        compileVirtualRoute(methodRoute(method), '/app/src/routes/method.tsx', 'component'),
+      ).toBeNull()
+    }
   })
 
   it('preserves top-level effects and unsupported named exports', () => {
@@ -288,6 +340,85 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('exports an object-method option as a function expression', () => {
+    const source = methodRoute(`component() { return <main>${methodBody}</main> }`)
+
+    const result = compileVirtualRoute(source, '/app/src/routes/method.tsx', 'component')
+    const shape = moduleShape(result)
+    const init = exportedInit(result, 'component')
+
+    expect(shape.errors).toEqual([])
+    expect(shape.exports).toEqual(['component'])
+    expect(init?.type).toBe('FunctionExpression')
+    expect(result).toContain(methodBody)
+  })
+
+  it('keeps async and generator markers on split method options', () => {
+    const forms = [
+      {
+        method: `async component() { return <main>${methodBody}</main> }`,
+        async: true,
+        star: false,
+      },
+      { method: `*component() { yield <main>${methodBody}</main> }`, async: false, star: true },
+      {
+        method: `async *component() { yield <main>${methodBody}</main> }`,
+        async: true,
+        star: true,
+      },
+    ]
+    for (const form of forms) {
+      const result = compileVirtualRoute(
+        methodRoute(form.method),
+        '/app/src/routes/method.tsx',
+        'component',
+      )
+      const init = exportedInit(result, 'component')
+
+      expect(moduleShape(result).errors).toEqual([])
+      expect(init?.type).toBe('FunctionExpression')
+      expect(init?.async).toBe(form.async)
+      expect(init?.generator).toBe(form.star)
+    }
+  })
+
+  it('keeps type parameters and return types on split method options', () => {
+    const source = methodRoute(
+      `component<T extends string>(): T { return <main>${methodBody}</main> as T }`,
+    )
+
+    const result = compileVirtualRoute(source, '/app/src/routes/method.tsx', 'component')
+    const init = exportedInit(result, 'component')
+
+    expect(moduleShape(result).errors).toEqual([])
+    expect(init?.type).toBe('FunctionExpression')
+    expect(init?.typeParameters).toBeTruthy()
+    expect(init?.returnType).toBeTruthy()
+    expect(result).toContain('function <T extends string>(): T')
+  })
+
+  it('renames a method option that collides with a local binding', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+const Inner = () => <div>inner</div>
+export const component = Inner
+export const Route = createFileRoute('/wrapped')({
+  component() { return <Wrapper inner={component} /> },
+})
+function Wrapper(props: { inner: () => unknown }) {
+  return <div>{String(props.inner)}</div>
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/wrapped.tsx', 'component')
+    const shape = moduleShape(result)
+
+    expect(shape.errors).toEqual([])
+    expect(occurrences(shape.exports, 'component')).toBe(1)
+    expect(result).toContain(
+      'const $$component = function () { return <Wrapper inner={component} /> }',
+    )
+    expect(result).toContain('export { $$component as component }')
+  })
+
   it('preserves valid quoting for module names containing apostrophes', () => {
     const source = `import { createFileRoute } from "@tanstack/react-router"
 import { Widget } from "./person's-widget"
