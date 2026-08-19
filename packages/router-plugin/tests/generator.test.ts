@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
 import { routePathToVariable } from '../src/emit'
 import { generateRouteTree } from '../src/generate'
@@ -250,6 +251,23 @@ describe('routePathToVariable', () => {
 })
 
 describe('generateRouteTree', () => {
+  it('escapes line terminators in single-quoted output', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-newline-'))
+    const routes = join(dir, 'routes')
+    write(routes, '__root.tsx')
+    write(routes, 'bad\nname.tsx')
+    const generated = join(dir, 'routeTree.gen.ts')
+
+    generateRouteTree({
+      routesDirectory: routes,
+      generatedRouteTree: generated,
+    })
+    const runtime = readFileSync(generated, 'utf8')
+
+    expect(runtime).toContain('bad\\nname')
+    expect(parseSync('routeTree.gen.ts', runtime).errors).toEqual([])
+  })
+
   it('emits a TanStack-shaped single routeTree.gen.ts', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-'))
     const routes = join(dir, 'routes')
