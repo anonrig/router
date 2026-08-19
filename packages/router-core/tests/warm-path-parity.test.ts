@@ -4,6 +4,14 @@ import { redirect } from '../src/redirect'
 import { createRootRoute, createRoute } from '../src/route'
 import { createRouter } from '../src/router'
 
+function deferred<T>() {
+  let fulfill!: (value: T) => void
+  const promise = new Promise<T>((resolve) => {
+    fulfill = resolve
+  })
+  return { promise, resolve: fulfill }
+}
+
 function createApp(opts: {
   root?: Record<string, any>
   posts?: Record<string, any>
@@ -40,6 +48,94 @@ describe('warm-path TanStack behavior parity', () => {
 
     expect(calls).toBe(1)
     expect(router.state.location.pathname).toBe('/about')
+  })
+
+  test.each(['before', 'after'] as const)(
+    'an async warm redirect settling %s a newer load cannot replace it',
+    async (order) => {
+      const staleLoader = deferred<ReturnType<typeof redirect>>()
+      const newerLoader = deferred<string>()
+      const root = createRootRoute()
+      const posts = createRoute({
+        getParentRoute: () => root,
+        path: '/posts',
+        loader: () => staleLoader.promise,
+      })
+      const newer = createRoute({
+        getParentRoute: () => root,
+        path: '/newer',
+        loader: () => newerLoader.promise,
+      })
+      const staleTarget = createRoute({
+        getParentRoute: () => root,
+        path: '/stale-target',
+      })
+      root.addChildren([posts, newer, staleTarget])
+      const router = createRouter({
+        routeTree: root,
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+        isServer: true,
+      })
+
+      const staleNavigation = router.navigate({ href: '/posts' } as any)
+      const newerNavigation = router.navigate({ href: '/newer' } as any)
+
+      if (order === 'before') {
+        staleLoader.resolve(redirect({ to: '/stale-target' }))
+        await staleNavigation
+        newerLoader.resolve('newer')
+        await newerNavigation
+      } else {
+        newerLoader.resolve('newer')
+        await newerNavigation
+        staleLoader.resolve(redirect({ to: '/stale-target' }))
+        await staleNavigation
+      }
+
+      expect(router.state.location.pathname).toBe('/newer')
+      expect(router.state.matches.at(-1)?.loaderData).toBe('newer')
+    },
+  )
+
+  test('stops a warm redirect cycle after 20 hops', async () => {
+    let calls = 0
+    const reachedLimit = deferred<void>()
+    const countCall = () => {
+      calls++
+      if (calls === 21) reachedLimit.resolve()
+    }
+    const root = createRootRoute()
+    const routeA = createRoute({
+      getParentRoute: () => root,
+      path: '/a',
+      loader: () => {
+        countCall()
+        return redirect({ to: '/b' })
+      },
+    })
+    const routeB = createRoute({
+      getParentRoute: () => root,
+      path: '/b',
+      loader: () => {
+        countCall()
+        return redirect({ to: '/a' })
+      },
+    })
+    root.addChildren([routeA, routeB])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+
+    const navigation = router.navigate({ href: '/a' } as any)
+    await reachedLimit.promise
+    await navigation
+
+    expect(calls).toBe(21)
+    expect(router.state.location.pathname).toBe('/a')
+    expect(router.state.matches.at(-1)?.status).toBe('error')
+    expect(router.state.matches.at(-1)?.error).toEqual(new Error('Too many redirects'))
   })
 
   test('loaderDeps changes reload the loader and store deps on the match', async () => {
