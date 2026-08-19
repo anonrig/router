@@ -53,6 +53,27 @@ function createBrowserHistoryHarness() {
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('rolls back when a popstate blocker rejects', async () => {
+    const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/first'
+    await listeners.popstate?.()
+    go.mockClear()
+    history.block({
+      blockerFn: async () => {
+        throw new Error('blocker failed')
+      },
+    })
+
+    nativeHistory.state = { __TSR_index: 2, __TSR_key: '2' }
+    location.pathname = '/second'
+
+    await expect(listeners.popstate?.()).rejects.toThrow('blocker failed')
+    expect(go).toHaveBeenCalledWith(-1)
+    expect(history.location.pathname).toBe('/first')
+    history.destroy()
+  })
+
   test('orders a native push after an already queued router push', async () => {
     const { history, nativeHistory, location } = createBrowserHistoryHarness()
 
