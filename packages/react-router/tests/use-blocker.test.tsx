@@ -139,6 +139,82 @@ describe('useBlocker withResolver', () => {
     expect(screen.getByTestId('next-path').textContent).toBe('none')
   })
 
+  it('ignores a stale shouldBlockFn result after a newer navigation', async () => {
+    const first = Promise.withResolvers<boolean>()
+    const second = Promise.withResolvers<boolean>()
+    let calls = 0
+    function DelayedBlockerComponent() {
+      const router = useRouter()
+      const blocker = useBlocker({
+        withResolver: true,
+        shouldBlockFn: () => (++calls === 1 ? first.promise : second.promise),
+      })
+      return (
+        <div>
+          <div data-testid="status">{blocker.status}</div>
+          <div data-testid="next-path">{blocker.next?.pathname ?? 'none'}</div>
+          <button type="button" data-testid="proceed-btn" onClick={() => blocker.proceed?.()}>
+            Proceed
+          </button>
+          <button
+            type="button"
+            data-testid="nav-about"
+            onClick={() => void router.navigate({ to: '/about' })}
+          >
+            About
+          </button>
+          <button
+            type="button"
+            data-testid="nav-other"
+            onClick={() => void router.navigate({ to: '/other' })}
+          >
+            Other
+          </button>
+        </div>
+      )
+    }
+    const rootRoute = createRootRoute({
+      component: () => (
+        <div>
+          <DelayedBlockerComponent />
+          <Outlet />
+        </div>
+      ),
+    })
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => <h1>Home</h1>,
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About</h1>,
+    })
+    const otherRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/other',
+      component: () => <h1>Other</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    fireEvent.click(screen.getByTestId('nav-about'))
+    fireEvent.click(screen.getByTestId('nav-other'))
+    second.resolve(true)
+    first.resolve(true)
+
+    expect(await screen.findByText('/other')).toBeInTheDocument()
+    expect(screen.getByTestId('status').textContent).toBe('blocked')
+    fireEvent.click(screen.getByTestId('proceed-btn'))
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/other')
+  })
+
   it('settles a superseded resolver navigation', async () => {
     const router = createBlockerRouter()
     render(<RouterProvider router={router} />)

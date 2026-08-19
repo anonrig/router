@@ -98,6 +98,7 @@ export function useBlocker(opts?: any): any {
   const activeResolverRef = useRef<
     { settle: (blocked: boolean, updateState?: boolean) => void } | undefined
   >(undefined)
+  const attemptRef = useRef(0)
 
   useEffect(() => {
     optsRef.current = opts
@@ -129,7 +130,9 @@ export function useBlocker(opts?: any): any {
         ) {
           return false
         }
+        const attempt = ++attemptRef.current
         const should = fn ? await fn(mapped) : true
+        if (attempt !== attemptRef.current) return true
         if (!should) return false
         if (typeof current !== 'function' && current?.withResolver) {
           return await new Promise<boolean>((resolve) => {
