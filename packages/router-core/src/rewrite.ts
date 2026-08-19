@@ -51,7 +51,7 @@ export function executeRewriteInput(rewrite: LocationRewrite | undefined, url: U
   const res = rewrite?.input?.({ url })
   if (res) {
     if (typeof res === 'string') {
-      return new URL(res)
+      return new URL(res, url)
     } else if (res instanceof URL) {
       return res
     }
@@ -64,7 +64,7 @@ export function executeRewriteOutput(rewrite: LocationRewrite | undefined, url: 
   const res = rewrite?.output?.({ url })
   if (res) {
     if (typeof res === 'string') {
-      return new URL(res)
+      return new URL(res, url)
     } else if (res instanceof URL) {
       return res
     }

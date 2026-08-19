@@ -63,7 +63,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   let next: undefined | [href: string, state: any, isPush: boolean]
 
   const flush = () => {
-    if (!next) return
+    if (!alive || !next) return
     history._ignoreSubscribers = true
     ;(next[2] ? win.history.pushState : win.history.replaceState)(next[1], '', next[0])
     history._ignoreSubscribers = false
@@ -182,6 +182,9 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     flush,
     destroy: () => {
       alive = false
+      if (rollbackLocation) currentLocation = rollbackLocation
+      next = undefined
+      rollbackLocation = undefined
       // Only unwrap if this instance still owns the hooks. A newer history on the
       // same window may have wrapped us; restoring would disconnect that instance.
       if (win.history.pushState === pushStateWrapper) {

@@ -1064,8 +1064,16 @@ function findRouteMatchDynamic(
       const suffix = node.wildcardChild.suffix || ''
       const first = decoded[index]!
       const lastSeg = decoded[decoded.length - 1]!
-      const prefixOk = !prefix || first.startsWith(prefix)
-      const suffixOk = !suffix || lastSeg.endsWith(suffix)
+      const prefixOk =
+        !prefix ||
+        (caseSensitive
+          ? first.startsWith(prefix)
+          : first.toLowerCase().startsWith(prefix.toLowerCase()))
+      const suffixOk =
+        !suffix ||
+        (caseSensitive
+          ? lastSeg.endsWith(suffix)
+          : lastSeg.toLowerCase().endsWith(suffix.toLowerCase()))
       if (prefixOk && suffixOk) {
         const params = Object.assign(Object.create(null), frame.params)
         const rest = decoded.slice(index)
@@ -1104,7 +1112,7 @@ function findRouteMatchDynamic(
     for (let o = 0; o < optionals.length; o++) {
       const child = optionals[o]!
       const name = child.optionalName || node.optionalName
-      const inner = extractPrefixed(value, child.prefix || '', child.suffix || '')
+      const inner = extractPrefixed(value, child.prefix || '', child.suffix || '', caseSensitive)
       if (inner !== null) {
         const params = Object.assign(Object.create(null), frame.params)
         if (inner) params[name] = inner
@@ -1145,7 +1153,7 @@ function findRouteMatchDynamic(
     if (paramKids.length) {
       for (let p = paramKids.length - 1; p >= 0; p--) {
         const child = paramKids[p]!
-        const inner = extractPrefixed(value, child.prefix || '', child.suffix || '')
+        const inner = extractPrefixed(value, child.prefix || '', child.suffix || '', caseSensitive)
         if (inner === null) continue
         const params = Object.assign(Object.create(null), frame.params)
         params[child.paramName || node.paramName || ''] = inner
@@ -1205,9 +1213,21 @@ function findRouteMatchDynamic(
   return null
 }
 
-function extractPrefixed(value: string, prefix: string, suffix: string): string | null {
-  if (prefix && !value.startsWith(prefix)) return null
-  if (suffix && !value.endsWith(suffix)) return null
+function extractPrefixed(
+  value: string,
+  prefix: string,
+  suffix: string,
+  caseSensitive: boolean,
+): string | null {
+  if (!prefix && !suffix) return value
+  if (caseSensitive) {
+    if (prefix && !value.startsWith(prefix)) return null
+    if (suffix && !value.endsWith(suffix)) return null
+  } else {
+    const lower = value.toLowerCase()
+    if (prefix && !lower.startsWith(prefix.toLowerCase())) return null
+    if (suffix && !lower.endsWith(suffix.toLowerCase())) return null
+  }
   let inner = value
   if (prefix) inner = inner.slice(prefix.length)
   if (suffix) inner = inner.slice(0, Math.max(0, inner.length - suffix.length))

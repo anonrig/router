@@ -301,8 +301,11 @@ export { createRouter, Router } from './router'
 export { RouterProvider, RouterContextProvider } from './router-provider'
 export type { RouterProps } from './router-provider'
 
-export { useElementScrollRestoration, ScrollRestoration } from './scroll-restoration'
-export type { UseElementScrollRestorationOptions } from './scroll-restoration'
+export { ScrollRestoration } from './scroll-restoration'
+export {
+  useElementScrollRestoration,
+  type UseElementScrollRestorationOptions,
+} from './use-element-scroll-restoration'
 
 export type { UseBlockerOpts, ShouldBlockFn } from './use-blocker'
 export { useBlocker, Block } from './use-blocker'
