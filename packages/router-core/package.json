@@ -1,6 +1,6 @@
 {
   "name": "speedy-router-core",
-  "version": "0.1.19",
+  "version": "0.1.21",
   "description": "Matcher, navigation, loaders, and search params for speedy-router.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
