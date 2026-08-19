@@ -3,14 +3,15 @@ import { dummyMatchContext, matchContext } from './match-context'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
-import type {
-  AnyRouter,
-  MakeRouteMatch,
-  MakeRouteMatchUnion,
-  StrictOrFrom,
-  ThrowConstraint,
-  ThrowOrOptional,
-  RegisteredRouter,
+import {
+  trimPathRight,
+  type AnyRouter,
+  type MakeRouteMatch,
+  type MakeRouteMatchUnion,
+  type StrictOrFrom,
+  type ThrowConstraint,
+  type ThrowOrOptional,
+  type RegisteredRouter,
 } from 'speedy-router-core'
 
 export interface UseMatchBaseOptions<
@@ -75,7 +76,7 @@ export function useMatch<
     TStructuralSharing
   >,
 ): ThrowOrOptional<UseMatchResult<TRouter, TFrom, TStrict, TSelected>, TThrow> {
-  const _router = useRouter<TRouter>()
+  const router = useRouter<TRouter>()
   const nearest = useContext(opts?.from ? dummyMatchContext : matchContext)
   const from = opts?.from ?? nearest
 
@@ -83,9 +84,7 @@ export function useMatch<
     structuralSharing: opts?.structuralSharing,
     select: (state) => {
       const matches = state.matches
-      const match = from
-        ? matches.find((m: any) => m.routeId === from)
-        : matches[matches.length - 1]
+      const match = from ? findMatchFrom(router, matches, from) : matches[matches.length - 1]
       if (!match) {
         if (opts?.shouldThrow === false || opts?.strict === false) {
           return undefined as any
@@ -95,4 +94,35 @@ export function useMatch<
       return opts?.select ? opts.select(match as any) : (match as any)
     },
   }) as any
+}
+
+function findMatchFrom(
+  router: { routesById?: Record<string, any>; routesByPath?: Record<string, any> },
+  matches: Array<{ routeId: string }>,
+  from: string,
+) {
+  const byId = matches.find((match) => match.routeId === from)
+  if (byId) return byId
+
+  const target =
+    router.routesById?.[from] ??
+    router.routesByPath?.[from] ??
+    router.routesByPath?.[trimPathRight(from)]
+  if (target?.id) {
+    const resolved = matches.find((match) => match.routeId === target.id)
+    if (resolved) return resolved
+  }
+
+  // `routesByPath` never records `fullPath === '/'`, so `from: '/'` has to
+  // pick the active index from the current match list. Pathless layouts that
+  // inherit `/` are skipped unless they themselves are the index route.
+  if (from === '/') {
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const route = router.routesById?.[matches[i]!.routeId]
+      if (!route || route.isRoot || route.id === '__root__') continue
+      if (route.path === '/' || route.options?.path === '/') return matches[i]
+    }
+  }
+
+  return undefined
 }

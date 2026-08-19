@@ -11,6 +11,7 @@ import {
   createRouter,
   getRouteApi,
   useElementScrollRestoration,
+  useMatch,
 } from '../src'
 
 afterEach(() => {
@@ -172,6 +173,85 @@ describe('createFileRoute', () => {
     expect(await screen.findByText('profile:jack')).toBeInTheDocument()
     expect(screen.getByText('from:/$username')).toBeInTheDocument()
     expect(screen.getByText('posts')).toBeInTheDocument()
+  })
+})
+
+describe('useMatch', () => {
+  it('resolves active match when from is passed as fullPath, routeId, or id', async () => {
+    function PostComponent() {
+      const matchByFullPath = useMatch({ from: '/posts' as any })
+      const matchByRouteId = useMatch({ from: '/_layout/posts' as any })
+      return (
+        <div>
+          <span>byFullPath:{matchByFullPath.routeId}</span>
+          <span>byRouteId:{matchByRouteId.routeId}</span>
+        </div>
+      )
+    }
+
+    const root = createRootRoute({ component: () => <Outlet /> })
+    const layout = createRoute({ getParentRoute: () => root, id: '_layout' })
+    const posts = createRoute({
+      getParentRoute: () => layout,
+      path: '/posts',
+      component: PostComponent,
+    })
+
+    const router = createRouter({
+      routeTree: root.addChildren([layout.addChildren([posts])]),
+      history: createMemoryHistory({ initialEntries: ['/posts'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('byFullPath:/_layout/posts')).toBeInTheDocument()
+    expect(screen.getByText('byRouteId:/_layout/posts')).toBeInTheDocument()
+  })
+
+  it('does not shadow an inactive index route with ancestor layout matches', async () => {
+    function AboutComponent() {
+      const matchIndex = useMatch({ from: '/' as any, shouldThrow: false })
+      return <div>indexMatch:{matchIndex ? 'found' : 'none'}</div>
+    }
+
+    const root = createRootRoute({ component: () => <Outlet /> })
+    const layout = createRoute({ getParentRoute: () => root, id: '_auth' })
+    const index = createRoute({ getParentRoute: () => layout, path: '/' })
+    const about = createRoute({
+      getParentRoute: () => layout,
+      path: '/about',
+      component: AboutComponent,
+    })
+
+    const router = createRouter({
+      routeTree: root.addChildren([layout.addChildren([index, about])]),
+      history: createMemoryHistory({ initialEntries: ['/about'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('indexMatch:none')).toBeInTheDocument()
+  })
+
+  it('resolves from: "/" to an active nested index', async () => {
+    function IndexComponent() {
+      const matchIndex = useMatch({ from: '/' as any })
+      return <div>indexMatch:{matchIndex.routeId}</div>
+    }
+
+    const root = createRootRoute({ component: () => <Outlet /> })
+    const layout = createRoute({ getParentRoute: () => root, id: '_layout' })
+    const index = createRoute({
+      getParentRoute: () => layout,
+      path: '/',
+      component: IndexComponent,
+    })
+
+    const router = createRouter({
+      routeTree: root.addChildren([layout.addChildren([index])]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('indexMatch:/_layout/')).toBeInTheDocument()
   })
 })
 

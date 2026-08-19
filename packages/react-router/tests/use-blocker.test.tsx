@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { useState } from 'react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useState, type ReactNode } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   Outlet,
@@ -84,8 +84,13 @@ function createBlockerRouter() {
     path: '/about',
     component: () => <h1>About</h1>,
   })
+  const otherRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/other',
+    component: () => <h1>Other</h1>,
+  })
   return createRouter({
-    routeTree: rootRoute.addChildren([indexRoute, aboutRoute]),
+    routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
 }
@@ -146,6 +151,187 @@ describe('useBlocker withResolver', () => {
     expect(screen.getByTestId('status').textContent).toBe('idle')
     expect(router.state.location.pathname).toBe('/')
     expect(screen.getByTestId('next-path').textContent).toBe('none')
+  })
+
+  it('ignores a stale shouldBlockFn result after a newer navigation', async () => {
+    const first = Promise.withResolvers<boolean>()
+    const second = Promise.withResolvers<boolean>()
+    let calls = 0
+    function DelayedBlockerComponent() {
+      const router = useRouter()
+      const blocker = useBlocker({
+        withResolver: true,
+        shouldBlockFn: () => (++calls === 1 ? first.promise : second.promise),
+      })
+      return (
+        <div>
+          <div data-testid="status">{blocker.status}</div>
+          <div data-testid="next-path">{blocker.next?.pathname ?? 'none'}</div>
+          <button type="button" data-testid="proceed-btn" onClick={() => blocker.proceed?.()}>
+            Proceed
+          </button>
+          <button
+            type="button"
+            data-testid="nav-about"
+            onClick={() => void router.navigate({ to: '/about' })}
+          >
+            About
+          </button>
+          <button
+            type="button"
+            data-testid="nav-other"
+            onClick={() => void router.navigate({ to: '/other' })}
+          >
+            Other
+          </button>
+        </div>
+      )
+    }
+    const rootRoute = createRootRoute({
+      component: () => (
+        <div>
+          <DelayedBlockerComponent />
+          <Outlet />
+        </div>
+      ),
+    })
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => <h1>Home</h1>,
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About</h1>,
+    })
+    const otherRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/other',
+      component: () => <h1>Other</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    fireEvent.click(screen.getByTestId('nav-about'))
+    fireEvent.click(screen.getByTestId('nav-other'))
+    second.resolve(true)
+    first.resolve(true)
+
+    expect(await screen.findByText('/other')).toBeInTheDocument()
+    expect(screen.getByTestId('status').textContent).toBe('blocked')
+    fireEvent.click(screen.getByTestId('proceed-btn'))
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/other')
+  })
+
+  it('settles an active resolver when the blocker unmounts', async () => {
+    const router = createBlockerRouter()
+    const view = render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    let navigation!: Promise<void>
+    act(() => {
+      navigation = router.navigate({ to: '/about' })
+    })
+    expect(await screen.findByText('blocked')).toBeInTheDocument()
+
+    view.unmount()
+    await navigation
+    expect(router.state.location.pathname).toBe('/')
+  })
+})
+
+function createPopRouter(Blocker: () => ReactNode) {
+  const rootRoute = createRootRoute({
+    component: () => (
+      <div>
+        <Blocker />
+        <Outlet />
+      </div>
+    ),
+  })
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <h1>Home</h1>,
+  })
+  const aboutRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/about',
+    component: () => <h1>About</h1>,
+  })
+  const otherRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/other',
+    component: () => <h1>Other</h1>,
+  })
+  const history = createMemoryHistory({ initialEntries: ['/', '/about'] })
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
+    history,
+  })
+  return { router, history }
+}
+
+function startPopAttempt(history: any): Promise<boolean> {
+  return history.blockers[0].blockerFn({
+    currentLocation: history.location,
+    nextLocation: {
+      href: '/',
+      pathname: '/',
+      search: '',
+      hash: '',
+      state: { __TSR_index: 0, __TSR_key: '0', key: '0' },
+    },
+    action: 'BACK',
+  })
+}
+
+describe('useBlocker superseded pop', () => {
+  it('does not revert a pop after a newer resolver proceeded', async () => {
+    const first = Promise.withResolvers<boolean>()
+    const second = Promise.withResolvers<boolean>()
+    let calls = 0
+    function DelayedBlocker() {
+      const blocker = useBlocker({
+        withResolver: true,
+        shouldBlockFn: () => (++calls === 1 ? first.promise : second.promise),
+      })
+      return (
+        <div>
+          <div data-testid="status">{blocker.status}</div>
+          <button type="button" data-testid="proceed-btn" onClick={() => blocker.proceed?.()}>
+            Proceed
+          </button>
+        </div>
+      )
+    }
+    const { router, history } = createPopRouter(DelayedBlocker)
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('About')).toBeInTheDocument()
+
+    const popAttempt = startPopAttempt(history)
+    let push!: Promise<void>
+    act(() => {
+      push = router.navigate({ to: '/other' })
+    })
+    expect(calls).toBe(2)
+
+    second.resolve(true)
+    expect(await screen.findByText('blocked')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('proceed-btn'))
+    await act(async () => {
+      await push
+    })
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+
+    first.resolve(true)
+    await expect(popAttempt).resolves.toBe(false)
   })
 })
 

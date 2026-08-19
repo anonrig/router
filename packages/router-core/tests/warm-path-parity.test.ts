@@ -160,6 +160,171 @@ describe('warm-path TanStack behavior parity', () => {
     expect(match?.id).toContain('{"mode":"b"}')
   })
 
+  test('nested loaders start in parallel before either awaits', async () => {
+    let parentStarted = 0
+    let childStarted = 0
+    let parentSeenChild = false
+    let childSeenParent = false
+    let bothStarted!: () => void
+    const started = new Promise<void>((resolve) => {
+      bothStarted = resolve
+    })
+    let releaseParent!: () => void
+    let releaseChild!: () => void
+    const parentGate = new Promise<void>((resolve) => {
+      releaseParent = resolve
+    })
+    const childGate = new Promise<void>((resolve) => {
+      releaseChild = resolve
+    })
+
+    const root = createRootRoute()
+    const posts = createRoute({
+      getParentRoute: () => root,
+      path: '/posts',
+      loader: async () => {
+        parentStarted += 1
+        parentSeenChild = childStarted > 0
+        if (parentStarted && childStarted) bothStarted()
+        await parentGate
+        return { who: 'parent' }
+      },
+    })
+    const post = createRoute({
+      getParentRoute: () => posts,
+      path: '/$postId',
+      loader: async () => {
+        childStarted += 1
+        childSeenParent = parentStarted > 0
+        if (parentStarted && childStarted) bothStarted()
+        await childGate
+        return { who: 'child' }
+      },
+    })
+    root.addChildren([posts.addChildren([post])])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+
+    const navigation = router.navigate({ href: '/posts/1' } as any)
+    await started
+    expect(parentStarted).toBe(1)
+    expect(childStarted).toBe(1)
+    expect(parentSeenChild).toBe(true)
+    expect(childSeenParent).toBe(true)
+    releaseParent()
+    releaseChild()
+    await navigation
+
+    const child = router.state.matches.at(-1)
+    const parent = router.state.matches.find((match) => match.routeId === posts.id)
+    expect(parent?.loaderData).toEqual({ who: 'parent' })
+    expect(child?.loaderData).toEqual({ who: 'child' })
+  })
+
+  test('child loader parentMatchPromise waits for the parent loader result', async () => {
+    let childParentMatch: { loaderData?: unknown } | undefined
+    let childStarted!: () => void
+    const childBegan = new Promise<void>((resolve) => {
+      childStarted = resolve
+    })
+    let releaseParent!: () => void
+    const parentGate = new Promise<void>((resolve) => {
+      releaseParent = resolve
+    })
+
+    const root = createRootRoute()
+    const posts = createRoute({
+      getParentRoute: () => root,
+      path: '/posts',
+      loader: async () => {
+        await parentGate
+        return { who: 'parent' }
+      },
+    })
+    const post = createRoute({
+      getParentRoute: () => posts,
+      path: '/$postId',
+      loader: async ({
+        parentMatchPromise,
+      }: {
+        parentMatchPromise?: Promise<{ loaderData?: unknown }>
+      }) => {
+        childStarted()
+        childParentMatch = await parentMatchPromise
+        return { who: 'child' }
+      },
+    })
+    root.addChildren([posts.addChildren([post])])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+
+    const navigation = router.navigate({ href: '/posts/1' } as any)
+    await childBegan
+    expect(childParentMatch).toBeUndefined()
+    releaseParent()
+    await navigation
+    expect(childParentMatch?.loaderData).toEqual({ who: 'parent' })
+    expect(router.state.matches.at(-1)?.loaderData).toEqual({ who: 'child' })
+  })
+
+  test('child is discarded when the parent loader fails after both start', async () => {
+    let childStarted = 0
+    const boom = new Error('parent boom')
+    let bothStarted!: () => void
+    const started = new Promise<void>((resolve) => {
+      bothStarted = resolve
+    })
+    let releaseParent!: () => void
+    const parentGate = new Promise<void>((resolve) => {
+      releaseParent = resolve
+    })
+
+    const root = createRootRoute()
+    const posts = createRoute({
+      getParentRoute: () => root,
+      path: '/posts',
+      loader: async () => {
+        if (childStarted) bothStarted()
+        await parentGate
+        throw boom
+      },
+    })
+    const post = createRoute({
+      getParentRoute: () => posts,
+      path: '/$postId',
+      loader: async () => {
+        childStarted += 1
+        bothStarted()
+        return { who: 'child' }
+      },
+    })
+    root.addChildren([posts.addChildren([post])])
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+
+    const navigation = router.navigate({ href: '/posts/1' } as any)
+    await started
+    releaseParent()
+    await expect(navigation).resolves.toBeUndefined()
+    expect(childStarted).toBe(1)
+
+    const parent = router.state.matches.find((match) => match.routeId === posts.id)
+    const child = router.state.matches.find((match) => match.routeId === post.id)
+    expect(parent?.status).toBe('error')
+    expect(parent?.error).toBe(boom)
+    expect(child?.isFetching).toBe(false)
+    expect(child?.loaderData).toBeUndefined()
+  })
+
   test('nested loaders receive distinct mutable context objects', async () => {
     const refs: { who: string; ctx: Record<string, any> }[] = []
     const router = createApp({
@@ -345,7 +510,7 @@ describe('warm-path TanStack behavior parity', () => {
     expect(root?.status).toBe('error')
     expect(root?.error).toBe(boom)
     expect(root?.isFetching).toBe(false)
-    expect(postsCalls).toBe(0)
+    expect(postsCalls).toBe(1)
     expect(posts?.isFetching).toBe(false)
   })
 })
