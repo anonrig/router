@@ -124,11 +124,9 @@ describe('fast server loader thenables', () => {
     const { router, response, rootRoute } = await loadTree({
       root: {
         loader: () => {
-          const thenable: { then?: (resolve: (value: string) => void) => void } = {}
-          thenable.then = (resolve) => {
-            queueMicrotask(() => resolve('resolved data'))
-          }
-          return thenable
+          // The fast server lane must await PromiseLike results, not only Promises.
+          // oxlint-disable-next-line unicorn/no-thenable
+          return { then: (resolve: (value: string) => void) => resolve('resolved data') }
         },
       },
     })
