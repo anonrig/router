@@ -122,7 +122,7 @@ importers:
         specifier: workspace:*
         version: link:../history
 
-  packages/router-generator:
+  packages/router-plugin:
     dependencies:
       oxc-parser:
         specifier: ^0.144.0

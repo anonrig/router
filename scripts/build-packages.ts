@@ -48,8 +48,8 @@ const packages = [
     ],
   },
   {
-    dir: 'packages/router-generator',
-    src: 'packages/router-generator/src',
+    dir: 'packages/router-plugin',
+    src: 'packages/router-plugin/src',
     entries: ['index.ts', 'vite.ts'],
   },
 ] as const

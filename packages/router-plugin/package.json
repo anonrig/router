@@ -1,5 +1,5 @@
 {
-  "name": "speedy-router-generator",
+  "name": "speedy-router-plugin",
   "version": "0.1.14",
   "description": "TanStack-compatible routeTree.gen.ts generator and Vite plugin.",
   "homepage": "https://github.com/anonrig/router#readme",
@@ -11,7 +11,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/anonrig/router.git",
-    "directory": "packages/router-generator"
+    "directory": "packages/router-plugin"
   },
   "files": [
     "dist",
@@ -38,7 +38,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ../../scripts/register-ts.mjs ../../scripts/build-packages.ts --package router-generator"
+    "build": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ../../scripts/register-ts.mjs ../../scripts/build-packages.ts --package router-plugin"
   },
   "dependencies": {
     "oxc-parser": "^0.144.0"

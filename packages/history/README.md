@@ -81,7 +81,7 @@ If you already know TanStack Router, you already know this router.
 - **Node 24 only.** `engines.node` is `>=24`. No compatibility tax for Node 22.
 - **Typed the same way.** Vendored TanStack type tests pass. Route trees, params, and search stay on the TanStack type surface.
 - **Measured in the open.** Head-to-head benches, heap per operation, and bundle sizes live in the repo. Re-run them. The tables are the same loop as `pnpm bench:compare`.
-- **Same generated route tree.** `speedy-router-generator` emits TanStack's `routeTree.gen.ts` shape: eager `Route` imports, `.update()`, and `declare module '@tanstack/react-router'`. Alias `@tanstack/router-plugin` at the package manager.
+- **Same generated route tree.** `speedy-router-plugin` emits TanStack's `routeTree.gen.ts` shape: eager `Route` imports, `.update()`, and `declare module '@tanstack/react-router'`. Alias `@tanstack/router-plugin` at the package manager.
 
 ## Quick start
 
@@ -91,7 +91,7 @@ Node 24+, React 19.2, and React DOM 19.2 are required.
 pnpm add speedy-router
 ```
 
-The other public packages are `speedy-router-core`, `speedy-router-history`, and `speedy-router-generator`. Clone the workspace to develop or re-run the benches:
+The other public packages are `speedy-router-core`, `speedy-router-history`, and `speedy-router-plugin`. Clone the workspace to develop or re-run the benches:
 
 ```bash
 pnpm install
@@ -100,12 +100,12 @@ pnpm bench:compare
 pnpm size
 ```
 
-| Package                                                | What you import                                      |
-| ------------------------------------------------------ | ---------------------------------------------------- |
-| [`speedy-router`](packages/react-router)               | `RouterProvider`, `Link`, hooks, SSR bindings        |
-| [`speedy-router-core`](packages/router-core)           | Matcher, navigation, loaders, search params          |
-| [`speedy-router-history`](packages/history)            | Browser, hash, and memory history                    |
-| [`speedy-router-generator`](packages/router-generator) | TanStack-compatible `routeTree.gen.ts` + Vite plugin |
+| Package                                          | What you import                                      |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| [`speedy-router`](packages/react-router)         | `RouterProvider`, `Link`, hooks, SSR bindings        |
+| [`speedy-router-core`](packages/router-core)     | Matcher, navigation, loaders, search params          |
+| [`speedy-router-history`](packages/history)      | Browser, hash, and memory history                    |
+| [`speedy-router-plugin`](packages/router-plugin) | TanStack-compatible `routeTree.gen.ts` + Vite plugin |
 
 ## Performance
 
@@ -208,7 +208,7 @@ Point the TanStack package names at the speedy packages:
 ```yaml
 # pnpm-workspace.yaml catalog
 '@tanstack/react-router': npm:speedy-router@0.1.4
-'@tanstack/router-plugin': npm:speedy-router-generator@0.1.4
+'@tanstack/router-plugin': npm:speedy-router-plugin@0.1.4
 ```
 
 Apps keep `createFileRoute('/posts/$id')` in each route file. Nothing new to call at runtime.
@@ -234,6 +234,7 @@ resolve: {
     '@tanstack/react-router': 'speedy-router',
     '@tanstack/router-core': 'speedy-router-core',
     '@tanstack/history': 'speedy-router-history',
+    '@tanstack/router-plugin': 'speedy-router-plugin',
   },
 }
 ```
@@ -261,7 +262,7 @@ pnpm knip                 # unused files, dependencies, and exports
 
 ## Publishing
 
-The public packages are `speedy-router`, `speedy-router-core`, `speedy-router-history`, and `speedy-router-generator`. The repo root stays private. Versions stay in lockstep. Releases run from [`.github/workflows/release.yml`](.github/workflows/release.yml).
+The public packages are `speedy-router`, `speedy-router-core`, `speedy-router-history`, and `speedy-router-plugin` (formerly `speedy-router-generator`). The repo root stays private. Versions stay in lockstep. Releases run from [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
 Published tarballs contain compiled ESM JavaScript and `.d.ts` files in `dist/`. TypeScript source stays in the git repo. `pnpm build` emits `dist` before `pnpm release`.
 
@@ -274,7 +275,7 @@ Trusted publishing cannot create a package's first version. Bootstrap once with 
 3. Either:
    - add it as the `NPM_TOKEN` repository secret on `anonrig/router`, then run [Release](https://github.com/anonrig/router/actions/workflows/release.yml) with **bump** `none` (publishes `0.1.0`), or
    - from a clean checkout of the release commit: `NPM_TOKEN=… pnpm release`.
-4. Confirm all four names exist: [speedy-router](https://www.npmjs.com/package/speedy-router), [speedy-router-core](https://www.npmjs.com/package/speedy-router-core), [speedy-router-history](https://www.npmjs.com/package/speedy-router-history), [speedy-router-generator](https://www.npmjs.com/package/speedy-router-generator).
+4. Confirm all four names exist: [speedy-router](https://www.npmjs.com/package/speedy-router), [speedy-router-core](https://www.npmjs.com/package/speedy-router-core), [speedy-router-history](https://www.npmjs.com/package/speedy-router-history), [speedy-router-plugin](https://www.npmjs.com/package/speedy-router-plugin).
 
 ### 2. Trusted publishing (every later release)
 

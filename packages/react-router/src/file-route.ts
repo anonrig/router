@@ -40,7 +40,7 @@ type FileRoutesByPath = CoreFileRoutesByPath & ReactFileRoutesByPath
 
 /**
  * FileRoutesByPath key → public URL path. Pathless `_` / `@` segments are
- * dropped, matching speedy-router-generator's `urlPathFromId`.
+ * dropped, matching speedy-router-plugin's `urlPathFromId`.
  */
 function fileRouteFullPath(id: string): string | undefined {
   const trailingSlash = id.endsWith('/') && id !== '/'

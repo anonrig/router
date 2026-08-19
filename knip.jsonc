@@ -10,7 +10,7 @@
     // Vendored TanStack tests keep helpers that this repo does not call.
     "tests/**": ["exports", "types", "duplicates"],
     // Optional peer: the vite export is type-only until an app uses the plugin.
-    "packages/router-generator/package.json": ["optionalPeerDependencies"],
+    "packages/router-plugin/package.json": ["optionalPeerDependencies"],
   },
   "workspaces": {
     ".": {
@@ -53,7 +53,7 @@
         "src/ssr/render-router-to-stream.tsx",
       ],
     },
-    "packages/router-generator": {
+    "packages/router-plugin": {
       "entry": ["src/index.ts", "src/vite.ts"],
     },
   },
