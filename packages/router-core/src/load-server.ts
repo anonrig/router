@@ -806,6 +806,11 @@ function fillFastServerLoaderContext(
 
 function canUseFastServerLane(router: AnyRouter, matches: Array<AnyRouteMatch>): boolean {
   if (router.rewrite) return false
+  // The fast lane assumes every match is ssr:true. Restrictive router defaults,
+  // SPA shells, and runtime ssr() callbacks must go through resolveSsr.
+  if (router.isShell()) return false
+  const defaultSsr = router.options.defaultSsr
+  if (defaultSsr === false || defaultSsr === 'data-only') return false
   let loaders = 0
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i]!
@@ -813,7 +818,13 @@ function canUseFastServerLane(router: AnyRouter, matches: Array<AnyRouteMatch>):
     const route = getRoute(router, match)
     const options = route.options
     if (route.lazyFn && route._lazy !== true) return false
-    if (options?.ssr === false || options?.ssr === 'data-only') return false
+    if (
+      typeof options?.ssr === 'function' ||
+      options?.ssr === false ||
+      options?.ssr === 'data-only'
+    ) {
+      return false
+    }
     if (options?.beforeLoad || options?.context || options?.onError) return false
     if (options?.notFoundComponent || options?.errorComponent) return false
     if (options?.head || options?.scripts || options?.headers) return false
@@ -853,6 +864,7 @@ function executeFastServerLane(
   for (let i = start; i < matches.length; i++) {
     const match = matches[i]!
     const route = getRoute(router, match)
+    match.ssr = true
     match.context = loaderParentContext
     match.isFetching = false
     match.__beforeLoadContext = undefined
