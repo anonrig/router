@@ -2,6 +2,26 @@ import { describe, expect, test } from 'vitest'
 import { createMemoryHistory } from '../src/memory'
 
 describe('createMemoryHistory TanStack stack parity', () => {
+  test('ignores an async blocked push superseded by a newer navigation', async () => {
+    const history = createMemoryHistory({ initialEntries: ['/'] })
+    let release!: (blocked: boolean) => void
+    history.block({
+      blockerFn: () =>
+        new Promise<boolean>((resolve) => {
+          release = resolve
+        }),
+    })
+
+    const stale = Promise.resolve(history.push('/stale'))
+    history.push('/current', undefined, { ignoreBlocker: true })
+    release(false)
+    await stale
+
+    expect(history.location.pathname).toBe('/current')
+    history.back()
+    expect(history.location.pathname).toBe('/')
+  })
+
   test('blockers receive the index of the proposed location', () => {
     const history = createMemoryHistory({
       initialEntries: ['/first', '/second', '/third'],

@@ -43,6 +43,8 @@ class MemoryHistory implements RouterHistory {
   private readonly compactEnabled: boolean
   private _subscribers?: Set<(opts: SubscriberArgs) => void>
   private blockers?: Array<NavigationBlocker>
+  private navigationId = 0
+  private committedNavigationId = 0
 
   constructor(
     opts: {
@@ -133,6 +135,7 @@ class MemoryHistory implements RouterHistory {
     path: string,
     state: ParsedHistoryState,
     task: () => void,
+    navigationId: number,
   ) {
     const list = this.blockers!
     const nextLocation = locationFromPath(path, state)
@@ -142,6 +145,7 @@ class MemoryHistory implements RouterHistory {
       action: type,
     }
     const step = (start: number): void | Promise<void> => {
+      if (navigationId < this.committedNavigationId) return
       for (let i = start; i < list.length; i++) {
         const result = list[i]!.blockerFn(blockerArgs)
         if (result != null && typeof (result as Promise<unknown>).then === 'function') {
@@ -158,6 +162,7 @@ class MemoryHistory implements RouterHistory {
   }
 
   push(path: string, state?: any, navigateOpts?: NavigateOptions) {
+    const navigationId = ++this.navigationId
     const blockers = this.blockers
     if (
       blockers &&
@@ -172,11 +177,14 @@ class MemoryHistory implements RouterHistory {
         path,
         assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state),
         () => {
+          this.committedNavigationId = navigationId
           const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
           this.commitPush(path, nextState)
         },
+        navigationId,
       )
     }
+    this.committedNavigationId = navigationId
     const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
     const { entries, states } = this
     if (this.index < entries.length - 1) {
@@ -194,6 +202,7 @@ class MemoryHistory implements RouterHistory {
   }
 
   replace(path: string, state?: any, navigateOpts?: NavigateOptions) {
+    const navigationId = ++this.navigationId
     const blockers = this.blockers
     if (
       blockers &&
@@ -206,11 +215,14 @@ class MemoryHistory implements RouterHistory {
         path,
         assignKeyAndIndex(this.location.state[STATE_INDEX], state),
         () => {
+          this.committedNavigationId = navigationId
           const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
           this.commitReplace(path, nextState)
         },
+        navigationId,
       )
     }
+    this.committedNavigationId = navigationId
     const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
     this.states[this.index] = nextState
     this.entries[this.index] = path
@@ -222,13 +234,18 @@ class MemoryHistory implements RouterHistory {
 
   go(n: number) {
     const next = this.index + n
-    this.index = next < 0 ? 0 : next >= this.entries.length ? this.entries.length - 1 : next
+    const target = next < 0 ? 0 : next >= this.entries.length ? this.entries.length - 1 : next
+    // A pop that lands on the current entry never commits a navigation, so it must
+    // not retire an in-flight blocked push.
+    if (target !== this.index) this.committedNavigationId = ++this.navigationId
+    this.index = target
     this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     this.notify({ type: 'GO', index: n })
   }
 
   back() {
     if (this.index !== 0) {
+      this.committedNavigationId = ++this.navigationId
       this.index -= 1
       this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     }
@@ -237,6 +254,7 @@ class MemoryHistory implements RouterHistory {
 
   forward() {
     if (this.index < this.entries.length - 1) {
+      this.committedNavigationId = ++this.navigationId
       this.index += 1
       this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     }
