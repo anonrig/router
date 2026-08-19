@@ -29,6 +29,7 @@ function tree() {
 }
 
 describe('matcher', () => {
+<<<<<<< HEAD
   it('requires affixed parameters to consume a value', () => {
     const root = createRootRoute()
     const normal = createRoute({
@@ -101,6 +102,23 @@ describe('matcher', () => {
       index: probe((wildcard) => [createRoute({ getParentRoute: () => wildcard, path: '/' })]),
       pathless: probe((wildcard) => [fileRoute('_layout', undefined, () => wildcard)]),
     }).toEqual({ child: expected, index: expected, pathless: expected })
+  })
+
+  it('keeps sibling wildcard affix patterns distinct', () => {
+    const root = createRootRoute()
+    const foo = createRoute({
+      getParentRoute: () => root,
+      path: '/a/foo{$}bar',
+    })
+    const baz = createRoute({
+      getParentRoute: () => root,
+      path: '/a/baz{$}qux',
+    })
+    root.addChildren([foo, baz])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/a/fooxbar')?.at(-1)?.route.id).toBe('/a/foo{$}bar')
+    expect(findRouteMatch(tree, '/a/bazxqux')?.at(-1)?.route.id).toBe('/a/baz{$}qux')
   })
 
   it('rejects malformed percent encoding in dynamic segments', () => {

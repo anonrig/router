@@ -72,6 +72,7 @@ export type SegmentNode = {
   optionalChildren: SegmentNode[] | null
   optionalName: string
   wildcardChild: SegmentNode | null
+  wildcardChildren: SegmentNode[] | null
   pathless: AnyRouteLike[] | null
   route: AnyRouteLike | null
   indexRoute: AnyRouteLike | null
@@ -93,10 +94,53 @@ function createNode(): SegmentNode {
     optionalChildren: null,
     optionalName: '',
     wildcardChild: null,
+    wildcardChildren: null,
     pathless: null,
     route: null,
     indexRoute: null,
   }
+}
+
+function findWildcard(
+  node: SegmentNode,
+  prefix: string,
+  suffix: string,
+  caseSensitive?: boolean,
+) {
+  const children = node.wildcardChildren
+  if (children) {
+    let prefixMatch: SegmentNode | undefined
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i]!
+      if (child.prefix !== prefix || child.suffix !== suffix) continue
+      if (caseSensitive === undefined || child.affixCaseSensitive === caseSensitive) return child
+      prefixMatch ??= child
+    }
+    return prefixMatch
+  }
+  const child = node.wildcardChild
+  return child && child.prefix === prefix && child.suffix === suffix ? child : undefined
+}
+
+function getOrCreateWildcard(
+  node: SegmentNode,
+  prefix: string,
+  suffix: string,
+  caseSensitive: boolean | undefined,
+) {
+  const existing = findWildcard(node, prefix, suffix, caseSensitive)
+  if (existing) {
+    if (caseSensitive !== undefined) existing.affixCaseSensitive = caseSensitive
+    return existing
+  }
+  const children = node.wildcardChildren ?? (node.wildcardChildren = [])
+  const child = createNode()
+  child.prefix = prefix
+  child.suffix = suffix
+  child.affixCaseSensitive = caseSensitive
+  children.push(child)
+  node.wildcardChild ??= child
+  return child
 }
 
 // Set while a tree is being built so the finished tree knows whether every
@@ -243,7 +287,13 @@ function finalizeParamChildren(node: SegmentNode): void {
   } else if (node.optionalChild) {
     finalizeParamChildren(node.optionalChild)
   }
-  if (node.wildcardChild) finalizeParamChildren(node.wildcardChild)
+  if (node.wildcardChildren) {
+    for (let i = 0; i < node.wildcardChildren.length; i++) {
+      finalizeParamChildren(node.wildcardChildren[i]!)
+    }
+  } else if (node.wildcardChild) {
+    finalizeParamChildren(node.wildcardChild)
+  }
 }
 
 function matchNeedsParse(matches: RouteMatchResult[]): boolean {
@@ -539,17 +589,18 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
         affixCaseSensitive,
       )
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
-      let child = current.wildcardChild
-      const fresh = !child
-      if (!child) child = current.wildcardChild = createNode()
+      const prefix = trimmed.substring(start, segment[1])
+      const suffix = trimmed.substring(segment[4], end)
       // Index, pathless, and child inserts walk an ancestor's wildcard again, and a
-      // splat swallows their extra segments, so only the declaring route may write.
-      if (owned || fresh) {
-        child.prefix = trimmed.substring(start, segment[1])
-        child.suffix = trimmed.substring(segment[4], end)
+      // splat swallows their extra segments, so only the declaring route may create
+      // or write. Unowned walks reuse the existing sibling shape.
+      if (owned) {
+        current = getOrCreateWildcard(current, prefix, suffix, affixCaseSensitive)
+      } else {
+        current =
+          findWildcard(current, prefix, suffix) ??
+          getOrCreateWildcard(current, prefix, suffix, affixCaseSensitive)
       }
-      if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
-      current = child
     }
   }
   return current
@@ -1048,6 +1099,52 @@ function considerFuzzy(
   return isBetterMatch(bestFuzzy, frame) ? frame : bestFuzzy
 }
 
+// Only an unaffixed wildcard can consume zero remaining segments, and any
+// sibling shape may hold it, so every stored pattern has to be inspected.
+function hasEmptySplatWildcard(node: SegmentNode): boolean {
+  const wildcards = node.wildcardChildren
+  if (wildcards) {
+    for (let i = 0; i < wildcards.length; i++) {
+      const child = wildcards[i]!
+      if (!child.prefix && !child.suffix) return true
+    }
+    return false
+  }
+  const child = node.wildcardChild
+  return !!child && !child.prefix && !child.suffix
+}
+
+function considerEmptySplat(
+  terminal: WalkFrame,
+  best: WalkFrame | null,
+  baseChain: AnyRouteLike[],
+): WalkFrame | null {
+  const wildcards = terminal.node.wildcardChildren
+  const count = wildcards ? wildcards.length : terminal.node.wildcardChild ? 1 : 0
+  for (let w = 0; w < count; w++) {
+    const wildcard = wildcards ? wildcards[w]! : terminal.node.wildcardChild!
+    if (wildcard.prefix || wildcard.suffix) continue
+    // The terminal frame may already hold parsed params from its own route, so
+    // the fallback restarts from the raw values and lets the parsers rerun.
+    const params = Object.assign(Object.create(null), terminal.rawParams ?? terminal.params)
+    params._splat = ''
+    params['*'] = ''
+    const wild = {
+      ...terminal,
+      node: wildcard,
+      params,
+      rawParams: undefined,
+      chain: wildcard.route ? baseChain.concat(wildcard.route) : baseChain.slice(),
+      depth: terminal.depth + 1,
+    }
+    if (applyParamsParse(wild)) {
+      wild.parsed = parsedScore(wild)
+      if (isBetterMatch(best, wild)) best = wild
+    }
+  }
+  return best
+}
+
 function considerTerminal(
   frame: WalkFrame,
   stack: WalkFrame[],
@@ -1064,30 +1161,10 @@ function considerTerminal(
     if (applyParamsParse(indexed)) {
       indexed.parsed = parsedScore(indexed)
       if (isBetterMatch(best, indexed)) best = indexed
-    } else if (
-      terminal.node.wildcardChild &&
-      !terminal.node.wildcardChild.prefix &&
-      !terminal.node.wildcardChild.suffix
-    ) {
-      const params = Object.assign(Object.create(null), terminal.params)
-      params._splat = ''
-      params['*'] = ''
-      const wild = {
-        ...terminal,
-        node: terminal.node.wildcardChild,
-        params,
-        chain: terminal.chain.concat(
-          terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : [],
-        ),
-        depth: terminal.depth + 1,
-      }
-      if (applyParamsParse(wild)) {
-        wild.parsed = parsedScore(wild)
-        if (isBetterMatch(best, wild)) best = wild
-      }
+    } else if (hasEmptySplatWildcard(terminal.node)) {
+      best = considerEmptySplat(terminal, best, terminal.chain)
     }
   } else {
-    const chainBeforeRoute = terminal.chain.slice()
     let candidate = terminal
     if (terminal.node.route && terminal.node.route !== rootRoute) {
       if (terminal.chain[terminal.chain.length - 1] !== terminal.node.route) {
@@ -1104,27 +1181,12 @@ function considerTerminal(
       candidate.parsed = parsedScore(candidate)
       if (isBetterMatch(best, candidate)) best = candidate
     }
-    if (
-      terminal.node.wildcardChild &&
-      !terminal.node.wildcardChild.prefix &&
-      !terminal.node.wildcardChild.suffix
-    ) {
-      const params = Object.assign(Object.create(null), terminal.params)
-      params._splat = ''
-      params['*'] = ''
-      const wild = {
-        ...terminal,
-        node: terminal.node.wildcardChild,
-        params,
-        chain: chainBeforeRoute
-          .filter((route) => route !== terminal.node.route)
-          .concat(terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : []),
-        depth: terminal.depth + 1,
-      }
-      if (applyParamsParse(wild)) {
-        wild.parsed = parsedScore(wild)
-        if (isBetterMatch(best, wild)) best = wild
-      }
+    if (hasEmptySplatWildcard(terminal.node)) {
+      best = considerEmptySplat(
+        terminal,
+        best,
+        terminal.chain.filter((route) => route !== terminal.node.route),
+      )
     }
   }
   const optionals = terminal.node.optionalChildren?.length
@@ -1200,10 +1262,16 @@ function findRouteMatchDynamic(
     const raw = segments[index]!
     const value = decoded[index]!
 
-    if (node.wildcardChild) {
-      const prefix = node.wildcardChild.prefix || ''
-      const suffix = node.wildcardChild.suffix || ''
-      const wildcardCaseSensitive = node.wildcardChild.affixCaseSensitive ?? caseSensitive
+    const wildcards = node.wildcardChildren?.length
+      ? node.wildcardChildren
+      : node.wildcardChild
+        ? [node.wildcardChild]
+        : []
+    for (let w = 0; w < wildcards.length; w++) {
+      const wildcard = wildcards[w]!
+      const prefix = wildcard.prefix || ''
+      const suffix = wildcard.suffix || ''
+      const wildcardCaseSensitive = wildcard.affixCaseSensitive ?? caseSensitive
       const first = decoded[index]!
       const lastSeg = decoded[decoded.length - 1]!
       const prefixOk =
@@ -1230,10 +1298,10 @@ function findRouteMatchDynamic(
         params._splat = splat
         params['*'] = splat
         const chain = frame.chain.slice()
-        if (node.wildcardChild.route) chain.push(node.wildcardChild.route)
+        if (wildcard.route) chain.push(wildcard.route)
         stack.push(
           withPathless({
-            node: node.wildcardChild,
+            node: wildcard,
             index: segments.length,
             params,
             chain,
