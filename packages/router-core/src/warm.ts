@@ -180,6 +180,8 @@ function completeWarmLoad(router: any, location: ParsedLocation, matches: RouteM
     rendered.length = 0
     settle(true)
   }
+  router._commitPromise?.resolve()
+  router._commitPromise = undefined
 }
 
 function leaveWarmMatches(router: any, matches: RouteMatch[]) {
@@ -216,6 +218,16 @@ function leaveWarmMatches(router: any, matches: RouteMatch[]) {
   }
 }
 
+function isStaleWarmLoad(
+  router: any,
+  location: ParsedLocation & { _commit?: { resolve: () => void } },
+  id: number,
+) {
+  if (id === router.loadId) return false
+  location._commit?.resolve()
+  return true
+}
+
 function followWarmRedirect(
   router: any,
   location: ParsedLocation,
@@ -224,8 +236,12 @@ function followWarmRedirect(
   match: RouteMatch,
   redirect: AnyRedirect,
 ): void | Promise<void> {
-  if (id !== router.loadId) return
-  const redirects = (location as ParsedLocation & { _redirects?: number })._redirects ?? 0
+  if (isStaleWarmLoad(router, location, id)) return
+  const redirects =
+    (router._pendingLocation as (ParsedLocation & { _redirects?: number }) | undefined)
+      ?._redirects ??
+    (location as ParsedLocation & { _redirects?: number })._redirects ??
+    0
   if (redirects >= 20) {
     match.status = 'error'
     match.error = new Error('Too many redirects')
@@ -277,7 +293,7 @@ function settleWarmFailure(
     const child = matches[i]!
     child.isFetching = false
   }
-  if (id !== router.loadId) return
+  if (isStaleWarmLoad(router, location, id)) return
   leaveWarmMatches(router, matches)
   completeWarmLoad(router, location, matches)
 }
@@ -377,7 +393,7 @@ function finishWarmMatches(
     }
   }
   for (let i = start; i < matches.length; i++) {
-    if (id !== router.loadId) return
+    if (isStaleWarmLoad(router, location, id)) return
     const match = matches[i]!
     const route = router.routesById[match.routeId]!
     const opts = route.options
@@ -462,7 +478,7 @@ function finishWarmMatches(
   }
 
   const settle = () => {
-    if (id !== router.loadId) return
+    if (isStaleWarmLoad(router, location, id)) return
     for (let i = 0; i < results.length; i++) {
       const result = results[i]!
       if (!result.ok) {

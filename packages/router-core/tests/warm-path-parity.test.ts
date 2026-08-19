@@ -2,8 +2,8 @@ import { describe, expect, test } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
 import { redirect } from '../src/redirect'
 import { createRootRoute, createRoute } from '../src/route'
-import { createRouter } from '../src/router'
-import '../src/warm'
+import { createRouter, setWarmLoad } from '../src/router'
+import { tryWarmLoad } from '../src/warm'
 
 function deferred<T>() {
   let fulfill!: (value: T) => void
@@ -34,6 +34,24 @@ function createApp(opts: {
 }
 
 describe('warm-path TanStack behavior parity', () => {
+  test('load invokes the installed warm loader and bumps loadId', async () => {
+    const generations: number[] = []
+    setWarmLoad((router, location, id) => {
+      generations.push(id)
+      return tryWarmLoad(router, location, id)
+    })
+    try {
+      const router = createApp({})
+      expect(router.loadId).toBeUndefined()
+      await router.navigate({ href: '/about' } as any)
+      expect(generations.length).toBeGreaterThan(0)
+      expect(router.loadId).toBe(generations.at(-1))
+      expect(router.state.location.pathname).toBe('/about')
+    } finally {
+      setWarmLoad(tryWarmLoad)
+    }
+  })
+
   test('does not replay a loader that returns a redirect', async () => {
     let calls = 0
     const router = createApp({

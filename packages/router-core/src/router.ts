@@ -599,6 +599,8 @@ export class RouterCore<
   _scrollReady?: Promise<void>
   rewrite?: any
   _hasSearchWork = false
+  /** Generation for in-flight warm loads. Created on first warm `runLoad`. */
+  declare loadId: number
 
   private createStores(location: ParsedLocation) {
     const config = defaultGetStoreConfig()
@@ -1452,6 +1454,8 @@ export class RouterCore<
       // A reused server router must never skip or replay another request's
       // loader payloads. Client `load()` may still skip a settled session.
       try {
+        const warm = this.runLoad(this.latestLocation)
+        if (warm) return Promise.resolve(warm)
         this.isolateServerRequest()
         const next = this.importLoadServer(opts)
         return next == null ? RESOLVED : Promise.resolve(next)
@@ -1464,7 +1468,9 @@ export class RouterCore<
       this._commitPromise = undefined
       return RESOLVED
     }
-    return Promise.resolve(importLoadClient(this, opts)).then(() => undefined)
+    return Promise.resolve(this.runLoad(this.latestLocation) ?? importLoadClient(this, opts)).then(
+      () => undefined,
+    )
   }
 
   private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
@@ -1512,11 +1518,14 @@ export class RouterCore<
     return true
   }
 
-  private runLoad(location: ParsedLocation, id: number): void | Promise<void> {
-    const warm = warmLoadCached?.(this, location, id)
-    if (warm === true) return
-    if (warm) return warm
-    return importLoadClient(this)
+  private runLoad(location: ParsedLocation): void | Promise<void> {
+    const warm = warmLoadCached
+    if (!warm) return
+    ;(location as ParsedLocation & { _commit?: typeof this._commitPromise })._commit =
+      this._commitPromise
+    const next = warm(this, location, (this.loadId = (this.loadId | 0) + 1))
+    if (next === true) return RESOLVED
+    if (next) return next
   }
 
   getMatchedRoutes(pathname: string): ReturnType<GetMatchRoutesFn> {
