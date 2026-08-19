@@ -1,9 +1,13 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
-import { tanstackAliases, tanstackSubpathPlugin } from './vitest.aliases.ts'
+import {
+  ssrFlagForNodeTestsPlugin,
+  tanstackAliases,
+  tanstackSubpathPlugin,
+} from './vitest.aliases.ts'
 
 export default defineConfig({
-  plugins: [tanstackSubpathPlugin(), react()],
+  plugins: [ssrFlagForNodeTestsPlugin(), tanstackSubpathPlugin(), react()],
   resolve: {
     alias: tanstackAliases,
   },

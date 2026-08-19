@@ -103,6 +103,29 @@ function resolveScriptStringRelative(id: string, importer?: string) {
   return undefined
 }
 
+export function ssrFlagForNodeTestsPlugin(): Plugin {
+  return {
+    name: 'ssr-flag-for-node-tests',
+    enforce: 'pre',
+    transform(code, id) {
+      const file = id.split('?')[0]!.replaceAll('\\', '/')
+      if (!file.endsWith('/packages/router-core/src/router.ts')) {
+        return
+      }
+      if (!code.includes('import.meta.env.SSR')) {
+        return
+      }
+      return {
+        code: code.replaceAll(
+          'import.meta.env.SSR',
+          '(import.meta.env.SSR || typeof document === "undefined")',
+        ),
+        map: null,
+      }
+    },
+  }
+}
+
 export function tanstackSubpathPlugin(): Plugin {
   return {
     name: 'tanstack-subpath-alias',
