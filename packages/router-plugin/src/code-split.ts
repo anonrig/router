@@ -230,13 +230,25 @@ function isAlreadyLazy(node: EstreeNode): boolean {
 }
 
 function splitPropertiesOf(options: EstreeNode) {
-  const properties: Array<{ key: SplitProperty; value: EstreeNode; shorthand: boolean }> = []
+  const properties: Array<{
+    key: SplitProperty
+    value: EstreeNode
+    shorthand: boolean
+    method: boolean
+    property: EstreeNode
+  }> = []
   for (const property of options.properties ?? []) {
     const key = propertyNameOf(property)
     if (!key || !SPLIT_PROPERTY_SET.has(key)) continue
     const value = propertyValue(property)
     if (!value || isAlreadyLazy(value) || isTrivialSplitValue(value)) continue
-    properties.push({ key: key as SplitProperty, value, shorthand: property.shorthand === true })
+    properties.push({
+      key: key as SplitProperty,
+      value,
+      shorthand: property.shorthand === true,
+      method: property.method === true,
+      property,
+    })
   }
   return properties
 }
@@ -481,12 +493,13 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
     while (bindings.has(helperName)) helperName = `_${helperName}`
   }
   // A shorthand property shares its span with the key, so the key must be reprinted.
-  const replacements = properties.map(({ key, value, shorthand }) => ({
-    start: value.start,
-    end: value.end,
-    text: shorthand
-      ? `${key}: ${lazyWrapper(fileName, key, helperName)}`
-      : lazyWrapper(fileName, key, helperName),
+  const replacements = properties.map(({ key, value, shorthand, method, property }) => ({
+    start: method ? property.start : value.start,
+    end: method ? property.end : value.end,
+    text:
+      shorthand || method
+        ? `${key}: ${lazyWrapper(fileName, key, helperName)}`
+        : lazyWrapper(fileName, key, helperName),
   }))
   const rewritten = applyReplacements(code, replacements)
   const nextProgram = parseProgram(fileName, rewritten)

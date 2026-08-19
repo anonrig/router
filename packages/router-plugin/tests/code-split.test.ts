@@ -96,6 +96,15 @@ export const Route = createFileRoute('/inbox')({
 `
 
 describe('compileReferenceRoute', () => {
+  it('splits object-method route components with valid syntax', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nexport const Route = createFileRoute('/method')({ component() { return <main>long enough route component method to force automatic splitting into a separate generated virtual module</main> } })\n`
+
+    const result = compileReferenceRoute(source, '/app/src/routes/method.tsx')
+
+    expect(result).toContain('component: lazyRouteComponent(')
+    expect(result).not.toContain('componentlazyRouteComponent')
+  })
+
   it('preserves top-level effects and unsupported named exports', () => {
     const source = `'use client'
 import { createFileRoute } from '@tanstack/react-router'
