@@ -61,10 +61,8 @@ describe('matcher', () => {
       )
       return route
     }
-    // Group layouts bind fullPath `/` the way createFileRoute does, so the
-    // matcher must recognize `(auth)` even when options.path is present.
-    const auth = fileRoute('/(auth)', '/', () => root)
-    const login = fileRoute('/(auth)/login', '/login', () => auth)
+    const auth = fileRoute('/(auth)', undefined, () => root)
+    const login = fileRoute('/login', '/login', () => auth)
     const settings = fileRoute('/(app)/(dashboard)/settings', '/settings', () => root)
     root.addChildren([auth.addChildren([login]), settings])
     const processed = processRouteTree(root as any)
