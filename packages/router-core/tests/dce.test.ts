@@ -130,6 +130,8 @@ describe('dead code elimination', () => {
     expect(entry).not.toContain('tsr-scroll-restoration-v1_3')
     expect(entry).not.toContain('getElementScrollRestorationEntry')
     expect(entry).not.toContain('sessionStorage')
+    expect(entry).not.toContain('getRouteApi')
+    expect(entry).not.toContain('useMatchRoute')
     expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 })

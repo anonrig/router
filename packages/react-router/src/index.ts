@@ -257,15 +257,15 @@ export type {
   LinkComponentRoute,
 } from './link-types'
 
+export { Matches } from './matches'
 export {
-  Matches,
   useMatchRoute,
   MatchRoute,
   useMatches,
   useParentMatches,
   useChildMatches,
-} from './matches'
-export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './matches'
+} from './use-matches'
+export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './use-matches'
 
 export { Match, MatchInner, Outlet, renderPending } from './match'
 
@@ -273,9 +273,8 @@ export { useMatch } from './use-match'
 export { useLoaderDeps } from './use-loader-deps'
 export { useLoaderData } from './use-loader-data'
 
+export { RouteApi, getRouteApi } from './route-api'
 export {
-  RouteApi,
-  getRouteApi,
   Route,
   createRoute,
   RootRoute,
@@ -283,8 +282,8 @@ export {
   createRootRoute,
   createRootRouteWithContext,
   createRouteMask,
-  NotFoundRoute,
 } from './route'
+export { NotFoundRoute } from './not-found-route'
 export { createSlotRoute, Slots } from './slots'
 export type {
   AnyRootRoute,
