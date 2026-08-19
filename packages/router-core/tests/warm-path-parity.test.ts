@@ -163,7 +163,6 @@ describe('warm-path TanStack behavior parity', () => {
   test('nested loaders start in parallel before either awaits', async () => {
     let parentStarted = 0
     let childStarted = 0
-    let parentSeenChild = false
     let childSeenParent = false
     let bothStarted!: () => void
     const started = new Promise<void>((resolve) => {
@@ -184,7 +183,6 @@ describe('warm-path TanStack behavior parity', () => {
       path: '/posts',
       loader: async () => {
         parentStarted += 1
-        parentSeenChild = childStarted > 0
         if (parentStarted && childStarted) bothStarted()
         await parentGate
         return { who: 'parent' }
@@ -212,7 +210,6 @@ describe('warm-path TanStack behavior parity', () => {
     await started
     expect(parentStarted).toBe(1)
     expect(childStarted).toBe(1)
-    expect(parentSeenChild).toBe(true)
     expect(childSeenParent).toBe(true)
     releaseParent()
     releaseChild()

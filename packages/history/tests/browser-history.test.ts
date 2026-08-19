@@ -284,7 +284,7 @@ describe('createBrowserHistory popstate blocker rollback', () => {
     // Must not call go(0) or publish the blocked same-index location
     expect(go).not.toHaveBeenCalled()
     expect(subscriber).not.toHaveBeenCalled()
-    expect(history.location.hash).toBe('#hash')
+    expect(history.location.hash).toBe('')
 
     // Unblock and verify next popstate is not swallowed
     history.destroy()

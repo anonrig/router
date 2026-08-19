@@ -62,7 +62,7 @@ describe('percent-encoded href navigation', () => {
 
     await router.navigate({ href: '/%2Fevil.com' } as any)
 
-    expect(history.location.href).not.toBe('/%2Fevil.com')
+    expect(history.location.href).toBe('/evil.com')
     expect(router.state.location.pathname).toBe('/evil.com')
   })
 })
