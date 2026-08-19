@@ -158,6 +158,29 @@ describe('scanRoutes', () => {
     expect(byKey['/(app)/(dashboard)/settings']?.path).toBe('/settings')
   })
 
+  it('keeps sibling group layouts that share a URL prefix pathless', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-sibling-groups-'))
+    write(dir, '__root.tsx')
+    write(dir, 'dashboard/(admin).tsx')
+    write(dir, 'dashboard/(admin)/users.tsx')
+    write(dir, 'dashboard/(viewer).tsx')
+    write(dir, 'dashboard/(viewer)/stats.tsx')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const byKey = Object.fromEntries(
+      scanned.filter((route) => !route.isRoot).map((route) => [route.key, route]),
+    )
+
+    expect(byKey['/dashboard/(admin)']?.isPathless).toBe(true)
+    expect(byKey['/dashboard/(admin)']?.path).toBe('/dashboard')
+    expect(byKey['/dashboard/(viewer)']?.isPathless).toBe(true)
+    expect(byKey['/dashboard/(viewer)']?.path).toBe('/dashboard')
+    expect(byKey['/dashboard/(admin)/users']?.parentId).toBe('/dashboard/(admin)')
+    expect(byKey['/dashboard/(admin)/users']?.path).toBe('/users')
+    expect(byKey['/dashboard/(viewer)/stats']?.parentId).toBe('/dashboard/(viewer)')
+    expect(byKey['/dashboard/(viewer)/stats']?.path).toBe('/stats')
+  })
+
   it('walks dirents once and skips node_modules, dot dirs, and split files', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-skip-'))
     write(dir, '__root.tsx')
