@@ -134,6 +134,19 @@ function isDirective(statement: EstreeNode): boolean {
   )
 }
 
+/**
+ * Only the leading run of string-literal statements forms the module prologue.
+ * A later `'use client'` is a plain expression and must not be hoisted.
+ */
+function prologueDirectives(program: EstreeNode): Set<EstreeNode> {
+  const directives = new Set<EstreeNode>()
+  for (const statement of program.body ?? []) {
+    if (!isDirective(statement)) break
+    directives.add(statement)
+  }
+  return directives
+}
+
 function isTopLevelEffect(statement: EstreeNode): boolean {
   return (
     statement.type === 'ExpressionStatement' ||
@@ -472,21 +485,25 @@ export function compileVirtualRoute(
 
   const used = new Set<string>()
   collectIdentifiers(match.value, used)
+  const directives = prologueDirectives(program)
   const seeds = (program.body ?? []).filter((statement: EstreeNode) => {
     if (isCreateFileRouteBinding(statement)) return false
-    if (isDirective(statement)) return true
+    if (directives.has(statement)) return true
     return declaredNames(statement).some((name) => used.has(name))
   })
   const needed = neededStatements(program, seeds, isCreateFileRouteBinding)
   const live = identifiersIn(needed)
   collectIdentifiers(match.value, live)
   live.delete('createFileRoute')
+  // Directives only apply in the prologue, so they must precede every import.
+  const prologue: Array<string> = []
   const parts: Array<string> = []
-  if (live.has('Route')) {
-    parts.push(`import { Route } from './${basename(fileName)}'`)
-  }
   for (const statement of program.body ?? []) {
     if (!needed.has(statement)) continue
+    if (directives.has(statement)) {
+      prologue.push(slice(code, statement))
+      continue
+    }
     if (statement.type === 'ImportDeclaration') {
       const printed = printNamedImport(statement, live, [], code)
       if (printed) parts.push(printed)
@@ -495,6 +512,9 @@ export function compileVirtualRoute(
     if (containsCreateFileRoute(statement)) continue
     parts.push(slice(code, statement))
   }
+  if (live.has('Route')) {
+    parts.unshift(`import { Route } from './${basename(fileName)}'`)
+  }
   parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
-  return `${parts.join('\n\n')}\n`
+  return `${[...prologue, ...parts].join('\n\n')}\n`
 }

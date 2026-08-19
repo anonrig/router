@@ -230,6 +230,43 @@ export const Route = createFileRoute('/directive')({ component: Page })
     expect(result?.trimStart().startsWith("'use client'")).toBe(true)
   })
 
+  it('keeps directives first when the split component re-imports Route', () => {
+    const source = `'use client'
+import { createFileRoute } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/directive-route')({ component: Page })
+
+function Page() {
+  const { url } = Route.useSearch()
+  return <div>{url}</div>
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/directive-route.tsx', 'component')
+
+    expect(result).toBeTruthy()
+    expect(result).toContain("import { Route } from './directive-route.tsx'")
+    expect(result?.trimStart().startsWith("'use client'")).toBe(true)
+    expect(result!.indexOf("'use client'")).toBeLessThan(result!.indexOf('import'))
+  })
+
+  it('does not hoist a string statement that is not part of the prologue', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+
+const label = 'inbox'
+'not a directive'
+
+function Page() {
+  return <div>{label}</div>
+}
+
+export const Route = createFileRoute('/late-literal')({ component: Page })
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/late-literal.tsx', 'component')
+
+    expect(result).toBeTruthy()
+    expect(result?.trimStart().startsWith("'not a directive'")).toBe(false)
+  })
+
   it('emits only the component graph', () => {
     const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()
