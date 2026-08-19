@@ -279,6 +279,14 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('preserves inline type-only imports', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nimport { type Props } from './types'\nfunction Page(props: Props) { return <main>{props.title} plus enough component content to force splitting</main> }\nexport const Route = createFileRoute('/types')({ component: Page })\n`
+
+    const result = compileVirtualRoute(source, '/app/src/routes/types.tsx', 'component')
+
+    expect(result).toContain("import { type Props } from './types'")
+  })
+
   it('preserves valid quoting for module names containing apostrophes', () => {
     const source = `import { createFileRoute } from "@tanstack/react-router"
 import { Widget } from "./person's-widget"
