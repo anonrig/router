@@ -1655,8 +1655,8 @@ export class RouterCore<
     } else if (rest.params != null) {
       return
     }
-    const trailing = this.options.trailingSlash
-    if (trailing && trailing !== 'never') {
+    const trailing = rest.trailingSlash ?? this.options.trailingSlash
+    if (trailing) {
       resolved = resolvePath({
         base: '/',
         to: resolved || '/',
@@ -1693,6 +1693,16 @@ export class RouterCore<
         if (href0 === 35) searchStr = this.latestLocation.searchStr
         else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
       }
+      hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
+    }
+    const trailing = rest.trailingSlash ?? this.options.trailingSlash
+    if (trailing) {
+      pathname = resolvePath({
+        base: '/',
+        to: pathname || '/',
+        trailingSlash: trailing,
+        cache: this.resolvePathCache,
+      })
       hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
     const location: ParsedLocation = {
