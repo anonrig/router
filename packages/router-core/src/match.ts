@@ -64,6 +64,7 @@ export type AnyRouteLike = {
 export type SegmentNode = {
   /** Null-prototype map of static segment → child (find-my-way: no Map on the hot path). */
   staticChildren: Record<string, SegmentNode> | null
+  staticSensitiveChildren: Record<string, SegmentNode> | null
   paramChild: SegmentNode | null
   paramChildren: SegmentNode[] | null
   paramName: string
@@ -83,6 +84,7 @@ export type SegmentNode = {
 function createNode(): SegmentNode {
   return {
     staticChildren: null,
+    staticSensitiveChildren: null,
     paramChild: null,
     paramChildren: null,
     paramName: '',
@@ -96,8 +98,10 @@ function createNode(): SegmentNode {
   }
 }
 
-function getOrCreateStatic(node: SegmentNode, key: string): SegmentNode {
-  const children = node.staticChildren ?? (node.staticChildren = Object.create(null))
+function getOrCreateStatic(node: SegmentNode, key: string, caseSensitive: boolean): SegmentNode {
+  const children = caseSensitive
+    ? (node.staticSensitiveChildren ??= Object.create(null))
+    : (node.staticChildren ??= Object.create(null))
   const existing = children[key]
   if (existing) return existing
   const child = createNode()
@@ -181,6 +185,12 @@ function nodeHasDynamic(node: SegmentNode): boolean {
       if (nodeHasDynamic(kids[key]!)) return true
     }
   }
+  const sensitiveKids = node.staticSensitiveChildren
+  if (sensitiveKids) {
+    for (const key in sensitiveKids) {
+      if (nodeHasDynamic(sensitiveKids[key]!)) return true
+    }
+  }
   return false
 }
 
@@ -191,6 +201,10 @@ function finalizeParamChildren(node: SegmentNode): void {
   const kids = node.staticChildren
   if (kids) {
     for (const key in kids) finalizeParamChildren(kids[key]!)
+  }
+  const sensitiveKids = node.staticSensitiveChildren
+  if (sensitiveKids) {
+    for (const key in sensitiveKids) finalizeParamChildren(sensitiveKids[key]!)
   }
   if (node.paramChildren) {
     for (let i = 0; i < node.paramChildren.length; i++) {
@@ -328,6 +342,8 @@ export type ProcessedTree = {
    * the parametric walker when the path is static).
    */
   staticExact?: Record<string, RouteMatchResult[]>
+  /** True when a route overrides the tree's default case sensitivity. */
+  hasCaseOverrides?: boolean
   /** True if any node has a param, optional, or wildcard child. */
   hasDynamic?: boolean
   /** One-entry last hit (find-my-way `_treeGET`: fixed-offset, not a map). */
@@ -441,7 +457,7 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
     if (kind === SEGMENT_TYPE_PATHNAME) {
       let key = trimmed.substring(start, end)
       if (!caseSensitive) key = key.toLowerCase()
-      current = getOrCreateStatic(current, key)
+      current = getOrCreateStatic(current, key, caseSensitive)
     } else if (kind === SEGMENT_TYPE_PARAM) {
       current = getOrCreateParam(
         current,
@@ -559,10 +575,13 @@ export function processRouteTree<T extends AnyRouteLike>(
   const root = createNode()
   root.route = routeTree
   optionalNamesThisTree = []
+  let hasCaseOverrides = false
   for (let i = 0; i < flatRoutes.length; i++) {
     const route = flatRoutes[i]!
     if (route === routeTree || route.isRoot) continue
-    insertRoute(root, route, caseSensitive)
+    const routeCaseSensitive = route.options?.caseSensitive ?? caseSensitive
+    if (route.options?.caseSensitive !== undefined) hasCaseOverrides = true
+    insertRoute(root, route, routeCaseSensitive)
   }
   finalizeParamChildren(root)
 
@@ -585,6 +604,7 @@ export function processRouteTree<T extends AnyRouteLike>(
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
     hasDynamic: nodeHasDynamic(root),
+    hasCaseOverrides,
     matchedRoutesCache: Object.create(null),
     matchedTemplateCache: Object.create(null),
     hasSearchWork,
@@ -593,7 +613,9 @@ export function processRouteTree<T extends AnyRouteLike>(
     lastPath: '',
     lastMatch: null,
   } as ProcessedTree
-  processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
+  if (!hasCaseOverrides) {
+    processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
+  }
 
   const result = { ...processedTree, processedTree }
   processedTreeCache.set(routeTree, { caseSensitive, children, treeGen, tree: result })
@@ -839,7 +861,7 @@ function findRouteMatchOrdered(
   const cached = tree.matchCache.get(cacheKey)
   if (cached !== undefined) return rememberMatch(tree, pathname, cached, caseSensitive, fuzzy)
 
-  if (!fuzzy) {
+  if (!fuzzy && !tree.hasCaseOverrides) {
     const staticHit = findStaticMatch(tree, pathname, caseSensitive)
     if (staticHit !== undefined) {
       tree.matchCache.set(cacheKey, staticHit)
@@ -902,6 +924,34 @@ function withPathless(next: WalkFrame): WalkFrame {
     ...next,
     chain: applyPathless(next.node, next.chain),
   }
+}
+
+function pushStaticFrame(
+  stack: WalkFrame[],
+  parent: SegmentNode,
+  frame: WalkFrame,
+  index: number,
+  child: SegmentNode,
+) {
+  const onlyStatic =
+    !parent.wildcardChild &&
+    !parent.optionalChild &&
+    !parent.optionalChildren?.length &&
+    !parent.paramChild
+  const chain = onlyStatic ? frame.chain : frame.chain.slice()
+  if (child.route) chain.push(child.route)
+  stack.push(
+    withPathless({
+      node: child,
+      index: index + 1,
+      params: frame.params,
+      chain,
+      depth: frame.depth + 1,
+      parsed: frame.parsed,
+      statics: frame.statics + 1,
+      affix: frame.affix,
+    }),
+  )
 }
 
 function considerFuzzy(
@@ -1174,29 +1224,13 @@ function findRouteMatchDynamic(
       }
     }
 
-    const staticChild =
+    const insensitiveChild =
       node.staticChildren?.[key] ??
       (caseSensitive ? undefined : node.staticChildren?.[raw.toLowerCase()])
-    if (staticChild) {
-      const onlyStatic =
-        !node.wildcardChild &&
-        !node.optionalChild &&
-        !node.optionalChildren?.length &&
-        !node.paramChild
-      const chain = onlyStatic ? frame.chain : frame.chain.slice()
-      if (staticChild.route) chain.push(staticChild.route)
-      stack.push(
-        withPathless({
-          node: staticChild,
-          index: index + 1,
-          params: frame.params,
-          chain,
-          depth: frame.depth + 1,
-          parsed: frame.parsed,
-          statics: frame.statics + 1,
-          affix: frame.affix,
-        }),
-      )
+    if (insensitiveChild) pushStaticFrame(stack, node, frame, index, insensitiveChild)
+    const sensitiveChild = node.staticSensitiveChildren?.[raw]
+    if (sensitiveChild) {
+      pushStaticFrame(stack, node, frame, index, sensitiveChild)
     }
   }
 
