@@ -419,7 +419,8 @@ function printNamedImport(
     const local = specifier.local?.name
     if (!local || !used.has(local)) continue
     const imported = specifier.imported?.name ?? specifier.imported?.value ?? local
-    namedParts.push(imported === local ? local : `${imported} as ${local}`)
+    const typeOnly = specifier.importKind === 'type' ? 'type ' : ''
+    namedParts.push(`${typeOnly}${imported === local ? local : `${imported} as ${local}`}`)
   }
   for (const extra of extraNamed) {
     if (!namedParts.includes(extra)) namedParts.push(extra)
