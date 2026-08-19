@@ -442,6 +442,8 @@ export function compileVirtualRoute(
   if (!options) return null
   const match = splitPropertiesOf(options).find((property) => property.key === splitTarget)
   if (!match) return null
+  const splitIsExportedBinding =
+    match.value.type === 'Identifier' && match.value.name === splitTarget
 
   const used = new Set<string>()
   collectIdentifiers(match.value, used)
@@ -465,13 +467,18 @@ export function compileVirtualRoute(
       continue
     }
     if (containsCreateFileRoute(statement)) continue
+    if (
+      !splitIsExportedBinding &&
+      statement.type === 'ExportNamedDeclaration' &&
+      statement.declaration &&
+      declaredNames(statement).includes(splitTarget)
+    ) {
+      parts.push(slice(code, statement.declaration))
+      continue
+    }
     parts.push(slice(code, statement))
   }
-  const alreadyExported = seeds.some(
-    (statement) =>
-      statement.type === 'ExportNamedDeclaration' && declaredNames(statement).includes(splitTarget),
-  )
-  if (!alreadyExported) {
+  if (!splitIsExportedBinding) {
     parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
   }
   return `${parts.join('\n\n')}\n`

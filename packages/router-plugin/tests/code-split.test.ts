@@ -187,6 +187,25 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('exports a wrapper even when a seed already exports component', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+const Inner = () => <div>inner</div>
+export const component = Inner
+export const Route = createFileRoute('/wrapped')({
+  component: () => <Wrapper inner={component} />,
+})
+function Wrapper(_props: any) {
+  return <div>wrap</div>
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/wrapped.tsx', 'component')
+
+    expect(result).toContain('const component = Inner')
+    expect(result).not.toContain('export const component = Inner')
+    expect(result).toContain('export const component = () => <Wrapper inner={component} />')
+    expect(result).toContain('function Wrapper')
+  })
+
   it('does not redeclare an exported shorthand component', () => {
     const source = `import { createFileRoute } from '@tanstack/react-router'
 const LargeComponent = () => <div>large</div>
