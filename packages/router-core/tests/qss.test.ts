@@ -61,4 +61,13 @@ describe('search params', () => {
     search.page = 2
     expect(defaultStringifySearch(search)).toBe('?page=2')
   })
+
+  it('stringifies a mutated nested search object instead of the previous snapshot', () => {
+    const search = { filter: { tag: 'js' } }
+    const first = defaultStringifySearch(search)
+    search.filter.tag = 'ts'
+    const second = defaultStringifySearch(search)
+    expect(second).not.toBe(first)
+    expect(defaultParseSearch(second)).toEqual({ filter: { tag: 'ts' } })
+  })
 })
