@@ -11,12 +11,13 @@ describe('memory history async push indexes', () => {
     history.block({
       blockerFn: () => {
         n++
-        if (n === 1)
-          return new Promise<boolean>((r) => {
-            release1 = r
+        if (n === 1) {
+          return new Promise<boolean>((resolve) => {
+            release1 = resolve
           })
-        return new Promise<boolean>((r) => {
-          release2 = r
+        }
+        return new Promise<boolean>((resolve) => {
+          release2 = resolve
         })
       },
     })
@@ -25,7 +26,7 @@ describe('memory history async push indexes', () => {
     const p2 = history.push('/b')
     release1(false)
     release2(false)
-    await Promise.all([p1, p2])
+    await Promise.all([Promise.resolve(p1), Promise.resolve(p2)])
 
     expect(history.location.pathname).toBe('/b')
     expect(history.location.state.__TSR_index).toBe(2)

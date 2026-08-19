@@ -28,7 +28,9 @@ describe('blocked commitLocation settles', () => {
         () => 'resolved' as const,
         () => 'rejected' as const,
       ),
-      new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 250)),
+      new Promise<'timeout'>((resolve) => {
+        setTimeout(() => resolve('timeout'), 250)
+      }),
     ])
 
     expect(result).not.toBe('timeout')
