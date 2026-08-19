@@ -73,6 +73,45 @@ async function loadTree(options: {
 }
 
 describe('SSR loader registration', () => {
+  it('prevents an older server load from overwriting a newer load', async () => {
+    let release!: (value: string) => void
+    let started!: () => void
+    const didStart = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    const root = createRootRoute()
+    const a = createRoute({
+      getParentRoute: () => root,
+      path: '/a',
+      loader: () => {
+        started()
+        return new Promise<string>((resolve) => {
+          release = resolve
+        })
+      },
+    })
+    const b = createRoute({
+      getParentRoute: () => root,
+      path: '/b',
+      loader: () => 'B',
+    })
+    root.addChildren([a, b])
+    const history = createMemoryHistory({ initialEntries: ['/a'] })
+    const router = createRouter({ routeTree: root, history, isServer: true })
+
+    const first = Promise.resolve(loadServerRoute(router))
+    await didStart
+    history.push('/b')
+    await Promise.resolve(loadServerRoute(router))
+    expect(router.state.location.pathname).toBe('/b')
+
+    release('A')
+    await first
+
+    expect(router.state.location.pathname).toBe('/b')
+    expect(matchOf(router, b.id)?.loaderData).toBe('B')
+  })
+
   async function withStaleClientHook<T>(run: () => Promise<T>): Promise<T> {
     setLoadServerRoute(() => {
       throw new Error('client loader ran')

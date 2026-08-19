@@ -787,6 +787,8 @@ type ServerLoadOptions = NonNullable<Parameters<AnyRouter['load']>[0]> & {
   _signal?: AbortSignal
 }
 
+const serverLoadOwners = new WeakMap<AnyRouter, number>()
+
 let fastServerLoaderCtx: Record<string, any> | undefined
 
 function fillFastServerLoaderContext(
@@ -992,6 +994,9 @@ function commitServerLoad(
 }
 
 export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): void | Promise<void> {
+  const owner = (serverLoadOwners.get(router) ?? 0) + 1
+  serverLoadOwners.set(router, owner)
+  const ownsPublication = () => serverLoadOwners.get(router) === owner
   router.updateLatestLocation()
   const next = router.latestLocation
   const previous = router._committed
@@ -1035,30 +1040,36 @@ export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): vo
           .then(
             (resolved) => {
               signal?.throwIfAborted()
+              if (!ownsPublication()) return
               commitServerLoad(router, next, previous, resolved)
               return
             },
             (cause) => {
               signal?.throwIfAborted()
               if (!isRedirect(cause)) throw cause
+              if (!ownsPublication()) return
               commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
               return
             },
           )
           .finally(() => signal?.removeEventListener('abort', abortMatches))
       }
-      commitServerLoad(router, next, previous, result as ServerLoadResult)
+      if (ownsPublication()) {
+        commitServerLoad(router, next, previous, result as ServerLoadResult)
+      }
       return
     }
     return waitFor(executeServerLane(router, next, matches, opts?._signal), opts?._signal).then(
       (result) => {
         opts?._signal?.throwIfAborted()
+        if (!ownsPublication()) return
         commitServerLoad(router, next, previous, result)
         return
       },
       (cause) => {
         opts?._signal?.throwIfAborted()
         if (!isRedirect(cause)) throw cause
+        if (!ownsPublication()) return
         commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
         return
       },
@@ -1068,6 +1079,7 @@ export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): vo
     if (!isRedirect(cause)) {
       throw cause
     }
+    if (!ownsPublication()) return
     commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
   }
 }
