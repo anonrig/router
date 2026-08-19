@@ -53,6 +53,24 @@ function createBrowserHistoryHarness() {
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('does not classify back as go after an out-of-range go', async () => {
+    const { history, nativeHistory, location, listeners } = createBrowserHistoryHarness()
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/one'
+    await listeners.popstate?.()
+    const actions: any[] = []
+    history.subscribe(({ action }) => actions.push(action))
+
+    history.go(99)
+    history.back()
+    nativeHistory.state = { __TSR_index: 0, __TSR_key: '0' }
+    location.pathname = '/'
+    await listeners.popstate?.()
+
+    expect(actions).toEqual([{ type: 'BACK' }])
+    history.destroy()
+  })
+
   test('rolls back when a popstate blocker rejects', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
