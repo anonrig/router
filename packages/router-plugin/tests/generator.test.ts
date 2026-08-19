@@ -15,6 +15,26 @@ function write(dir: string, file: string, body = 'export const Route = {}\n') {
 }
 
 describe('scanRoutes', () => {
+  it('unwraps bracket-escaped route tokens', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-bracket-escapes-'))
+    write(dir, '__root.tsx')
+    write(dir, '[index].tsx')
+    write(dir, '[_]auth.tsx')
+
+    const routes = scanRoutes({ routesDirectory: dir })
+    const byFileId = Object.fromEntries(routes.map((route) => [route.fileId, route]))
+
+    expect(byFileId['[index]']).toMatchObject({
+      key: '/index',
+      path: '/index',
+    })
+    expect(byFileId['[_]auth']).toMatchObject({
+      key: '/_auth',
+      path: '/_auth',
+      isPathless: false,
+    })
+  })
+
   it('rejects nested root route files', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-nested-root-'))
     write(dir, '__root.tsx')
