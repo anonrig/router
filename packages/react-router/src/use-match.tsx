@@ -80,6 +80,7 @@ export function useMatch<
   const from = opts?.from ?? nearest
 
   return useRouterState({
+    structuralSharing: opts?.structuralSharing,
     select: (state) => {
       const matches = state.matches
       const match = from

@@ -95,7 +95,7 @@ export function applySearchMiddleware(
 
   const applyNext = (index: number, currentSearch: any, meta?: any): any => {
     if (index >= middlewares.length) {
-      if (!dest.search) return {}
+      if (!dest.search) return dest.to ? {} : currentSearch
       if (dest.search === true) return currentSearch
       const result = functionalUpdate(dest.search, currentSearch)
       if (meta) meta.explicit = result

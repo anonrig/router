@@ -1022,6 +1022,7 @@ export class RouterCore<
   update(newOptions: RouterOptions) {
     const prevTree = this.routeTree
     const prevContext = this.options?.context
+    const prevCaseSensitive = this.options?.caseSensitive ?? false
     this.options = { ...this.options, ...newOptions } as any
     const nextContext = this.options.context
     // `RouterContextProvider` rebuilds `context` on every render, so identity
@@ -1064,6 +1065,8 @@ export class RouterCore<
 
     if (this.options.routeTree && this.options.routeTree !== prevTree) {
       this.routeTree = this.options.routeTree as TRouteTree
+      this.processRouteTree()
+    } else if (this.routeTree && (this.options.caseSensitive ?? false) !== prevCaseSensitive) {
       this.processRouteTree()
     }
     const notFoundRoute = this.options.notFoundRoute
@@ -1434,7 +1437,6 @@ export class RouterCore<
       rest.mask == null &&
       rest.from == null &&
       !rest._isRedirect &&
-      !rest._redirects &&
       rest._fromLocation == null &&
       rest.unsafeRelative == null &&
       rest.state == null &&
@@ -1770,6 +1772,7 @@ export class RouterCore<
       })
       hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
+    const state = resolveBuildState(rest, this.latestLocation)
     const location: ParsedLocation = {
       href: hrefFull,
       publicHref: hrefFull,
@@ -1777,8 +1780,11 @@ export class RouterCore<
       search: searchStr ? (this.options.parseSearch ?? defaultParseSearch)(searchStr) : EMPTY_OBJ,
       searchStr,
       hash,
-      state: rest.state ?? EMPTY_OBJ,
+      state,
       external: false,
+    }
+    if (rest._redirects) {
+      ;(location as ParsedLocation & { _redirects?: number })._redirects = rest._redirects
     }
 
     const prev = this.latestLocation
@@ -1816,8 +1822,8 @@ export class RouterCore<
     }
     this._committing = true
     const pushed = rest.replace
-      ? history.replace(hrefFull, rest.state, historyOpts)
-      : history.push(hrefFull, rest.state, historyOpts)
+      ? history.replace(hrefFull, state, historyOpts)
+      : history.push(hrefFull, state, historyOpts)
 
     const afterCommit = (): Promise<void> => {
       history.flush()
@@ -2070,9 +2076,10 @@ export class RouterCore<
       if (data.value instanceof Promise) {
         return Promise.resolve(data.value).then(
           (value) => {
-            if (isRedirect(value) || isNotFound(value)) {
-              return importLoadClient(this)
+            if (isRedirect(value)) {
+              return this.followWarmRedirect(location, id, matches, match, value)
             }
+            if (isNotFound(value)) return importLoadClient(this)
             match.loaderData = value
             match.status = 'success'
             match.isFetching = false
@@ -2084,7 +2091,10 @@ export class RouterCore<
           (cause) => this.settleWarmFailure(location, id, matches, match, route, cause),
         )
       }
-      if (isRedirect(data.value) || isNotFound(data.value)) return importLoadClient(this)
+      if (isRedirect(data.value)) {
+        return this.followWarmRedirect(location, id, matches, match, data.value)
+      }
+      if (isNotFound(data.value)) return importLoadClient(this)
       match.loaderData = data.value
       match.status = 'success'
       match.isFetching = false
@@ -2107,12 +2117,18 @@ export class RouterCore<
     route: AnyRoute,
     cause: unknown,
   ): void | Promise<void> {
-    if (isRedirect(cause) || isNotFound(cause)) return importLoadClient(this)
+    if (isRedirect(cause)) {
+      return this.followWarmRedirect(location, id, matches, match, cause)
+    }
+    if (isNotFound(cause)) return importLoadClient(this)
     let error = cause
     try {
       route.options.onError?.(error)
     } catch (onErrorCause) {
-      if (isRedirect(onErrorCause) || isNotFound(onErrorCause)) return importLoadClient(this)
+      if (isRedirect(onErrorCause)) {
+        return this.followWarmRedirect(location, id, matches, match, onErrorCause)
+      }
+      if (isNotFound(onErrorCause)) return importLoadClient(this)
       error = onErrorCause
     }
     match.status = 'error'
@@ -2126,6 +2142,35 @@ export class RouterCore<
     if (id !== this.loadId) return
     this.leaveWarmMatches(matches)
     this.completeWarmLoad(location, matches)
+  }
+
+  private followWarmRedirect(
+    location: ParsedLocation,
+    id: number,
+    matches: RouteMatch[],
+    match: RouteMatch,
+    redirect: AnyRedirect,
+  ): void | Promise<void> {
+    if (id !== this.loadId) return
+    const redirects = (location as ParsedLocation & { _redirects?: number })._redirects ?? 0
+    if (redirects >= 20) {
+      match.status = 'error'
+      match.error = new Error('Too many redirects')
+      match.isFetching = false
+      match.updatedAt = Date.now()
+      for (let i = matches.indexOf(match) + 1; i < matches.length; i++) {
+        matches[i]!.isFetching = false
+      }
+      this.leaveWarmMatches(matches)
+      this.completeWarmLoad(location, matches)
+      return
+    }
+    return this.navigate({
+      ...redirect.options,
+      _redirects: redirects + 1,
+      replace: true,
+      ignoreBlocker: true,
+    } as any)
   }
 
   private prepareCachedWarmMatches(
