@@ -835,6 +835,7 @@ type WalkFrame = {
   depth: number
   parsed: number
   statics: number
+  staticPattern: string
   required: number
   affix: number
 }
@@ -950,9 +951,19 @@ function optionalFillScore(params: Record<string, string>, names: string[] | und
   return score
 }
 
+function compareStaticPositions(candidate: WalkFrame, best: WalkFrame): number {
+  return candidate.staticPattern === best.staticPattern
+    ? 0
+    : candidate.staticPattern > best.staticPattern
+      ? 1
+      : -1
+}
+
 function isBetterMatch(best: WalkFrame | null, candidate: WalkFrame): boolean {
   if (!best) return true
   if (candidate.statics !== best.statics) return candidate.statics > best.statics
+  const staticPosition = compareStaticPositions(candidate, best)
+  if (staticPosition !== 0) return staticPosition > 0
   if (candidate.required !== best.required) return candidate.required > best.required
   if (candidate.affix !== best.affix) return candidate.affix > best.affix
   const candidateFill = optionalFillScore(candidate.params, activeOptionalNames)
@@ -1008,6 +1019,7 @@ function pushStaticFrame(
       depth: frame.depth + 1,
       parsed: frame.parsed,
       statics: frame.statics + 1,
+      staticPattern: `${frame.staticPattern}1`,
       required: frame.required,
       affix: frame.affix,
     }),
@@ -1121,6 +1133,7 @@ function considerTerminal(
         depth: terminal.depth + 1,
         parsed: terminal.parsed,
         statics: terminal.statics,
+        staticPattern: terminal.staticPattern,
         required: terminal.required,
         affix: terminal.affix,
       }),
@@ -1153,6 +1166,7 @@ function findRouteMatchDynamic(
       depth: 0,
       parsed: 0,
       statics: 0,
+      staticPattern: '',
       required: 0,
       affix: 0,
     },
@@ -1215,6 +1229,7 @@ function findRouteMatchDynamic(
             depth: frame.depth + 1,
             parsed: frame.parsed,
             statics: frame.statics,
+            staticPattern: frame.staticPattern.padEnd(segments.length, '0'),
             required: frame.required,
             affix: frame.affix + prefix.length + suffix.length,
           }),
@@ -1250,6 +1265,7 @@ function findRouteMatchDynamic(
             depth: frame.depth + 1,
             parsed: frame.parsed,
             statics: frame.statics,
+            staticPattern: `${frame.staticPattern}0`,
             required: frame.required,
             affix: frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
           }),
@@ -1264,6 +1280,7 @@ function findRouteMatchDynamic(
           depth: frame.depth + 1,
           parsed: frame.parsed,
           statics: frame.statics,
+          staticPattern: frame.staticPattern,
           required: frame.required,
           affix: frame.affix,
         }),
@@ -1298,6 +1315,7 @@ function findRouteMatchDynamic(
             depth: frame.depth + 1,
             parsed: frame.parsed,
             statics: frame.statics,
+            staticPattern: `${frame.staticPattern}0`,
             required: frame.required + 1,
             affix: frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
           }),
