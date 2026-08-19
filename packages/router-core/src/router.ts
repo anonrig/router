@@ -1666,7 +1666,7 @@ export class RouterCore<
     let hash: string
     let hrefFull: string
     if (isSimpleHref(href)) {
-      pathname = href
+      pathname = decodePath(href).path
       searchStr = ''
       hash = ''
       hrefFull = href
@@ -1676,19 +1676,20 @@ export class RouterCore<
         __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
       })
       searchStr = parsed.search
-      hash = stripLeadingHash(parsed.hash)
-      pathname = parsed.pathname
+      hash = decodePath(stripLeadingHash(parsed.hash)).path
+      pathname = decodePath(parsed.pathname).path
       const href0 = href.charCodeAt(0)
-      if (!pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
+      if (!parsed.pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
         pathname = this.latestLocation.pathname
         if (href0 === 35) searchStr = this.latestLocation.searchStr
         else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
       }
-      hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
+      hrefFull = parsed.pathname ? href : `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
+    const publicHref = encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
     const location: ParsedLocation = {
-      href: hrefFull,
-      publicHref: hrefFull,
+      href: publicHref,
+      publicHref,
       pathname,
       search: searchStr ? (this.options.parseSearch ?? defaultParseSearch)(searchStr) : EMPTY_OBJ,
       searchStr,
@@ -1740,9 +1741,9 @@ export class RouterCore<
       this._committing = false
       // Blockers may deny the commit; never publish a destination we did not land on.
       const landed =
-        history.location.pathname === pathname &&
+        decodePath(history.location.pathname).path === pathname &&
         (history.location.search || '') === (searchStr || '') &&
-        stripLeadingHash(history.location.hash) === hash
+        decodePath(stripLeadingHash(history.location.hash)).path === hash
       if (!landed) return RESOLVED
 
       location.state = history.location.state
