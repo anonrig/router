@@ -29,6 +29,20 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('honors route-level case sensitivity for dynamic affixes', () => {
+    const root = createRootRoute()
+    const dynamic = createRoute({
+      getParentRoute: () => root,
+      path: '/pre{$id}suf',
+      caseSensitive: true,
+    })
+    root.addChildren([dynamic])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/preXsuf')?.at(-1)?.route.id).toBe('/pre{$id}suf')
+    expect(findRouteMatch(tree, '/PREXsUF')).toBeNull()
+  })
+
   it('matches the index route', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/')

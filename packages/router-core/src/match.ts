@@ -78,6 +78,7 @@ export type SegmentNode = {
   priority?: number
   prefix?: string
   suffix?: string
+  affixCaseSensitive?: boolean
 }
 
 function createNode(): SegmentNode {
@@ -112,12 +113,18 @@ function getOrCreateParam(
   suffix: string,
   parse: SegmentNode['parse'],
   priority: number,
+  caseSensitive: boolean,
 ): SegmentNode {
   const existing = node.paramChildren
   if (existing) {
     for (let i = 0; i < existing.length; i++) {
       const child = existing[i]!
-      if (child.paramName === name && child.prefix === prefix && child.suffix === suffix) {
+      if (
+        child.paramName === name &&
+        child.prefix === prefix &&
+        child.suffix === suffix &&
+        child.affixCaseSensitive === caseSensitive
+      ) {
         return child
       }
     }
@@ -128,6 +135,7 @@ function getOrCreateParam(
   next.paramName = name
   next.prefix = prefix
   next.suffix = suffix
+  next.affixCaseSensitive = caseSensitive
   node.paramChildren ??= []
   node.paramChildren.push(next)
   if (!node.paramChild) node.paramChild = next
@@ -135,12 +143,23 @@ function getOrCreateParam(
   return next
 }
 
-function getOrCreateOptional(node: SegmentNode, name: string, prefix: string, suffix: string) {
+function getOrCreateOptional(
+  node: SegmentNode,
+  name: string,
+  prefix: string,
+  suffix: string,
+  caseSensitive: boolean,
+) {
   const existing = node.optionalChildren
   if (existing) {
     for (let i = 0; i < existing.length; i++) {
       const child = existing[i]!
-      if (child.optionalName === name && child.prefix === prefix && child.suffix === suffix) {
+      if (
+        child.optionalName === name &&
+        child.prefix === prefix &&
+        child.suffix === suffix &&
+        child.affixCaseSensitive === caseSensitive
+      ) {
         return child
       }
     }
@@ -149,6 +168,7 @@ function getOrCreateOptional(node: SegmentNode, name: string, prefix: string, su
   next.optionalName = name
   next.prefix = prefix
   next.suffix = suffix
+  next.affixCaseSensitive = caseSensitive
   node.optionalChildren ??= []
   node.optionalChildren.push(next)
   if (!node.optionalChild) node.optionalChild = next
@@ -429,6 +449,7 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
   let current = node
   let segment: ParsedSegment | undefined
   const trimmed = path.charCodeAt(0) === 47 ? path.slice(1) : path
+  const affixCaseSensitive = route?.options?.caseSensitive ?? caseSensitive
 
   while (cursor < trimmed.length) {
     const start = cursor
@@ -450,6 +471,7 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
         trimmed.substring(segment[4], end),
         route?.options?.params?.parse ?? route?.options?.parseParams ?? null,
         route?.options?.params?.priority ?? 0,
+        affixCaseSensitive,
       )
     } else if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
       current = getOrCreateOptional(
@@ -457,6 +479,7 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
         trimmed.substring(segment[2], segment[3]),
         trimmed.substring(start, segment[1]),
         trimmed.substring(segment[4], end),
+        affixCaseSensitive,
       )
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
       if (!current.wildcardChild) current.wildcardChild = createNode()
@@ -1112,7 +1135,12 @@ function findRouteMatchDynamic(
     for (let o = 0; o < optionals.length; o++) {
       const child = optionals[o]!
       const name = child.optionalName || node.optionalName
-      const inner = extractPrefixed(value, child.prefix || '', child.suffix || '', caseSensitive)
+      const inner = extractPrefixed(
+        value,
+        child.prefix || '',
+        child.suffix || '',
+        child.affixCaseSensitive ?? caseSensitive,
+      )
       if (inner !== null) {
         const params = Object.assign(Object.create(null), frame.params)
         if (inner) params[name] = inner
@@ -1153,7 +1181,12 @@ function findRouteMatchDynamic(
     if (paramKids.length) {
       for (let p = paramKids.length - 1; p >= 0; p--) {
         const child = paramKids[p]!
-        const inner = extractPrefixed(value, child.prefix || '', child.suffix || '', caseSensitive)
+        const inner = extractPrefixed(
+          value,
+          child.prefix || '',
+          child.suffix || '',
+          child.affixCaseSensitive ?? caseSensitive,
+        )
         if (inner === null) continue
         const params = Object.assign(Object.create(null), frame.params)
         params[child.paramName || node.paramName || ''] = inner
