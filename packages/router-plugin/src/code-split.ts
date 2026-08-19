@@ -301,7 +301,7 @@ function isNonSplitNamedExport(statement: EstreeNode, splitIds: Set<string>): bo
   }
   const names = [...declaredNames(statement), ...exportedLocalNames(statement)]
   if (names.length === 0 || names.includes('Route')) return false
-  return names.every((name) => !splitIds.has(name))
+  return names.some((name) => !splitIds.has(name))
 }
 
 const TRIVIAL_SPLIT_CHARS = 96
