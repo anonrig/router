@@ -46,6 +46,49 @@ describe('matcher', () => {
     expect(findRouteMatch(tree, '/a/bazxqux')?.at(-1)?.route.id).toBe('/a/baz{$}qux')
   })
 
+  it('matches an empty splat on a catch-all registered after an affixed wildcard', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/a' })
+    const affixed = createRoute({ getParentRoute: () => parent, path: 'foo{$}bar' })
+    const catchAll = createRoute({ getParentRoute: () => parent, path: '{$}' })
+    root.addChildren([parent.addChildren([affixed, catchAll])])
+    const tree = processRouteTree(root as any)
+
+    const empty = findRouteMatch(tree, '/a')
+    expect(empty?.at(-1)?.route.id).toBe('/a/{$}')
+    expect(empty?.at(-1)?.params).toMatchObject({ _splat: '', '*': '' })
+    expect(findRouteMatch(tree, '/a/fooxbar')?.at(-1)?.route.id).toBe('/a/foo{$}bar')
+    expect(findRouteMatch(tree, '/a/other')?.at(-1)?.route.id).toBe('/a/{$}')
+  })
+
+  it('matches an empty splat on a bare $ registered after an affixed wildcard', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/files' })
+    const affixed = createRoute({ getParentRoute: () => parent, path: 'raw-{$}' })
+    const catchAll = createRoute({ getParentRoute: () => parent, path: '$' })
+    root.addChildren([parent.addChildren([affixed, catchAll])])
+    const tree = processRouteTree(root as any)
+
+    const empty = findRouteMatch(tree, '/files')
+    expect(empty?.at(-1)?.route.id).toBe('/files/$')
+    expect(empty?.at(-1)?.params).toMatchObject({ _splat: '', '*': '' })
+    expect(findRouteMatch(tree, '/files/raw-a/b')?.at(-1)?.route.id).toBe('/files/raw-{$}')
+  })
+
+  it('prefers an index route over an empty splat from a later catch-all sibling', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/docs' })
+    const affixed = createRoute({ getParentRoute: () => parent, path: 'v{$}x' })
+    const index = createRoute({ getParentRoute: () => parent, path: '/' })
+    const catchAll = createRoute({ getParentRoute: () => parent, path: '{$}' })
+    root.addChildren([parent.addChildren([affixed, index, catchAll])])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/docs')?.at(-1)?.route.id).toBe('/docs/')
+    expect(findRouteMatch(tree, '/docs/vax')?.at(-1)?.route.id).toBe('/docs/v{$}x')
+    expect(findRouteMatch(tree, '/docs/deep/path')?.at(-1)?.route.id).toBe('/docs/{$}')
+  })
+
   it('rejects malformed percent encoding in dynamic segments', () => {
     const root = createRootRoute()
     const dynamic = createRoute({

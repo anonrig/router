@@ -1062,6 +1062,52 @@ function considerFuzzy(
   return isBetterMatch(bestFuzzy, frame) ? frame : bestFuzzy
 }
 
+// Only an unaffixed wildcard can consume zero remaining segments, and any
+// sibling shape may hold it, so every stored pattern has to be inspected.
+function hasEmptySplatWildcard(node: SegmentNode): boolean {
+  const wildcards = node.wildcardChildren
+  if (wildcards) {
+    for (let i = 0; i < wildcards.length; i++) {
+      const child = wildcards[i]!
+      if (!child.prefix && !child.suffix) return true
+    }
+    return false
+  }
+  const child = node.wildcardChild
+  return !!child && !child.prefix && !child.suffix
+}
+
+function considerEmptySplat(
+  terminal: WalkFrame,
+  best: WalkFrame | null,
+  baseChain: AnyRouteLike[],
+): WalkFrame | null {
+  const wildcards = terminal.node.wildcardChildren
+  const count = wildcards ? wildcards.length : terminal.node.wildcardChild ? 1 : 0
+  for (let w = 0; w < count; w++) {
+    const wildcard = wildcards ? wildcards[w]! : terminal.node.wildcardChild!
+    if (wildcard.prefix || wildcard.suffix) continue
+    // The terminal frame may already hold parsed params from its own route, so
+    // the fallback restarts from the raw values and lets the parsers rerun.
+    const params = Object.assign(Object.create(null), terminal.rawParams ?? terminal.params)
+    params._splat = ''
+    params['*'] = ''
+    const wild = {
+      ...terminal,
+      node: wildcard,
+      params,
+      rawParams: undefined,
+      chain: wildcard.route ? baseChain.concat(wildcard.route) : baseChain.slice(),
+      depth: terminal.depth + 1,
+    }
+    if (applyParamsParse(wild)) {
+      wild.parsed = parsedScore(wild)
+      if (isBetterMatch(best, wild)) best = wild
+    }
+  }
+  return best
+}
+
 function considerTerminal(
   frame: WalkFrame,
   stack: WalkFrame[],
@@ -1078,30 +1124,10 @@ function considerTerminal(
     if (applyParamsParse(indexed)) {
       indexed.parsed = parsedScore(indexed)
       if (isBetterMatch(best, indexed)) best = indexed
-    } else if (
-      terminal.node.wildcardChild &&
-      !terminal.node.wildcardChild.prefix &&
-      !terminal.node.wildcardChild.suffix
-    ) {
-      const params = Object.assign(Object.create(null), terminal.params)
-      params._splat = ''
-      params['*'] = ''
-      const wild = {
-        ...terminal,
-        node: terminal.node.wildcardChild,
-        params,
-        chain: terminal.chain.concat(
-          terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : [],
-        ),
-        depth: terminal.depth + 1,
-      }
-      if (applyParamsParse(wild)) {
-        wild.parsed = parsedScore(wild)
-        if (isBetterMatch(best, wild)) best = wild
-      }
+    } else if (hasEmptySplatWildcard(terminal.node)) {
+      best = considerEmptySplat(terminal, best, terminal.chain)
     }
   } else {
-    const chainBeforeRoute = terminal.chain.slice()
     let candidate = terminal
     if (terminal.node.route && terminal.node.route !== rootRoute) {
       if (terminal.chain[terminal.chain.length - 1] !== terminal.node.route) {
@@ -1118,27 +1144,12 @@ function considerTerminal(
       candidate.parsed = parsedScore(candidate)
       if (isBetterMatch(best, candidate)) best = candidate
     }
-    if (
-      terminal.node.wildcardChild &&
-      !terminal.node.wildcardChild.prefix &&
-      !terminal.node.wildcardChild.suffix
-    ) {
-      const params = Object.assign(Object.create(null), terminal.params)
-      params._splat = ''
-      params['*'] = ''
-      const wild = {
-        ...terminal,
-        node: terminal.node.wildcardChild,
-        params,
-        chain: chainBeforeRoute
-          .filter((route) => route !== terminal.node.route)
-          .concat(terminal.node.wildcardChild.route ? [terminal.node.wildcardChild.route] : []),
-        depth: terminal.depth + 1,
-      }
-      if (applyParamsParse(wild)) {
-        wild.parsed = parsedScore(wild)
-        if (isBetterMatch(best, wild)) best = wild
-      }
+    if (hasEmptySplatWildcard(terminal.node)) {
+      best = considerEmptySplat(
+        terminal,
+        best,
+        terminal.chain.filter((route) => route !== terminal.node.route),
+      )
     }
   }
   const optionals = terminal.node.optionalChildren?.length
