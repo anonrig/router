@@ -145,10 +145,7 @@ describe('matcher', () => {
     const profileIndex = fileRoute('/', '/', () => profile)
     const followers = fileRoute('/$username/_followers', '/$username', () => root)
     const followersList = fileRoute('/followers', '/followers', () => followers)
-    root.addChildren([
-      profile.addChildren([profileIndex]),
-      followers.addChildren([followersList]),
-    ])
+    root.addChildren([profile.addChildren([profileIndex]), followers.addChildren([followersList])])
     const processed = processRouteTree(root as any)
     expect(findRouteMatch(processed, '/jack')?.map((match) => match.route.id)).toEqual([
       '__root__',
