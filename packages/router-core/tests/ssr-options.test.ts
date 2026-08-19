@@ -119,6 +119,25 @@ describe('SSR loader registration', () => {
   })
 })
 
+describe('fast server loader thenables', () => {
+  it('awaits PromiseLike loader results', async () => {
+    const { router, response, rootRoute } = await loadTree({
+      root: {
+        loader: () => {
+          const thenable: { then?: (resolve: (value: string) => void) => void } = {}
+          thenable.then = (resolve) => {
+            queueMicrotask(() => resolve('resolved data'))
+          }
+          return thenable
+        },
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(matchOf(router, rootRoute.id)?.loaderData).toBe('resolved data')
+  })
+})
+
 describe('fast server loader failures', () => {
   it('commits rejected errors as 500 results', async () => {
     const error = new Error('async failure')

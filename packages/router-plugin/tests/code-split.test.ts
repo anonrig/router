@@ -96,6 +96,32 @@ export const Route = createFileRoute('/inbox')({
 `
 
 describe('compileReferenceRoute', () => {
+  it('preserves top-level effects and unsupported named exports', () => {
+    const source = `'use client'
+import { createFileRoute } from '@tanstack/react-router'
+globalThis.routeInitCount = (globalThis.routeInitCount ?? 0) + 1
+export enum Status { Ready = 'ready' }
+function Page() {
+  return <div>large enough component body for automatic splitting</div>
+}
+export const Route = createFileRoute('/effects')({ component: Page })
+`
+    const result = compileReferenceRoute(source, '/app/src/routes/effects.tsx')
+
+    expect(result).toContain("'use client'")
+    expect(result).toContain('globalThis.routeInitCount =')
+    expect(result).toContain('export enum Status')
+  })
+
+  it('aliases the lazy helper when a route exports the same binding', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nexport function lazyRouteComponent() { return 'public helper' }\nfunction Page() { return <main>enough route component content to force automatic splitting</main> }\nexport const Route = createFileRoute('/collision')({ component: Page })\n`
+
+    const result = compileReferenceRoute(source, '/app/src/routes/collision.tsx')
+
+    expect(result).toContain('lazyRouteComponent as __lazyRouteComponent')
+    expect(result).toContain('__lazyRouteComponent(() => import(')
+  })
+
   it('keeps server hooks and exported helpers, drops component-only imports', () => {
     const result = compileReferenceRoute(inboxRoute, '/app/src/routes/inbox.tsx')
     expect(result).toBeTruthy()
@@ -253,6 +279,108 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('preserves valid quoting for module names containing apostrophes', () => {
+    const source = `import { createFileRoute } from "@tanstack/react-router"
+import { Widget } from "./person's-widget"
+export const Route = createFileRoute("/quoted")({ component: Page })
+function Page() {
+  return <Widget label="long enough to force route splitting" />
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/quoted.tsx', 'component')
+
+    expect(parseSync('quoted.tsx', result!).errors).toEqual([])
+  })
+
+  it('preserves import attributes', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nimport data from './data.json' with { type: 'json' }\nfunction Page() { return <main>{data.title} plus enough component content to split</main> }\nexport const Route = createFileRoute('/data')({ component: Page })\n`
+
+    const result = compileVirtualRoute(source, '/app/src/routes/data.tsx', 'component')
+
+    expect(result).toContain("import data from './data.json' with { type: 'json' }")
+  })
+
+  it('keeps named default declarations used by split components', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+export const Route = createFileRoute('/default')({ component: Page })
+export default function Page() {
+  return <div>large enough component body for automatic splitting</div>
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/default.tsx', 'component')
+
+    expect(result).toContain('export default function Page()')
+    expect(result).toContain('export const component = Page')
+  })
+
+  it('keeps TypeScript namespaces used by split components', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nnamespace UI { export function Page() { return <main>namespaced route component</main> } }\nexport const Route = createFileRoute('/namespace')({ component: UI.Page })\n`
+
+    const result = compileVirtualRoute(source, '/app/src/routes/namespace.tsx', 'component')
+
+    expect(result).toContain('namespace UI')
+    expect(result).toContain('export const component = UI.Page')
+  })
+
+  it('keeps dotted TypeScript namespaces used by split components', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nnamespace UI.Forms { export function Page() { return <main>dotted namespace route component</main> } }\nexport const Route = createFileRoute('/namespace')({ component: UI.Forms.Page })\n`
+
+    const result = compileVirtualRoute(source, '/app/src/routes/namespace.tsx', 'component')
+
+    expect(result).toContain('namespace UI.Forms')
+    expect(result).toContain('export const component = UI.Forms.Page')
+  })
+
+  it('preserves module directives', () => {
+    const source = `'use client'
+import { createFileRoute } from '@tanstack/react-router'
+function Page() {
+  return <div>large enough component body for automatic splitting</div>
+}
+export const Route = createFileRoute('/directive')({ component: Page })
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/directive.tsx', 'component')
+
+    expect(result?.trimStart().startsWith("'use client'")).toBe(true)
+  })
+
+  it('keeps directives first when the split component re-imports Route', () => {
+    const source = `'use client'
+import { createFileRoute } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/directive-route')({ component: Page })
+
+function Page() {
+  const { url } = Route.useSearch()
+  return <div>{url}</div>
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/directive-route.tsx', 'component')
+
+    expect(result).toBeTruthy()
+    expect(result).toContain("import { Route } from './directive-route.tsx'")
+    expect(result?.trimStart().startsWith("'use client'")).toBe(true)
+    expect(result!.indexOf("'use client'")).toBeLessThan(result!.indexOf('import'))
+  })
+
+  it('does not hoist a string statement that is not part of the prologue', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+
+const label = 'inbox'
+'not a directive'
+
+function Page() {
+  return <div>{label}</div>
+}
+
+export const Route = createFileRoute('/late-literal')({ component: Page })
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/late-literal.tsx', 'component')
+
+    expect(result).toBeTruthy()
+    expect(result?.trimStart().startsWith("'not a directive'")).toBe(false)
+  })
+
   it('exports a wrapper without colliding with an exported component binding', () => {
     const source = `import { createFileRoute } from '@tanstack/react-router'
 const Inner = () => <div>inner</div>

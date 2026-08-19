@@ -6,7 +6,7 @@ import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
 import { routePathToVariable } from '../src/emit'
 import { generateRouteTree } from '../src/generate'
-import { scanRoutes } from '../src/scan'
+import { matchesRouteFileIgnorePattern, scanRoutes } from '../src/scan'
 
 function write(dir: string, file: string, body = 'export const Route = {}\n') {
   const full = join(dir, file)
@@ -15,6 +15,32 @@ function write(dir: string, file: string, body = 'export const Route = {}\n') {
 }
 
 describe('scanRoutes', () => {
+  it('rejects nested root route files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-nested-root-'))
+    write(dir, '__root.tsx')
+    write(dir, 'nested/__root.tsx')
+
+    expect(() => scanRoutes({ routesDirectory: dir })).toThrow(
+      'Root route file must be directly inside the routes directory',
+    )
+  })
+
+  it('rejects multiple root route files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-multiple-roots-'))
+    write(dir, '__root.ts')
+    write(dir, '__root.tsx')
+
+    expect(() => scanRoutes({ routesDirectory: dir })).toThrow('Multiple root route files')
+  })
+
+  it('applies global ignore patterns consistently', () => {
+    const pattern = /\.test\./g
+
+    expect(matchesRouteFileIgnorePattern('first.test.tsx', pattern)).toBe(true)
+    expect(matchesRouteFileIgnorePattern('second.test.tsx', pattern)).toBe(true)
+    expect(matchesRouteFileIgnorePattern('third.test.tsx', pattern)).toBe(true)
+  })
+
   it('preserves directory segments named route', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-route-directory-'))
     write(dir, '__root.tsx')

@@ -112,15 +112,67 @@ function declaredNames(statement: EstreeNode): Array<string> {
     }
     return names
   }
+  if (statement.type === 'TSEnumDeclaration') {
+    return statement.id?.name ? [statement.id.name] : []
+  }
   if (statement.type === 'ImportDeclaration') return importLocalNames(statement)
   if (statement.type === 'ExportNamedDeclaration' && statement.declaration) {
     return declaredNames(statement.declaration)
   }
+  if (statement.type === 'ExportDefaultDeclaration' && statement.declaration) {
+    return declaredNames(statement.declaration)
+  }
+  if (statement.type === 'TSModuleDeclaration') {
+    const name = moduleDeclarationName(statement.id)
+    return name ? [name] : []
+  }
   return []
+}
+
+function moduleDeclarationName(id: EstreeNode | undefined): string | undefined {
+  let node = id
+  while (node?.type === 'TSQualifiedName') node = node.left
+  return node?.type === 'Identifier' && typeof node.name === 'string' ? node.name : undefined
 }
 
 function isSideEffectImport(statement: EstreeNode): boolean {
   return statement.type === 'ImportDeclaration' && !(statement.specifiers?.length > 0)
+}
+
+function isDirective(statement: EstreeNode): boolean {
+  return (
+    statement.type === 'ExpressionStatement' &&
+    statement.expression?.type === 'Literal' &&
+    typeof statement.expression.value === 'string'
+  )
+}
+
+/**
+ * Only the leading run of string-literal statements forms the module prologue.
+ * A later `'use client'` is a plain expression and must not be hoisted.
+ */
+function prologueDirectives(program: EstreeNode): Set<EstreeNode> {
+  const directives = new Set<EstreeNode>()
+  for (const statement of program.body ?? []) {
+    if (!isDirective(statement)) break
+    directives.add(statement)
+  }
+  return directives
+}
+
+function isTopLevelEffect(statement: EstreeNode): boolean {
+  return (
+    statement.type === 'ExpressionStatement' ||
+    statement.type === 'ThrowStatement' ||
+    statement.type === 'IfStatement' ||
+    statement.type === 'SwitchStatement' ||
+    statement.type === 'TryStatement' ||
+    statement.type === 'WhileStatement' ||
+    statement.type === 'DoWhileStatement' ||
+    statement.type === 'ForStatement' ||
+    statement.type === 'ForInStatement' ||
+    statement.type === 'ForOfStatement'
+  )
 }
 
 function propertyNameOf(property: EstreeNode): string | undefined {
@@ -193,8 +245,8 @@ function specifierFor(fileName: string, splitKey: string) {
   return `./${basename(fileName.split('?')[0] ?? fileName)}?${TSR_SPLIT_QUERY}=${splitKey}`
 }
 
-function lazyWrapper(fileName: string, splitKey: string) {
-  return `lazyRouteComponent(() => import('${specifierFor(fileName, splitKey)}'), '${splitKey}')`
+function lazyWrapper(fileName: string, splitKey: string, helperName: string) {
+  return `${helperName}(() => import('${specifierFor(fileName, splitKey)}'), '${splitKey}')`
 }
 
 function createFileRouteImportSource(program: EstreeNode): string | undefined {
@@ -341,8 +393,11 @@ function printNamedImport(
 ): string | undefined {
   const moduleName = declaration.source?.value
   if (typeof moduleName !== 'string') return code.slice(declaration.start, declaration.end)
+  const moduleSource = slice(code, declaration.source)
+  const attributes = code.slice(declaration.source.end, declaration.end).trim()
+  const attributeSuffix = attributes ? ` ${attributes}` : ''
   const specifiers: Array<EstreeNode> = declaration.specifiers ?? []
-  if (specifiers.length === 0) return `import '${moduleName}'`
+  if (specifiers.length === 0) return `import ${moduleSource}${attributeSuffix}`
 
   const defaultSpecifier = specifiers.find(
     (specifier) => specifier.type === 'ImportDefaultSpecifier',
@@ -372,7 +427,7 @@ function printNamedImport(
   if (namedParts.length) parts.push(`{ ${namedParts.join(', ')} }`)
   if (parts.length === 0) return undefined
   const typeOnly = declaration.importKind === 'type' ? 'type ' : ''
-  return `import ${typeOnly}${parts.join(', ')} from '${moduleName}'`
+  return `import ${typeOnly}${parts.join(', ')} from ${moduleSource}${attributeSuffix}`
 }
 
 function identifiersIn(statements: Iterable<EstreeNode>): Set<string> {
@@ -411,11 +466,26 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   if (properties.length === 0) return null
 
   const splitIds = splitIdentifierNames(properties)
+  const bindings = new Set(
+    (program.body ?? []).flatMap((statement: EstreeNode) => declaredNames(statement)),
+  )
+  let helperName = 'lazyRouteComponent'
+  if (
+    (program.body ?? []).some(
+      (statement: EstreeNode) =>
+        statement.type !== 'ImportDeclaration' && declaredNames(statement).includes(helperName),
+    )
+  ) {
+    helperName = '__lazyRouteComponent'
+    while (bindings.has(helperName)) helperName = `_${helperName}`
+  }
   // A shorthand property shares its span with the key, so the key must be reprinted.
   const replacements = properties.map(({ key, value, shorthand }) => ({
     start: value.start,
     end: value.end,
-    text: shorthand ? `${key}: ${lazyWrapper(fileName, key)}` : lazyWrapper(fileName, key),
+    text: shorthand
+      ? `${key}: ${lazyWrapper(fileName, key, helperName)}`
+      : lazyWrapper(fileName, key, helperName),
   }))
   const rewritten = applyReplacements(code, replacements)
   const nextProgram = parseProgram(fileName, rewritten)
@@ -423,26 +493,32 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
     (statement: EstreeNode) =>
       isRouteExport(statement) ||
       isSideEffectImport(statement) ||
+      isTopLevelEffect(statement) ||
       isNonSplitNamedExport(statement, splitIds),
   )
   if (seeds.length === 0) return rewritten
   const needed = neededStatements(nextProgram, seeds)
   const used = identifiersIn(needed)
-  used.add('lazyRouteComponent')
+  used.add(helperName)
 
   const runtimeImport = createFileRouteImportSource(nextProgram) ?? '@tanstack/react-router'
   const parts: Array<string> = []
   for (const statement of nextProgram.body ?? []) {
     if (!needed.has(statement)) continue
     if (statement.type === 'ImportDeclaration') {
-      const extra = statement.source?.value === runtimeImport ? ['lazyRouteComponent'] : []
+      const extra =
+        statement.source?.value === runtimeImport && helperName === 'lazyRouteComponent'
+          ? ['lazyRouteComponent']
+          : []
       const printed = printNamedImport(statement, used, extra, rewritten)
       if (printed) parts.push(printed)
       continue
     }
     parts.push(slice(rewritten, statement))
   }
-  if (!parts.some((part) => part.includes('lazyRouteComponent'))) {
+  if (helperName !== 'lazyRouteComponent') {
+    parts.unshift(`import { lazyRouteComponent as ${helperName} } from '${runtimeImport}'`)
+  } else if (!parts.some((part) => part.includes('lazyRouteComponent'))) {
     parts.unshift(`import { lazyRouteComponent } from '${runtimeImport}'`)
   }
   return `${parts.join('\n\n')}\n`
@@ -466,8 +542,10 @@ export function compileVirtualRoute(
 
   const used = new Set<string>()
   collectIdentifiers(match.value, used)
+  const directives = prologueDirectives(program)
   const seeds = (program.body ?? []).filter((statement: EstreeNode) => {
     if (isCreateFileRouteBinding(statement)) return false
+    if (directives.has(statement)) return true
     return declaredNames(statement).some((name) => used.has(name))
   })
   const needed = neededStatements(program, seeds, isCreateFileRouteBinding)
@@ -494,11 +572,13 @@ export function compileVirtualRoute(
     !reexportsBinding &&
     emitted.some((statement) => declaredNames(statement).includes(splitTarget))
 
+  const prologue: Array<string> = []
   const parts: Array<string> = []
-  if (live.has('Route')) {
-    parts.push(`import { Route } from './${basename(fileName)}'`)
-  }
   for (const statement of emitted) {
+    if (directives.has(statement)) {
+      prologue.push(slice(code, statement))
+      continue
+    }
     if (statement.type === 'ImportDeclaration') {
       const printed = printNamedImport(statement, live, [], code)
       if (printed) parts.push(printed)
@@ -510,6 +590,9 @@ export function compileVirtualRoute(
     }
     parts.push(slice(code, statement))
   }
+  if (live.has('Route')) {
+    parts.unshift(`import { Route } from './${basename(fileName)}'`)
+  }
 
   if (reexportsBinding) {
     parts.push(`export { ${splitTarget} }`)
@@ -520,5 +603,5 @@ export function compileVirtualRoute(
   } else if (!alreadyExported) {
     parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
   }
-  return `${parts.join('\n\n')}\n`
+  return `${[...prologue, ...parts].join('\n\n')}\n`
 }
