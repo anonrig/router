@@ -1,6 +1,46 @@
 // @vitest-environment node
+import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
 import { compileReferenceRoute, compileVirtualRoute, routeHasDisabledSsr } from '../src/code-split'
+
+function topLevelNames(statement: any): Array<string> {
+  if (statement.type === 'ImportDeclaration') {
+    return (statement.specifiers ?? []).map((specifier: any) => specifier.local?.name)
+  }
+  if (statement.type === 'VariableDeclaration') {
+    return (statement.declarations ?? []).map((declaration: any) => declaration.id?.name)
+  }
+  if (statement.type === 'FunctionDeclaration' || statement.type === 'ClassDeclaration') {
+    return [statement.id?.name]
+  }
+  if (statement.type === 'ExportNamedDeclaration' && statement.declaration) {
+    return topLevelNames(statement.declaration)
+  }
+  return []
+}
+
+/** Parse errors, bindings, and export names of an emitted module. */
+function moduleShape(code: string | null) {
+  const parsed = parseSync('emitted.tsx', code ?? '')
+  const program = parsed.program as any
+  const errors = parsed.errors.map((error) => error.message)
+  const bindings: Array<string> = []
+  const exports: Array<string> = []
+  for (const statement of program.body ?? []) {
+    bindings.push(...topLevelNames(statement).filter(Boolean))
+    if (statement.type !== 'ExportNamedDeclaration') continue
+    if (statement.declaration) exports.push(...topLevelNames(statement.declaration).filter(Boolean))
+    for (const specifier of statement.specifiers ?? []) {
+      const name = specifier.exported?.name ?? specifier.exported?.value
+      if (name) exports.push(name)
+    }
+  }
+  return { errors, bindings, exports }
+}
+
+function occurrences(names: Array<string>, name: string): number {
+  return names.filter((value) => value === name).length
+}
 
 const inboxRoute = `import { Outlet, createFileRoute, useParams } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
@@ -158,6 +198,19 @@ function StoriesHomePage() {
     expect(routeHasDisabledSsr(source, '/app/src/routes/stories/home.tsx')).toBe(false)
   })
 
+  it('keeps the property key when rewriting a shorthand split property', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+import { component } from '@/components/heavy'
+export const Route = createFileRoute('/imported')({ component })
+`
+    const result = compileReferenceRoute(source, '/app/src/routes/imported.tsx')
+
+    expect(moduleShape(result).errors).toEqual([])
+    expect(result).toContain(
+      "component: lazyRouteComponent(() => import('./imported.tsx?tsr-split=component'), 'component')",
+    )
+  })
+
   it('still splits ssr:false routes that call Route.useSearch', () => {
     const source = `import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
@@ -187,34 +240,76 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
-  it('exports a wrapper even when a seed already exports component', () => {
+  it('exports a wrapper without colliding with an exported component binding', () => {
     const source = `import { createFileRoute } from '@tanstack/react-router'
 const Inner = () => <div>inner</div>
 export const component = Inner
 export const Route = createFileRoute('/wrapped')({
   component: () => <Wrapper inner={component} />,
 })
-function Wrapper(_props: any) {
-  return <div>wrap</div>
+function Wrapper(props: { inner: () => unknown }) {
+  return <div>{String(props.inner)}</div>
 }
 `
     const result = compileVirtualRoute(source, '/app/src/routes/wrapped.tsx', 'component')
+    const shape = moduleShape(result)
 
+    expect(shape.errors).toEqual([])
+    expect(occurrences(shape.bindings, 'component')).toBe(1)
+    expect(occurrences(shape.exports, 'component')).toBe(1)
     expect(result).toContain('const component = Inner')
     expect(result).not.toContain('export const component = Inner')
-    expect(result).toContain('export const component = () => <Wrapper inner={component} />')
+    expect(result).toContain('const $$component = () => <Wrapper inner={component} />')
+    expect(result).toContain('export { $$component as component }')
     expect(result).toContain('function Wrapper')
   })
 
-  it('does not redeclare an exported shorthand component', () => {
+  it('re-exports a local shorthand component', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+const LargeComponent = () => <div>large</div>
+const component = () => <LargeComponent />
+export const Route = createFileRoute('/local')({ component })
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/local.tsx', 'component')
+    const shape = moduleShape(result)
+
+    expect(shape.errors).toEqual([])
+    expect(occurrences(shape.bindings, 'component')).toBe(1)
+    expect(shape.exports).toEqual(['component'])
+    expect(result).toContain('const component = () => <LargeComponent />')
+    expect(result).toContain('export { component }')
+  })
+
+  it('re-exports an imported shorthand component', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+import { component } from '@/components/heavy'
+export const Route = createFileRoute('/imported')({ component })
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/imported.tsx', 'component')
+    const shape = moduleShape(result)
+
+    expect(shape.errors).toEqual([])
+    expect(occurrences(shape.bindings, 'component')).toBe(1)
+    expect(shape.exports).toEqual(['component'])
+    expect(result).toContain("import { component } from '@/components/heavy'")
+    expect(result).toContain('export { component }')
+    expect(result).not.toContain('export const component')
+  })
+
+  it('keeps a single export for an exported shorthand component', () => {
     const source = `import { createFileRoute } from '@tanstack/react-router'
 const LargeComponent = () => <div>large</div>
 export const component = () => <LargeComponent />
 export const Route = createFileRoute('/shorthand')({ component })
 `
     const result = compileVirtualRoute(source, '/app/src/routes/shorthand.tsx', 'component')
+    const shape = moduleShape(result)
 
-    expect(result?.match(/export const component/g)).toHaveLength(1)
+    expect(shape.errors).toEqual([])
+    expect(occurrences(shape.bindings, 'component')).toBe(1)
+    expect(shape.exports).toEqual(['component'])
+    expect(result).toContain('export const component = () => <LargeComponent />')
+    expect(result).not.toContain('export { component }')
   })
 
   it('emits only the component graph', () => {

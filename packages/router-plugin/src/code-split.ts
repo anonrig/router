@@ -178,13 +178,13 @@ function isAlreadyLazy(node: EstreeNode): boolean {
 }
 
 function splitPropertiesOf(options: EstreeNode) {
-  const properties: Array<{ key: SplitProperty; value: EstreeNode }> = []
+  const properties: Array<{ key: SplitProperty; value: EstreeNode; shorthand: boolean }> = []
   for (const property of options.properties ?? []) {
     const key = propertyNameOf(property)
     if (!key || !SPLIT_PROPERTY_SET.has(key)) continue
     const value = propertyValue(property)
     if (!value || isAlreadyLazy(value) || isTrivialSplitValue(value)) continue
-    properties.push({ key: key as SplitProperty, value })
+    properties.push({ key: key as SplitProperty, value, shorthand: property.shorthand === true })
   }
   return properties
 }
@@ -268,6 +268,26 @@ function exportedLocalNames(statement: EstreeNode): Array<string> {
     if (local) names.push(local)
   }
   return names
+}
+
+/** True when the statement publishes the `local` binding under the name `exported`. */
+function exportsBindingAs(statement: EstreeNode, local: string, exported: string): boolean {
+  if (statement.type !== 'ExportNamedDeclaration') return false
+  if (statement.declaration) {
+    return local === exported && declaredNames(statement.declaration).includes(local)
+  }
+  for (const specifier of statement.specifiers ?? []) {
+    const name = specifier.exported?.name ?? specifier.exported?.value
+    if (specifier.local?.name === local && name === exported) return true
+  }
+  return false
+}
+
+function uniqueName(base: string, taken: Set<string>): string {
+  let candidate = base
+  let suffix = 1
+  while (taken.has(candidate)) candidate = `${base}${suffix++}`
+  return candidate
 }
 
 function splitIdentifierNames(properties: Array<{ value: EstreeNode }>): Set<string> {
@@ -391,10 +411,11 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   if (properties.length === 0) return null
 
   const splitIds = splitIdentifierNames(properties)
-  const replacements = properties.map(({ key, value }) => ({
+  // A shorthand property shares its span with the key, so the key must be reprinted.
+  const replacements = properties.map(({ key, value, shorthand }) => ({
     start: value.start,
     end: value.end,
-    text: lazyWrapper(fileName, key),
+    text: shorthand ? `${key}: ${lazyWrapper(fileName, key)}` : lazyWrapper(fileName, key),
   }))
   const rewritten = applyReplacements(code, replacements)
   const nextProgram = parseProgram(fileName, rewritten)
@@ -442,8 +463,6 @@ export function compileVirtualRoute(
   if (!options) return null
   const match = splitPropertiesOf(options).find((property) => property.key === splitTarget)
   if (!match) return null
-  const splitIsExportedBinding =
-    match.value.type === 'Identifier' && match.value.name === splitTarget
 
   const used = new Set<string>()
   collectIdentifiers(match.value, used)
@@ -455,30 +474,50 @@ export function compileVirtualRoute(
   const live = identifiersIn(needed)
   collectIdentifiers(match.value, live)
   live.delete('createFileRoute')
+
+  const emitted: Array<EstreeNode> = (program.body ?? []).filter(
+    (statement: EstreeNode) => needed.has(statement) && !isCreateFileRouteBinding(statement),
+  )
+  const splitBinding =
+    match.value.type === 'Identifier' && typeof match.value.name === 'string'
+      ? match.value.name
+      : undefined
+  // Only the exact binding behind the option counts; a wrapper that merely
+  // reads an exported `component` still owes the module its own export.
+  const alreadyExported =
+    splitBinding !== undefined &&
+    emitted.some((statement) => exportsBindingAs(statement, splitBinding, splitTarget))
+  const reexportsBinding = !alreadyExported && splitBinding === splitTarget
+  // A same-named binding already lives here, so the option needs its own name.
+  const nameTaken =
+    !alreadyExported &&
+    !reexportsBinding &&
+    emitted.some((statement) => declaredNames(statement).includes(splitTarget))
+
   const parts: Array<string> = []
   if (live.has('Route')) {
     parts.push(`import { Route } from './${basename(fileName)}'`)
   }
-  for (const statement of program.body ?? []) {
-    if (!needed.has(statement)) continue
+  for (const statement of emitted) {
     if (statement.type === 'ImportDeclaration') {
       const printed = printNamedImport(statement, live, [], code)
       if (printed) parts.push(printed)
       continue
     }
-    if (containsCreateFileRoute(statement)) continue
-    if (
-      !splitIsExportedBinding &&
-      statement.type === 'ExportNamedDeclaration' &&
-      statement.declaration &&
-      declaredNames(statement).includes(splitTarget)
-    ) {
+    if (nameTaken && exportsBindingAs(statement, splitTarget, splitTarget)) {
       parts.push(slice(code, statement.declaration))
       continue
     }
     parts.push(slice(code, statement))
   }
-  if (!splitIsExportedBinding) {
+
+  if (reexportsBinding) {
+    parts.push(`export { ${splitTarget} }`)
+  } else if (nameTaken) {
+    const local = uniqueName(`$$${splitTarget}`, live)
+    parts.push(`const ${local} = ${slice(code, match.value)}`)
+    parts.push(`export { ${local} as ${splitTarget} }`)
+  } else if (!alreadyExported) {
     parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
   }
   return `${parts.join('\n\n')}\n`
