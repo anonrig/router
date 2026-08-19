@@ -98,10 +98,20 @@ function createNode(): SegmentNode {
   }
 }
 
+// Set while a tree is being built so the finished tree knows whether every
+// static key shares one sensitivity, which is what the fast walkers need.
+let sawSensitiveStatic = false
+let sawInsensitiveStatic = false
+
 function getOrCreateStatic(node: SegmentNode, key: string, caseSensitive: boolean): SegmentNode {
-  const children = caseSensitive
-    ? (node.staticSensitiveChildren ??= Object.create(null))
-    : (node.staticChildren ??= Object.create(null))
+  let children: Record<string, SegmentNode>
+  if (caseSensitive) {
+    sawSensitiveStatic = true
+    children = node.staticSensitiveChildren ??= Object.create(null)
+  } else {
+    sawInsensitiveStatic = true
+    children = node.staticChildren ??= Object.create(null)
+  }
   const existing = children[key]
   if (existing) return existing
   const child = createNode()
@@ -245,10 +255,24 @@ function nodeHasSkipMatch(node: SegmentNode): boolean {
   return !!(node.optionalChild || node.optionalChildren?.length || node.wildcardChild)
 }
 
+/**
+ * Static child for a walk that cannot backtrack. Only safe when the tree keeps
+ * every static key in one map: insensitive keys are stored lowercased and
+ * sensitive keys keep their original case.
+ */
+function uniformStaticChild(
+  node: SegmentNode,
+  key: string,
+  sensitive: boolean,
+): SegmentNode | undefined {
+  if (sensitive) return node.staticSensitiveChildren?.[key]
+  return node.staticChildren?.[pathNeedsLowercase(key) ? key.toLowerCase() : key]
+}
+
 function walkStaticExact(
   tree: ProcessedTree,
   pathname: string,
-  caseSensitive: boolean,
+  sensitive: boolean,
 ): RouteMatchResult[] | undefined {
   let node = tree.root
   // Optional/wildcard nodes can skip segments and beat a static sibling
@@ -270,9 +294,7 @@ function walkStaticExact(
     let end = i
     while (end < pathname.length && pathname.charCodeAt(end) !== 47) end++
     if (end > i) {
-      let key = pathname.slice(i, end)
-      if (!caseSensitive && pathNeedsLowercase(key)) key = key.toLowerCase()
-      const child = node.staticChildren?.[key]
+      const child = uniformStaticChild(node, pathname.slice(i, end), sensitive)
       if (!child || nodeHasSkipMatch(child)) return undefined
       if (child.route) chain.push(child.route)
       if (child.pathless) {
@@ -290,15 +312,15 @@ function walkStaticExact(
 
 function buildStaticExactTable(
   tree: ProcessedTree,
-  caseSensitive: boolean,
+  sensitive: boolean,
 ): Record<string, RouteMatchResult[]> {
   const table: Record<string, RouteMatchResult[]> = Object.create(null)
   const add = (pathname: string) => {
     if (table[pathname] !== undefined) return
-    const match = walkStaticExact(tree, pathname, caseSensitive)
+    const match = walkStaticExact(tree, pathname, sensitive)
     if (!match) return
     table[pathname] = match
-    if (!caseSensitive && pathNeedsLowercase(pathname)) {
+    if (!sensitive && pathNeedsLowercase(pathname)) {
       table[pathname.toLowerCase()] = match
     }
   }
@@ -312,16 +334,14 @@ function buildStaticExactTable(
   return table
 }
 
-function lookupStaticExact(
-  tree: ProcessedTree,
-  pathname: string,
-  caseSensitive: boolean,
-): RouteMatchResult[] | undefined {
+function lookupStaticExact(tree: ProcessedTree, pathname: string): RouteMatchResult[] | undefined {
   const table = tree.staticExact
   if (!table) return undefined
   const hit = table[pathname]
   if (hit !== undefined) return hit
-  if (caseSensitive || !pathNeedsLowercase(pathname)) return undefined
+  // Sensitive keys are stored verbatim, so a lowercased retry would match a
+  // route that asked for exact casing.
+  if (tree.staticCaseSensitive || !pathNeedsLowercase(pathname)) return undefined
   return table[pathname.toLowerCase()]
 }
 
@@ -342,8 +362,10 @@ export type ProcessedTree = {
    * the parametric walker when the path is static).
    */
   staticExact?: Record<string, RouteMatchResult[]>
-  /** True when a route overrides the tree's default case sensitivity. */
-  hasCaseOverrides?: boolean
+  /** True when every static segment key was inserted case-sensitively. */
+  staticCaseSensitive?: boolean
+  /** True when static segment keys were inserted with both sensitivities. */
+  mixedStaticCase?: boolean
   /** True if any node has a param, optional, or wildcard child. */
   hasDynamic?: boolean
   /** One-entry last hit (find-my-way `_treeGET`: fixed-offset, not a map). */
@@ -575,15 +597,16 @@ export function processRouteTree<T extends AnyRouteLike>(
   const root = createNode()
   root.route = routeTree
   optionalNamesThisTree = []
-  let hasCaseOverrides = false
+  sawSensitiveStatic = false
+  sawInsensitiveStatic = false
   for (let i = 0; i < flatRoutes.length; i++) {
     const route = flatRoutes[i]!
     if (route === routeTree || route.isRoot) continue
-    const routeCaseSensitive = route.options?.caseSensitive ?? caseSensitive
-    if (route.options?.caseSensitive !== undefined) hasCaseOverrides = true
-    insertRoute(root, route, routeCaseSensitive)
+    insertRoute(root, route, route.options?.caseSensitive ?? caseSensitive)
   }
   finalizeParamChildren(root)
+  const mixedStaticCase = sawSensitiveStatic && sawInsensitiveStatic
+  const staticCaseSensitive = sawSensitiveStatic && !sawInsensitiveStatic
 
   let hasSearchWork = false
   let hasSearchMiddleware = false
@@ -604,7 +627,8 @@ export function processRouteTree<T extends AnyRouteLike>(
     flatRoutes,
     matchCache: createMatchCache<RouteMatchResult[] | null>(1000),
     hasDynamic: nodeHasDynamic(root),
-    hasCaseOverrides,
+    staticCaseSensitive,
+    mixedStaticCase,
     matchedRoutesCache: Object.create(null),
     matchedTemplateCache: Object.create(null),
     hasSearchWork,
@@ -613,8 +637,10 @@ export function processRouteTree<T extends AnyRouteLike>(
     lastPath: '',
     lastMatch: null,
   } as ProcessedTree
-  if (!hasCaseOverrides) {
-    processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
+  // A tree that mixes both sensitivities can offer two static children for one
+  // segment, which only the backtracking walker can choose between.
+  if (!mixedStaticCase) {
+    processedTree.staticExact = buildStaticExactTable(processedTree, staticCaseSensitive)
   }
 
   const result = { ...processedTree, processedTree }
@@ -695,7 +721,7 @@ function finishStaticMatch(
 function findStaticMatch(
   tree: ProcessedTree,
   pathname: string,
-  caseSensitive: boolean,
+  sensitive: boolean,
 ): RouteMatchResult[] | null | undefined {
   let node = tree.root
   if (node.paramChild || node.paramChildren?.length || node.optionalChild || node.wildcardChild) {
@@ -718,19 +744,7 @@ function findStaticMatch(
     let end = i
     while (end < pathname.length && pathname.charCodeAt(end) !== 47) end++
     if (end > i) {
-      let key = decodeSegment(pathname.slice(i, end))
-      if (!caseSensitive) {
-        let lower = false
-        for (let k = 0; k < key.length; k++) {
-          const c = key.charCodeAt(k)
-          if (c >= 65 && c <= 90) {
-            lower = true
-            break
-          }
-        }
-        if (lower) key = key.toLowerCase()
-      }
-      const child = node.staticChildren?.[key]
+      const child = uniformStaticChild(node, decodeSegment(pathname.slice(i, end)), sensitive)
       if (!child) return null
       if (child.route) chain.push(child.route)
       if (child.pathless) {
@@ -850,7 +864,7 @@ function findRouteMatchOrdered(
   }
 
   if (!fuzzy && pathname.indexOf('%') === -1) {
-    const exact = lookupStaticExact(tree, pathname, caseSensitive)
+    const exact = lookupStaticExact(tree, pathname)
     if (exact !== undefined) return rememberMatch(tree, pathname, exact, caseSensitive, fuzzy)
   }
 
@@ -861,8 +875,8 @@ function findRouteMatchOrdered(
   const cached = tree.matchCache.get(cacheKey)
   if (cached !== undefined) return rememberMatch(tree, pathname, cached, caseSensitive, fuzzy)
 
-  if (!fuzzy && !tree.hasCaseOverrides) {
-    const staticHit = findStaticMatch(tree, pathname, caseSensitive)
+  if (!fuzzy && !tree.mixedStaticCase) {
+    const staticHit = findStaticMatch(tree, pathname, !!tree.staticCaseSensitive)
     if (staticHit !== undefined) {
       tree.matchCache.set(cacheKey, staticHit)
       return rememberMatch(tree, pathname, staticHit, caseSensitive, fuzzy)
@@ -928,17 +942,12 @@ function withPathless(next: WalkFrame): WalkFrame {
 
 function pushStaticFrame(
   stack: WalkFrame[],
-  parent: SegmentNode,
   frame: WalkFrame,
   index: number,
   child: SegmentNode,
+  shareChain: boolean,
 ) {
-  const onlyStatic =
-    !parent.wildcardChild &&
-    !parent.optionalChild &&
-    !parent.optionalChildren?.length &&
-    !parent.paramChild
-  const chain = onlyStatic ? frame.chain : frame.chain.slice()
+  const chain = shareChain ? frame.chain : frame.chain.slice()
   if (child.route) chain.push(child.route)
   stack.push(
     withPathless({
@@ -1107,7 +1116,6 @@ function findRouteMatchDynamic(
 
     const raw = segments[index]!
     const value = decoded[index]!
-    const key = caseSensitive ? value : value.toLowerCase()
 
     if (node.wildcardChild) {
       const prefix = node.wildcardChild.prefix || ''
@@ -1224,13 +1232,34 @@ function findRouteMatchDynamic(
       }
     }
 
-    const insensitiveChild =
-      node.staticChildren?.[key] ??
-      (caseSensitive ? undefined : node.staticChildren?.[raw.toLowerCase()])
-    if (insensitiveChild) pushStaticFrame(stack, node, frame, index, insensitiveChild)
-    const sensitiveChild = node.staticSensitiveChildren?.[raw]
-    if (sensitiveChild) {
-      pushStaticFrame(stack, node, frame, index, sensitiveChild)
+    // Insensitive keys were stored lowercased and sensitive keys kept their
+    // original case, so the sensitivity of the route decides the lookup key,
+    // not the sensitivity asked for by the caller.
+    const insensitiveKids = node.staticChildren
+    let insensitiveChild: SegmentNode | undefined
+    if (insensitiveKids) {
+      insensitiveChild =
+        insensitiveKids[value.toLowerCase()] ??
+        (raw === value ? undefined : insensitiveKids[raw.toLowerCase()])
+    }
+    const sensitiveKids = node.staticSensitiveChildren
+    let sensitiveChild: SegmentNode | undefined
+    if (sensitiveKids) {
+      sensitiveChild = sensitiveKids[value] ?? (raw === value ? undefined : sensitiveKids[raw])
+    }
+
+    if (insensitiveChild || sensitiveChild) {
+      // Reusing the parent chain is only safe when this node pushes a single
+      // frame. Two static candidates would otherwise append to one array.
+      const shareChain =
+        !(insensitiveChild && sensitiveChild) &&
+        !node.wildcardChild &&
+        !node.optionalChild &&
+        !node.optionalChildren?.length &&
+        !node.paramChild
+      if (insensitiveChild) pushStaticFrame(stack, frame, index, insensitiveChild, shareChain)
+      // Pushed last so the exact sensitive branch is explored first and wins ties.
+      if (sensitiveChild) pushStaticFrame(stack, frame, index, sensitiveChild, shareChain)
     }
   }
 
