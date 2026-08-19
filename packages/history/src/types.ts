@@ -33,6 +33,7 @@ export interface RouterHistory {
   destroy: () => void
   notify: (action: SubscriberHistoryAction) => void
   _ignoreSubscribers?: boolean
+  _claimNavigation?: () => void
 }
 
 export interface HistoryLocation extends ParsedPath {

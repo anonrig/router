@@ -179,5 +179,8 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
     flush: () => opts.flush?.(),
     destroy: () => opts.destroy?.(),
     notify,
+    _claimNavigation: () => {
+      committedNavigationId = ++navigationId
+    },
   }
 }
