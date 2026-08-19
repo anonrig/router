@@ -1,6 +1,14 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createBrowserHistory } from '../src/browser'
 
+function deferred<T>() {
+  let settle!: (value: T) => void
+  const promise = new Promise<T>((resolve) => {
+    settle = resolve
+  })
+  return { promise, resolve: settle }
+}
+
 function createBrowserHistoryHarness() {
   const location = {
     pathname: '/',
@@ -53,6 +61,39 @@ function createBrowserHistoryHarness() {
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('ignores stale async blocker results after a newer popstate settles', async () => {
+    const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
+    nativeHistory.state = { __TSR_index: 2, __TSR_key: '2' }
+    location.pathname = '/two'
+    await listeners.popstate?.()
+    go.mockClear()
+
+    const first = deferred<boolean>()
+    const second = deferred<boolean>()
+    let call = 0
+    history.block({
+      blockerFn: () => (++call === 1 ? first.promise : second.promise),
+    })
+
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/one'
+    const firstPop = listeners.popstate?.()
+
+    nativeHistory.state = { __TSR_index: 0, __TSR_key: '0' }
+    location.pathname = '/zero'
+    const secondPop = listeners.popstate?.()
+    second.resolve(false)
+    await secondPop
+    expect(history.location.pathname).toBe('/zero')
+
+    first.resolve(true)
+    await firstPop
+
+    expect(go).not.toHaveBeenCalled()
+    expect(history.location.pathname).toBe('/zero')
+    history.destroy()
+  })
+
   test('rolls back when a popstate blocker rejects', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
