@@ -33,6 +33,13 @@ describe('qss', () => {
     expect(encode({ q: lone })).toBe(new URLSearchParams({ q: lone }).toString())
   })
 
+  it('does not reuse a cached string after the same object mutates', () => {
+    const search = { q: 'one' }
+    expect(encode(search)).toBe('q=one')
+    search.q = 'two'
+    expect(encode(search)).toBe('q=two')
+  })
+
   it('returns a fresh object so callers can mutate the result', () => {
     const first = decode('foo=bar')
     first.foo = 'mutated'
@@ -46,5 +53,12 @@ describe('search params', () => {
     const str = defaultStringifySearch(search)
     expect(str.startsWith('?')).toBe(true)
     expect(defaultParseSearch(str)).toEqual(search)
+  })
+
+  it('stringifies a mutated search object instead of the previous snapshot', () => {
+    const search = { page: 1 }
+    expect(defaultStringifySearch(search)).toBe('?page=1')
+    search.page = 2
+    expect(defaultStringifySearch(search)).toBe('?page=2')
   })
 })

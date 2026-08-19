@@ -100,15 +100,10 @@ function toValue(str: string) {
   return str
 }
 
-let lastEncodeObj: Record<string, any> | undefined
-let lastEncodeFn: ((value: any) => string) | undefined
-let lastEncodeOut = ''
-
 export function encode(
   obj: Record<string, any>,
   stringify: (value: any) => string = String,
 ): string {
-  if (obj === lastEncodeObj && stringify === lastEncodeFn) return lastEncodeOut
   let out = ''
   let first = true
   const identity = stringify === String
@@ -129,9 +124,6 @@ export function encode(
       out += encodeComponent(stringify(val))
     }
   }
-  lastEncodeObj = obj
-  lastEncodeFn = stringify
-  lastEncodeOut = out
   return out
 }
 
