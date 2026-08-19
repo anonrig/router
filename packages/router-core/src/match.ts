@@ -518,6 +518,7 @@ const processedTreeCache = new WeakMap<
   {
     caseSensitive: boolean
     children: unknown
+    treeGen: number
     tree: ProcessedTree & { processedTree: ProcessedTree }
   }
 >()
@@ -527,8 +528,14 @@ export function processRouteTree<T extends AnyRouteLike>(
   caseSensitive = false,
 ): ProcessedTree & { processedTree: ProcessedTree } {
   const children = routeTree.children
+  const treeGen = (routeTree as { _treeGen?: number })._treeGen ?? 0
   const cached = processedTreeCache.get(routeTree)
-  if (cached && cached.caseSensitive === caseSensitive && cached.children === children) {
+  if (
+    cached &&
+    cached.caseSensitive === caseSensitive &&
+    cached.children === children &&
+    cached.treeGen === treeGen
+  ) {
     return cached.tree
   }
 
@@ -589,7 +596,7 @@ export function processRouteTree<T extends AnyRouteLike>(
   processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
 
   const result = { ...processedTree, processedTree }
-  processedTreeCache.set(routeTree, { caseSensitive, children, tree: result })
+  processedTreeCache.set(routeTree, { caseSensitive, children, treeGen, tree: result })
   return result
 }
 
