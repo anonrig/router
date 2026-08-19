@@ -1976,22 +1976,19 @@ function resolveBuildPath(
     }
   }
 
-  let interpolated = to
-  if (!dest.leaveParams && typeof to === 'string' && to.includes('$')) {
-    interpolated = interpolatePath({
-      path: to,
+  const interpolateDest = (path: string) =>
+    interpolatePath({
+      path,
       params: nextParams ?? EMPTY_OBJ,
       decoder: router.pathParamsDecoder,
     }).interpolatedPath
+
+  let interpolated = to
+  if (!dest.leaveParams && typeof to === 'string' && to.includes('$')) {
+    interpolated = interpolateDest(to)
   } else if (dest.params && !dest.to && !dest.leaveParams) {
     const template = currentMatch ? router.routesById[currentMatch.routeId]?.fullPath : undefined
-    if (template) {
-      interpolated = interpolatePath({
-        path: template,
-        params: nextParams ?? EMPTY_OBJ,
-        decoder: router.pathParamsDecoder,
-      }).interpolatedPath
-    }
+    if (template) interpolated = interpolateDest(template)
   }
 
   const interpolatedInput = interpolated
@@ -2001,11 +1998,7 @@ function resolveBuildPath(
     trailingSlash: (router.options.trailingSlash as any) ?? 'never',
   })
   if (resolved !== interpolatedInput && resolved.includes('$')) {
-    resolved = interpolatePath({
-      path: resolved,
-      params: nextParams ?? EMPTY_OBJ,
-      decoder: router.pathParamsDecoder,
-    }).interpolatedPath
+    resolved = interpolateDest(resolved)
   }
   return { resolved, destRouteHint }
 }
@@ -2177,10 +2170,10 @@ function parseHistoryLocation(
 ): ParsedLocation {
   if (!router.rewrite && isPlainAsciiPath(location.pathname)) {
     const hash = location.hash
-    const hashValue = stripLeadingHash(hash)
     const pathname = location.pathname
+    const state = previous ? replaceEqualDeep(previous.state, location.state) : location.state
     if (!location.search && parseSearch === defaultParseSearch) {
-      const href = hash ? pathname + hash : pathname
+      const href = pathname + hash
       return {
         href,
         publicHref: href,
@@ -2188,21 +2181,22 @@ function parseHistoryLocation(
         external: false,
         searchStr: '',
         search: EMPTY_OBJ,
-        hash: hashValue,
-        state: previous ? replaceEqualDeep(previous.state, location.state) : location.state,
+        hash: stripLeadingHash(hash),
+        state,
       }
     }
     const parsedSearch = parseSearch(location.search)
     const searchStr = stringifySearch(parsedSearch)
+    const href = pathname + searchStr + hash
     return {
-      href: pathname + searchStr + hash,
-      publicHref: pathname + searchStr + hash,
+      href,
+      publicHref: href,
       pathname,
       external: false,
       searchStr,
       search: nullReplaceEqualDeep(previous?.search, parsedSearch),
-      hash: hashValue,
-      state: previous ? replaceEqualDeep(previous.state, location.state) : location.state,
+      hash: stripLeadingHash(hash),
+      state,
     }
   }
   const fullUrl = new URL(location.href, router.origin)

@@ -223,6 +223,8 @@ function interpolateBracedParams(
     if (start === end) continue
 
     const kind = segment[0]
+    const affix = (value: string) =>
+      '/' + path.substring(start, segment[1]) + value + path.substring(segment[4], end)
 
     if (kind === SEGMENT_TYPE_PATHNAME) {
       joined += '/' + path.substring(start, end)
@@ -233,14 +235,12 @@ function interpolateBracedParams(
       const splat = params._splat ?? params['*']
       usedParams._splat = splat
       usedParams['*'] = splat
-      const prefix = path.substring(start, segment[1])
-      const suffix = path.substring(segment[4], end)
       if (!splat) {
         isMissingParams = true
-        if (prefix || suffix) joined += '/' + prefix + suffix
+        if (segment[1] !== start || segment[4] !== end) joined += affix('')
         continue
       }
-      joined += '/' + prefix + encodeParam('_splat', params, decoder) + suffix
+      joined += affix(encodeParam('_splat', params, decoder))
       continue
     }
 
@@ -248,10 +248,7 @@ function interpolateBracedParams(
       const key = path.substring(segment[2], segment[3])
       if (!isMissingParams && !(key in params)) isMissingParams = true
       usedParams[key] = params[key]
-      const prefix = path.substring(start, segment[1])
-      const suffix = path.substring(segment[4], end)
-      const value = encodeParam(key, params, decoder) ?? 'undefined'
-      joined += '/' + prefix + value + suffix
+      joined += affix(encodeParam(key, params, decoder) ?? 'undefined')
       continue
     }
 
@@ -260,10 +257,7 @@ function interpolateBracedParams(
       const valueRaw = params[key]
       if (valueRaw == null) continue
       usedParams[key] = valueRaw
-      const prefix = path.substring(start, segment[1])
-      const suffix = path.substring(segment[4], end)
-      const value = encodeParam(key, params, decoder) ?? ''
-      joined += '/' + prefix + value + suffix
+      joined += affix(encodeParam(key, params, decoder) ?? '')
     }
   }
 

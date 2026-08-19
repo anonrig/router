@@ -1,3 +1,4 @@
+import { trimPathRight } from './path'
 import {
   parseSegment,
   SEGMENT_TYPE_OPTIONAL_PARAM,
@@ -105,6 +106,22 @@ function getOrCreateStatic(node: SegmentNode, key: string, caseSensitive: boolea
   return child
 }
 
+function findNamedAffix(
+  children: SegmentNode[] | null,
+  nameKey: 'paramName' | 'optionalName',
+  name: string,
+  prefix: string,
+  suffix: string,
+): SegmentNode | undefined {
+  if (!children) return
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i]!
+    if (child[nameKey] === name && child.prefix === prefix && child.suffix === suffix) {
+      return child
+    }
+  }
+}
+
 function getOrCreateParam(
   node: SegmentNode,
   name: string,
@@ -114,15 +131,10 @@ function getOrCreateParam(
   priority: number,
   affixCaseSensitive: boolean | undefined,
 ): SegmentNode {
-  const existing = node.paramChildren
+  const existing = findNamedAffix(node.paramChildren, 'paramName', name, prefix, suffix)
   if (existing) {
-    for (let i = 0; i < existing.length; i++) {
-      const child = existing[i]!
-      if (child.paramName === name && child.prefix === prefix && child.suffix === suffix) {
-        if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
-        return child
-      }
-    }
+    if (affixCaseSensitive !== undefined) existing.affixCaseSensitive = affixCaseSensitive
+    return existing
   }
   const next = createNode()
   next.parse = parse
@@ -131,8 +143,7 @@ function getOrCreateParam(
   next.prefix = prefix
   next.suffix = suffix
   next.affixCaseSensitive = affixCaseSensitive
-  node.paramChildren ??= []
-  node.paramChildren.push(next)
+  ;(node.paramChildren ??= []).push(next)
   return next
 }
 
@@ -143,49 +154,38 @@ function getOrCreateOptional(
   suffix: string,
   affixCaseSensitive: boolean | undefined,
 ) {
-  const existing = node.optionalChildren
+  const existing = findNamedAffix(node.optionalChildren, 'optionalName', name, prefix, suffix)
   if (existing) {
-    for (let i = 0; i < existing.length; i++) {
-      const child = existing[i]!
-      if (child.optionalName === name && child.prefix === prefix && child.suffix === suffix) {
-        if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
-        return child
-      }
-    }
+    if (affixCaseSensitive !== undefined) existing.affixCaseSensitive = affixCaseSensitive
+    return existing
   }
   const next = createNode()
   next.optionalName = name
   next.prefix = prefix
   next.suffix = suffix
   next.affixCaseSensitive = affixCaseSensitive
-  node.optionalChildren ??= []
-  node.optionalChildren.push(next)
+  ;(node.optionalChildren ??= []).push(next)
   optionalNamesThisTree.push(name || '')
   return next
 }
 
+function finalizeKids(list: SegmentNode[] | Record<string, SegmentNode> | null) {
+  if (!list) return
+  if (Array.isArray(list)) {
+    for (let i = 0; i < list.length; i++) finalizeParamChildren(list[i]!)
+    return
+  }
+  for (const key in list) finalizeParamChildren(list[key]!)
+}
+
 function finalizeParamChildren(node: SegmentNode): void {
   const params = node.paramChildren
-  if (params) {
-    if (params.length > 1) params.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
-    for (let i = 0; i < params.length; i++) finalizeParamChildren(params[i]!)
-  }
-  const kids = node.staticChildren
-  if (kids) {
-    for (const key in kids) finalizeParamChildren(kids[key]!)
-  }
-  const sensitiveKids = node.staticSensitiveChildren
-  if (sensitiveKids) {
-    for (const key in sensitiveKids) finalizeParamChildren(sensitiveKids[key]!)
-  }
-  const optionals = node.optionalChildren
-  if (optionals) {
-    for (let i = 0; i < optionals.length; i++) finalizeParamChildren(optionals[i]!)
-  }
-  const wildcards = node.wildcardChildren
-  if (wildcards) {
-    for (let i = 0; i < wildcards.length; i++) finalizeParamChildren(wildcards[i]!)
-  }
+  if (params && params.length > 1) params.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+  finalizeKids(params)
+  finalizeKids(node.staticChildren)
+  finalizeKids(node.staticSensitiveChildren)
+  finalizeKids(node.optionalChildren)
+  finalizeKids(node.wildcardChildren)
 }
 
 export type ProcessedTree = {
@@ -656,6 +656,23 @@ function descend(
   })
 }
 
+function pushNamedChild(
+  stack: WalkFrame[],
+  frame: WalkFrame,
+  child: SegmentNode,
+  index: number,
+  params: Record<string, string>,
+  staticPattern: string,
+  required: number,
+  affix: number,
+) {
+  const chain = frame.chain.slice()
+  if (child.route) chain.push(child.route)
+  stack.push(
+    descend(frame, child, index, params, chain, frame.statics, staticPattern, required, affix),
+  )
+}
+
 function pushStaticFrame(
   stack: WalkFrame[],
   frame: WalkFrame,
@@ -877,20 +894,15 @@ function findRouteMatchDynamic(
           const splat = rest.join('/')
           params._splat = splat
           params['*'] = splat
-          const chain = frame.chain.slice()
-          if (wildcard.route) chain.push(wildcard.route)
-          stack.push(
-            descend(
-              frame,
-              wildcard,
-              segments.length,
-              params,
-              chain,
-              frame.statics,
-              frame.staticPattern.padEnd(segments.length, '0'),
-              frame.required,
-              frame.affix + prefix.length + suffix.length,
-            ),
+          pushNamedChild(
+            stack,
+            frame,
+            wildcard,
+            segments.length,
+            params,
+            frame.staticPattern.padEnd(segments.length, '0'),
+            frame.required,
+            frame.affix + prefix.length + suffix.length,
           )
         }
       }
@@ -912,20 +924,15 @@ function findRouteMatchDynamic(
         if (inner !== null) {
           const params = Object.assign(Object.create(null), frame.params)
           if (inner) params[name] = inner
-          const chain = frame.chain.slice()
-          if (child.route) chain.push(child.route)
-          stack.push(
-            descend(
-              frame,
-              child,
-              index + 1,
-              params,
-              chain,
-              frame.statics,
-              `${frame.staticPattern}0`,
-              frame.required,
-              frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
-            ),
+          pushNamedChild(
+            stack,
+            frame,
+            child,
+            index + 1,
+            params,
+            `${frame.staticPattern}0`,
+            frame.required,
+            frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
           )
         }
         stack.push(
@@ -958,20 +965,15 @@ function findRouteMatchDynamic(
         if (!inner) continue
         const params = Object.assign(Object.create(null), frame.params)
         params[child.paramName || ''] = inner
-        const chain = frame.chain.slice()
-        if (child.route) chain.push(child.route)
-        stack.push(
-          descend(
-            frame,
-            child,
-            index + 1,
-            params,
-            chain,
-            frame.statics,
-            `${frame.staticPattern}0`,
-            frame.required + 1,
-            frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
-          ),
+        pushNamedChild(
+          stack,
+          frame,
+          child,
+          index + 1,
+          params,
+          `${frame.staticPattern}0`,
+          frame.required + 1,
+          frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
         )
       }
     }
@@ -1133,7 +1135,4 @@ export function processRouteMasks(
   return routeList
 }
 
-export function trimPathRight(path: string) {
-  const len = path.length
-  return len > 1 && path.charCodeAt(len - 1) === 47 ? path.slice(0, -1) : path
-}
+export { trimPathRight }
