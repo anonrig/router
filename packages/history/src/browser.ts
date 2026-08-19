@@ -109,11 +109,23 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
       const currentBlockers = _getBlockers()
       if (typeof document !== 'undefined' && currentBlockers.length) {
         for (const blocker of currentBlockers) {
-          const isBlocked = await blocker.blockerFn({
-            currentLocation,
-            nextLocation,
-            action,
-          })
+          let isBlocked
+          try {
+            isBlocked = await blocker.blockerFn({
+              currentLocation,
+              nextLocation,
+              action,
+            })
+          } catch (error) {
+            if (Number.isFinite(delta) && delta !== 0) {
+              ignoreNextPop = true
+              win.history.go(-delta)
+            } else {
+              currentLocation = nextLocation
+              history.notify(notify)
+            }
+            throw error
+          }
           if (isBlocked) {
             if (Number.isFinite(delta) && delta !== 0) {
               ignoreNextPop = true
