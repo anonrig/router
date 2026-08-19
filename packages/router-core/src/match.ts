@@ -203,9 +203,10 @@ export type ProcessedTree = {
   hasSearchWork?: boolean
   /** Optional param names in insert order, used to prefer left-filled matches. */
   optionalNames?: string[]
-  lastPath?: string
-  lastMatch?: RouteMatchResult[] | null
-  matchCache?: Record<string, RouteMatchResult[] | null>
+  /** Last default exact findRouteMatch pathname. */
+  pathname?: string
+  /** Last default exact findRouteMatch result. */
+  matches?: RouteMatchResult[] | null
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -458,9 +459,6 @@ export function processRouteTree<T extends AnyRouteLike>(
     flatRoutes,
     hasSearchWork,
     optionalNames: optionalNamesThisTree.slice(),
-    lastPath: '',
-    lastMatch: null,
-    matchCache: Object.create(null) as Record<string, RouteMatchResult[] | null>,
   } as ProcessedTree
 
   return { ...processedTree, processedTree }
@@ -576,30 +574,11 @@ export function findRouteMatch(
   caseSensitive = false,
   fuzzy = false,
 ): RouteMatchResult[] | null {
-  if (!fuzzy && !caseSensitive) {
-    if (tree.lastPath === pathname) return tree.lastMatch!
-    const cached = tree.matchCache?.[pathname]
-    if (cached !== undefined) {
-      tree.lastPath = pathname
-      tree.lastMatch = cached
-      return cached
-    }
-  }
+  if (!fuzzy && !caseSensitive && tree.pathname === pathname) return tree.matches!
   const result = findRouteMatchDynamic(tree, pathname, caseSensitive, fuzzy)
   if (!fuzzy && !caseSensitive) {
-    tree.lastPath = pathname
-    tree.lastMatch = result
-    const cache = tree.matchCache ?? (tree.matchCache = Object.create(null))
-    if (!(pathname in cache)) {
-      let size = 0
-      for (const key in cache) {
-        if (++size >= 32) {
-          delete cache[key]
-          break
-        }
-      }
-    }
-    cache[pathname] = result
+    tree.pathname = pathname
+    tree.matches = result
   }
   return result
 }
