@@ -6,8 +6,8 @@ import type {
   ResolveUseLoaderDeps,
   StrictOrFrom,
   UseLoaderDepsResult,
+  RegisteredRouter,
 } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
 
 export interface UseLoaderDepsBaseOptions<
   TRouter extends AnyRouter,

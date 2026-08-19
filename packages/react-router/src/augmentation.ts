@@ -1,16 +1,15 @@
 /**
- * App-facing interfaces that `declare module '@tanstack/react-router'` and
- * `declare module 'speedy-router'` merge into.
+ * App-facing `FileRoutesByPath` that `declare module '@tanstack/react-router'`
+ * (and `declare module 'speedy-router'`) merge into.
  *
  * Catalog aliases resolve `@tanstack/react-router` to this package, but
  * TypeScript still treats `speedy-router` (package.json name) and
  * `@tanstack/react-router` (import specifier) as distinct module identities.
- * Keeping these interfaces in their own file and re-exporting them from the
- * package entry lets both `declare module` forms merge into the same symbols
- * that `createFileRoute` and `RegisteredRouter` read.
+ * `createFileRoute` reads this interface so generated route trees that only
+ * augment the TanStack specifier stay typed.
+ *
+ * `Register` / `RegisteredRouter` stay on `speedy-router-core` and are
+ * re-exported from this package, matching TanStack. oxlint-tsgolint only
+ * follows hook defaults that point at the core module.
  */
-export interface Register {}
-
-export interface StaticDataRouteOption {}
-
 export interface FileRoutesByPath {}

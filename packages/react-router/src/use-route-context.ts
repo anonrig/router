@@ -4,8 +4,8 @@ import type {
   UseRouteContextBaseOptions,
   UseRouteContextOptions,
   UseRouteContextResult,
+  RegisteredRouter,
 } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
 
 export type UseRouteContextRoute<out TFrom> = <
   TRouter extends AnyRouter = RegisteredRouter,

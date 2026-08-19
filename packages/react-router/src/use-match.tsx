@@ -10,8 +10,8 @@ import type {
   StrictOrFrom,
   ThrowConstraint,
   ThrowOrOptional,
+  RegisteredRouter,
 } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
 
 export interface UseMatchBaseOptions<
   TRouter extends AnyRouter,

@@ -1,9 +1,3 @@
-import type {
-  FileRoutesByPath as SpeedyFileRoutesByPath,
-  Register as SpeedyRegister,
-  StaticDataRouteOption as SpeedyStaticDataRouteOption,
-} from './augmentation'
-
 export {
   defer,
   isMatch,
@@ -150,7 +144,8 @@ export type {
   Serializable,
 } from 'speedy-router-core'
 
-export type { Register, StaticDataRouteOption, FileRoutesByPath } from './augmentation'
+export type { Register, StaticDataRouteOption, RegisteredRouter } from 'speedy-router-core'
+export type { FileRoutesByPath } from './augmentation'
 
 export {
   createHistory,
@@ -337,11 +332,3 @@ export { HeadContent } from './head-content'
 export { useTags } from './head-content-utils'
 export { Scripts } from './scripts'
 export type * from './ssr/serializer'
-
-export type { RegisteredRouter } from './registered-router'
-
-declare module 'speedy-router-core' {
-  interface Register extends SpeedyRegister {}
-  interface StaticDataRouteOption extends SpeedyStaticDataRouteOption {}
-  interface FileRoutesByPath extends SpeedyFileRoutesByPath {}
-}

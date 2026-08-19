@@ -7,8 +7,8 @@ import type {
   ThrowConstraint,
   ThrowOrOptional,
   UseParamsResult,
+  RegisteredRouter,
 } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
 
 export interface UseParamsBaseOptions<
   TRouter extends AnyRouter,
