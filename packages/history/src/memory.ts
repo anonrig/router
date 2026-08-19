@@ -155,7 +155,6 @@ class MemoryHistory implements RouterHistory {
   }
 
   push(path: string, state?: any, navigateOpts?: NavigateOptions) {
-    const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
     const blockers = this.blockers
     if (
       blockers &&
@@ -163,8 +162,14 @@ class MemoryHistory implements RouterHistory {
       navigateOpts?.ignoreBlocker !== true &&
       typeof document !== 'undefined'
     ) {
-      return this.runPushBlockers('PUSH', path, nextState, () => this.commitPush(path, nextState))
+      // Index must be assigned at commit time so overlapping async blockers
+      // cannot reuse the same __TSR_index.
+      return this.runPushBlockers('PUSH', path, assignKeyAndIndex(0, state), () => {
+        const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
+        this.commitPush(path, nextState)
+      })
     }
+    const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
     const { entries, states } = this
     if (this.index < entries.length - 1) {
       entries.length = this.index + 1
@@ -181,7 +186,6 @@ class MemoryHistory implements RouterHistory {
   }
 
   replace(path: string, state?: any, navigateOpts?: NavigateOptions) {
-    const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
     const blockers = this.blockers
     if (
       blockers &&
@@ -189,10 +193,12 @@ class MemoryHistory implements RouterHistory {
       navigateOpts?.ignoreBlocker !== true &&
       typeof document !== 'undefined'
     ) {
-      return this.runPushBlockers('REPLACE', path, nextState, () =>
-        this.commitReplace(path, nextState),
-      )
+      return this.runPushBlockers('REPLACE', path, assignKeyAndIndex(0, state), () => {
+        const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
+        this.commitReplace(path, nextState)
+      })
     }
+    const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
     this.states[this.index] = nextState
     this.entries[this.index] = path
     this.location = navigateOpts?.simple

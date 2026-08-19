@@ -100,24 +100,26 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
       }
     },
     push: (path, state, navigateOpts) => {
-      const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
       if (shouldRunBlockers(navigateOpts)) {
-        return runPushBlockers('PUSH', path, nextState, () => {
+        return runPushBlockers('PUSH', path, assignKeyAndIndex(0, state), () => {
+          const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
           opts.pushState(path, nextState)
           notify(PUSH_ACTION)
         })
       }
+      const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
       opts.pushState(path, nextState)
       notify(PUSH_ACTION)
     },
     replace: (path, state, navigateOpts) => {
-      const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
       if (shouldRunBlockers(navigateOpts)) {
-        return runPushBlockers('REPLACE', path, nextState, () => {
+        return runPushBlockers('REPLACE', path, assignKeyAndIndex(0, state), () => {
+          const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
           opts.replaceState(path, nextState)
           notify(REPLACE_ACTION)
         })
       }
+      const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
       opts.replaceState(path, nextState)
       notify(REPLACE_ACTION)
     },
