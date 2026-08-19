@@ -1,3 +1,5 @@
+import 'speedy-router-core/ssr/server'
+
 export { RouterServer } from './router-server'
 export { defaultRenderHandler } from './default-render-handler'
 export { defaultStreamHandler } from './default-stream-handler'

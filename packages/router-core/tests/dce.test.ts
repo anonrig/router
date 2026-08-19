@@ -23,7 +23,7 @@ afterEach(async () => {
 
 async function bundle(
   source: string,
-  opts: { filename?: string; ssr?: boolean } = {},
+  opts: { filename?: string; ssr?: boolean; cacheDir?: string } = {},
 ): Promise<{ entry: string; chunks: Record<string, string> }> {
   const cache = join(root, 'node_modules/.cache')
   await mkdir(cache, { recursive: true })
@@ -40,15 +40,17 @@ async function bundle(
     ssr: opts.ssr,
     cacheDir: join(
       root,
-      opts.ssr
-        ? 'node_modules/.cache/speedy-router-vite-ssr'
-        : 'node_modules/.cache/speedy-router-vite',
+      opts.cacheDir ??
+        (opts.ssr
+          ? 'node_modules/.cache/speedy-router-vite-ssr'
+          : 'node_modules/.cache/speedy-router-vite'),
     ),
     alias: {
       'speedy-router-history': join(root, 'packages/history/src/index.ts'),
       'speedy-router-core': join(root, 'packages/router-core/src/index.ts'),
       'speedy-router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
       'speedy-router-core/ssr/client': join(root, 'packages/router-core/src/ssr/client.ts'),
+      'speedy-router-core/ssr/server': join(root, 'packages/router-core/src/ssr/server.ts'),
       'speedy-router': join(root, 'packages/react-router/src/index.ts'),
       'speedy-router/ssr/client': join(root, 'packages/react-router/src/ssr/client.ts'),
     },
@@ -112,6 +114,22 @@ describe('dead code elimination', () => {
       { ssr: true },
     )
     expect(allCode(chunks)).toContain('loadServerRoute')
+  })
+
+  it('registers load-server from the SSR entry when import.meta.env.SSR is false', async () => {
+    const { chunks } = await bundle(
+      `
+      import { createRootRoute, createRouter } from 'speedy-router-core'
+      import { attachRouterServerSsrUtils } from 'speedy-router-core/ssr/server'
+      const router = createRouter({ routeTree: createRootRoute() })
+      attachRouterServerSsrUtils({ router, manifest: undefined })
+      export { router }
+    `,
+      { cacheDir: 'node_modules/.cache/speedy-router-vite-ssr-entry' },
+    )
+    const code = allCode(chunks)
+    expect(code).toContain('loadServerRoute')
+    expect(code).toMatch(/setLoadServerRoute\s*\(\s*loadServerRoute\s*\)/)
   })
 
   it('keeps scroll setup listeners out of useElementScrollRestoration', async () => {
