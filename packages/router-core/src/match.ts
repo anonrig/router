@@ -157,14 +157,6 @@ function getOrCreateOptional(node: SegmentNode, name: string, prefix: string, su
   return next
 }
 
-function pathNeedsLowercase(value: string): boolean {
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i)
-    if (c >= 65 && c <= 90) return true
-  }
-  return false
-}
-
 function nodeHasDynamic(node: SegmentNode): boolean {
   if (
     node.paramChild ||
@@ -210,107 +202,6 @@ function finalizeParamChildren(node: SegmentNode): void {
   if (node.wildcardChild) finalizeParamChildren(node.wildcardChild)
 }
 
-function matchNeedsParse(matches: RouteMatchResult[]): boolean {
-  for (let i = 0; i < matches.length; i++) {
-    const opts = matches[i]!.route.options
-    if (opts?.params?.parse || opts?.parseParams) return true
-  }
-  return false
-}
-
-function isStaticPath(path: string): boolean {
-  return path.indexOf('$') === -1 && path.indexOf('{') === -1
-}
-
-/**
- * Walk only static children for a registered static path.
- * Param siblings/children are allowed (find-my-way: static-first).
- * Optional/wildcard on the terminal stay on the dynamic walker.
- */
-function nodeHasSkipMatch(node: SegmentNode): boolean {
-  return !!(node.optionalChild || node.optionalChildren?.length || node.wildcardChild)
-}
-
-function walkStaticExact(
-  tree: ProcessedTree,
-  pathname: string,
-  caseSensitive: boolean,
-): RouteMatchResult[] | undefined {
-  let node = tree.root
-  // Optional/wildcard nodes can skip segments and beat a static sibling
-  // (e.g. `/{ -$lang}/home` vs `/home`). Leave those on the dynamic walker.
-  if (nodeHasSkipMatch(node)) return undefined
-  const chain: AnyRouteLike[] = []
-  if (node.route) chain.push(node.route)
-  if (node.pathless) {
-    for (let i = 0; i < node.pathless.length; i++) chain.push(node.pathless[i]!)
-  }
-
-  if (pathname === '/' || pathname === '') {
-    const match = finishStaticMatch(tree, node, chain)
-    return matchNeedsParse(match) ? undefined : match
-  }
-
-  let i = pathname.charCodeAt(0) === 47 ? 1 : 0
-  while (i < pathname.length) {
-    let end = i
-    while (end < pathname.length && pathname.charCodeAt(end) !== 47) end++
-    if (end > i) {
-      let key = pathname.slice(i, end)
-      if (!caseSensitive && pathNeedsLowercase(key)) key = key.toLowerCase()
-      const child = node.staticChildren?.[key]
-      if (!child || nodeHasSkipMatch(child)) return undefined
-      if (child.route) chain.push(child.route)
-      if (child.pathless) {
-        for (let p = 0; p < child.pathless.length; p++) chain.push(child.pathless[p]!)
-      }
-      node = child
-    }
-    i = end + 1
-  }
-
-  const match = finishStaticMatch(tree, node, chain)
-  if (matchNeedsParse(match)) return undefined
-  return match
-}
-
-function buildStaticExactTable(
-  tree: ProcessedTree,
-  caseSensitive: boolean,
-): Record<string, RouteMatchResult[]> {
-  const table: Record<string, RouteMatchResult[]> = Object.create(null)
-  const add = (pathname: string) => {
-    if (table[pathname] !== undefined) return
-    const match = walkStaticExact(tree, pathname, caseSensitive)
-    if (!match) return
-    table[pathname] = match
-    if (!caseSensitive && pathNeedsLowercase(pathname)) {
-      table[pathname.toLowerCase()] = match
-    }
-  }
-  add('/')
-  const routes = tree.flatRoutes
-  for (let i = 0; i < routes.length; i++) {
-    const path = routes[i]!.fullPath
-    if (!path || !isStaticPath(path)) continue
-    add(path)
-  }
-  return table
-}
-
-function lookupStaticExact(
-  tree: ProcessedTree,
-  pathname: string,
-  caseSensitive: boolean,
-): RouteMatchResult[] | undefined {
-  const table = tree.staticExact
-  if (!table) return undefined
-  const hit = table[pathname]
-  if (hit !== undefined) return hit
-  if (caseSensitive || !pathNeedsLowercase(pathname)) return undefined
-  return table[pathname.toLowerCase()]
-}
-
 export type ProcessedTree = {
   root: SegmentNode
   routesById: Record<string, AnyRouteLike>
@@ -323,11 +214,6 @@ export type ProcessedTree = {
   flatCache?: any
   masks?: Array<{ from: string; [key: string]: any }>
   masksTree?: any
-  /**
-   * Precomputed exact matches for fully-static paths (find-my-way: never enter
-   * the parametric walker when the path is static).
-   */
-  staticExact?: Record<string, RouteMatchResult[]>
   /** True if any node has a param, optional, or wildcard child. */
   hasDynamic?: boolean
   /** One-entry last hit (find-my-way `_treeGET`: fixed-offset, not a map). */
@@ -586,8 +472,6 @@ export function processRouteTree<T extends AnyRouteLike>(
     lastPath: '',
     lastMatch: null,
   } as ProcessedTree
-  processedTree.staticExact = buildStaticExactTable(processedTree, caseSensitive)
-
   const result = { ...processedTree, processedTree }
   processedTreeCache.set(routeTree, { caseSensitive, children, tree: result })
   return result
@@ -818,11 +702,6 @@ function findRouteMatchOrdered(
 ): RouteMatchResult[] | null {
   if (!fuzzy && !caseSensitive && tree.lastPath === pathname) {
     return tree.lastMatch!
-  }
-
-  if (!fuzzy && pathname.indexOf('%') === -1) {
-    const exact = lookupStaticExact(tree, pathname, caseSensitive)
-    if (exact !== undefined) return rememberMatch(tree, pathname, exact, caseSensitive, fuzzy)
   }
 
   const cacheKey =
@@ -1391,9 +1270,4 @@ function segmentStartsWith(
 
 function unwrapAffix(segment: string, prefix: string, suffix: string) {
   return segment.slice(prefix.length, suffix ? segment.length - suffix.length : segment.length)
-}
-
-export function trimPathRight(path: string) {
-  const len = path.length
-  return len > 1 && path.charCodeAt(len - 1) === 47 ? path.slice(0, -1) : path
 }

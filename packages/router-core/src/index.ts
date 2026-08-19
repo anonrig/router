@@ -260,10 +260,10 @@ export {
   defaultSerializeError,
   getInitialRouterState,
   getLocationChangeInfo,
-  runRouteLifecycle,
   SearchParamError as RouterSearchParamError,
   PathParamError as RouterPathParamError,
 } from './router'
+export { runRouteLifecycle } from './router-lifecycle'
 export type {
   ViewTransitionOptions,
   TrailingSlashOption,

@@ -22,8 +22,8 @@ export {
   SEGMENT_TYPE_WILDCARD,
   SEGMENT_TYPE_OPTIONAL_PARAM,
   buildRouteBranch,
-  trimPathRight,
 } from './match'
+export { trimPathRight } from './path'
 export type {
   SegmentKind,
   ProcessedTree,

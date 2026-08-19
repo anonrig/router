@@ -192,7 +192,6 @@ const rows: Array<[string, unknown]> = [
   ['RouterCore.matchRoutesInternal', proto.matchRoutesInternal],
   ['RouterCore.parseLocation', proto.parseLocation],
   ['RouterCore.updateLatestLocation', proto.updateLatestLocation],
-  ['RouterCore.isolateServerRequest', proto.isolateServerRequest],
   ['RouterCore.invalidate', proto.invalidate],
   ['MemoryHistory.push', historyProto.push],
   ['MemoryHistory.notify', historyProto.notify],

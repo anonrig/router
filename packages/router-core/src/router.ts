@@ -16,7 +16,6 @@ import {
 } from './match'
 import { isNotFound } from './not-found'
 import { isServer } from './is-server'
-import { loadRouteChunk, replaceRouteChunk } from './load-chunk'
 import { PathParamError, SearchParamError } from './misc'
 import { compileDecodeCharMap, interpolatePath, resolvePath, trimPath, trimPathRight } from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
@@ -31,7 +30,6 @@ import type { ParsedLocation } from './location'
 import type { AnyRouteMatch as PublicRouteMatch } from './matches'
 import type { AnyContext as RouteAnyContext, AnyRoute } from './route'
 import type { BuildLocationFn, NavigateFn } from './router-provider'
-import { setupDefaultScroll } from './scroll-default'
 import {
   applySearchMiddleware,
   extractStrictParams,
@@ -41,6 +39,7 @@ import {
 } from './router-search'
 import { defaultParseSearch, defaultStringifySearch } from './search-params'
 import { createStore } from './store'
+import { createServerRouterStores } from './router-stores-server'
 import {
   createNonReactiveMutableStore,
   createNonReactiveReadonlyStore,
@@ -555,29 +554,6 @@ function createBatchedStore<T>(
   }
 }
 
-/** Run route lifecycle callbacks in leave/enter/stay phases. */
-export function runRouteLifecycle(
-  router: AnyRouter,
-  previous: Array<RouteMatch>,
-  matches: Array<RouteMatch>,
-  isCurrent?: () => boolean,
-): void {
-  for (const match of previous) {
-    if (isCurrent?.() === false) return
-    if (!matches.some((candidate) => candidate.routeId === match.routeId)) {
-      router.routesById[match.routeId]?.options.onLeave?.(match)
-    }
-  }
-  for (const match of matches) {
-    if (isCurrent?.() === false) return
-    const route = router.routesById[match.routeId]
-    if (!route) continue
-    route.options[
-      previous.some((candidate) => candidate.routeId === match.routeId) ? 'onStay' : 'onEnter'
-    ]?.(match)
-  }
-}
-
 export function getLocationChangeInfo(location: ParsedLocation, resolvedLocation?: ParsedLocation) {
   return {
     fromLocation: resolvedLocation,
@@ -659,7 +635,9 @@ export class RouterCore<
   _flights?: ReturnType<typeof createStringMap<any>>
   _preloads?: Map<AbortController, any[]>
   _refreshNextLoad?: boolean
-  declare _replaceRouteChunk?: typeof replaceRouteChunk
+  declare _replaceRouteChunk?: (
+    ...args: Parameters<typeof import('./load-chunk').replaceRouteChunk>
+  ) => void | Promise<void>
   declare _refreshRoute?: () => Promise<void>
   navigate!: NavigateFn
   buildLocation!: BuildLocationFn
@@ -688,77 +666,8 @@ export class RouterCore<
     const config = defaultGetStoreConfig()
     const stores = createRouterStores(location, config)
     const setMatches = stores.setMatches.bind(stores)
-    if (isServer ?? this.isServer) {
-      this.batch = config.batch
-      const state = createStore<RouterState>({
-        status: 'pending',
-        isLoading: true,
-        isTransitioning: false,
-        matches: [],
-        location,
-        resolvedLocation: undefined,
-        statusCode: 200,
-      })
-      const publishMatches = (nextMatches: any[]) => {
-        setMatches(nextMatches)
-        const current = state.get()
-        if (!current) return
-        const status = stores.status.get()
-        const nextLocation = stores.location.get()
-        const nextResolved = stores.resolvedLocation.get()
-        const isLoading = status === 'pending'
-        if (
-          current.matches === nextMatches &&
-          current.status === status &&
-          current.location === nextLocation &&
-          current.resolvedLocation === nextResolved &&
-          current.isLoading === isLoading
-        ) {
-          return
-        }
-        state.set({
-          ...current,
-          matches: nextMatches,
-          status,
-          isLoading,
-          isTransitioning: isLoading,
-          location: nextLocation,
-          resolvedLocation: nextResolved,
-        })
-      }
-      return Object.assign(stores, {
-        state,
-        setMatches: publishMatches,
-        commitIdleNavigation: (nextLocation: ParsedLocation, nextMatches: any[]) => {
-          if (stores.status.get() !== 'idle') stores.status.set('idle')
-          stores.location.set(nextLocation)
-          stores.resolvedLocation.set(nextLocation)
-          setMatches(nextMatches)
-          const current = state.get()
-          if (
-            !current ||
-            current.status !== 'idle' ||
-            current.isLoading ||
-            current.isTransitioning ||
-            current.matches !== nextMatches ||
-            current.location !== nextLocation ||
-            current.resolvedLocation !== nextLocation ||
-            current.statusCode !== 200 ||
-            current.pendingMatches
-          ) {
-            state.set({
-              status: 'idle',
-              isLoading: false,
-              isTransitioning: false,
-              matches: nextMatches,
-              pendingMatches: undefined,
-              location: nextLocation,
-              resolvedLocation: nextLocation,
-              statusCode: 200,
-            })
-          }
-        },
-      })
+    if (import.meta.env.SSR) {
+      return createServerRouterStores(this, location, stores, setMatches, config.batch)
     }
     let batchDepth = 0
     let pendingNotify: (() => void) | undefined
@@ -1085,7 +994,9 @@ export class RouterCore<
               setupScrollRestoration(this)
             })()
           } else {
-            setupDefaultScroll(this)
+            void import('./scroll-default').then(({ setupDefaultScroll }) =>
+              setupDefaultScroll(this),
+            )
           }
         }
       } else {
@@ -1450,66 +1361,8 @@ export class RouterCore<
   }
 
   async invalidate(opts?: Parameters<InvalidateFn<this>>[0]) {
-    const filter = opts?.filter
-    const committedMatches = this._committed.length ? this._committed : this.state.matches
-    const preloads = this._preloads
-    const invalidIds = new Set<string>()
-    const consider = (match: RouteMatch | undefined) => {
-      if (match && (!filter || filter(match as any))) invalidIds.add(match.id)
-    }
-    for (let i = 0; i < committedMatches.length; i++) consider(committedMatches[i])
-    for (const id in this._cache) consider(this._cache[id])
-    if (preloads) {
-      for (const preloadMatches of preloads.values()) {
-        for (let i = 0; i < preloadMatches.length; i++) consider(preloadMatches[i])
-      }
-    }
-    const txMatches = this._tx?.[3]
-    if (txMatches) {
-      for (let i = 0; i < txMatches.length; i++) consider(txMatches[i])
-    }
-    const discardedPreloads: Array<AbortController> = []
-    for (const [controller, matches] of preloads ?? []) {
-      if (matches.some((match) => invalidIds.has(match.id))) {
-        preloads!.delete(controller)
-        discardedPreloads.push(controller)
-      }
-    }
-    const invalidateMatch = (d: RouteMatch) => {
-      if (invalidIds.has(d.id)) {
-        const route = this.routesById[d.routeId] as AnyRoute
-        const next = {
-          ...d,
-          invalid: true,
-          ...((opts?.forcePending || d.status === 'error' || d.status === 'notFound') &&
-          routeNeedsLoad(route)
-            ? ({ status: 'pending', error: undefined } as const)
-            : undefined),
-        }
-        ;(d as RouteMatch & { _flight?: any })._flight = undefined
-        return next
-      }
-      return d
-    }
-
-    this._committed = committedMatches.map(invalidateMatch)
-    for (const id in this._cache) {
-      const match = this._cache[id]!
-      if (invalidIds.has(id)) {
-        match.invalid = true
-        if (opts?.forcePending) match.status = 'pending'
-      }
-    }
-    for (const id of invalidIds) {
-      this._flights?.delete(id)
-    }
-    for (const controller of discardedPreloads) {
-      controller.abort()
-    }
-
-    this.shouldViewTransition = false
-    this._matchesByPath?.clear()
-    return this.load({ sync: opts?.sync })
+    const { invalidateRouter } = await import('./router-invalidate')
+    return invalidateRouter(this as any, opts)
   }
 
   clearCache(opts?: Parameters<ClearCacheFn<this>>[0]) {
@@ -1555,7 +1408,6 @@ export class RouterCore<
       // A reused server router must never skip or replay another request's
       // loader payloads. Client `load()` may still skip a settled session.
       try {
-        this.isolateServerRequest()
         const next = this.importLoadServer(opts)
         return next == null ? RESOLVED : Promise.resolve(next)
       } catch (err) {
@@ -1576,21 +1428,6 @@ export class RouterCore<
       loadServerRouteCached = loadServerRoute
       return loadServerRoute(this, opts)
     })
-  }
-
-  private isolateServerRequest() {
-    this._cache = Object.create(null)
-    this._matchesByPath = undefined
-    this._flights = undefined
-    this._preloads = undefined
-    this._serverResult = undefined
-    this._tx = undefined
-    this._handoff = undefined
-    this._pending = undefined
-    this._pendingLocation = undefined
-    this._forcePending = false
-    const ids = this.stores?.ids?.get?.()
-    if (ids?.length) this.stores.setMatches([])
   }
 
   private canSkipSettledLoad(): boolean {
@@ -2259,7 +2096,8 @@ export class RouterCore<
     return importPreloadClient(this, opts)
   }
 
-  loadRouteChunk = loadRouteChunk
+  loadRouteChunk = (...args: Parameters<typeof import('./load-chunk').loadRouteChunk>) =>
+    import('./load-chunk').then(({ loadRouteChunk }) => loadRouteChunk(...args))
 
   hasNotFoundMatch() {
     return this.state.matches.some((m) => m.status === 'notFound' || m.globalNotFound)
@@ -2538,7 +2376,10 @@ export class RouterCore<
 export const createRouter: CreateRouterFn = /*#__PURE__*/ (options) => new RouterCore(options)
 
 if (process.env.NODE_ENV !== 'production') {
-  RouterCore.prototype._replaceRouteChunk = replaceRouteChunk
+  RouterCore.prototype._replaceRouteChunk = (
+    ...args: Parameters<typeof import('./load-chunk').replaceRouteChunk>
+  ) =>
+    import('./load-chunk').then(({ replaceRouteChunk }) => replaceRouteChunk(...args))
   RouterCore.prototype._refreshRoute = async function () {
     this._serverResult = undefined
     this.updateLatestLocation()

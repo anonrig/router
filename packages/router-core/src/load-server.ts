@@ -6,7 +6,8 @@ import { rootRouteId } from './root'
 import { loadRouteChunk } from './load-chunk'
 import { ensureRouteOptions } from './load-client'
 import { waitForReason } from './await-signal'
-import { getLocationChangeInfo, runRouteLifecycle } from './router'
+import { getLocationChangeInfo } from './router'
+import { runRouteLifecycle } from './router-lifecycle'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
 import type { NotFoundError } from './not-found'
@@ -976,7 +977,23 @@ function commitServerLoad(
   router._commitPromise = undefined
 }
 
+function isolateServerRequest(router: AnyRouter) {
+  router._cache = Object.create(null)
+  router._matchesByPath = undefined
+  router._flights = undefined
+  router._preloads = undefined
+  router._serverResult = undefined
+  router._tx = undefined
+  router._handoff = undefined
+  router._pending = undefined
+  router._pendingLocation = undefined
+  router._forcePending = false
+  const ids = router.stores?.ids?.get?.()
+  if (ids?.length) router.stores.setMatches([])
+}
+
 export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): void | Promise<void> {
+  isolateServerRequest(router)
   router.updateLatestLocation()
   const next = router.latestLocation
   const previous = router._committed
