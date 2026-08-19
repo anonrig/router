@@ -103,4 +103,41 @@ describe('matcher', () => {
     ])
     expect(findRouteMatch(processed, '/missing')).toBeNull()
   })
+
+  it('keeps a flattened trailing-slash index instead of a pathful underscore sibling', () => {
+    const root = createRootRoute()
+    function fileRoute(id: string, path: string | undefined, parent: () => any) {
+      const route = createRoute({ getParentRoute: parent })
+      route.update(
+        (path === undefined
+          ? { id, getParentRoute: parent }
+          : { id, path, getParentRoute: parent }) as any,
+      )
+      return route
+    }
+    const postIndex = fileRoute('/$user/post/$postId/', '/$user/post/$postId/', () => root)
+    const stats = fileRoute('/$user/post/$postId/_stats', '/$user/post/$postId', () => root)
+    const likes = fileRoute('/likes', '/likes', () => stats)
+    root.addChildren([stats.addChildren([likes]), postIndex])
+    const processed = processRouteTree(root as any)
+
+    expect(findRouteMatch(processed, '/alice/post/1')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/$user/post/$postId/',
+    ])
+    expect(
+      findRouteMatch(processed, '/alice/post/1/likes')?.map((match) => match.route.id),
+    ).toEqual(['__root__', '/$user/post/$postId/_stats', '/$user/post/$postId/_stats/likes'])
+  })
+
+  it('does not treat a real underscore URL segment as a pathless layout', () => {
+    const root = createRootRoute()
+    const hidden = createRoute({ getParentRoute: () => root, path: '/_hidden' })
+    root.addChildren([hidden])
+    const processed = processRouteTree(root as any)
+    expect(findRouteMatch(processed, '/_hidden')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/_hidden',
+    ])
+  })
 })
