@@ -37,7 +37,7 @@ export function validateSearch(validator: AnyValidator, input: unknown): unknown
 
 export function applySearchMiddleware(
   search: any,
-  dest: { search?: any },
+  dest: { search?: any; to?: any },
   destRoutes: ReadonlyArray<AnyRoute>,
   includeValidateSearch: boolean | undefined,
 ) {
