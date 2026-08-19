@@ -1284,7 +1284,7 @@ function findRouteMatchDynamic(
           child.suffix || '',
           child.affixCaseSensitive ?? caseSensitive,
         )
-        if (inner === null) continue
+        if (!inner) continue
         const params = Object.assign(Object.create(null), frame.params)
         params[child.paramName || node.paramName || ''] = inner
         const chain = frame.chain.slice()
