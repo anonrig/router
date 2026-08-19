@@ -102,6 +102,19 @@ function HeavySettings() {
     expect(result).not.toContain('function HeavySettings')
   })
 
+  it('keeps unrelated names from a mixed export declaration', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+const Component = () => <div>large component graph</div>
+const helper = 1
+export { Component, helper }
+export const Route = createFileRoute('/mixed')({ component: Component })
+`
+    const result = compileReferenceRoute(source, '/app/src/routes/mixed.tsx')
+
+    expect(result).toContain('export { Component, helper }')
+    expect(result).toContain('const helper = 1')
+  })
+
   it('leaves tiny inline UI in the eager module', () => {
     const source = `import { createFileRoute } from '@tanstack/react-router'
 export const Route = createFileRoute('/status')({

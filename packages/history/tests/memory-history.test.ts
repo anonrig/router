@@ -2,6 +2,25 @@ import { describe, expect, test } from 'vitest'
 import { createMemoryHistory } from '../src/memory'
 
 describe('createMemoryHistory TanStack stack parity', () => {
+  test('blockers receive the index of the proposed location', () => {
+    const history = createMemoryHistory({
+      initialEntries: ['/first', '/second', '/third'],
+      initialIndex: 2,
+    })
+    const indexes: number[] = []
+    history.block({
+      blockerFn: ({ nextLocation }) => {
+        indexes.push(nextLocation.state.__TSR_index)
+        return true
+      },
+    })
+
+    history.push('/fourth')
+    history.replace('/replacement')
+
+    expect(indexes).toEqual([3, 2])
+  })
+
   test('keeps the full stack so go(-2100) can return to the first entry', () => {
     const history = createMemoryHistory({ initialEntries: ['/0'] })
     for (let i = 1; i <= 2100; i++) {
