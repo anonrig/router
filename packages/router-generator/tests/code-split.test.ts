@@ -56,7 +56,7 @@ export const Route = createFileRoute('/i/chat')({
 `
 
 describe('compileReferenceRoute', () => {
-  it('keeps server hooks and drops component-only imports', () => {
+  it('keeps server hooks and exported helpers, drops component-only imports', () => {
     const result = compileReferenceRoute(chatRoute, '/app/src/routes/i/chat.tsx')
     expect(result).toBeTruthy()
     expect(result).toContain("createFileRoute('/i/chat')")
@@ -64,13 +64,41 @@ describe('compileReferenceRoute', () => {
     expect(result).toContain('requireAuth')
     expect(result).toContain('lazyRouteComponent(() => import')
     expect(result).toContain('./chat.tsx?tsr-split=component')
-    expect(result).not.toContain('mapRouterParamsToChatParams')
-    expect(result).not.toContain('mapRequestsRouterParams')
+    expect(result).toContain('export function mapRouterParamsToChatParams')
+    expect(result).toContain('mapRequestsRouterParams')
     expect(result).not.toContain('XChatProvider')
     expect(result).not.toContain('chatFallback')
     expect(result).not.toContain("from 'react'")
     expect(result).not.toContain('@x-clients/xds/loader')
     expect(result).not.toContain('@x-clients/features/app/params')
+  })
+
+  it('keeps exported helpers that are not the split UI', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+
+export function mapRouteParams(params: Record<string, string | undefined>) {
+  return params
+}
+
+export const Route = createFileRoute('/settings')({
+  ssr: false,
+  component: SettingsPage,
+})
+
+function SettingsPage() {
+  return <HeavySettings />
+}
+
+function HeavySettings() {
+  return <div>settings</div>
+}
+`
+    const result = compileReferenceRoute(source, '/app/src/routes/settings.tsx')
+    expect(result).toContain('export function mapRouteParams')
+    expect(result).toContain('ssr: false')
+    expect(result).toContain('?tsr-split=component')
+    expect(result).not.toContain('function SettingsPage')
+    expect(result).not.toContain('function HeavySettings')
   })
 
   it('leaves tiny inline UI in the eager module', () => {

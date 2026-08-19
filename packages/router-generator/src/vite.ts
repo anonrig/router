@@ -133,8 +133,8 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
       const splitTarget = splitTargetFromModuleId(id)
       const { compileReferenceRoute, compileVirtualRoute } = await import('./code-split')
       if (splitTarget) {
-        // Keep chat / other `ssr: false` UI out of the SSR Rollup graph so
-        // Vite does not share those chunks with tweet pages.
+        // Stub split modules during SSR so the server graph does not evaluate
+        // client-only UI that lives behind `ssr: false`.
         if (options?.ssr) {
           return `export const ${splitTarget} = () => null\n`
         }

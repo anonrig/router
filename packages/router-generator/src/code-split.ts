@@ -257,10 +257,17 @@ function exportedLocalNames(statement: EstreeNode): Array<string> {
   if (statement.type !== 'ExportNamedDeclaration') return []
   const names: Array<string> = []
   for (const specifier of statement.specifiers ?? []) {
-    const exported = specifier.exported?.name ?? specifier.exported?.value
     const local = specifier.local?.name
-    if (exported === 'Route' || local === 'Route') {
-      if (local) names.push(local)
+    if (local) names.push(local)
+  }
+  return names
+}
+
+function splitIdentifierNames(properties: Array<{ value: EstreeNode }>): Set<string> {
+  const names = new Set<string>()
+  for (const { value } of properties) {
+    if (value.type === 'Identifier' && typeof value.name === 'string') {
+      names.add(value.name)
     }
   }
   return names
@@ -273,7 +280,21 @@ function isRouteExport(statement: EstreeNode): boolean {
   if (statement.type !== 'ExportNamedDeclaration') return false
   if (containsCreateFileRoute(statement)) return true
   if (declaredNames(statement).includes('Route')) return true
-  return exportedLocalNames(statement).length > 0
+  return exportedLocalNames(statement).includes('Route')
+}
+
+/**
+ * Keep other named exports (and their deps) so importers still receive them.
+ * Skip bindings that are only the split UI — those stay in the virtual module.
+ */
+function isNonSplitNamedExport(statement: EstreeNode, splitIds: Set<string>): boolean {
+  if (statement.type !== 'ExportNamedDeclaration') return false
+  if (containsCreateFileRoute(statement) || declaredNames(statement).includes('Route')) {
+    return false
+  }
+  const names = [...declaredNames(statement), ...exportedLocalNames(statement)]
+  if (names.length === 0 || names.includes('Route')) return false
+  return names.every((name) => !splitIds.has(name))
 }
 
 const TRIVIAL_SPLIT_CHARS = 96
@@ -361,6 +382,7 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   const properties = splitPropertiesOf(options)
   if (properties.length === 0) return null
 
+  const splitIds = splitIdentifierNames(properties)
   const replacements = properties.map(({ key, value }) => ({
     start: value.start,
     end: value.end,
@@ -369,7 +391,10 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   const rewritten = applyReplacements(code, replacements)
   const nextProgram = parseProgram(fileName, rewritten)
   const seeds = (nextProgram.body ?? []).filter(
-    (statement: EstreeNode) => isRouteExport(statement) || isSideEffectImport(statement),
+    (statement: EstreeNode) =>
+      isRouteExport(statement) ||
+      isSideEffectImport(statement) ||
+      isNonSplitNamedExport(statement, splitIds),
   )
   if (seeds.length === 0) return rewritten
   const needed = neededStatements(nextProgram, seeds)
