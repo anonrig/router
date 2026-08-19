@@ -187,6 +187,17 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('does not redeclare an exported shorthand component', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+const LargeComponent = () => <div>large</div>
+export const component = () => <LargeComponent />
+export const Route = createFileRoute('/shorthand')({ component })
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/shorthand.tsx', 'component')
+
+    expect(result?.match(/export const component/g)).toHaveLength(1)
+  })
+
   it('emits only the component graph', () => {
     const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()

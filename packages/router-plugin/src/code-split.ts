@@ -467,6 +467,12 @@ export function compileVirtualRoute(
     if (containsCreateFileRoute(statement)) continue
     parts.push(slice(code, statement))
   }
-  parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
+  const alreadyExported = seeds.some(
+    (statement) =>
+      statement.type === 'ExportNamedDeclaration' && declaredNames(statement).includes(splitTarget),
+  )
+  if (!alreadyExported) {
+    parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
+  }
   return `${parts.join('\n\n')}\n`
 }
