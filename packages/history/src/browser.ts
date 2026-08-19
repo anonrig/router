@@ -202,6 +202,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     },
     go: (n, ignoreBlocker) => {
       skipBlockerNextPop = ignoreBlocker
+      ignoreNextBeforeUnload = ignoreBlocker
       nextPopIsGo = true
       flush()
       win.history.go(n)

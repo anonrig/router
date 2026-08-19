@@ -145,6 +145,22 @@ describe('createBrowserHistory popstate blocker rollback', () => {
     history.destroy()
   })
 
+  test('go can bypass beforeunload blockers', () => {
+    const { history, listeners } = createBrowserHistoryHarness()
+    history.block({ blockerFn: () => false })
+    const event = {
+      preventDefault: vi.fn(),
+      returnValue: undefined,
+    }
+
+    history.go(2, { ignoreBlocker: true })
+    listeners.beforeunload?.(event)
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(event.returnValue).toBeUndefined()
+    history.destroy()
+  })
+
   test('ignores stale async blocker results after a newer popstate settles', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 2, __TSR_key: '2' }
