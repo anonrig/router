@@ -1675,6 +1675,9 @@ export class RouterCore<
       history.flush()
       this._committing = false
       location.state = history.location.state
+    } else {
+      // Keep history bookkeeping (__TSR_index / keys) on no-op same-href navigations.
+      location.state = this.history.location.state
     }
 
     const id = ++this.loadId
