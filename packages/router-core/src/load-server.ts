@@ -1031,6 +1031,7 @@ export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): vo
           }
         }
         signal?.addEventListener('abort', abortMatches, { once: true })
+        if (signal?.aborted) abortMatches()
         return waitFor(result as Promise<ServerLoadResult>, signal)
           .then(
             (resolved) => {
