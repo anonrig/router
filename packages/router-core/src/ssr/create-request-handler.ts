@@ -5,7 +5,8 @@ import { attachRouterServerSsrUtils, getNormalizedURL } from './ssr-server'
 import { bindSsrResponseToRequest, disposeSsrResponseDetached } from './handler-callback'
 import type { HandlerCallback, HandlerCallbackResult } from './handler-callback'
 import type { AnyHeaders } from './headers'
-import { RESOLVED, type AnyRouter } from '../router'
+import { loadServerRoute } from '../load-server'
+import { RESOLVED, setLoadServerRoute, type AnyRouter } from '../router'
 import type { ServerManifest } from '../manifest'
 
 export type RequestHandler<TRouter extends AnyRouter> = (
@@ -99,6 +100,7 @@ export function createRequestHandler<TRouter extends AnyRouter>({
   getRouterManifest?: () => ServerManifest | Promise<ServerManifest>
 }): RequestHandler<TRouter> {
   return (cb) => {
+    setLoadServerRoute(loadServerRoute)
     request.signal.throwIfAborted()
     const router = createRouter()
     let responseOwnsCleanup = false
