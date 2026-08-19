@@ -223,4 +223,48 @@ describe('Link', () => {
     expect(await screen.findByText('Posts page')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/posts')
   })
+
+  it('observes viewport preload when the caller passes a callback ref', async () => {
+    const observed: Element[] = []
+    const callbackNodes: Array<HTMLAnchorElement | null> = []
+    class FakeIntersectionObserver {
+      observe(node: Element) {
+        observed.push(node)
+      }
+      disconnect() {}
+      unobserve() {}
+      takeRecords() {
+        return []
+      }
+    }
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
+
+    const rootRoute = createRootRoute({
+      component: () => (
+        <Link
+          to="/about"
+          preload="viewport"
+          ref={(node) => {
+            callbackNodes.push(node)
+          }}
+        >
+          About
+        </Link>
+      ),
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About page</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([aboutRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={router} />)
+    const link = await screen.findByRole('link', { name: 'About' })
+    expect(observed).toContain(link)
+    expect(callbackNodes.some((node) => node === link)).toBe(true)
+    vi.unstubAllGlobals()
+  })
 })
