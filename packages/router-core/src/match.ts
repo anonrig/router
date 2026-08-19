@@ -376,6 +376,9 @@ function publicPathHasSegment(path: string, segment: string): boolean {
 
 function isPathless(route: AnyRouteLike): boolean {
   if (route.isRoot) return false
+  // A file index under `_layout` still has that underscore in its id
+  // (`/$user/_layout/`). Treat it as the concrete terminal, not a layout.
+  if (isIndex(route)) return false
   const optionsPath = route.options?.path
   const optionsId = route.options?.id
   if (!optionsPath && !!optionsId) return true
@@ -605,7 +608,7 @@ function isRouteAncestor(route: AnyRouteLike, of: AnyRouteLike): boolean {
     if (cursor === route || cursor.id === route.id) return true
     cursor = cursor.parentRoute
   }
-  return !of.parentRoute
+  return false
 }
 
 function toMatchResults(

@@ -130,6 +130,38 @@ describe('matcher', () => {
     ).toEqual(['__root__', '/$user/post/$postId/_stats', '/$user/post/$postId/_stats/likes'])
   })
 
+  it('keeps a file-route profile index instead of a sibling auth layout', () => {
+    const root = createRootRoute()
+    function fileRoute(id: string, path: string | undefined, parent: () => any) {
+      const route = createRoute({ getParentRoute: parent })
+      route.update(
+        (path === undefined
+          ? { id, getParentRoute: parent }
+          : { id, path, getParentRoute: parent }) as any,
+      )
+      return route
+    }
+    const profile = fileRoute('/$username/_profile', '/$username', () => root)
+    const profileIndex = fileRoute('/', '/', () => profile)
+    const followers = fileRoute('/$username/_followers', '/$username', () => root)
+    const followersList = fileRoute('/followers', '/followers', () => followers)
+    root.addChildren([
+      profile.addChildren([profileIndex]),
+      followers.addChildren([followersList]),
+    ])
+    const processed = processRouteTree(root as any)
+    expect(findRouteMatch(processed, '/jack')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/$username/_profile',
+      '/$username/_profile/',
+    ])
+    expect(findRouteMatch(processed, '/jack/followers')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/$username/_followers',
+      '/$username/_followers/followers',
+    ])
+  })
+
   it('does not treat a real underscore URL segment as a pathless layout', () => {
     const root = createRootRoute()
     const hidden = createRoute({ getParentRoute: () => root, path: '/_hidden' })
