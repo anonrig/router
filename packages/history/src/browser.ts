@@ -83,6 +83,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
 
   const onPushPop = (type: 'PUSH' | 'REPLACE') => {
     currentLocation = parseLocation()
+    history._claimNavigation?.()
     history.notify({ type })
   }
 
