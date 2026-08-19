@@ -28,11 +28,10 @@ function isRootRouteFile(fileName: string) {
  * Drop-in for `@tanstack/router-plugin/vite`.
  * Emits the same `routeTree.gen.ts` shape: eager `Route` imports, `.update()`,
  * and `declare module '@tanstack/react-router'`.
- * When `autoCodeSplitting` is on, `ssr: false` route UI properties become
- * `lazyRouteComponent` imports so those components stay out of the SSR graph.
- * The virtual `?tsr-split=` module is stubbed during `ssr` transforms.
- * SSR pages keep eager components so `Route.useLoaderData()` and body markup
- * still render on the server.
+ * When `autoCodeSplitting` is on, route UI properties become
+ * `lazyRouteComponent` imports so page components stay out of the client
+ * entry graph. During SSR, `ssr: false` split modules are stubbed; other
+ * routes compile the virtual module so body markup still renders.
  */
 export function tanstackRouter(options: TanStackRouterPluginOptions = {}): PluginOption {
   if (options.enableRouteGeneration === false) {
@@ -131,11 +130,12 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
       if (!isSplitableRoute(id)) return null
       const fileName = fileNameFromModuleId(id)
       const splitTarget = splitTargetFromModuleId(id)
-      const { compileReferenceRoute, compileVirtualRoute } = await import('./code-split')
+      const { compileReferenceRoute, compileVirtualRoute, routeHasDisabledSsr } =
+        await import('./code-split')
       if (splitTarget) {
-        // Stub split modules during SSR so the server graph does not evaluate
-        // client-only UI that lives behind `ssr: false`.
-        if (options?.ssr) {
+        // Stub only client-only UI (`ssr: false`) during SSR. SSR pages still
+        // need the real virtual module so `lazyRouteComponent` can render.
+        if (options?.ssr && routeHasDisabledSsr(code, fileName)) {
           return `export const ${splitTarget} = () => null\n`
         }
         return compileVirtualRoute(code, fileName, splitTarget)

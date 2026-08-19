@@ -253,6 +253,13 @@ function hasDisabledSsr(options: EstreeNode): boolean {
   return false
 }
 
+/** True when the file route sets a literal `ssr: false`. */
+export function routeHasDisabledSsr(code: string, fileName: string): boolean {
+  const program = parseProgram(fileName, code)
+  const options = getCreateFileRouteOptions(program)
+  return !!options && hasDisabledSsr(options)
+}
+
 function exportedLocalNames(statement: EstreeNode): Array<string> {
   if (statement.type !== 'ExportNamedDeclaration') return []
   const names: Array<string> = []
@@ -372,13 +379,14 @@ function slice(code: string, node: EstreeNode) {
 
 /**
  * Rewrite a route file so split UI properties load through `lazyRouteComponent`.
- * Only `ssr: false` routes are split, so SSR pages keep their components eager.
  * Loaders, `beforeLoad`, `head`, `ssr`, and `staticData` stay in this module.
+ * SSR still renders the UI via the virtual `?tsr-split=` module; only literal
+ * `ssr: false` routes are stubbed on the server (see the Vite plugin).
  */
 export function compileReferenceRoute(code: string, fileName: string): string | null {
   const program = parseProgram(fileName, code)
   const options = getCreateFileRouteOptions(program)
-  if (!options || !hasDisabledSsr(options)) return null
+  if (!options) return null
   const properties = splitPropertiesOf(options)
   if (properties.length === 0) return null
 
