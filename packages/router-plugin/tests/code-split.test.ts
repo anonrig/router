@@ -56,6 +56,23 @@ export const Route = createFileRoute('/inbox')({
 `
 
 describe('compileReferenceRoute', () => {
+  it('preserves top-level effects and unsupported named exports', () => {
+    const source = `'use client'
+import { createFileRoute } from '@tanstack/react-router'
+globalThis.routeInitCount = (globalThis.routeInitCount ?? 0) + 1
+export enum Status { Ready = 'ready' }
+function Page() {
+  return <div>large enough component body for automatic splitting</div>
+}
+export const Route = createFileRoute('/effects')({ component: Page })
+`
+    const result = compileReferenceRoute(source, '/app/src/routes/effects.tsx')
+
+    expect(result).toContain("'use client'")
+    expect(result).toContain('globalThis.routeInitCount =')
+    expect(result).toContain('export enum Status')
+  })
+
   it('keeps server hooks and exported helpers, drops component-only imports', () => {
     const result = compileReferenceRoute(inboxRoute, '/app/src/routes/inbox.tsx')
     expect(result).toBeTruthy()
@@ -200,6 +217,19 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('preserves module directives', () => {
+    const source = `'use client'
+import { createFileRoute } from '@tanstack/react-router'
+function Page() {
+  return <div>large enough component body for automatic splitting</div>
+}
+export const Route = createFileRoute('/directive')({ component: Page })
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/directive.tsx', 'component')
+
+    expect(result?.trimStart().startsWith("'use client'")).toBe(true)
+  })
+
   it('emits only the component graph', () => {
     const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()

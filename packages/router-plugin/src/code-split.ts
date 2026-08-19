@@ -112,6 +112,9 @@ function declaredNames(statement: EstreeNode): Array<string> {
     }
     return names
   }
+  if (statement.type === 'TSEnumDeclaration') {
+    return statement.id?.name ? [statement.id.name] : []
+  }
   if (statement.type === 'ImportDeclaration') return importLocalNames(statement)
   if (statement.type === 'ExportNamedDeclaration' && statement.declaration) {
     return declaredNames(statement.declaration)
@@ -121,6 +124,29 @@ function declaredNames(statement: EstreeNode): Array<string> {
 
 function isSideEffectImport(statement: EstreeNode): boolean {
   return statement.type === 'ImportDeclaration' && !(statement.specifiers?.length > 0)
+}
+
+function isDirective(statement: EstreeNode): boolean {
+  return (
+    statement.type === 'ExpressionStatement' &&
+    statement.expression?.type === 'Literal' &&
+    typeof statement.expression.value === 'string'
+  )
+}
+
+function isTopLevelEffect(statement: EstreeNode): boolean {
+  return (
+    statement.type === 'ExpressionStatement' ||
+    statement.type === 'ThrowStatement' ||
+    statement.type === 'IfStatement' ||
+    statement.type === 'SwitchStatement' ||
+    statement.type === 'TryStatement' ||
+    statement.type === 'WhileStatement' ||
+    statement.type === 'DoWhileStatement' ||
+    statement.type === 'ForStatement' ||
+    statement.type === 'ForInStatement' ||
+    statement.type === 'ForOfStatement'
+  )
 }
 
 function propertyNameOf(property: EstreeNode): string | undefined {
@@ -402,6 +428,7 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
     (statement: EstreeNode) =>
       isRouteExport(statement) ||
       isSideEffectImport(statement) ||
+      isTopLevelEffect(statement) ||
       isNonSplitNamedExport(statement, splitIds),
   )
   if (seeds.length === 0) return rewritten
@@ -447,6 +474,7 @@ export function compileVirtualRoute(
   collectIdentifiers(match.value, used)
   const seeds = (program.body ?? []).filter((statement: EstreeNode) => {
     if (isCreateFileRouteBinding(statement)) return false
+    if (isDirective(statement)) return true
     return declaredNames(statement).some((name) => used.has(name))
   })
   const needed = neededStatements(program, seeds, isCreateFileRouteBinding)
