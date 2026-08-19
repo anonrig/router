@@ -24,6 +24,46 @@ function createApp(opts: {
 }
 
 describe('warm-path TanStack behavior parity', () => {
+  test('starts matched async loaders in parallel', async () => {
+    const started: string[] = []
+    let resolveRoot!: () => void
+    let resolvePosts!: () => void
+    const router = createApp({
+      root: {
+        loader: () => {
+          started.push('root')
+          return new Promise<void>((resolve) => {
+            resolveRoot = resolve
+          })
+        },
+      },
+      posts: {
+        loader: () => {
+          started.push('posts')
+          return new Promise<void>((resolve) => {
+            resolvePosts = resolve
+          })
+        },
+      },
+    })
+
+    const navigation = router.navigate({ href: '/posts' } as any)
+    await Promise.resolve()
+
+    expect(started).toEqual(['root', 'posts'])
+
+    let settled = false
+    void navigation.then(() => {
+      settled = true
+    })
+    resolvePosts()
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    resolveRoot()
+    await navigation
+  })
+
   test('loaderDeps changes reload the loader and store deps on the match', async () => {
     const seen: unknown[] = []
     const router = createApp({
@@ -208,7 +248,7 @@ describe('warm-path TanStack behavior parity', () => {
     expect(root?._strictSearch).not.toBe(posts?._strictSearch)
   })
 
-  test('a parent loader throw does not leave child matches fetching', async () => {
+  test('a parent loader throw still settles concurrently started child matches', async () => {
     const boom = new Error('root-boom')
     let postsCalls = 0
     const router = createApp({
@@ -231,7 +271,7 @@ describe('warm-path TanStack behavior parity', () => {
     expect(root?.status).toBe('error')
     expect(root?.error).toBe(boom)
     expect(root?.isFetching).toBe(false)
-    expect(postsCalls).toBe(0)
+    expect(postsCalls).toBe(1)
     expect(posts?.isFetching).toBe(false)
   })
 })

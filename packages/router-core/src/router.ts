@@ -1975,6 +1975,15 @@ export class RouterCore<
         ? this.options.context
         : (matches[start - 1]?.context ?? this.options.context)) ?? {}),
     }
+    type WarmResult = {
+      match: RouteMatch
+      route: AnyRoute
+      context: Record<string, any>
+      ok: boolean
+      value: any
+    }
+    const results: Array<WarmResult | undefined> = []
+    const pending: Promise<void>[] = []
     for (let i = start; i < matches.length; i++) {
       if (id !== this.loadId) return
       const match = matches[i]!
@@ -2029,39 +2038,56 @@ export class RouterCore<
           this.options.additionalContext,
         ),
       )
-      if (!data.ok) {
-        return this.settleWarmFailure(location, id, matches, match, route, data.value)
-      }
-      if (data.value instanceof Promise) {
-        return Promise.resolve(data.value).then(
-          (value) => {
-            if (isRedirect(value) || isNotFound(value)) {
-              return importLoadClient(this)
-            }
-            match.loaderData = value
-            match.status = 'success'
-            match.isFetching = false
-            match.updatedAt = Date.now()
-            match.context = context
-            this._cache[match.id] = match
-            return this.finishWarmMatches(location, id, matches, cacheKey, i + 1)
-          },
-          (cause) => this.settleWarmFailure(location, id, matches, match, route, cause),
+      if (data.ok && data.value instanceof Promise) {
+        const resultIndex = results.length
+        results.push(undefined)
+        pending.push(
+          Promise.resolve(data.value).then(
+            (value) => {
+              results[resultIndex] = { match, route, context, ok: true, value }
+              return undefined
+            },
+            (value) => {
+              results[resultIndex] = { match, route, context, ok: false, value }
+              return undefined
+            },
+          ),
         )
+      } else {
+        results.push({ match, route, context, ok: data.ok, value: data.value })
       }
-      if (isRedirect(data.value) || isNotFound(data.value)) return importLoadClient(this)
-      match.loaderData = data.value
-      match.status = 'success'
-      match.isFetching = false
-      match.updatedAt = now
-      match.context = context
-      this._cache[match.id] = match
     }
 
-    if (id !== this.loadId) return
-    this.leaveWarmMatches(matches)
-    this.completeWarmLoad(location, matches)
-    rememberWarmMatches(this, cacheKey, matches)
+    const settle = () => {
+      if (id !== this.loadId) return
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]!
+        if (!result.ok) {
+          return this.settleWarmFailure(
+            location,
+            id,
+            matches,
+            result.match,
+            result.route,
+            result.value,
+          )
+        }
+        if (isRedirect(result.value) || isNotFound(result.value)) {
+          return importLoadClient(this)
+        }
+        result.match.loaderData = result.value
+        result.match.status = 'success'
+        result.match.isFetching = false
+        result.match.updatedAt = pending.length ? Date.now() : now
+        result.match.context = result.context
+        this._cache[result.match.id] = result.match
+      }
+      this.leaveWarmMatches(matches)
+      this.completeWarmLoad(location, matches)
+      rememberWarmMatches(this, cacheKey, matches)
+    }
+
+    return pending.length ? Promise.all(pending).then(settle) : settle()
   }
 
   private settleWarmFailure(
