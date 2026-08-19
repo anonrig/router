@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
+import { redirect } from '../src/redirect'
 import { createRootRoute, createRoute } from '../src/route'
 import { createRouter } from '../src/router'
 
@@ -24,6 +25,23 @@ function createApp(opts: {
 }
 
 describe('warm-path TanStack behavior parity', () => {
+  test('does not replay a loader that returns a redirect', async () => {
+    let calls = 0
+    const router = createApp({
+      posts: {
+        loader: () => {
+          calls++
+          return redirect({ to: '/about' })
+        },
+      },
+    })
+
+    await router.navigate({ href: '/posts' } as any)
+
+    expect(calls).toBe(1)
+    expect(router.state.location.pathname).toBe('/about')
+  })
+
   test('loaderDeps changes reload the loader and store deps on the match', async () => {
     const seen: unknown[] = []
     const router = createApp({
