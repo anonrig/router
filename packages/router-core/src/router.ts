@@ -1019,6 +1019,7 @@ export class RouterCore<
 
   update(newOptions: RouterOptions) {
     const prevTree = this.routeTree
+    const prevCaseSensitive = this.options?.caseSensitive ?? false
     this.options = { ...this.options, ...newOptions } as any
     this.isServer = this.options.isServer ?? typeof document === 'undefined'
     if (
@@ -1054,6 +1055,8 @@ export class RouterCore<
 
     if (this.options.routeTree && this.options.routeTree !== prevTree) {
       this.routeTree = this.options.routeTree as TRouteTree
+      this.processRouteTree()
+    } else if (this.routeTree && (this.options.caseSensitive ?? false) !== prevCaseSensitive) {
       this.processRouteTree()
     }
     const notFoundRoute = this.options.notFoundRoute
