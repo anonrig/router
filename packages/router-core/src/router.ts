@@ -93,9 +93,7 @@ export const trailingSlashOptions = {
 export type TrailingSlashOption = (typeof trailingSlashOptions)[keyof typeof trailingSlashOptions]
 
 export interface Register {
-  router?: any
-  config?: any
-  ssr?: any
+  // Apps merge `router`, `config`, and `ssr` via `declare module`.
 }
 
 export type RegisteredRouter<TRegister = Register> = TRegister extends {

@@ -5,8 +5,8 @@ import type {
   FromPathOption,
   NavigateOptions,
   UseNavigateResult,
+  RegisteredRouter,
 } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
 
 export function useNavigate<
   TRouter extends AnyRouter = RegisteredRouter,

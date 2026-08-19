@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from './use-router'
 import type { HistoryAction } from 'speedy-router-history'
-import type { AnyRoute, AnyRouter, ParseRoute } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
+import type { AnyRoute, AnyRouter, ParseRoute, RegisteredRouter } from 'speedy-router-core'
 
 type ShouldBlockFnLocation<out TRouteId, out TFullPath, out TAllParams, out TFullSearchSchema> = {
   routeId: TRouteId

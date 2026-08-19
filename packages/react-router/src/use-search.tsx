@@ -7,8 +7,8 @@ import type {
   ThrowConstraint,
   ThrowOrOptional,
   UseSearchResult,
+  RegisteredRouter,
 } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
 
 export interface UseSearchBaseOptions<
   TRouter extends AnyRouter,

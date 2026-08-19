@@ -2,8 +2,7 @@ import { useCallback, useRef } from 'react'
 import { replaceEqualDeep } from 'speedy-router-core'
 import { useRouter } from './use-router'
 import { useStore } from './use-store'
-import type { AnyRouter, RouterState } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
+import type { AnyRouter, RegisteredRouter, RouterState } from 'speedy-router-core'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
 
 export type UseRouterStateOptions<TRouter extends AnyRouter, TSelected, TStructuralSharing> = {

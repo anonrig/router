@@ -34,8 +34,8 @@ import type {
   RouterCore,
   ToMaskOptions,
   UseNavigateResult,
+  RegisteredRouter,
 } from 'speedy-router-core'
-import type { RegisteredRouter } from './registered-router'
 import type { UseLoaderDataRoute } from './use-loader-data'
 import type { UseMatchRoute } from './use-match'
 import type { UseLoaderDepsRoute } from './use-loader-deps'
