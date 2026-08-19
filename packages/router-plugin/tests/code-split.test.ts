@@ -200,6 +200,15 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('keeps TypeScript namespaces used by split components', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nnamespace UI { export function Page() { return <main>namespaced route component</main> } }\nexport const Route = createFileRoute('/namespace')({ component: UI.Page })\n`
+
+    const result = compileVirtualRoute(source, '/app/src/routes/namespace.tsx', 'component')
+
+    expect(result).toContain('namespace UI')
+    expect(result).toContain('export const component = UI.Page')
+  })
+
   it('emits only the component graph', () => {
     const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()

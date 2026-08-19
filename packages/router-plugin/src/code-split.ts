@@ -105,6 +105,9 @@ function declaredNames(statement: EstreeNode): Array<string> {
   if (statement.type === 'FunctionDeclaration' || statement.type === 'ClassDeclaration') {
     return statement.id?.name ? [statement.id.name] : []
   }
+  if (statement.type === 'TSModuleDeclaration') {
+    return statement.id?.type === 'Identifier' ? [statement.id.name] : []
+  }
   if (statement.type === 'VariableDeclaration') {
     const names: Array<string> = []
     for (const declaration of statement.declarations ?? []) {
