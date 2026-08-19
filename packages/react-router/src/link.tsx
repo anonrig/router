@@ -71,6 +71,48 @@ export const INTERNAL_LINK_KEYS = new Set([
   'href',
 ])
 
+const DEST_KEYS = [
+  'to',
+  'from',
+  'href',
+  'params',
+  'search',
+  'hash',
+  'state',
+  'replace',
+  'resetScroll',
+  'viewTransition',
+  'ignoreBlocker',
+  'reloadDocument',
+  'mask',
+  'publicHref',
+  'unsafeRelative',
+  '_fromLocation',
+  'leaveParams',
+  'hashScrollIntoView',
+  'startTransition',
+  'slots',
+] as const
+
+function destFromLinkProps(props: LinkProps): Record<string, unknown> {
+  const dest: Record<string, unknown> = {}
+  for (const key of DEST_KEYS) {
+    const value = (props as Record<string, unknown>)[key]
+    if (value !== undefined) dest[key] = value
+  }
+  // A real `to` must win over leftover/placeholder `href` (`#`, Next wrappers).
+  // `buildLocation({ href })` otherwise replaces `to` with the href pathname.
+  if (dest.to != null && dest.href != null && !isExternalTo(dest.to)) {
+    delete dest.href
+  }
+  return dest
+}
+
+function isExternalTo(to: unknown) {
+  if (typeof to !== 'string' || isSafeInternal(to)) return false
+  return to.indexOf(':') > -1 || (to.charCodeAt(0) === 47 && to.charCodeAt(1) === 47)
+}
+
 function resolveIsActive(
   location: ParsedLocation,
   next: ParsedLocation,
@@ -165,13 +207,20 @@ export function useLinkProps(
     router.stores.state,
     (state: { location: ParsedLocation }): LinkState => {
       const location = state.location
-      if (typeof props.to === 'string' && !isSafeInternal(props.to) && props.to.indexOf(':') > -1) {
-        const external = resolveExternalLink(undefined, props.to, router.protocolAllowlist)
-        if (external) return [external, external, false]
+      const dest = destFromLinkProps(props)
+      if (isExternalTo(dest.to)) {
+        const external = resolveExternalLink(undefined, dest.to, router.protocolAllowlist)
+        if (external) {
+          return [
+            props.disabled ? undefined : external,
+            props.disabled ? undefined : external,
+            false,
+          ]
+        }
       }
       const next = router.buildLocation({
         _fromLocation: location,
-        ...props,
+        ...dest,
       } as any)
       const publicHref = next.maskedLocation ? next.maskedLocation.publicHref : next.publicHref
       const isExternal = next.maskedLocation ? next.maskedLocation.external : next.external
@@ -179,15 +228,17 @@ export function useLinkProps(
         ? undefined
         : isExternal
           ? publicHref
-          : router.history.createHref(publicHref || `${next.pathname}${next.searchStr}${next.hash}`)
+          : router.history.createHref(
+              publicHref || `${next.pathname}${next.searchStr}${next.hash}`,
+            ) || '/'
       const external = resolveExternalLink(
         isExternal ? { href: publicHref, external: true } : { href: builtHref },
-        props.to,
+        dest.to,
         router.protocolAllowlist,
       )
       return [
-        external ?? builtHref,
-        external,
+        props.disabled ? undefined : (external ?? builtHref),
+        props.disabled ? undefined : external,
         resolveIsActive(location, next, props.activeOptions, router.basepath),
       ]
     },
@@ -207,7 +258,7 @@ export function useLinkProps(
         ? false
         : (current.preload ?? router.options.defaultPreload)
     if (!enabled) return
-    void router.preloadRoute(current).catch((err) => {
+    void router.preloadRoute(destFromLinkProps(current) as NavigateOptions).catch((err) => {
       console.warn(err)
       console.warn(preloadWarning)
     })
@@ -268,6 +319,10 @@ export function useLinkProps(
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     props.onClick?.(e)
+    if (props.disabled) {
+      e.preventDefault()
+      return
+    }
     if (externalLink) return
     const elementTarget = (e.currentTarget as HTMLAnchorElement).getAttribute('target')
     const effectiveTarget = props.target !== undefined ? props.target : elementTarget
@@ -278,13 +333,12 @@ export function useLinkProps(
       e.metaKey ||
       e.altKey ||
       e.ctrlKey ||
-      e.shiftKey ||
-      props.disabled
+      e.shiftKey
     ) {
       return
     }
     e.preventDefault()
-    void router.navigate(propsRef.current)
+    void router.navigate(destFromLinkProps(propsRef.current) as NavigateOptions)
   }
 
   const onMouseEnter = (e: MouseEvent<HTMLAnchorElement>) => {
