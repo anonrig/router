@@ -107,11 +107,17 @@ function stripRouteToken(segments: Array<string>) {
 }
 
 const ESCAPED_DOT = '\0'
+const ESCAPED_OPEN = '\u0001'
+const ESCAPED_CLOSE = '\u0002'
 
-/** TanStack flat routes: `.` nests; `[.]` is a literal dot in that segment. */
+/** TanStack flat routes: `.` nests; bracketed text escapes route-file tokens. */
 function flattenRouteFileId(fileId: string) {
   return fileId
-    .replace(/\[\.\]/g, ESCAPED_DOT)
+    .replace(
+      /\[([^\]]+)\]/g,
+      (_match, escaped: string) =>
+        `${ESCAPED_OPEN}${escaped.replace(/\./g, ESCAPED_DOT)}${ESCAPED_CLOSE}`,
+    )
     .replace(/\./g, '/')
     .replaceAll(ESCAPED_DOT, '.')
 }
@@ -125,9 +131,14 @@ function fileIdToKey(fileId: string) {
   if (last === 'index') {
     segments[segments.length - 1] = ''
   }
-  const joined = segments.join('/')
+  const joined = segments.join('/').replaceAll(ESCAPED_OPEN, '').replaceAll(ESCAPED_CLOSE, '')
   if (joined === '') return '/'
   return joined.endsWith('/') ? `/${joined}` : `/${joined}`
+}
+
+function hasEscapedPathlessPrefix(fileId: string) {
+  const segment = fileId.slice(Math.max(fileId.lastIndexOf('/'), fileId.lastIndexOf('.')) + 1)
+  return segment.startsWith('[_]') || segment.startsWith('[@]') || segment.startsWith('[(]')
 }
 
 function lastSegment(key: string) {
@@ -256,13 +267,14 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
       continue
     }
     const parentId = parentKeyOf(route.key, keys)
-    const pathless = isPathlessKey(route.key)
+    const escapedPathless = hasEscapedPathlessPrefix(route.fileId)
+    const pathless = !escapedPathless && isPathlessKey(route.key)
     const id = relativeId(route.key, parentId)
     const slot = slotNameOf(route.key)
     routes.push({
       ...route,
       id,
-      path: urlPathFromId(id),
+      path: escapedPathless ? id : urlPathFromId(id),
       parentId,
       isPathless: pathless,
       slot,
