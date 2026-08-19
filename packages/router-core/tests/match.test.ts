@@ -29,6 +29,23 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('prefers required parameters over optional affixed parameters', () => {
+    const root = createRootRoute()
+    const required = createRoute({
+      getParentRoute: () => root,
+      path: '/$value',
+    })
+    const optional = createRoute({
+      getParentRoute: () => root,
+      path: '/pre{-$value}suf',
+    })
+    root.addChildren([required, optional])
+
+    const matches = findRouteMatch(processRouteTree(root as any), '/preXsuf')
+
+    expect(matches?.at(-1)?.route.id).toBe('/$value')
+  })
+
   it('matches the index route', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/')

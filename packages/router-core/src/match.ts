@@ -751,6 +751,7 @@ type WalkFrame = {
   depth: number
   parsed: number
   statics: number
+  required: number
   affix: number
 }
 
@@ -868,6 +869,7 @@ function optionalFillScore(params: Record<string, string>, names: string[] | und
 function isBetterMatch(best: WalkFrame | null, candidate: WalkFrame): boolean {
   if (!best) return true
   if (candidate.statics !== best.statics) return candidate.statics > best.statics
+  if (candidate.required !== best.required) return candidate.required > best.required
   if (candidate.affix !== best.affix) return candidate.affix > best.affix
   const candidateFill = optionalFillScore(candidate.params, activeOptionalNames)
   const bestFill = optionalFillScore(best.params, activeOptionalNames)
@@ -1007,6 +1009,7 @@ function considerTerminal(
         depth: terminal.depth + 1,
         parsed: terminal.parsed,
         statics: terminal.statics,
+        required: terminal.required,
         affix: terminal.affix,
       }),
     )
@@ -1036,6 +1039,7 @@ function findRouteMatchDynamic(
       depth: 0,
       parsed: 0,
       statics: 0,
+      required: 0,
       affix: 0,
     },
   ]
@@ -1098,6 +1102,7 @@ function findRouteMatchDynamic(
             depth: frame.depth + 1,
             parsed: frame.parsed,
             statics: frame.statics,
+            required: frame.required,
             affix: frame.affix + prefix.length + suffix.length,
           }),
         )
@@ -1127,6 +1132,7 @@ function findRouteMatchDynamic(
             depth: frame.depth + 1,
             parsed: frame.parsed,
             statics: frame.statics,
+            required: frame.required,
             affix: frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
           }),
         )
@@ -1140,6 +1146,7 @@ function findRouteMatchDynamic(
           depth: frame.depth + 1,
           parsed: frame.parsed,
           statics: frame.statics,
+          required: frame.required,
           affix: frame.affix,
         }),
       )
@@ -1168,6 +1175,7 @@ function findRouteMatchDynamic(
             depth: frame.depth + 1,
             parsed: frame.parsed,
             statics: frame.statics,
+            required: frame.required + 1,
             affix: frame.affix + (child.prefix?.length ?? 0) + (child.suffix?.length ?? 0),
           }),
         )
@@ -1194,6 +1202,7 @@ function findRouteMatchDynamic(
           depth: frame.depth + 1,
           parsed: frame.parsed,
           statics: frame.statics + 1,
+          required: frame.required,
           affix: frame.affix,
         }),
       )
