@@ -174,12 +174,12 @@ jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. D
 
 Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted.
 
-| Package              | speedy-router |    gzip |     TanStack |        gzip |
-| -------------------- | ------------: | ------: | -----------: | ----------: |
-| `speedy-router`      |      118.9 kB | 33.0 kB | **104.5 kB** | **29.5 kB** |
-| `speedy-router-core` |       99.1 kB | 27.2 kB |  **75.1 kB** | **21.6 kB** |
+| Package              | speedy-router |        gzip | TanStack |    gzip |
+| -------------------- | ------------: | ----------: | -------: | ------: |
+| `speedy-router`      |   **96.6 kB** | **28.0 kB** | 104.5 kB | 29.5 kB |
+| `speedy-router-core` |   **75.0 kB** | **21.6 kB** |  75.1 kB | 21.6 kB |
 
-TanStack is still smaller on both client graphs (1.12× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. The remaining extra is the warm-path / matcher interners. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+speedy-router is now smaller on both initial client graphs (0.95× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 

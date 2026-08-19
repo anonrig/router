@@ -338,133 +338,40 @@ export function deepEqual(
   b: any,
   opts?: { partial?: boolean; ignoreUndefined?: boolean },
 ): boolean {
-  if (a === b) {
-    return true
-  }
-
-  if (typeof a !== typeof b) {
-    return false
-  }
-
+  if (a === b) return true
+  if (typeof a !== typeof b) return false
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false
-    for (let i = 0, l = a.length; i < l; i++) {
+    for (let i = 0; i < a.length; i++) {
       if (!deepEqual(a[i], b[i], opts)) return false
     }
     return true
   }
-
-  if (isPlainObject(a) && isPlainObject(b)) {
-    const ignoreUndefined = opts?.ignoreUndefined ?? true
-    if (opts?.partial) {
-      return deepEqualPartial(a, b, opts ?? {}, ignoreUndefined)
-    }
-    return deepEqualObjects(a, b, opts ?? {}, ignoreUndefined)
-  }
-
-  return false
-}
-
-function deepEqualPartial(
-  a: Record<PropertyKey, any>,
-  b: Record<PropertyKey, any>,
-  opts: { partial?: boolean; ignoreUndefined?: boolean },
-  ignoreUndefined: boolean,
-): boolean {
-  for (const k in b) {
-    if (!Object.hasOwn(b, k)) continue
-    const bv = b[k]
-    if (!ignoreUndefined || bv !== undefined) {
-      if (!deepEqual(a[k], bv, opts)) return false
-    }
-  }
-  return !objectHasHiddenOwnKeys(b) || deepEqualOwnKeys(a, b, opts, ignoreUndefined, true)
-}
-
-function deepEqualObjects(
-  a: Record<PropertyKey, any>,
-  b: Record<PropertyKey, any>,
-  opts: { partial?: boolean; ignoreUndefined?: boolean },
-  ignoreUndefined: boolean,
-): boolean {
-  let aCount = 0
-  let aEnum = 0
-  for (const k in a) {
-    if (!Object.hasOwn(a, k)) continue
-    aEnum++
-    if (!ignoreUndefined || a[k] !== undefined) aCount++
-  }
-
-  let bCount = 0
-  let bEnum = 0
-  for (const k in b) {
-    if (!Object.hasOwn(b, k)) continue
-    bEnum++
-    const bv = b[k]
-    if (!ignoreUndefined || bv !== undefined) {
-      bCount++
-      if (bCount > aCount || !deepEqual(a[k], bv, opts)) return false
-    }
-  }
-
-  if (aCount !== bCount) return false
-  if (!objectHasHiddenOwnKeys(a, aEnum) && !objectHasHiddenOwnKeys(b, bEnum)) {
-    return true
-  }
-  return deepEqualOwnKeys(a, b, opts, ignoreUndefined, false)
-}
-
-function objectHasHiddenOwnKeys(obj: object, enumerableStringCount?: number): boolean {
-  const names = Object.getOwnPropertyNames(obj)
-  let enumerable = enumerableStringCount
-  if (enumerable === undefined) {
-    enumerable = 0
-    for (const k in obj) {
-      if (Object.hasOwn(obj, k)) enumerable++
-    }
-  }
-  return names.length !== enumerable || Object.getOwnPropertySymbols(obj).length > 0
-}
-
-function deepEqualOwnKeys(
-  a: Record<PropertyKey, any>,
-  b: Record<PropertyKey, any>,
-  opts: { partial?: boolean; ignoreUndefined?: boolean } | undefined,
-  ignoreUndefined: boolean,
-  partial: boolean,
-): boolean {
+  if (!isPlainObject(a) || !isPlainObject(b)) return false
+  const ignoreUndefined = opts?.ignoreUndefined ?? true
   const bKeys = Reflect.ownKeys(b)
-  if (partial) {
+  if (opts?.partial) {
     for (let i = 0; i < bKeys.length; i++) {
-      const k = bKeys[i]!
-      const bv = b[k]
-      if (!ignoreUndefined || bv !== undefined) {
-        if (!deepEqual(a[k], bv, opts)) return false
+      const key = bKeys[i]!
+      if (!ignoreUndefined || b[key] !== undefined) {
+        if (!deepEqual(a[key], b[key], opts)) return false
       }
     }
     return true
   }
-
   const aKeys = Reflect.ownKeys(a)
   let aCount = 0
-  if (!ignoreUndefined) {
-    aCount = aKeys.length
-  } else {
-    for (let i = 0; i < aKeys.length; i++) {
-      if (a[aKeys[i]!] !== undefined) aCount++
-    }
+  for (let i = 0; i < aKeys.length; i++) {
+    if (!ignoreUndefined || a[aKeys[i]!] !== undefined) aCount++
   }
-
   let bCount = 0
   for (let i = 0; i < bKeys.length; i++) {
-    const k = bKeys[i]!
-    const bv = b[k]
-    if (!ignoreUndefined || bv !== undefined) {
+    const key = bKeys[i]!
+    if (!ignoreUndefined || b[key] !== undefined) {
       bCount++
-      if (bCount > aCount || !deepEqual(a[k], bv, opts)) return false
+      if (bCount > aCount || !deepEqual(a[key], b[key], opts)) return false
     }
   }
-
   return aCount === bCount
 }
 
@@ -562,66 +469,16 @@ export function findLast<T>(
   return undefined
 }
 
-/**
- * Re-encode characters that are unsafe in URL paths.
- * Includes ASCII control characters (0x00-0x1F, 0x7F) and a subset of the
- * WHATWG URL "path percent-encode set" (", <, >, `, {, }).
- *
- * Space (0x20) is intentionally excluded — decodeURI decodes %20 to space
- * and the router stores decoded spaces in location.pathname. The existing
- * encodePathLikeUrl already handles re-encoding spaces for outgoing URLs.
- *
- * These characters are decoded by decodeURI but must remain percent-encoded
- * in paths to match how upstream layers (CDNs, edge middleware, browsers)
- * interpret the URL, preventing infinite redirect loops and path mismatches.
- */
-function isUnsafePathChar(c: number) {
-  return (
-    c <= 0x1f ||
-    c === 0x7f ||
-    c === 34 ||
-    c === 60 ||
-    c === 62 ||
-    c === 96 ||
-    c === 123 ||
-    c === 125
-  )
-}
+// Space is intentionally excluded — decodeURI decodes %20 and the router
+// stores decoded spaces. encodePathLikeUrl re-encodes them for outgoing URLs.
+// oxlint-disable-next-line no-control-regex -- C0 controls + path-unsafe ASCII
+const PATH_UNSAFE_RE = /[\x00-\x1f\x7f"<>`{}]/g
 
 function sanitizePathSegment(segment: string): string {
-  const len = segment.length
-  let out = ''
-  let last = 0
-  for (let i = 0; i < len; i++) {
-    const c = segment.charCodeAt(i)
-    if (!isUnsafePathChar(c)) continue
-    out += segment.slice(last, i) + '%' + c.toString(16).toUpperCase().padStart(2, '0')
-    last = i + 1
-  }
-  return last === 0 ? segment : out + segment.slice(last)
-}
-
-function isHexChar(c: number) {
-  return (c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102)
-}
-
-function decodeMalformedPercent(segment: string): string {
-  const len = segment.length
-  let out = ''
-  let last = 0
-  for (let i = 0; i < len - 2; i++) {
-    if (segment.charCodeAt(i) !== 37) continue
-    if (!isHexChar(segment.charCodeAt(i + 1)) || !isHexChar(segment.charCodeAt(i + 2))) continue
-    const match = segment.slice(i, i + 3)
-    try {
-      out += segment.slice(last, i) + decodeURI(match)
-      last = i + 3
-      i += 2
-    } catch {
-      // leave the malformed tag in place
-    }
-  }
-  return last === 0 ? segment : out + segment.slice(last)
+  return segment.replace(
+    PATH_UNSAFE_RE,
+    (ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'),
+  )
 }
 
 function decodeSegment(segment: string): string {
@@ -629,7 +486,13 @@ function decodeSegment(segment: string): string {
   try {
     decoded = decodeURI(segment.toWellFormed())
   } catch {
-    decoded = decodeMalformedPercent(segment)
+    decoded = segment.replaceAll(/%[0-9A-F]{2}/gi, (match) => {
+      try {
+        return decodeURI(match)
+      } catch {
+        return match
+      }
+    })
   }
   return sanitizePathSegment(decoded)
 }
@@ -683,80 +546,45 @@ export function isDangerousProtocol(url: string, allowlist: Set<string>): boolea
  * This is essential for preventing XSS vulnerabilities when user-controlled
  * content is embedded in inline scripts.
  */
+const HTML_ESCAPE_LOOKUP: Record<string, string> = {
+  '&': '\\u0026',
+  '>': '\\u003e',
+  '<': '\\u003c',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029',
+}
+
 export function escapeHtml(str: string): string {
-  const len = str.length
-  let out = ''
-  let last = 0
-  for (let i = 0; i < len; i++) {
-    const c = str.charCodeAt(i)
-    let escaped: string | undefined
-    if (c === 38) escaped = '\\u0026'
-    else if (c === 62) escaped = '\\u003e'
-    else if (c === 60) escaped = '\\u003c'
-    else if (c === 0x2028) escaped = '\\u2028'
-    else if (c === 0x2029) escaped = '\\u2029'
-    else continue
-    out += str.slice(last, i) + escaped
-    last = i + 1
-  }
-  return last === 0 ? str : out + str.slice(last)
+  return str.replace(/[&><\u2028\u2029]/g, (match) => HTML_ESCAPE_LOOKUP[match]!)
 }
 
 export function decodePath(path: string) {
   if (!path) return { path, handledProtocolRelativeURL: false }
 
-  // Fast path: most paths are already decoded and safe.
-  // Only fall back to the slower scan when we see a '%' (encoded),
-  // a backslash (explicitly handled), a control character, or a protocol-relative
-  // prefix which needs collapsing.
-  const len = path.length
-  if (!(len >= 2 && path.charCodeAt(0) === 47 && path.charCodeAt(1) === 47)) {
-    let encoded = false
-    for (let i = 0; i < len; i++) {
-      const c = path.charCodeAt(i)
-      if (c === 37 || c === 92 || c <= 0x1f || c === 0x7f) {
-        encoded = true
-        break
-      }
-    }
-    if (!encoded) return { path, handledProtocolRelativeURL: false }
+  // oxlint-disable-next-line no-control-regex -- encoded, backslash, or C0
+  if (!/[%\\\x00-\x1f\x7f]/.test(path) && !path.startsWith('//')) {
+    return { path, handledProtocolRelativeURL: false }
   }
 
+  const re = /%25|%5C/gi
   let cursor = 0
   let result = ''
-  const pathLen = path.length
-  for (let i = 0; i < pathLen - 2; i++) {
-    if (path.charCodeAt(i) !== 37) continue
-    const a = path.charCodeAt(i + 1) | 32
-    const b = path.charCodeAt(i + 2) | 32
-    if ((a !== 50 || b !== 53) && (a !== 53 || b !== 99)) continue
-    result += decodeSegment(path.slice(cursor, i)) + path.slice(i, i + 3)
-    cursor = i + 3
-    i += 2
+  let match
+  while ((match = re.exec(path)) !== null) {
+    result += decodeSegment(path.slice(cursor, match.index)) + match[0]
+    cursor = re.lastIndex
   }
   result += decodeSegment(cursor ? path.slice(cursor) : path)
 
-  // Prevent open redirect via protocol-relative URLs (e.g. "//evil.com")
-  // This is defense-in-depth: since control characters are no longer decoded,
-  // paths like "/%0d/evil.com" can no longer become "//evil.com". But we keep
-  // this check to guard against other edge cases.
   let handledProtocolRelativeURL = false
   // decodeURI leaves %2F encoded, so /%2Fevil.com would otherwise stay raw.
-  while (
-    result.length >= 4 &&
-    result.charCodeAt(0) === 47 &&
-    result.charCodeAt(1) === 37 &&
-    (result.charCodeAt(2) | 32) === 50 &&
-    (result.charCodeAt(3) | 32) === 102
-  ) {
+  while (/^\/(?:%2F)/i.test(result)) {
     handledProtocolRelativeURL = true
     result = '/' + result.slice(4)
   }
-  if (result.charCodeAt(0) === 47 && result.charCodeAt(1) === 47) {
+  if (result.startsWith('//')) {
     handledProtocolRelativeURL = true
-    let i = 0
-    while (i < result.length && result.charCodeAt(i) === 47) i++
-    result = '/' + result.slice(i)
+    result = '/' + result.replace(/^\/+/, '')
   }
 
   return { path: result, handledProtocolRelativeURL }
@@ -790,89 +618,19 @@ export function encodeURIComponentWellFormed(str: string): string {
   return encodeURIComponent(str.toWellFormed())
 }
 
-function encodeWhitespaceAndNonAscii(path: string): string {
-  let out = ''
-  let last = 0
-  const len = path.length
-  for (let i = 0; i < len;) {
-    const c = path.charCodeAt(i)
-    let end = i + 1
-    if (c >= 0xd800 && c <= 0xdbff && end < len) {
-      const lo = path.charCodeAt(end)
-      if (lo >= 0xdc00 && lo <= 0xdfff) end++
-    }
-    const cp = end === i + 2 ? path.codePointAt(i)! : c
-    if (cp === 0x20 || (cp >= 0x09 && cp <= 0x0d) || cp > 0x7f) {
-      out += path.slice(last, i) + encodeURIComponentWellFormed(path.slice(i, end))
-      last = end
-    }
-    i = end
-  }
-  return last === 0 ? path : out + path.slice(last)
-}
-
-function unescapeEncodedBrackets(encoded: string): string {
-  if (encoded.indexOf('%5') === -1) return encoded
-  let out = ''
-  let last = 0
-  const len = encoded.length
-  for (let i = 0; i < len - 2; i++) {
-    if (encoded.charCodeAt(i) !== 37) continue
-    if ((encoded.charCodeAt(i + 1) | 32) !== 53) continue
-    const third = encoded.charCodeAt(i + 2) | 32
-    if (third === 98) {
-      out += encoded.slice(last, i) + '['
-      last = i + 3
-      i += 2
-    } else if (third === 100) {
-      out += encoded.slice(last, i) + ']'
-      last = i + 3
-      i += 2
-    }
-  }
-  return last === 0 ? encoded : out + encoded.slice(last)
-}
-
 export function encodePathLikeUrl(path: string): string {
-  // Encode whitespace and non-ASCII characters that browsers encode in URLs
-  const pathLen = path.length
-  let needsEncode = false
-  for (let i = 0; i < pathLen; i++) {
-    const c = path.charCodeAt(i)
-    if (c === 0x20 || (c >= 0x09 && c <= 0x0d) || c > 0x7f) {
-      needsEncode = true
-      break
-    }
-  }
-  const encoded = needsEncode ? encodeWhitespaceAndNonAscii(path) : path
-  // Browsers leave [] in pathnames; interpolatePath keeps them encoded so core
-  // path tests stay strict. Public hrefs unescape them for Link/history.
-  return unescapeEncodedBrackets(encoded)
-}
-
-/**
- * Builds the dev-mode CSS styles URL for route-scoped CSS collection.
- * Used by HeadContent components in all framework implementations to construct
- * the URL for the `/@tanstack-start/styles.css` endpoint.
- *
- * @param basepath - The router's basepath (may or may not have leading slash)
- * @param routeIds - Array of matched route IDs to include in the CSS collection
- * @returns The full URL path for the dev styles CSS endpoint
- */
-function trimSlashes(value: string): string {
-  let start = 0
-  let end = value.length
-  while (start < end && value.charCodeAt(start) === 47) start++
-  while (end > start && value.charCodeAt(end - 1) === 47) end--
-  return start === 0 && end === value.length ? value : value.slice(start, end)
+  // oxlint-disable no-control-regex -- \x00-\x7F is the ASCII range (C0 + DEL included)
+  const encoded = /\s|[^\x00-\x7F]/.test(path)
+    ? path.replace(/\s|[^\x00-\x7F]/gu, (ch) => encodeURIComponentWellFormed(ch))
+    : path
+  // oxlint-enable no-control-regex
+  return encoded.includes('%5') ? encoded.replace(/%5[Bb]/g, '[').replace(/%5[Dd]/g, ']') : encoded
 }
 
 export function buildDevStylesUrl(basepath: string, routeIds: Array<string>): string {
-  // Trim all leading and trailing slashes from basepath
-  const trimmedBasepath = trimSlashes(basepath)
-  // Build normalized basepath: empty string for root, or '/path' for non-root
-  const normalizedBasepath = trimmedBasepath === '' ? '' : `/${trimmedBasepath}`
-  return `${normalizedBasepath}/@tanstack-start/styles.css?routes=${encodeURIComponentWellFormed(routeIds.join(','))}`
+  const trimmed = basepath.replace(/^\/+|\/+$/g, '')
+  const prefix = trimmed === '' ? '' : `/${trimmed}`
+  return `${prefix}/@tanstack-start/styles.css?routes=${encodeURIComponentWellFormed(routeIds.join(','))}`
 }
 
 export function arraysEqual<T>(a: Array<T>, b: Array<T>) {

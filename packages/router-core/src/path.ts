@@ -8,43 +8,11 @@ import {
 import { encodeURIComponentWellFormed } from './utils'
 
 export function joinPaths(paths: Array<string | undefined>) {
-  let out = ''
-  for (let i = 0; i < paths.length; i++) {
-    const val = paths[i]
-    if (!val) continue
-    if (out.length && out.charCodeAt(out.length - 1) !== 47 && val.charCodeAt(0) !== 47) {
-      out += '/'
-    } else if (out.length && out.charCodeAt(out.length - 1) === 47 && val.charCodeAt(0) === 47) {
-      out += val.slice(1)
-      continue
-    }
-    out += val
-  }
-  return cleanPath(out)
+  return cleanPath(paths.filter(Boolean).join('/'))
 }
 
 export function cleanPath(path: string) {
-  const first = path.indexOf('//')
-  return first === -1 ? path : collapseSlashes(path, first)
-}
-
-function collapseSlashes(path: string, first: number) {
-  let out = path.slice(0, first + 1)
-  let i = first + 2
-  const len = path.length
-  while (i < len && path.charCodeAt(i) === 47) i++
-  let last = i
-  while (i < len) {
-    if (path.charCodeAt(i) === 47 && i + 1 < len && path.charCodeAt(i + 1) === 47) {
-      out += path.slice(last, i + 1)
-      i += 2
-      while (i < len && path.charCodeAt(i) === 47) i++
-      last = i
-      continue
-    }
-    i++
-  }
-  return out + path.slice(last)
+  return path.indexOf('//') === -1 ? path : path.replace(/\/{2,}/g, '/')
 }
 
 export function trimPathLeft(path: string) {
@@ -87,39 +55,23 @@ interface ResolvePathOptions {
   base: string
   to: string
   trailingSlash?: 'always' | 'never' | 'preserve'
-  cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
-export function resolvePath({ base, to, trailingSlash = 'never', cache }: ResolvePathOptions) {
+export function resolvePath({ base, to, trailingSlash = 'never' }: ResolvePathOptions) {
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
-
-  let key: string | undefined
-  if (cache) {
-    key = isAbsolute ? to : isBase ? base : base + '\0' + to
-    if (trailingSlash !== 'never') key += '\0' + trailingSlash
-    const cached = cache.get(key)
-    if (cached) return cached
-  }
 
   if (isAbsolute && !hasDotSegment(to)) {
     const result = cleanPath(to) || '/'
     const hasSlash = result.length > 1 && result.charCodeAt(result.length - 1) === 47
-    let finalPath = result
-    if (trailingSlash === 'never' && hasSlash) {
-      finalPath = result.slice(0, -1)
-    } else if (trailingSlash === 'always' && !hasSlash && result !== '/') {
-      finalPath = result + '/'
-    } else if (trailingSlash === 'preserve') {
+    if (trailingSlash === 'never' && hasSlash) return result.slice(0, -1)
+    if (trailingSlash === 'always' && !hasSlash && result !== '/') return result + '/'
+    if (trailingSlash === 'preserve') {
       const toEndedWithSlash = to.length > 1 && to.charCodeAt(to.length - 1) === 47
-      if (toEndedWithSlash && !hasSlash && result !== '/') {
-        finalPath = result + '/'
-      } else if (!toEndedWithSlash && hasSlash) {
-        finalPath = result.slice(0, -1)
-      }
+      if (toEndedWithSlash && !hasSlash && result !== '/') return result + '/'
+      if (!toEndedWithSlash && hasSlash) return result.slice(0, -1)
     }
-    if (cache && key) cache.set(key, finalPath)
-    return finalPath
+    return result
   }
 
   let baseSegments: Array<string>
@@ -156,9 +108,7 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
     }
   }
 
-  const result = cleanPath(baseSegments.join('/')) || '/'
-  if (cache && key) cache.set(key, result)
-  return result
+  return cleanPath(baseSegments.join('/')) || '/'
 }
 
 function hasDotSegment(path: string) {
@@ -212,94 +162,14 @@ export type InterPolatePathResult = {
   isMissingParams: boolean
 }
 
-function isUnreservedPathValue(value: string) {
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i)
-    if (
-      (c >= 48 && c <= 57) ||
-      (c >= 65 && c <= 90) ||
-      (c >= 97 && c <= 122) ||
-      c === 45 ||
-      c === 46 ||
-      c === 95 ||
-      c === 126
-    ) {
-      continue
-    }
-    return false
-  }
-  return true
-}
+const UNRESERVED = /^[A-Za-z0-9\-._~]*$/
+const SPLAT_SAFE = /^[A-Za-z0-9\-._~!/]*$/
 
 function encodePathParam(value: string, decoder?: InterpolatePathOptions['decoder']) {
-  if (!decoder && isUnreservedPathValue(value)) return value
+  if (!decoder && UNRESERVED.test(value)) return value
   const encoded = encodeURIComponentWellFormed(value)
   const decoded = decoder?.(encoded) ?? encoded
-  // Browsers leave these in pathnames; encodeURIComponent is stricter.
-  return unescapeEncodedExclamation(decoded)
-}
-
-function unescapeEncodedExclamation(decoded: string): string {
-  if (decoded.indexOf('%2') === -1) return decoded
-  let out = ''
-  let last = 0
-  const len = decoded.length
-  for (let i = 0; i < len - 2; i++) {
-    if (decoded.charCodeAt(i) !== 37) continue
-    if ((decoded.charCodeAt(i + 1) | 32) !== 50) continue
-    if ((decoded.charCodeAt(i + 2) | 32) !== 49) continue
-    out += decoded.slice(last, i) + '!'
-    last = i + 3
-    i += 2
-  }
-  return last === 0 ? decoded : out + decoded.slice(last)
-}
-
-type SimplePart = { t: 0; s: string } | { t: 1; k: string }
-
-function compileSimpleParams(path: string): SimplePart[] | null {
-  const parts: SimplePart[] = []
-  let i = 0
-  const len = path.length
-  let litStart = 0
-  while (i < len) {
-    if (path.charCodeAt(i) !== 36) {
-      i++
-      continue
-    }
-    let j = i + 1
-    while (j < len && path.charCodeAt(j) !== 47) j++
-    if (j === i + 1) return null
-    if (i > litStart) parts.push({ t: 0, s: path.slice(litStart, i) })
-    parts.push({ t: 1, k: path.slice(i + 1, j) })
-    i = j
-    litStart = j
-  }
-  if (litStart < len) parts.push({ t: 0, s: path.slice(litStart) })
-  return parts
-}
-
-function interpolateSimpleParams(
-  path: string,
-  params: InterpolatePathOptions['params'],
-  decoder: InterpolatePathOptions['decoder'],
-): InterPolatePathResult | null {
-  const parts = compileSimpleParams(path)
-  if (!parts) return null
-  const usedParams: Record<string, unknown> = Object.create(null)
-  let isMissingParams = false
-  let out = ''
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i]!
-    if (part.t === 0) {
-      out += part.s
-      continue
-    }
-    if (!isMissingParams && !(part.k in params)) isMissingParams = true
-    usedParams[part.k] = params[part.k]
-    out += encodeParam(part.k, params, decoder) ?? 'undefined'
-  }
-  return { interpolatedPath: out || '/', usedParams, isMissingParams }
+  return decoded.includes('%2') ? decoded.replace(/%21/gi, '!') : decoded
 }
 
 function encodeParam(
@@ -310,32 +180,11 @@ function encodeParam(
   const value = key === '_splat' ? (params._splat ?? params['*']) : params[key]
   if (typeof value !== 'string') return value
   if (key === '_splat') {
-    let safe = true
-    for (let i = 0; i < value.length; i++) {
-      const c = value.charCodeAt(i)
-      if (
-        !(
-          (c >= 48 && c <= 57) ||
-          (c >= 65 && c <= 90) ||
-          (c >= 97 && c <= 122) ||
-          c === 45 ||
-          c === 46 ||
-          c === 95 ||
-          c === 126 ||
-          c === 33 ||
-          c === 47
-        )
-      ) {
-        safe = false
-        break
-      }
-    }
-    if (safe) return value
-    const parts = value.split('/')
-    for (let i = 0; i < parts.length; i++) {
-      parts[i] = encodePathParam(parts[i]!, decoder)
-    }
-    return parts.join('/')
+    if (SPLAT_SAFE.test(value)) return value
+    return value
+      .split('/')
+      .map((part) => encodePathParam(part, decoder))
+      .join('/')
   }
   return encodePathParam(value, decoder)
 }
@@ -345,23 +194,11 @@ export function interpolatePath({
   params,
   decoder,
 }: InterpolatePathOptions): InterPolatePathResult {
-  return interpolatePathResolved(path, params, decoder)
-}
-
-function interpolatePathResolved(
-  path: InterpolatePathOptions['path'],
-  params: InterpolatePathOptions['params'],
-  decoder: InterpolatePathOptions['decoder'],
-): InterPolatePathResult {
   if (!path || path === '/') {
     return { interpolatedPath: '/', usedParams: Object.create(null), isMissingParams: false }
   }
   if (path.indexOf('$') === -1) {
     return { interpolatedPath: path, usedParams: Object.create(null), isMissingParams: false }
-  }
-  if (path.indexOf('{') === -1) {
-    const simple = interpolateSimpleParams(path, params, decoder)
-    if (simple) return simple
   }
   return interpolateBracedParams(path, params, decoder)
 }

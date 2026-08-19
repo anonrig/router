@@ -1595,7 +1595,6 @@ export class BaseRoute<
 
   // Optional
   children?: TChildren
-  _treeGen = 0
   originalIndex?: number
   rank!: number
   lazyFn?: () => Promise<
@@ -1794,12 +1793,6 @@ export class BaseRoute<
 
     if (typeof children === 'object' && children !== null) {
       this.children = Object.values(children) as TChildren
-    }
-
-    let route: any = this
-    while (route) {
-      route._treeGen++
-      route = route.parentRoute
     }
 
     return this as any

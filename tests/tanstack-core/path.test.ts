@@ -16,7 +16,6 @@ import {
   parseSegment,
   processRouteTree,
 } from '@tanstack/router-core/new-process-route-tree'
-import { createLRUCache } from '@tanstack/router-core/lru-cache'
 import type { SegmentKind } from '@tanstack/router-core/new-process-route-tree'
 
 describe.each([{ basepath: '/' }, { basepath: '/app' }, { basepath: '/app/' }])(
@@ -267,11 +266,9 @@ describe('resolvePath', () => {
     ).toBe('/{$language}/{$language}')
   })
 
-  it('caches route-template paths without changing param syntax', () => {
-    const cache = createLRUCache<string, string>(10)
-
-    expect(resolvePath({ base: '/', to: '/{$id}', cache })).toBe('/{$id}')
-    expect(resolvePath({ base: '/', to: '/$id', cache })).toBe('/$id')
+  it('preserves route-template param syntax', () => {
+    expect(resolvePath({ base: '/', to: '/{$id}' })).toBe('/{$id}')
+    expect(resolvePath({ base: '/', to: '/$id' })).toBe('/$id')
   })
 })
 

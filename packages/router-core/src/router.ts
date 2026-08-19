@@ -47,7 +47,6 @@ import {
   createRouterStores,
 } from './stores'
 import {
-  createLRUCache,
   decodePath,
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
@@ -554,10 +553,6 @@ export class RouterCore<
   routesById!: Record<string, AnyRoute>
   routesByPath!: Record<string, AnyRoute>
   processedTree!: ProcessedTree
-  private _resolvePathCache?: ReturnType<typeof createLRUCache<string, string>>
-  get resolvePathCache() {
-    return (this._resolvePathCache ??= createLRUCache<string, string>(1000))
-  }
   isServer = typeof document === 'undefined'
   pathParamsDecoder?: (encoded: string) => string
   protocolAllowlist = DEFAULT_PROTOCOL_SET
@@ -604,7 +599,6 @@ export class RouterCore<
   _scrollReady?: Promise<void>
   rewrite?: any
   _hasSearchWork = false
-  _hasSearchMiddleware = false
 
   private createStores(location: ParsedLocation) {
     const config = defaultGetStoreConfig()
@@ -844,7 +838,6 @@ export class RouterCore<
     return fn()
   }
 
-  private loadId = 0
   private unsubHistory?: () => void
 
   /** @internal */
@@ -993,7 +986,6 @@ export class RouterCore<
     }
 
     this._hasSearchWork = !!this.processedTree?.hasSearchWork
-    this._hasSearchMiddleware = !!this.processedTree?.hasSearchMiddleware
 
     const nextBasepath = this.options.basepath
     if (!nextBasepath || nextBasepath === '/') {
@@ -1060,7 +1052,6 @@ export class RouterCore<
     this.routesById = this.processedTree.routesById as any
     this.routesByPath = this.processedTree.routesByPath as any
     this._hasSearchWork = !!this.processedTree.hasSearchWork
-    this._hasSearchMiddleware = !!this.processedTree.hasSearchMiddleware
     if (runtime) {
       runtime.o[
         runtime.i(
@@ -1137,7 +1128,6 @@ export class RouterCore<
                 base: current.pathname || '/',
                 to,
                 trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-                cache: this.resolvePathCache,
               })
             : to || '/'
         to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
@@ -1531,10 +1521,6 @@ export class RouterCore<
 
   getMatchedRoutes(pathname: string): ReturnType<GetMatchRoutesFn> {
     const path = trimPathRight(pathname || '/')
-    const cache = this.processedTree.matchedRoutesCache
-    const cached = cache?.[path]
-    if (cached) return cached as unknown as ReturnType<GetMatchRoutesFn>
-
     const exact = findRouteMatchFromTree(
       this.processedTree,
       path,
@@ -1567,7 +1553,6 @@ export class RouterCore<
         result = [[this.routesById[rootRouteId]!], Object.create(null), undefined]
       }
     }
-    if (cache) cache[path] = result as unknown as (typeof cache)[string]
     return result
   }
 
@@ -1691,19 +1676,6 @@ export class RouterCore<
   }
 
   private matchRoutesInternal(next: ParsedLocation, opts?: any): RouteMatch[] {
-    const templateCache = this.processedTree.matchedTemplateCache
-    if (
-      templateCache &&
-      !this._hasSearchWork &&
-      !next.searchStr &&
-      !opts?.throwOnError &&
-      !opts?._rematerialize &&
-      !opts?._controller
-    ) {
-      const cached = templateCache[next.pathname]
-      if (cached) return cloneCachedMatches(cached)
-    }
-
     const [initialMatchedRoutes, rawParams, foundRoute] = this.getMatchedRoutes(next.pathname)
     let matchedRoutes = initialMatchedRoutes as AnyRoute[]
     let isGlobalNotFound = false
@@ -1860,19 +1832,6 @@ export class RouterCore<
       if (opts?._controller) match.context = {}
     }
 
-    if (
-      templateCache &&
-      !this._hasSearchWork &&
-      !next.searchStr &&
-      !opts?.throwOnError &&
-      !opts?._rematerialize &&
-      !opts?._controller
-    ) {
-      const snapshot = new Array(matches.length)
-      for (let i = 0; i < matches.length; i++) snapshot[i] = omitUserMatchFields(matches[i]!)
-      templateCache[next.pathname] = snapshot
-    }
-
     return matches
   }
 
@@ -1908,7 +1867,6 @@ export class RouterCore<
                 base: this.latestLocation?.pathname || '/',
                 to: path,
                 trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-                cache: this.resolvePathCache,
               })
             : path || '/'
         rest.to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
@@ -2041,7 +1999,6 @@ function resolveBuildPath(
     base: fromPath || '/',
     to: interpolated || '/',
     trailingSlash: (router.options.trailingSlash as any) ?? 'never',
-    cache: router.resolvePathCache,
   })
   if (resolved !== interpolatedInput && resolved.includes('$')) {
     resolved = interpolatePath({
@@ -2203,47 +2160,8 @@ function applyBuildRewrite(router: any, location: ParsedLocation) {
   }
 }
 
-function omitUserMatchFields(match: RouteMatch): RouteMatch {
-  return {
-    ...match,
-    loaderData: undefined,
-    error: undefined,
-    headers: undefined,
-    meta: undefined,
-    links: undefined,
-    scripts: undefined,
-    headScripts: undefined,
-    styles: undefined,
-    __beforeLoadContext: undefined,
-    context: {},
-    ssr: undefined,
-  }
-}
-
-function cloneCachedMatches(cached: RouteMatch[]): RouteMatch[] {
-  const now = Date.now()
-  const out = new Array(cached.length)
-  for (let i = 0; i < cached.length; i++) {
-    const match = omitUserMatchFields(cached[i]!)
-    out[i] = {
-      ...match,
-      updatedAt: now,
-      abortController: routeNeedsLoad(match.route as AnyRoute)
-        ? new AbortController()
-        : noopAbortController,
-      isFetching: false,
-    }
-  }
-  return out
-}
-
 function isPlainAsciiPath(path: string) {
-  for (let i = 0; i < path.length; i++) {
-    const c = path.charCodeAt(i)
-    // Reject control/space/DEL/non-ASCII, plus '%' and '\\' so we can skip decode/encode.
-    if (c <= 0x20 || c === 0x7f || c > 0x7f || c === 37 || c === 92) return false
-  }
-  return true
+  return !/[\0- %\\\x7f-\uFFFF]/.test(path)
 }
 
 function stripLeadingHash(hash: string) {
