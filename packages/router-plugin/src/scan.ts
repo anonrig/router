@@ -207,13 +207,20 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
   const pending: Array<Omit<ScannedRoute, 'id' | 'path' | 'parentId' | 'isPathless'>> = []
   for (const filePath of files) {
     const fileId = toPosix(relative(rootDir, filePath)).replace(/\.[^.]+$/, '')
-    const isRoot = basename(fileId) === '__root' || fileId === '__root'
+    if (basename(fileId) === '__root' && fileId !== '__root') {
+      throw new Error(`Root route file must be directly inside the routes directory: "${fileId}"`)
+    }
+    const isRoot = fileId === '__root'
     pending.push({
       filePath,
       fileId,
       key: fileIdToKey(fileId),
       isRoot,
     })
+  }
+  const roots = pending.filter((route) => route.isRoot)
+  if (roots.length > 1) {
+    throw new Error(`Multiple root route files: ${roots.map((route) => route.filePath).join(', ')}`)
   }
 
   const keys = new Set<string>()
