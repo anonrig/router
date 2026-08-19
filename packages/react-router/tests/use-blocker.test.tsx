@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   Outlet,
@@ -465,6 +465,167 @@ describe('useBlocker withResolver', () => {
     view.unmount()
     await navigation
     expect(router.state.location.pathname).toBe('/')
+  })
+})
+
+function createPopRouter(Blocker: () => ReactNode) {
+  const rootRoute = createRootRoute({
+    component: () => (
+      <div>
+        <Blocker />
+        <Outlet />
+      </div>
+    ),
+  })
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <h1>Home</h1>,
+  })
+  const aboutRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/about',
+    component: () => <h1>About</h1>,
+  })
+  const otherRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/other',
+    component: () => <h1>Other</h1>,
+  })
+  const history = createMemoryHistory({ initialEntries: ['/', '/about'] })
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
+    history,
+  })
+  return { router, history }
+}
+
+// The browser applies a pop before blockers run, so a blocked pop is reverted with
+// the delta captured when the pop fired. This drives that attempt directly because
+// memory history does not run blockers on back/forward.
+function startPopAttempt(history: any): Promise<boolean> {
+  return history.blockers[0].blockerFn({
+    currentLocation: history.location,
+    nextLocation: {
+      href: '/',
+      pathname: '/',
+      search: '',
+      hash: '',
+      state: { __TSR_index: 0, __TSR_key: '0', key: '0' },
+    },
+    action: 'BACK',
+  })
+}
+
+describe('useBlocker superseded pop', () => {
+  it('does not revert a pop after a disabled attempt let a navigation through', async () => {
+    const pending = Promise.withResolvers<boolean>()
+    let calls = 0
+    function ToggleBlocker() {
+      const [disabled, setDisabled] = useState(false)
+      useBlocker({
+        disabled,
+        shouldBlockFn: () => {
+          calls++
+          return pending.promise
+        },
+      })
+      return (
+        <button type="button" data-testid="disable-btn" onClick={() => setDisabled(true)}>
+          Disable
+        </button>
+      )
+    }
+    const { router, history } = createPopRouter(ToggleBlocker)
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('About')).toBeInTheDocument()
+
+    const popAttempt = startPopAttempt(history)
+    expect(calls).toBe(1)
+
+    // The disabled attempt bails out without awaiting, and its push commits.
+    fireEvent.click(screen.getByTestId('disable-btn'))
+    await act(async () => {
+      await router.navigate({ to: '/other' })
+    })
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+
+    pending.resolve(true)
+    await expect(popAttempt).resolves.toBe(false)
+  })
+
+  it('does not revert a pop after a newer resolver proceeded', async () => {
+    const first = Promise.withResolvers<boolean>()
+    const second = Promise.withResolvers<boolean>()
+    let calls = 0
+    function DelayedBlocker() {
+      const blocker = useBlocker({
+        withResolver: true,
+        shouldBlockFn: () => (++calls === 1 ? first.promise : second.promise),
+      })
+      return (
+        <div>
+          <div data-testid="status">{blocker.status}</div>
+          <button type="button" data-testid="proceed-btn" onClick={() => blocker.proceed?.()}>
+            Proceed
+          </button>
+        </div>
+      )
+    }
+    const { router, history } = createPopRouter(DelayedBlocker)
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('About')).toBeInTheDocument()
+
+    const popAttempt = startPopAttempt(history)
+    let push!: Promise<void>
+    act(() => {
+      push = router.navigate({ to: '/other' })
+    })
+    expect(calls).toBe(2)
+
+    second.resolve(true)
+    expect(await screen.findByText('blocked')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('proceed-btn'))
+    await act(async () => {
+      await push
+    })
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+
+    first.resolve(true)
+    await expect(popAttempt).resolves.toBe(false)
+  })
+
+  it('still reverts a pop that settles before any newer navigation commits', async () => {
+    const first = Promise.withResolvers<boolean>()
+    const second = Promise.withResolvers<boolean>()
+    let calls = 0
+    function DelayedBlocker() {
+      useBlocker({
+        shouldBlockFn: () => (++calls === 1 ? first.promise : second.promise),
+      })
+      return <div data-testid="ready">ready</div>
+    }
+    const { router, history } = createPopRouter(DelayedBlocker)
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('About')).toBeInTheDocument()
+
+    const popAttempt = startPopAttempt(history)
+    let push!: Promise<void>
+    act(() => {
+      push = router.navigate({ to: '/other' })
+    })
+    expect(calls).toBe(2)
+
+    // The older attempt settles first here, so the stack has not moved and the
+    // captured delta still reverts the entry this attempt owns.
+    first.resolve(true)
+    await expect(popAttempt).resolves.toBe(true)
+
+    second.resolve(true)
+    await act(async () => {
+      await push
+    })
+    expect(router.state.location.pathname).toBe('/about')
   })
 })
 

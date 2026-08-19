@@ -107,13 +107,20 @@ export function useBlocker(opts?: any): any {
     // Owned by this registration: the cleanup below advances it so nothing that
     // started under this blocker can publish state once the blocker is gone.
     let generation = 0
+    // Highest attempt that let a navigation through. A superseded pop uses this to
+    // tell whether the history stack it wanted to revert has already moved on.
+    let releasedAttempt = 0
     const unblock = router.history.block({
       blockerFn: async (args: any) => {
         // Every attempt claims a generation, including the ones that bail out below,
         // so a newer navigation always invalidates an in-flight shouldBlockFn.
         const attempt = ++generation
+        const release = () => {
+          if (attempt > releasedAttempt) releasedAttempt = attempt
+          return false
+        }
         const current = optsRef.current
-        if (current && typeof current !== 'function' && current.disabled) return false
+        if (current && typeof current !== 'function' && current.disabled) return release()
         const fn =
           typeof current === 'function'
             ? current
@@ -133,11 +140,20 @@ export function useBlocker(opts?: any): any {
           nextPath &&
           router.getMatchedRoutes?.(nextPath)?.[2]
         ) {
-          return false
+          return release()
         }
         const should = fn ? await fn(mapped) : true
-        if (attempt !== generation) return true
-        if (!should) return false
+        if (attempt !== generation) {
+          // A pop is already applied when the blocker runs, so blocking it means
+          // reverting with the delta captured when the pop fired. Once a newer
+          // attempt let a navigation through, the stack moved and that delta would
+          // send the URL somewhere the router never navigated to. Only an attempt
+          // that still owns the pop may block it.
+          const isPop =
+            mapped.action === 'BACK' || mapped.action === 'FORWARD' || mapped.action === 'GO'
+          return !(isPop && releasedAttempt > attempt)
+        }
+        if (!should) return release()
         if (typeof current !== 'function' && current?.withResolver) {
           return await new Promise<boolean>((resolve) => {
             activeResolverRef.current?.settle(true)
@@ -146,6 +162,7 @@ export function useBlocker(opts?: any): any {
               settle: (blocked: boolean, updateState = true) => {
                 if (settled) return
                 settled = true
+                if (!blocked) release()
                 if (activeResolverRef.current === entry) {
                   activeResolverRef.current = undefined
                   proceedRef.current = undefined
