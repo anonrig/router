@@ -1655,7 +1655,11 @@ export class RouterCore<
 
     const prev = this.latestLocation
     const same =
-      prev && prev.pathname === pathname && prev.searchStr === searchStr && prev.hash === hash
+      prev &&
+      prev.pathname === pathname &&
+      prev.searchStr === searchStr &&
+      prev.hash === hash &&
+      deepEqual(_getUserHistoryState(location.state), _getUserHistoryState(prev.state))
 
     this.latestLocation = location
     this._pendingLocation = location
