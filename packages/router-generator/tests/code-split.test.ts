@@ -80,6 +80,50 @@ export const Route = createFileRoute('/login')({
 `
     expect(compileReferenceRoute(source, '/app/src/routes/login.tsx')).toBeNull()
   })
+
+  it('leaves SSR routes eager so Route.useLoaderData still renders on the server', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+import { StoriesFeed } from '@/components/stories-feed'
+
+export const Route = createFileRoute('/i/jf/stories/home')({
+  loader: async () => ({ stories: [] }),
+  component: StoriesHomePage,
+})
+
+function StoriesHomePage() {
+  const { stories } = Route.useLoaderData()
+  return <StoriesFeed stories={stories} />
+}
+`
+    expect(compileReferenceRoute(source, '/app/src/routes/i/jf/stories/home.tsx')).toBeNull()
+  })
+
+  it('still splits ssr:false routes that call Route.useSearch', () => {
+    const source = `import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
+
+export const Route = createFileRoute('/i/redirect/')({
+  ssr: false,
+  component: EmailRedirect,
+})
+
+function EmailRedirect() {
+  const { url } = Route.useSearch()
+  const navigate = useNavigate()
+  useEffect(() => {
+    void navigate({ to: url ?? '/', replace: true })
+  }, [url, navigate])
+  return null
+}
+`
+    const result = compileReferenceRoute(source, '/app/src/routes/i/redirect/index.tsx')
+    expect(result).toContain('ssr: false')
+    expect(result).toContain(
+      "lazyRouteComponent(() => import('./index.tsx?tsr-split=component'), 'component')",
+    )
+    expect(result).not.toContain('function EmailRedirect')
+    expect(result).not.toContain('useEffect')
+  })
 })
 
 describe('compileVirtualRoute', () => {
@@ -92,6 +136,34 @@ describe('compileVirtualRoute', () => {
     expect(result).toContain('useChatParams')
     expect(result).not.toContain('createFileRoute')
     expect(result).not.toContain('requireAuth')
+    expect(result).not.toContain('ssr: false')
+    expect(result).not.toContain('import { Route }')
+  })
+
+  it('re-imports Route when the split component calls Route.useSearch', () => {
+    const source = `import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
+
+export const Route = createFileRoute('/i/redirect/')({
+  ssr: false,
+  component: EmailRedirect,
+})
+
+function EmailRedirect() {
+  const { url } = Route.useSearch()
+  const navigate = useNavigate()
+  useEffect(() => {
+    void navigate({ to: url ?? '/', replace: true })
+  }, [url, navigate])
+  return null
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/i/redirect/index.tsx', 'component')
+    expect(result).toBeTruthy()
+    expect(result).toContain("import { Route } from './index.tsx'")
+    expect(result).toContain('export const component = EmailRedirect')
+    expect(result).toContain('Route.useSearch')
+    expect(result).not.toContain('createFileRoute')
     expect(result).not.toContain('ssr: false')
   })
 })
