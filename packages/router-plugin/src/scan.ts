@@ -96,7 +96,7 @@ function listRouteFiles(rootDir: string, ignore?: RegExp) {
 }
 
 function stripRouteToken(segments: Array<string>) {
-  return segments.filter((segment) => segment !== 'route')
+  return segments[segments.length - 1] === 'route' ? segments.slice(0, -1) : segments
 }
 
 const ESCAPED_DOT = '\0'
