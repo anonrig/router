@@ -1557,39 +1557,49 @@ export class RouterCore<
   }
 
   /**
-   * Drop the caches that captured the previous router context. In-flight work
-   * is left alone: a navigation must still be able to adopt it, and `update`
-   * cannot start a replacement load because React calls it during render.
+   * Drop the caches that captured the previous router context. A settled entry
+   * goes even while it still leases its finished flight: a preloaded copy keeps
+   * that lease, so skipping it left old loader data for the next navigation to
+   * reuse. Releasing the lease also retires the flight as a donor, so the same
+   * data cannot come back through the flight registry.
    */
   private clearContextCache() {
-    this._matchesByPath?.clear()
-    const cached = this._cache
-    for (const id in cached) {
-      const match = cached[id]!
-      if (match.isFetching || match.status === 'pending' || match._flight) continue
-      delete cached[id]
-    }
+    this.dropCache(undefined, true)
   }
 
   clearCache(opts?: Parameters<ClearCacheFn<this>>[0]) {
+    this.dropCache(opts?.filter as ((match: any) => boolean) | undefined)
+  }
+
+  /**
+   * Discard cache entries, releasing every loader flight no other consumer
+   * leases. `settledOnly` keeps entries that are still loading and leaves
+   * speculative lanes running, because a navigation must still be able to adopt
+   * that work and `update` cannot start a replacement load: React calls it
+   * during render. A lane that outlives its entry cannot reseed the cache, since
+   * caching requires the entry it planned against to still be there.
+   */
+  private dropCache(filter?: (match: any) => boolean, settledOnly?: true) {
     this._matchesByPath?.clear()
     const cached = this._cache
     const preloads = this._preloads
-    const filter = opts?.filter
     const discarded: Array<RouteMatch> = []
     const discardedIds: Array<string> = []
     for (const id in cached) {
       const match = cached[id]!
-      if (!filter || filter(match as any)) {
+      if (settledOnly && (match.isFetching || match.status === 'pending')) continue
+      if (!filter || filter(match)) {
         discardedIds.push(id)
         discarded.push(match)
       }
     }
     const abort: Array<AbortController> = []
-    for (const [controller, matches] of preloads ?? []) {
-      if (!filter || matches.some(filter as any)) {
-        abort.push(controller)
-        discarded.push(...matches)
+    if (!settledOnly) {
+      for (const [controller, matches] of preloads ?? []) {
+        if (!filter || matches.some(filter)) {
+          abort.push(controller)
+          discarded.push(...matches)
+        }
       }
     }
     for (const id of discardedIds) delete cached[id]

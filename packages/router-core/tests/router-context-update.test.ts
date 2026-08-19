@@ -76,6 +76,36 @@ test('a changed context value clears cached loader data', async () => {
   expect(router.state.matches.at(-1)?.loaderData).toEqual({ version: 2 })
 })
 
+// A finished preload keeps a lease on its loader flight, so its cache entry
+// must still be dropped when the context value it loaded with is gone.
+test('a changed context value clears preloaded loader data', async () => {
+  const { loader, router } = createLoaderRouter({ version: 1 })
+
+  await router.load()
+  await router.preloadRoute({ to: '/reports' })
+  expect(loader).toHaveBeenCalledTimes(1)
+
+  router.update({ context: { version: 2 } })
+  await router.navigate({ to: '/reports' })
+
+  expect(loader).toHaveBeenCalledTimes(2)
+  expect(router.state.matches.at(-1)?.loaderData).toEqual({ version: 2 })
+})
+
+test('a new context object with unchanged values keeps preloaded loader data', async () => {
+  const { loader, router } = createLoaderRouter({ version: 1 })
+
+  await router.load()
+  await router.preloadRoute({ to: '/reports' })
+  expect(loader).toHaveBeenCalledTimes(1)
+
+  router.update({ context: { version: 1 } })
+  await router.navigate({ to: '/reports' })
+
+  expect(loader).toHaveBeenCalledTimes(1)
+  expect(router.state.matches.at(-1)?.loaderData).toEqual({ version: 1 })
+})
+
 test('a nested context value keeps cached loader data while its values match', async () => {
   const { loader, router } = createLoaderRouter({ user: { id: 1, roles: { admin: true } } })
 
