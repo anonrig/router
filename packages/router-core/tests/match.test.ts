@@ -43,6 +43,94 @@ describe('matcher', () => {
     expect(findRouteMatch(tree, '/PREXsUF')).toBeNull()
   })
 
+  it('keeps a case-sensitive dynamic parent in the match chain of its children', () => {
+    const root = createRootRoute()
+    const parent = createRoute({
+      getParentRoute: () => root,
+      path: '/pre{$id}suf',
+      caseSensitive: true,
+    })
+    const index = createRoute({ getParentRoute: () => parent, path: '/' })
+    const child = createRoute({ getParentRoute: () => parent, path: '/edit' })
+    const layout = createRoute({ getParentRoute: () => parent, id: '_layout' })
+    const layoutChild = createRoute({ getParentRoute: () => layout, path: '/settings' })
+    root.addChildren([parent.addChildren([index, child, layout.addChildren([layoutChild])])])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/preXsuf/edit')?.map((m) => m.route.id)).toEqual([
+      '__root__',
+      '/pre{$id}suf',
+      '/pre{$id}suf/edit',
+    ])
+    expect(findRouteMatch(tree, '/preXsuf/edit')?.at(-1)?.params).toEqual({ id: 'X' })
+    expect(findRouteMatch(tree, '/preXsuf')?.map((m) => m.route.id)).toEqual([
+      '__root__',
+      '/pre{$id}suf',
+      '/pre{$id}suf/',
+    ])
+    expect(findRouteMatch(tree, '/preXsuf/settings')?.map((m) => m.route.id)).toEqual([
+      '__root__',
+      '/pre{$id}suf',
+      '/pre{$id}suf/_layout',
+      '/pre{$id}suf/_layout/settings',
+    ])
+  })
+
+  it('does not let children widen a case-sensitive dynamic parent', () => {
+    const root = createRootRoute()
+    const parent = createRoute({
+      getParentRoute: () => root,
+      path: '/pre{$id}suf',
+      caseSensitive: true,
+    })
+    const child = createRoute({ getParentRoute: () => parent, path: '/edit' })
+    root.addChildren([parent.addChildren([child])])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/PREXSUF/edit')).toBeNull()
+    expect(findRouteMatch(tree, '/PREXSUF')).toBeNull()
+  })
+
+  it('keeps a case-sensitive optional dynamic parent in the match chain of its children', () => {
+    const root = createRootRoute()
+    const parent = createRoute({
+      getParentRoute: () => root,
+      path: '/pre{-$id}suf',
+      caseSensitive: true,
+    })
+    const child = createRoute({ getParentRoute: () => parent, path: '/edit' })
+    root.addChildren([parent.addChildren([child])])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/preXsuf/edit')?.map((m) => m.route.id)).toEqual([
+      '__root__',
+      '/pre{-$id}suf',
+      '/pre{-$id}suf/edit',
+    ])
+    expect(findRouteMatch(tree, '/PREXSUF/edit')).toBeNull()
+  })
+
+  it('keeps a case-insensitive dynamic parent usable by a case-sensitive child', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/pre{$id}suf' })
+    const child = createRoute({
+      getParentRoute: () => parent,
+      path: '/pre{$sub}suf',
+      caseSensitive: true,
+    })
+    root.addChildren([parent.addChildren([child])])
+    const tree = processRouteTree(root as any)
+
+    const matches = findRouteMatch(tree, '/PREXSUF/preYsuf')
+    expect(matches?.map((m) => m.route.id)).toEqual([
+      '__root__',
+      '/pre{$id}suf',
+      '/pre{$id}suf/pre{$sub}suf',
+    ])
+    expect(matches?.at(-1)?.params).toEqual({ id: 'X', sub: 'Y' })
+    expect(findRouteMatch(tree, '/PREXSUF/PREYSUF')).toBeNull()
+  })
+
   it('matches the index route', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/')

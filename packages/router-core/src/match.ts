@@ -113,18 +113,14 @@ function getOrCreateParam(
   suffix: string,
   parse: SegmentNode['parse'],
   priority: number,
-  caseSensitive: boolean,
+  affixCaseSensitive: boolean | undefined,
 ): SegmentNode {
   const existing = node.paramChildren
   if (existing) {
     for (let i = 0; i < existing.length; i++) {
       const child = existing[i]!
-      if (
-        child.paramName === name &&
-        child.prefix === prefix &&
-        child.suffix === suffix &&
-        child.affixCaseSensitive === caseSensitive
-      ) {
+      if (child.paramName === name && child.prefix === prefix && child.suffix === suffix) {
+        if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
         return child
       }
     }
@@ -135,7 +131,7 @@ function getOrCreateParam(
   next.paramName = name
   next.prefix = prefix
   next.suffix = suffix
-  next.affixCaseSensitive = caseSensitive
+  next.affixCaseSensitive = affixCaseSensitive
   node.paramChildren ??= []
   node.paramChildren.push(next)
   if (!node.paramChild) node.paramChild = next
@@ -148,18 +144,14 @@ function getOrCreateOptional(
   name: string,
   prefix: string,
   suffix: string,
-  caseSensitive: boolean,
+  affixCaseSensitive: boolean | undefined,
 ) {
   const existing = node.optionalChildren
   if (existing) {
     for (let i = 0; i < existing.length; i++) {
       const child = existing[i]!
-      if (
-        child.optionalName === name &&
-        child.prefix === prefix &&
-        child.suffix === suffix &&
-        child.affixCaseSensitive === caseSensitive
-      ) {
+      if (child.optionalName === name && child.prefix === prefix && child.suffix === suffix) {
+        if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
         return child
       }
     }
@@ -168,7 +160,7 @@ function getOrCreateOptional(
   next.optionalName = name
   next.prefix = prefix
   next.suffix = suffix
-  next.affixCaseSensitive = caseSensitive
+  next.affixCaseSensitive = affixCaseSensitive
   node.optionalChildren ??= []
   node.optionalChildren.push(next)
   if (!node.optionalChild) node.optionalChild = next
@@ -444,12 +436,33 @@ function pathlessAttachPath(route: AnyRouteLike): string {
   return findNearestAncestorPath(route.parentRoute)
 }
 
+function countSegments(path: string): number {
+  let count = 0
+  let inSegment = false
+  for (let i = 0; i < path.length; i++) {
+    if (path.charCodeAt(i) === 47) {
+      inSegment = false
+    } else if (!inSegment) {
+      inSegment = true
+      count++
+    }
+  }
+  return count
+}
+
 function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route?: AnyRouteLike) {
   let cursor = 0
   let current = node
   let segment: ParsedSegment | undefined
   const trimmed = path.charCodeAt(0) === 47 ? path.slice(1) : path
-  const affixCaseSensitive = route?.options?.caseSensitive ?? caseSensitive
+  // A route only declares the trailing segments of its full path; the leading ones
+  // belong to ancestors, so an override must not touch their affix nodes.
+  const routeCaseSensitive = route?.options?.caseSensitive
+  const ownedFrom =
+    routeCaseSensitive === undefined
+      ? -1
+      : countSegments(findNearestAncestorPath(route?.parentRoute))
+  let segmentIndex = -1
 
   while (cursor < trimmed.length) {
     const start = cursor
@@ -457,6 +470,9 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
     const end = segment[5]
     cursor = end + 1
     if (start === end) continue
+    segmentIndex++
+    const affixCaseSensitive =
+      ownedFrom !== -1 && segmentIndex >= ownedFrom ? routeCaseSensitive : undefined
 
     const kind = segment[0]
     if (kind === SEGMENT_TYPE_PATHNAME) {
