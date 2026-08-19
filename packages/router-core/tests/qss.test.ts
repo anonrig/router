@@ -18,6 +18,10 @@ describe('qss', () => {
     expect(decode('?foo=bar')).toEqual({ foo: 'bar' })
   })
 
+  it('decodes valid bytes around malformed percent escapes', () => {
+    expect(decode('a=%E0%A4%A')).toEqual({ a: '\uFFFD%A' })
+  })
+
   it('encodes spaces as +', () => {
     expect(encode({ q: 'hello world' })).toBe('q=hello+world')
     expect(decode('q=hello+world')).toEqual({ q: 'hello world' })

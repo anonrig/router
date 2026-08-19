@@ -1021,6 +1021,8 @@ export class RouterCore<
       this.options.protocolAllowlist !== DEFAULT_PROTOCOL_ALLOWLIST
     ) {
       this.protocolAllowlist = new Set(this.options.protocolAllowlist)
+    } else {
+      this.protocolAllowlist = DEFAULT_PROTOCOL_SET
     }
 
     if (this.options.pathParamsAllowedCharacters) {

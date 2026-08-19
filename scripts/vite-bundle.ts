@@ -71,12 +71,18 @@ export async function viteBundle(opts: {
   minify?: boolean
   plugins?: Array<Plugin>
   define?: Record<string, string>
+  write?: boolean
+  cacheDir?: string
 }): Promise<ViteBundleResult> {
-  await mkdir(opts.outDir, { recursive: true })
+  const write = opts.write ?? true
+  if (write) {
+    await mkdir(opts.outDir, { recursive: true })
+  }
   const result = await build({
     configFile: false,
     envFile: false,
     root: opts.root,
+    cacheDir: opts.cacheDir,
     logLevel: 'silent',
     plugins: opts.plugins,
     define: opts.define ?? {
@@ -87,8 +93,8 @@ export async function viteBundle(opts: {
     },
     build: {
       outDir: opts.outDir,
-      emptyOutDir: true,
-      write: true,
+      emptyOutDir: write,
+      write,
       minify: opts.minify ?? false,
       cssCodeSplit: false,
       sourcemap: false,

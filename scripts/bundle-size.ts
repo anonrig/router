@@ -76,6 +76,8 @@ async function bundle(
       root: repo,
       entry,
       outDir: join(dir, 'out'),
+      write: false,
+      cacheDir: join(cache, 'speedy-router-vite'),
       alias,
       external: reactExternals,
       minify: true,

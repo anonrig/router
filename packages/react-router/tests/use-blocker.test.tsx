@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   Outlet,
@@ -48,6 +49,19 @@ function BlockerComponent() {
         </>
       )}
     </div>
+  )
+}
+
+function BeforeUnloadBlocker() {
+  const [enabled, setEnabled] = useState(true)
+  useBlocker({
+    shouldBlockFn: () => true,
+    enableBeforeUnload: enabled,
+  })
+  return (
+    <button type="button" onClick={() => setEnabled(false)}>
+      Disable before unload
+    </button>
   )
 }
 
@@ -132,5 +146,29 @@ describe('useBlocker withResolver', () => {
     expect(screen.getByTestId('status').textContent).toBe('idle')
     expect(router.state.location.pathname).toBe('/')
     expect(screen.getByTestId('next-path').textContent).toBe('none')
+  })
+})
+
+describe('useBlocker options', () => {
+  it('updates enableBeforeUnload without re-registering the blocker', async () => {
+    const rootRoute = createRootRoute({ component: BeforeUnloadBlocker })
+    const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/' })
+    const history = createMemoryHistory({ initialEntries: ['/'] })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute]),
+      history,
+    })
+    render(<RouterProvider router={router} />)
+    const button = await screen.findByText('Disable before unload')
+    const blocker = (history as any).blockers[0]
+    const isEnabled = () =>
+      typeof blocker.enableBeforeUnload === 'function'
+        ? blocker.enableBeforeUnload()
+        : blocker.enableBeforeUnload
+    expect(isEnabled()).toBe(true)
+
+    fireEvent.click(button)
+
+    expect(isEnabled()).toBe(false)
   })
 })
