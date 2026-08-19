@@ -73,6 +73,33 @@ async function loadTree(options: {
 }
 
 describe('SSR loader registration', () => {
+  it('keeps fast loader contexts isolated between routers', async () => {
+    let firstContext: any
+    let secondContext: any
+    await loadTree({
+      path: '/child/grand?request=one',
+      root: {
+        loader: (context: any) => {
+          firstContext = context
+          return context.location.search
+        },
+      },
+    })
+    await loadTree({
+      path: '/child/grand?request=two',
+      root: {
+        loader: (context: any) => {
+          secondContext = context
+          return context.location.search
+        },
+      },
+    })
+
+    expect(firstContext).not.toBe(secondContext)
+    expect(firstContext.location.search).toEqual({ request: 'one' })
+    expect(secondContext.location.search).toEqual({ request: 'two' })
+  })
+
   async function withStaleClientHook<T>(run: () => Promise<T>): Promise<T> {
     setLoadServerRoute(() => {
       throw new Error('client loader ran')

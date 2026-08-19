@@ -787,8 +787,6 @@ type ServerLoadOptions = NonNullable<Parameters<AnyRouter['load']>[0]> & {
   _signal?: AbortSignal
 }
 
-let fastServerLoaderCtx: Record<string, any> | undefined
-
 function fillFastServerLoaderContext(
   ctx: Record<string, any>,
   match: AnyRouteMatch,
@@ -894,7 +892,7 @@ function executeFastServerLane(
               ...extra,
             }
           : fillFastServerLoaderContext(
-              fastServerLoaderCtx ?? (fastServerLoaderCtx = {}),
+              {},
               match,
               location,
               router.navigate,
@@ -903,7 +901,6 @@ function executeFastServerLane(
             )
         const data = loaderFn(loaderContext)
         if (data != null && typeof (data as { then?: unknown }).then === 'function') {
-          if (!extra) fastServerLoaderCtx = undefined
           // Redirects stay thrown so loadServerRoute can resolve them, but every
           // other failure has to produce a render result or the load never commits.
           const settleFailure = (cause: unknown): ServerLoadResult => {
