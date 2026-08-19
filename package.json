@@ -1,6 +1,6 @@
 {
   "name": "speedy-router-monorepo",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "description": "The TanStack Router API. Rebuilt for the hot path.",
   "license": "MIT",
@@ -14,7 +14,7 @@
     "test:tanstack-core:ci": "NODE_OPTIONS='--max-old-space-size=4096' vitest run --config vitest.tanstack.config.ts --pool=forks --maxWorkers=1 tests/tanstack-core",
     "test:tanstack-history": "vitest run --config vitest.tanstack.config.ts tests/tanstack-history",
     "test:tanstack-react:ci": "node scripts/test-tanstack-react.mjs",
-    "bench": "vitest bench --run benches/hotpath.bench.ts benches/history.bench.ts benches/navigation.bench.ts benches/ssr-rps.bench.ts benches/tanstack/search-params.bench.ts benches/tanstack/ssr-match-id.bench.ts",
+    "bench": "vitest bench --run benches",
     "bench:all": "vitest bench --run benches",
     "bench:rps": "node --expose-gc --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/bench-compare.ts",
     "bench:compare": "node --expose-gc --disable-warning=ExperimentalWarning --experimental-transform-types --import ./scripts/register-ts.mjs scripts/bench-compare.ts",
@@ -33,6 +33,7 @@
     "release:version": "node scripts/bump-release.mjs"
   },
   "devDependencies": {
+    "@codspeed/vitest-plugin": "^5.7.1",
     "@tanstack/history": "^1.162.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.30",

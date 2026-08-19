@@ -123,6 +123,7 @@ export function useMatches<
     StructuralSharingOption<TRouter, TSelected, TStructuralSharing>,
 ): UseMatchesResult<TRouter, TSelected> {
   return useRouterState({
+    structuralSharing: opts?.structuralSharing,
     select: (s) => (opts?.select ? opts.select(s.matches as any) : (s.matches as any)),
   }) as UseMatchesResult<TRouter, TSelected>
 }
@@ -137,6 +138,7 @@ export function useParentMatches<
 ): UseMatchesResult<TRouter, TSelected> {
   const routeId = useMatch({ select: (m: any) => m?.routeId } as any)
   return useRouterState({
+    structuralSharing: opts?.structuralSharing,
     select: (s) => {
       const index = s.matches.findIndex((m: any) => m.routeId === routeId)
       const parents = s.matches.slice(0, Math.max(index, 0))
@@ -155,6 +157,7 @@ export function useChildMatches<
 ): UseMatchesResult<TRouter, TSelected> {
   const routeId = useMatch({ select: (m: any) => m?.routeId } as any)
   return useRouterState({
+    structuralSharing: opts?.structuralSharing,
     select: (s) => {
       const index = s.matches.findIndex((m: any) => m.routeId === routeId)
       const children = s.matches.slice(index + 1)

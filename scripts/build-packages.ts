@@ -26,6 +26,7 @@ const packages = [
       'new-process-route-tree.ts',
       'utils.ts',
       'ssr/server.ts',
+      'ssr/register-load-server.ts',
       'ssr/client.ts',
       'ssr/ssr-match-id.ts',
       'ssr/serializer/transformer-types.ts',

@@ -57,6 +57,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   let ignoreNextPop = false
   let skipBlockerNextPop = false
   let ignoreNextBeforeUnload = false
+  let latestPopId = 0
 
   const getLocation = () => currentLocation
 
@@ -86,6 +87,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   }
 
   const onPushPopEvent = async () => {
+    const popId = ++latestPopId
     if (ignoreNextPop) {
       ignoreNextPop = false
       return
@@ -117,6 +119,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
               action,
             })
           } catch (error) {
+            if (popId !== latestPopId) return
             if (Number.isFinite(delta) && delta !== 0) {
               ignoreNextPop = true
               win.history.go(-delta)
@@ -126,6 +129,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
             }
             throw error
           }
+          if (popId !== latestPopId) return
           if (isBlocked) {
             if (Number.isFinite(delta) && delta !== 0) {
               ignoreNextPop = true
@@ -137,6 +141,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
       }
     }
 
+    if (popId !== latestPopId) return
     currentLocation = parseLocation()
     history.notify(notify)
   }

@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
 import { createRootRoute, createRoute } from '../src/route'
+import { notFound } from '../src/not-found'
+import { redirect } from '../src/redirect'
 import { createRouter, SearchParamError, setLoadServerRoute } from '../src/router'
 import { createRequestHandler } from '../src/ssr/create-request-handler'
 import { attachRouterServerSsrUtils } from '../src/ssr/ssr-server'
 import { registerLoadServerRoute } from '../src/ssr/register-load-server'
+import { loadServerRoute } from '../src/load-server'
 import type { AnyRouter, SSROption } from '../src/router'
 
 type SsrValue = SSROption | undefined
@@ -70,11 +73,32 @@ async function loadTree(options: {
 }
 
 describe('SSR loader registration', () => {
-  it('attachRouterServerSsrUtils reinstalls the server loader', async () => {
+  async function withStaleClientHook<T>(run: () => Promise<T>): Promise<T> {
     setLoadServerRoute(() => {
       throw new Error('client loader ran')
     })
     try {
+      return await run()
+    } finally {
+      registerLoadServerRoute()
+    }
+  }
+
+  it('SSR entry registration lets router.load set _serverResult', async () => {
+    await withStaleClientHook(async () => {
+      registerLoadServerRoute()
+      const router = createRouter({
+        routeTree: createRootRoute(),
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+        isServer: true,
+      })
+      await router.load()
+      expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
+    })
+  })
+
+  it('attachRouterServerSsrUtils reinstalls the server loader', async () => {
+    await withStaleClientHook(async () => {
       const router = createRouter({
         routeTree: createRootRoute(),
         history: createMemoryHistory({ initialEntries: ['/'] }),
@@ -83,9 +107,107 @@ describe('SSR loader registration', () => {
       attachRouterServerSsrUtils({ router, manifest: undefined })
       await router.load()
       expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
-    } finally {
-      registerLoadServerRoute()
-    }
+    })
+  })
+
+  it('createRequestHandler reinstalls the server loader', async () => {
+    await withStaleClientHook(async () => {
+      const { router, response } = await loadTree({ path: '/child' })
+      expect(response.status).toBe(200)
+      expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
+    })
+  })
+})
+
+describe('fast server loader failures', () => {
+  it('commits rejected errors as 500 results', async () => {
+    const error = new Error('async failure')
+    const { router, response, rootRoute } = await loadTree({
+      root: {
+        loader: async () => {
+          throw error
+        },
+      },
+    })
+
+    expect(response.status).toBe(500)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('error')
+    expect(matchOf(router, rootRoute.id)?.error).toBe(error)
+  })
+
+  it('commits rejected not-found values as 404 results', async () => {
+    const { router, response, rootRoute } = await loadTree({
+      root: {
+        loader: async () => {
+          throw notFound()
+        },
+      },
+    })
+
+    expect(response.status).toBe(404)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('notFound')
+  })
+
+  it('commits resolved not-found values as 404 results', async () => {
+    const notFoundValue = notFound()
+    const { router, response, rootRoute } = await loadTree({
+      root: { loader: async () => notFoundValue },
+    })
+
+    expect(response.status).toBe(404)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('notFound')
+    expect(matchOf(router, rootRoute.id)?.error).toBe(notFoundValue)
+  })
+
+  it('commits resolved redirects', async () => {
+    const { router, response } = await loadTree({
+      root: { loader: async () => redirect({ to: '/child' }) },
+    })
+
+    expect(response.status).toBe(307)
+    expect(router._serverResult).toMatchObject({ type: 'redirect' })
+  })
+
+  it('keeps resolved error instances as loader data', async () => {
+    const value = new Error('not a failure')
+    const { router, response, rootRoute } = await loadTree({
+      root: { loader: async () => value },
+    })
+
+    expect(response.status).toBe(200)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('success')
+    expect(matchOf(router, rootRoute.id)?.loaderData).toBe(value)
+  })
+})
+
+describe('fast server request cancellation', () => {
+  it('aborts route loaders and rejects without waiting for them', async () => {
+    let started!: () => void
+    const didStart = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    let routeSignal!: AbortSignal
+    const root = createRootRoute({
+      loader: ({ abortController }) => {
+        routeSignal = abortController.signal
+        started()
+        return new Promise<void>(() => {})
+      },
+    })
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+    const request = new AbortController()
+    const reason = new Error('request canceled')
+
+    const loading = Promise.resolve(loadServerRoute(router, { _signal: request.signal }))
+    await didStart
+    request.abort(reason)
+
+    expect(routeSignal.aborted).toBe(true)
+    await expect(loading).rejects.toBe(reason)
   })
 })
 
