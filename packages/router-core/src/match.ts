@@ -101,17 +101,14 @@ function createNode(): SegmentNode {
   }
 }
 
-function findWildcard(node: SegmentNode, prefix: string, suffix: string, caseSensitive?: boolean) {
+function findWildcard(node: SegmentNode, prefix: string, suffix: string) {
   const children = node.wildcardChildren
   if (children) {
-    let prefixMatch: SegmentNode | undefined
     for (let i = 0; i < children.length; i++) {
       const child = children[i]!
-      if (child.prefix !== prefix || child.suffix !== suffix) continue
-      if (caseSensitive === undefined || child.affixCaseSensitive === caseSensitive) return child
-      prefixMatch ??= child
+      if (child.prefix === prefix && child.suffix === suffix) return child
     }
-    return prefixMatch
+    return undefined
   }
   const child = node.wildcardChild
   return child && child.prefix === prefix && child.suffix === suffix ? child : undefined
@@ -123,12 +120,17 @@ function getOrCreateWildcard(
   suffix: string,
   caseSensitive: boolean | undefined,
 ) {
-  const existing = findWildcard(node, prefix, suffix, caseSensitive)
-  if (existing) {
-    if (caseSensitive !== undefined) existing.affixCaseSensitive = caseSensitive
-    return existing
-  }
   const children = node.wildcardChildren ?? (node.wildcardChildren = [])
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i]!
+    if (
+      child.prefix === prefix &&
+      child.suffix === suffix &&
+      child.affixCaseSensitive === caseSensitive
+    ) {
+      return child
+    }
+  }
   const child = createNode()
   child.prefix = prefix
   child.suffix = suffix
