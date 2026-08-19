@@ -12,7 +12,7 @@ describe('createMemoryHistory TanStack stack parity', () => {
         }),
     })
 
-    const stale = history.push('/stale') as Promise<void>
+    const stale = Promise.resolve(history.push('/stale'))
     history.push('/current', undefined, { ignoreBlocker: true })
     release(false)
     await stale

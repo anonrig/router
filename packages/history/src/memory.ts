@@ -233,16 +233,19 @@ class MemoryHistory implements RouterHistory {
   }
 
   go(n: number) {
-    this.committedNavigationId = ++this.navigationId
     const next = this.index + n
-    this.index = next < 0 ? 0 : next >= this.entries.length ? this.entries.length - 1 : next
+    const target = next < 0 ? 0 : next >= this.entries.length ? this.entries.length - 1 : next
+    // A pop that lands on the current entry never commits a navigation, so it must
+    // not retire an in-flight blocked push.
+    if (target !== this.index) this.committedNavigationId = ++this.navigationId
+    this.index = target
     this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     this.notify({ type: 'GO', index: n })
   }
 
   back() {
-    this.committedNavigationId = ++this.navigationId
     if (this.index !== 0) {
+      this.committedNavigationId = ++this.navigationId
       this.index -= 1
       this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     }
@@ -250,8 +253,8 @@ class MemoryHistory implements RouterHistory {
   }
 
   forward() {
-    this.committedNavigationId = ++this.navigationId
     if (this.index < this.entries.length - 1) {
+      this.committedNavigationId = ++this.navigationId
       this.index += 1
       this.location = locationFromPath(this.entries[this.index]!, this.states[this.index])
     }

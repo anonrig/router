@@ -34,6 +34,13 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
 
   const notify = (action: SubscriberHistoryAction) => {
     location = opts.getLocation()
+    // A pop takes ownership only once it has actually landed. opts.back, opts.go,
+    // and opts.forward can return before the pop is applied, and a popstate
+    // blocker may still reject it, so claiming ownership at call time would retire
+    // an in-flight blocked push that is still valid.
+    if (action.type !== 'PUSH' && action.type !== 'REPLACE') {
+      committedNavigationId = ++navigationId
+    }
     if (subscribers.size === 0) return
     const args: SubscriberArgs = { location, action }
     for (const subscriber of subscribers) subscriber(args)
@@ -146,17 +153,14 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
       notify(REPLACE_ACTION)
     },
     go: (index) => {
-      committedNavigationId = ++navigationId
       opts.go(index)
       handleIndexChange({ type: 'GO', index })
     },
     back: (navigateOpts) => {
-      committedNavigationId = ++navigationId
       opts.back(navigateOpts?.ignoreBlocker === true)
       handleIndexChange(BACK_ACTION)
     },
     forward: (navigateOpts) => {
-      committedNavigationId = ++navigationId
       opts.forward(navigateOpts?.ignoreBlocker === true)
       handleIndexChange(FORWARD_ACTION)
     },
