@@ -142,7 +142,11 @@ function countSlashSeparatedParts(path: string) {
 function isPathlessKey(key: string) {
   if (key.endsWith('/') && key !== '/') return false
   const segment = lastSegment(key)
-  return (segment.startsWith('_') && segment !== '__root__') || segment.startsWith('@')
+  return (
+    (segment.startsWith('_') && segment !== '__root__') ||
+    segment.startsWith('@') ||
+    (segment.startsWith('(') && segment.endsWith(')'))
+  )
 }
 
 function slotNameOf(key: string) {
@@ -155,7 +159,13 @@ export function urlPathFromId(id: string): string | undefined {
   const parts: Array<string> = []
   for (const segment of id.split('/')) {
     if (!segment) continue
-    if (segment.startsWith('_') || segment.startsWith('@')) continue
+    if (
+      segment.startsWith('_') ||
+      segment.startsWith('@') ||
+      (segment.startsWith('(') && segment.endsWith(')'))
+    ) {
+      continue
+    }
     parts.push(segment.endsWith('_') ? segment.slice(0, -1) : segment)
   }
   if (parts.length === 0) {
