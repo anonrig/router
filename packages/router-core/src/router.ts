@@ -1705,39 +1705,69 @@ export class RouterCore<
       prev.hash === hash &&
       deepEqual(_getUserHistoryState(location.state), _getUserHistoryState(prev.state))
 
-    this.latestLocation = location
-    this._pendingLocation = location
+    if (same) {
+      // Keep history bookkeeping (__TSR_index / keys); do not publish EMPTY_OBJ.
+      location.state = this.history.location.state
+      this.latestLocation = location
+      this._pendingLocation = location
+      const id = ++this.loadId
+      const loaded = this.runLoad(location, id)
+      if (loaded instanceof Promise) {
+        return loaded.then(
+          () => this.finishHrefNav(location),
+          (err) => {
+            this.finishHrefNav(location)
+            throw err
+          },
+        )
+      }
+      this.finishHrefNav(location)
+      return RESOLVED
+    }
 
-    if (!same) {
-      this._committing = true
-      const history = this.history
-      const historyOpts = {
-        ignoreBlocker: rest.ignoreBlocker,
-        simple: searchStr === '' && hash === '' && pathname === hrefFull,
-      }
-      if (rest.replace) {
-        history.replace(hrefFull, rest.state, historyOpts)
-      } else {
-        history.push(hrefFull, rest.state, historyOpts)
-      }
+    const history = this.history
+    const historyOpts = {
+      ignoreBlocker: rest.ignoreBlocker,
+      simple: searchStr === '' && hash === '' && pathname === hrefFull,
+    }
+    this._committing = true
+    const pushed = rest.replace
+      ? history.replace(hrefFull, rest.state, historyOpts)
+      : history.push(hrefFull, rest.state, historyOpts)
+
+    const afterCommit = (): Promise<void> => {
       history.flush()
       this._committing = false
+      // Blockers may deny the commit; never publish a destination we did not land on.
+      const landed =
+        history.location.pathname === pathname &&
+        (history.location.search || '') === (searchStr || '') &&
+        stripLeadingHash(history.location.hash) === hash
+      if (!landed) return RESOLVED
+
       location.state = history.location.state
+      this.latestLocation = location
+      this._pendingLocation = location
+
+      const id = ++this.loadId
+      const loaded = this.runLoad(location, id)
+      if (loaded instanceof Promise) {
+        return loaded.then(
+          () => this.finishHrefNav(location),
+          (err) => {
+            this.finishHrefNav(location)
+            throw err
+          },
+        )
+      }
+      this.finishHrefNav(location)
+      return RESOLVED
     }
 
-    const id = ++this.loadId
-    const loaded = this.runLoad(location, id)
-    if (loaded instanceof Promise) {
-      return loaded.then(
-        () => this.finishHrefNav(location),
-        (err) => {
-          this.finishHrefNav(location)
-          throw err
-        },
-      )
+    if (pushed != null && typeof (pushed as Promise<void>).then === 'function') {
+      return (pushed as Promise<void>).then(afterCommit)
     }
-    this.finishHrefNav(location)
-    return RESOLVED
+    return afterCommit()
   }
 
   private finishHrefNav(location: ParsedLocation) {
