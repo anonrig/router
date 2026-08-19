@@ -11,9 +11,10 @@ describe('memory history async push indexes', () => {
     history.block({
       blockerFn: () => {
         n++
-        if (n === 1) return new Promise<boolean>((r) => {
-          release1 = r
-        })
+        if (n === 1)
+          return new Promise<boolean>((r) => {
+            release1 = r
+          })
         return new Promise<boolean>((r) => {
           release2 = r
         })
