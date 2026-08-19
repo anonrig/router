@@ -206,6 +206,30 @@ describe('useMatch', () => {
     expect(await screen.findByText('byFullPath:/_layout/posts')).toBeInTheDocument()
     expect(screen.getByText('byRouteId:/_layout/posts')).toBeInTheDocument()
   })
+
+  it('does not shadow an inactive index route with ancestor layout matches', async () => {
+    function AboutComponent() {
+      const matchIndex = useMatch({ from: '/' as any, shouldThrow: false })
+      return <div>indexMatch:{matchIndex ? 'found' : 'none'}</div>
+    }
+
+    const root = createRootRoute({ component: () => <Outlet /> })
+    const layout = createRoute({ getParentRoute: () => root, id: '_auth' })
+    const index = createRoute({ getParentRoute: () => layout, path: '/' })
+    const about = createRoute({
+      getParentRoute: () => layout,
+      path: '/about',
+      component: AboutComponent,
+    })
+
+    const router = createRouter({
+      routeTree: root.addChildren([layout.addChildren([index, about])]),
+      history: createMemoryHistory({ initialEntries: ['/about'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('indexMatch:none')).toBeInTheDocument()
+  })
 })
 
 describe('useElementScrollRestoration', () => {

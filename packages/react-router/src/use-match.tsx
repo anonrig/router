@@ -3,14 +3,15 @@ import { dummyMatchContext, matchContext } from './match-context'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
-import type {
-  AnyRouter,
-  MakeRouteMatch,
-  MakeRouteMatchUnion,
-  StrictOrFrom,
-  ThrowConstraint,
-  ThrowOrOptional,
-  RegisteredRouter,
+import {
+  trimPathRight,
+  type AnyRouter,
+  type MakeRouteMatch,
+  type MakeRouteMatchUnion,
+  type StrictOrFrom,
+  type ThrowConstraint,
+  type ThrowOrOptional,
+  type RegisteredRouter,
 } from 'speedy-router-core'
 
 export interface UseMatchBaseOptions<
@@ -75,33 +76,22 @@ export function useMatch<
     TStructuralSharing
   >,
 ): ThrowOrOptional<UseMatchResult<TRouter, TFrom, TStrict, TSelected>, TThrow> {
-  const _router = useRouter<TRouter>()
+  const router = useRouter<TRouter>()
   const nearest = useContext(opts?.from ? dummyMatchContext : matchContext)
   const from = opts?.from ?? nearest
 
   return useRouterState({
     select: (state) => {
       const matches = state.matches
-      let match = from
-        ? matches.find((m: any) => m.routeId === from || m.route?.id === from)
+      const targetRoute = from
+        ? (router.routesById?.[from] ??
+          router.routesByPath?.[from] ??
+          router.routesByPath?.[trimPathRight(from)])
         : undefined
-      if (!match && from) {
-        for (let i = matches.length - 1; i >= 0; i--) {
-          const m = matches[i] as any
-          if (
-            m.routeId === from ||
-            m.route?.id === from ||
-            m.fullPath === from ||
-            m.route?.fullPath === from
-          ) {
-            match = m
-            break
-          }
-        }
-      }
-      if (!match && !from) {
-        match = matches[matches.length - 1]
-      }
+      const targetRouteId = targetRoute?.id ?? from
+      const match = targetRouteId
+        ? matches.find((m: any) => m.routeId === targetRouteId)
+        : matches[matches.length - 1]
       if (!match) {
         if (opts?.shouldThrow === false || opts?.strict === false) {
           return undefined as any
