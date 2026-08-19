@@ -44,6 +44,16 @@ test('useRouter is a registered router, not any', () => {
   expectTypeOf(useRouter()).not.toBeAny()
 })
 
+test('matched routes and stores are not any', () => {
+  const router = useRouter()
+  const [matchedRoutes, rawParams, foundRoute] = router.getMatchedRoutes('/')
+  expectTypeOf(matchedRoutes).not.toBeAny()
+  expectTypeOf(rawParams).not.toBeAny()
+  expectTypeOf(foundRoute).not.toBeAny()
+  expectTypeOf(router.stores).not.toBeAny()
+  expectTypeOf(router.stores.matches.get()).not.toBeAny()
+})
+
 test('throw redirect and notFound are typed as Error', () => {
   expectTypeOf(redirect({ to: '/' })).toMatchTypeOf<Error>()
   expectTypeOf(notFound()).toMatchTypeOf<Error>()

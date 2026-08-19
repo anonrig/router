@@ -16,7 +16,7 @@ export function RouterContextProvider<
       ...router.options,
       ...rest,
       context: {
-        ...router.options.context,
+        ...(router.options.context as object),
         ...(rest as any).context,
       },
     })

@@ -53,13 +53,14 @@ export function Matches() {
 function MatchesInner() {
   const router = useRouter()
   const acknowledgement = (router._rendered ??= [])
-  const matches =
+  const matches = (
     (isServer ?? router.isServer)
       ? router.stores.matches.get()
       : // eslint-disable-next-line react-hooks/rules-of-hooks
         useRouterState({
           select: (state) => acknowledgement[0 /* offered */] ?? state.matches,
         })
+  ) as ReturnType<typeof router.stores.matches.get>
   const match = matches[0]
   const routeId = match?.routeId
   let errorReset = ''

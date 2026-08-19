@@ -59,6 +59,7 @@ import {
   isDangerousProtocol,
   nullReplaceEqualDeep,
   replaceEqualDeep,
+  type PickAsRequired,
 } from './utils'
 
 /**
@@ -613,12 +614,15 @@ export class RouterCore<
   TRouterHistory extends RouterHistory = RouterHistory,
   TDehydrated extends Record<string, any> = Record<string, any>,
 > {
-  options!: RouterOptions<
-    TRouteTree,
-    TTrailingSlashOption,
-    TDefaultStructuralSharingOption,
-    TRouterHistory,
-    TDehydrated
+  options!: PickAsRequired<
+    RouterOptions<
+      TRouteTree,
+      TTrailingSlashOption,
+      TDefaultStructuralSharingOption,
+      TRouterHistory,
+      TDehydrated
+    >,
+    'stringifySearch' | 'parseSearch' | 'context'
   >
   history!: TRouterHistory
   origin?: string
@@ -638,7 +642,14 @@ export class RouterCore<
   ssr: any = undefined
   serverSsr: any = undefined
   serverSsrLifecycle?: { onServerSsrAttach?: Array<(serverSsr: any) => void> }
-  stores: any
+  // Extra bag fields (`state`, client location atoms) stay open for the
+  // runtime store implementations. `matches` is the public SSR/client API.
+  stores!: {
+    matches: {
+      get: () => Array<AnyRouteMatch>
+    }
+    [key: string]: any
+  }
   batch: (fn: () => void) => void = runNow
   _rendered: any[] | undefined
   _cache: Record<string, any> = Object.create(null)
@@ -2042,18 +2053,18 @@ export class RouterCore<
     }
   }
 
-  getMatchedRoutes(pathname: string) {
+  getMatchedRoutes(pathname: string): ReturnType<GetMatchRoutesFn> {
     const path = trimPathRight(pathname || '/')
     const cache = this.processedTree.matchedRoutesCache
     const cached = cache?.[path]
-    if (cached) return cached
+    if (cached) return cached as unknown as ReturnType<GetMatchRoutesFn>
 
     const exact = findRouteMatchFromTree(
       this.processedTree,
       path,
       this.options.caseSensitive ?? false,
     )
-    let result: readonly [any[], Record<string, any>, any]
+    let result: ReturnType<GetMatchRoutesFn>
     if (exact?.length) {
       const last = exact[exact.length - 1]!
       const branch = buildRouteBranch(last.route as AnyRoute)
@@ -2061,7 +2072,7 @@ export class RouterCore<
         branch.length ? branch : exact.map((item) => item.route),
         last.rawParams,
         last.route,
-      ]
+      ] as unknown as ReturnType<GetMatchRoutesFn>
     } else {
       const match = findRouteMatchFromTree(
         this.processedTree,
@@ -2071,12 +2082,16 @@ export class RouterCore<
       )
       if (match?.length) {
         const last = match[match.length - 1]!
-        result = [buildRouteBranch(last.route as AnyRoute), last.rawParams, last.route]
+        result = [
+          buildRouteBranch(last.route as AnyRoute),
+          last.rawParams,
+          last.route,
+        ] as unknown as ReturnType<GetMatchRoutesFn>
       } else {
         result = [[this.routesById[rootRouteId]!], Object.create(null), undefined]
       }
     }
-    if (cache) cache[path] = result
+    if (cache) cache[path] = result as unknown as (typeof cache)[string]
     return result
   }
 

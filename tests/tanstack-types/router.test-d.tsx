@@ -253,3 +253,22 @@ test('when creating a router with custom router history', () => {
   expectTypeOf(router.history).toMatchTypeOf<RouterHistory>()
   expectTypeOf(router.history).toEqualTypeOf<typeof customRouterHistory>()
 })
+
+test('when creating a router with typed root context', () => {
+  const rootRoute = createRootRouteWithContext<{
+    language: string
+    featureSwitches: { getArrayValue: (name: string) => Array<string> }
+  }>()()
+
+  const router = createRouter({
+    routeTree: rootRoute,
+    context: {
+      language: 'en',
+      featureSwitches: { getArrayValue: () => [] },
+    },
+  })
+
+  expectTypeOf(router.options.context.language).toEqualTypeOf<string>()
+  expectTypeOf(router.options.context.featureSwitches.getArrayValue).not.toBeAny()
+  expectTypeOf(router.options.context).not.toBeAny()
+})
