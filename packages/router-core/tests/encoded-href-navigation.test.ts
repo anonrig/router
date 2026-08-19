@@ -26,4 +26,24 @@ describe('percent-encoded href navigation', () => {
     expect(router.state.location.pathname).toBe('/hello world')
     expect(router.state.matches.at(-1)?.routeId).toBe(page.id)
   })
+
+  test('navigate({ href }) commits the sanitized path, not the raw href', async () => {
+    const root = createRootRoute()
+    const index = createRoute({ getParentRoute: () => root, path: '/' })
+    const page = createRoute({ getParentRoute: () => root, path: '/evil.com/path' })
+    root.addChildren([index, page] as any)
+    const history = createMemoryHistory({ initialEntries: ['/'] })
+    const router = createRouter({
+      routeTree: root as any,
+      history,
+      isServer: true,
+    })
+    await router.load()
+
+    await router.navigate({ href: '//evil.com/path' } as any)
+
+    expect(history.location.pathname).toBe('/evil.com/path')
+    expect(history.location.href).not.toMatch(/^\/\//)
+    expect(router.state.location.pathname).toBe('/evil.com/path')
+  })
 })

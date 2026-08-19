@@ -1684,7 +1684,7 @@ export class RouterCore<
         if (href0 === 35) searchStr = this.latestLocation.searchStr
         else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
       }
-      hrefFull = parsed.pathname ? href : `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
+      hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
     const publicHref = encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
     const location: ParsedLocation = {
