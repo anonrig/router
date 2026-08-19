@@ -77,6 +77,36 @@ describe('matcher', () => {
     ])
   })
 
+  it('keeps sibling group layouts that share a URL prefix from overwriting each other', () => {
+    const root = createRootRoute()
+    function fileRoute(id: string, path: string | undefined, parent: () => any) {
+      const route = createRoute({ getParentRoute: parent })
+      route.update(
+        (path === undefined
+          ? { id, getParentRoute: parent }
+          : { id, path, getParentRoute: parent }) as any,
+      )
+      return route
+    }
+    // No `dashboard.tsx` parent: both group layouts keep public path `/dashboard`.
+    const admin = fileRoute('/dashboard/(admin)', '/dashboard', () => root)
+    const users = fileRoute('/users', '/users', () => admin)
+    const viewer = fileRoute('/dashboard/(viewer)', '/dashboard', () => root)
+    const stats = fileRoute('/stats', '/stats', () => viewer)
+    root.addChildren([admin.addChildren([users]), viewer.addChildren([stats])])
+    const processed = processRouteTree(root as any)
+    expect(findRouteMatch(processed, '/dashboard/users')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/dashboard/(admin)',
+      '/dashboard/(admin)/users',
+    ])
+    expect(findRouteMatch(processed, '/dashboard/stats')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/dashboard/(viewer)',
+      '/dashboard/(viewer)/stats',
+    ])
+  })
+
   it('returns null for unknown paths', () => {
     const processed = tree()
     expect(findRouteMatch(processed, '/missing')).toBeNull()
