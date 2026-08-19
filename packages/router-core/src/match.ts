@@ -399,6 +399,14 @@ function isPathless(route: AnyRouteLike): boolean {
   return !publicPathHasSegment(publicPath, last)
 }
 
+const pathlessRoutes = new WeakSet<object>()
+
+function rememberIfPathless(route: AnyRouteLike) {
+  if (!isPathless(route)) return false
+  pathlessRoutes.add(route)
+  return true
+}
+
 function isIndex(route: AnyRouteLike): boolean {
   if (route.isRoot) return false
   if (route.options?.path === '/' || route.path === '/') return true
@@ -488,7 +496,7 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
     return
   }
 
-  if (isPathless(route)) {
+  if (rememberIfPathless(route)) {
     const attachPath = pathlessAttachPath(route)
     const parentNode = attachPath ? walkPath(node, attachPath, caseSensitive, route) : node
     if (!parentNode.pathless) parentNode.pathless = []
@@ -605,7 +613,7 @@ function decodeSegment(raw: string) {
 function lastNonPathless(chain: AnyRouteLike[]): AnyRouteLike | undefined {
   for (let i = chain.length - 1; i >= 0; i--) {
     const route = chain[i]!
-    if (!isPathless(route)) return route
+    if (!pathlessRoutes.has(route)) return route
   }
 }
 
@@ -627,7 +635,7 @@ function toMatchResults(
   const matches: RouteMatchResult[] = []
   for (let i = 0; i < chain.length; i++) {
     const route = chain[i]!
-    if (concrete && isPathless(route) && !isRouteAncestor(route, concrete)) {
+    if (concrete && pathlessRoutes.has(route) && !isRouteAncestor(route, concrete)) {
       continue
     }
     let seen = false

@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { findRouteMatch, processRouteTree } from '../src/match'
 import { createRootRoute, createRoute } from '../src/route'
 
+function fileRoute(id: string, path: string | undefined, parent: () => any) {
+  const route = createRoute({ getParentRoute: parent })
+  route.update(
+    (path === undefined
+      ? { id, getParentRoute: parent }
+      : { id, path, getParentRoute: parent }) as any,
+  )
+  return route
+}
+
 function tree() {
   const root = createRootRoute()
   const index = createRoute({ getParentRoute: () => root, path: '/' })
@@ -52,15 +62,6 @@ describe('matcher', () => {
 
   it('matches parenthesized route groups without consuming URL segments', () => {
     const root = createRootRoute()
-    function fileRoute(id: string, path: string | undefined, parent: () => any) {
-      const route = createRoute({ getParentRoute: parent })
-      route.update(
-        (path === undefined
-          ? { id, getParentRoute: parent }
-          : { id, path, getParentRoute: parent }) as any,
-      )
-      return route
-    }
     const auth = fileRoute('/(auth)', undefined, () => root)
     const login = fileRoute('/login', '/login', () => auth)
     const settings = fileRoute('/(app)/(dashboard)/settings', '/settings', () => root)
@@ -79,15 +80,6 @@ describe('matcher', () => {
 
   it('keeps sibling group layouts that share a URL prefix from overwriting each other', () => {
     const root = createRootRoute()
-    function fileRoute(id: string, path: string | undefined, parent: () => any) {
-      const route = createRoute({ getParentRoute: parent })
-      route.update(
-        (path === undefined
-          ? { id, getParentRoute: parent }
-          : { id, path, getParentRoute: parent }) as any,
-      )
-      return route
-    }
     // No `dashboard.tsx` parent: both group layouts keep public path `/dashboard`.
     const admin = fileRoute('/dashboard/(admin)', '/dashboard', () => root)
     const users = fileRoute('/users', '/users', () => admin)
@@ -163,15 +155,6 @@ describe('matcher', () => {
 
   it('keeps a flattened trailing-slash index instead of a pathful underscore sibling', () => {
     const root = createRootRoute()
-    function fileRoute(id: string, path: string | undefined, parent: () => any) {
-      const route = createRoute({ getParentRoute: parent })
-      route.update(
-        (path === undefined
-          ? { id, getParentRoute: parent }
-          : { id, path, getParentRoute: parent }) as any,
-      )
-      return route
-    }
     const postIndex = fileRoute('/$user/post/$postId/', '/$user/post/$postId/', () => root)
     const stats = fileRoute('/$user/post/$postId/_stats', '/$user/post/$postId', () => root)
     const likes = fileRoute('/likes', '/likes', () => stats)
@@ -189,15 +172,6 @@ describe('matcher', () => {
 
   it('keeps a file-route profile index instead of a sibling auth layout', () => {
     const root = createRootRoute()
-    function fileRoute(id: string, path: string | undefined, parent: () => any) {
-      const route = createRoute({ getParentRoute: parent })
-      route.update(
-        (path === undefined
-          ? { id, getParentRoute: parent }
-          : { id, path, getParentRoute: parent }) as any,
-      )
-      return route
-    }
     const profile = fileRoute('/$username/_profile', '/$username', () => root)
     const profileIndex = fileRoute('/', '/', () => profile)
     const followers = fileRoute('/$username/_followers', '/$username', () => root)
