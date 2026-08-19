@@ -200,6 +200,19 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('keeps named default declarations used by split components', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+export const Route = createFileRoute('/default')({ component: Page })
+export default function Page() {
+  return <div>large enough component body for automatic splitting</div>
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/default.tsx', 'component')
+
+    expect(result).toContain('export default function Page()')
+    expect(result).toContain('export const component = Page')
+  })
+
   it('emits only the component graph', () => {
     const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()

@@ -116,6 +116,9 @@ function declaredNames(statement: EstreeNode): Array<string> {
   if (statement.type === 'ExportNamedDeclaration' && statement.declaration) {
     return declaredNames(statement.declaration)
   }
+  if (statement.type === 'ExportDefaultDeclaration' && statement.declaration) {
+    return declaredNames(statement.declaration)
+  }
   return []
 }
 
