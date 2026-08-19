@@ -229,6 +229,205 @@ describe('useBlocker withResolver', () => {
     expect(router.state.location.pathname).toBe('/other')
   })
 
+  it('ignores an in-flight attempt that a disabled navigation supersedes', async () => {
+    const pending = Promise.withResolvers<boolean>()
+    let calls = 0
+    function ToggleBlockerComponent() {
+      const [disabled, setDisabled] = useState(false)
+      const blocker = useBlocker({
+        withResolver: true,
+        disabled,
+        shouldBlockFn: () => {
+          calls++
+          return pending.promise
+        },
+      })
+      return (
+        <div>
+          <div data-testid="status">{blocker.status}</div>
+          <button type="button" data-testid="disable-btn" onClick={() => setDisabled(true)}>
+            Disable
+          </button>
+        </div>
+      )
+    }
+    const rootRoute = createRootRoute({
+      component: () => (
+        <div>
+          <ToggleBlockerComponent />
+          <Outlet />
+        </div>
+      ),
+    })
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => <h1>Home</h1>,
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About</h1>,
+    })
+    const otherRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/other',
+      component: () => <h1>Other</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    let first!: Promise<void>
+    act(() => {
+      first = router.navigate({ to: '/about' })
+    })
+    expect(calls).toBe(1)
+
+    // The disabled attempt returns early, but it must still claim a generation.
+    fireEvent.click(screen.getByTestId('disable-btn'))
+    let second!: Promise<void>
+    await act(async () => {
+      second = router.navigate({ to: '/other' })
+      await second
+    })
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+
+    // The first attempt lands after the newer navigation already continued.
+    pending.resolve(true)
+    await act(async () => {
+      await first
+    })
+    expect(screen.getByTestId('status').textContent).toBe('idle')
+    expect(router.state.location.pathname).toBe('/other')
+  })
+
+  it('keeps the newer resolver when the older attempt settles first', async () => {
+    const first = Promise.withResolvers<boolean>()
+    const second = Promise.withResolvers<boolean>()
+    let calls = 0
+    function DelayedBlockerComponent() {
+      const blocker = useBlocker({
+        withResolver: true,
+        shouldBlockFn: () => (++calls === 1 ? first.promise : second.promise),
+      })
+      return (
+        <div>
+          <div data-testid="status">{blocker.status}</div>
+          <div data-testid="next-path">{blocker.next?.pathname ?? 'none'}</div>
+          <button type="button" data-testid="proceed-btn" onClick={() => blocker.proceed?.()}>
+            Proceed
+          </button>
+        </div>
+      )
+    }
+    const rootRoute = createRootRoute({
+      component: () => (
+        <div>
+          <DelayedBlockerComponent />
+          <Outlet />
+        </div>
+      ),
+    })
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => <h1>Home</h1>,
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About</h1>,
+    })
+    const otherRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/other',
+      component: () => <h1>Other</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    let firstNav!: Promise<void>
+    act(() => {
+      firstNav = router.navigate({ to: '/about' })
+    })
+    let secondNav!: Promise<void>
+    act(() => {
+      secondNav = router.navigate({ to: '/other' })
+    })
+    expect(calls).toBe(2)
+
+    // The older attempt settles first here, the opposite order of the test above.
+    first.resolve(true)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    second.resolve(true)
+
+    expect(await screen.findByText('blocked')).toBeInTheDocument()
+    expect(screen.getByTestId('next-path').textContent).toBe('/other')
+
+    fireEvent.click(screen.getByTestId('proceed-btn'))
+    await act(async () => {
+      await Promise.all([firstNav, secondNav])
+    })
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/other')
+  })
+
+  it('settles a pending shouldBlockFn when the blocker unmounts', async () => {
+    const pending = Promise.withResolvers<boolean>()
+    function PendingBlockerComponent() {
+      const blocker = useBlocker({
+        withResolver: true,
+        shouldBlockFn: () => pending.promise,
+      })
+      return <div data-testid="status">{blocker.status}</div>
+    }
+    const rootRoute = createRootRoute({
+      component: () => (
+        <div>
+          <PendingBlockerComponent />
+          <Outlet />
+        </div>
+      ),
+    })
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/',
+      component: () => <h1>Home</h1>,
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute, aboutRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    const view = render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    let navigation!: Promise<void>
+    act(() => {
+      navigation = router.navigate({ to: '/about' })
+    })
+
+    // shouldBlockFn is still pending here, so cleanup cannot rely on an installed resolver.
+    view.unmount()
+    pending.resolve(true)
+    await navigation
+    expect(router.state.location.pathname).toBe('/')
+  })
+
   it('settles a superseded resolver navigation', async () => {
     const router = createBlockerRouter()
     render(<RouterProvider router={router} />)

@@ -929,7 +929,9 @@ export class RouterCore<
 
   private loadId = 0
   private unsubHistory?: () => void
-  private _committing = false
+  // Depth, not a flag: blockers can leave several commits in flight, and an earlier
+  // one finishing must not expose a later commit as an external history update.
+  private _committing = 0
 
   /** @internal */
   _attachHistory() {
@@ -1107,7 +1109,7 @@ export class RouterCore<
       }
       if (!this.unsubHistory) {
         this.unsubHistory = this.history.subscribe(({ location, action }) => {
-          if (this._committing) return
+          if (this._committing > 0) return
           this.latestLocation = this.parseLocation(location, this.latestLocation)
           void this.load({ action })
         })
@@ -1779,14 +1781,20 @@ export class RouterCore<
       ignoreBlocker: rest.ignoreBlocker,
       simple: searchStr === '' && hash === '' && pathname === hrefFull,
     }
-    this._committing = true
-    const pushed = rest.replace
-      ? history.replace(hrefFull, rest.state, historyOpts)
-      : history.push(hrefFull, rest.state, historyOpts)
+    this._committing++
+    let pushed: void | Promise<void>
+    try {
+      pushed = rest.replace
+        ? history.replace(hrefFull, rest.state, historyOpts)
+        : history.push(hrefFull, rest.state, historyOpts)
+    } catch (err) {
+      this._committing--
+      throw err
+    }
 
     const afterCommit = (): Promise<void> => {
       history.flush()
-      this._committing = false
+      this._committing--
       // Blockers may deny the commit; never publish a destination we did not land on.
       const landed =
         history.location.pathname === pathname &&
@@ -1814,7 +1822,10 @@ export class RouterCore<
     }
 
     if (pushed != null && typeof (pushed as Promise<void>).then === 'function') {
-      return (pushed as Promise<void>).then(afterCommit)
+      return (pushed as Promise<void>).then(afterCommit, (err) => {
+        this._committing--
+        throw err
+      })
     }
     return afterCommit()
   }

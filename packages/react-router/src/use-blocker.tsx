@@ -98,15 +98,20 @@ export function useBlocker(opts?: any): any {
   const activeResolverRef = useRef<
     { settle: (blocked: boolean, updateState?: boolean) => void } | undefined
   >(undefined)
-  const attemptRef = useRef(0)
 
   useEffect(() => {
     optsRef.current = opts
   })
 
   useEffect(() => {
+    // Owned by this registration: the cleanup below advances it so nothing that
+    // started under this blocker can publish state once the blocker is gone.
+    let generation = 0
     const unblock = router.history.block({
       blockerFn: async (args: any) => {
+        // Every attempt claims a generation, including the ones that bail out below,
+        // so a newer navigation always invalidates an in-flight shouldBlockFn.
+        const attempt = ++generation
         const current = optsRef.current
         if (current && typeof current !== 'function' && current.disabled) return false
         const fn =
@@ -130,9 +135,8 @@ export function useBlocker(opts?: any): any {
         ) {
           return false
         }
-        const attempt = ++attemptRef.current
         const should = fn ? await fn(mapped) : true
-        if (attempt !== attemptRef.current) return true
+        if (attempt !== generation) return true
         if (!should) return false
         if (typeof current !== 'function' && current?.withResolver) {
           return await new Promise<boolean>((resolve) => {
@@ -173,6 +177,9 @@ export function useBlocker(opts?: any): any {
     })
     return () => {
       unblock()
+      // Invalidate any pending shouldBlockFn so it cannot install a resolver that
+      // nobody would ever settle, then settle the resolver that is already installed.
+      generation++
       activeResolverRef.current?.settle(true, false)
     }
   }, [router])
