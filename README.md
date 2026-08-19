@@ -100,12 +100,12 @@ pnpm bench:compare
 pnpm size
 ```
 
-| Package                                                | What you import                                      |
-| ------------------------------------------------------ | ---------------------------------------------------- |
-| [`speedy-router`](packages/react-router)               | `RouterProvider`, `Link`, hooks, SSR bindings        |
-| [`speedy-router-core`](packages/router-core)           | Matcher, navigation, loaders, search params          |
-| [`speedy-router-history`](packages/history)            | Browser, hash, and memory history                    |
-| [`speedy-router-plugin`](packages/router-plugin)       | TanStack-compatible `routeTree.gen.ts` + Vite plugin |
+| Package                                          | What you import                                      |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| [`speedy-router`](packages/react-router)         | `RouterProvider`, `Link`, hooks, SSR bindings        |
+| [`speedy-router-core`](packages/router-core)     | Matcher, navigation, loaders, search params          |
+| [`speedy-router-history`](packages/history)      | Browser, hash, and memory history                    |
+| [`speedy-router-plugin`](packages/router-plugin) | TanStack-compatible `routeTree.gen.ts` + Vite plugin |
 
 ## Performance
 
