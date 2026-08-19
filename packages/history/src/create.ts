@@ -29,6 +29,8 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
   let location = opts.getLocation()
   const subscribers = new Set<(opts: SubscriberArgs) => void>()
   const notifyOnIndexChange = opts.notifyOnIndexChange ?? true
+  let navigationId = 0
+  let committedNavigationId = 0
 
   const notify = (action: SubscriberHistoryAction) => {
     location = opts.getLocation()
@@ -54,6 +56,7 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
     path: string,
     state: any,
     task: () => void,
+    owner: number,
   ) => {
     const blockers = opts.getBlockers!()
     const nextLocation = parseHref(path, state)
@@ -64,6 +67,7 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
     }
 
     const step = (start: number): void | Promise<void> => {
+      if (owner < committedNavigationId) return
       for (let i = start; i < blockers.length; i++) {
         const result = blockers[i]!.blockerFn(blockerArgs)
         if (result != null && typeof (result as Promise<unknown>).then === 'function') {
@@ -100,48 +104,59 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
       }
     },
     push: (path, state, navigateOpts) => {
+      const owner = ++navigationId
       if (shouldRunBlockers(navigateOpts)) {
         return runPushBlockers(
           'PUSH',
           path,
           assignKeyAndIndex(location.state[STATE_INDEX] + 1, state),
           () => {
+            committedNavigationId = owner
             const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
             opts.pushState(path, nextState)
             notify(PUSH_ACTION)
           },
+          owner,
         )
       }
+      committedNavigationId = owner
       const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
       opts.pushState(path, nextState)
       notify(PUSH_ACTION)
     },
     replace: (path, state, navigateOpts) => {
+      const owner = ++navigationId
       if (shouldRunBlockers(navigateOpts)) {
         return runPushBlockers(
           'REPLACE',
           path,
           assignKeyAndIndex(location.state[STATE_INDEX], state),
           () => {
+            committedNavigationId = owner
             const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
             opts.replaceState(path, nextState)
             notify(REPLACE_ACTION)
           },
+          owner,
         )
       }
+      committedNavigationId = owner
       const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
       opts.replaceState(path, nextState)
       notify(REPLACE_ACTION)
     },
     go: (index) => {
+      committedNavigationId = ++navigationId
       opts.go(index)
       handleIndexChange({ type: 'GO', index })
     },
     back: (navigateOpts) => {
+      committedNavigationId = ++navigationId
       opts.back(navigateOpts?.ignoreBlocker === true)
       handleIndexChange(BACK_ACTION)
     },
     forward: (navigateOpts) => {
+      committedNavigationId = ++navigationId
       opts.forward(navigateOpts?.ignoreBlocker === true)
       handleIndexChange(FORWARD_ACTION)
     },
