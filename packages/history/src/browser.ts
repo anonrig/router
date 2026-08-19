@@ -207,12 +207,14 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   win.addEventListener(POP_STATE, onPushPopEvent)
 
   function pushStateWrapper(...args: Array<any>) {
+    if (next && !history._ignoreSubscribers) flush()
     const res = originalPushState.apply(win.history, args as any)
     if (alive && !history._ignoreSubscribers) onPushPop('PUSH')
     return res
   }
 
   function replaceStateWrapper(...args: Array<any>) {
+    if (next && !history._ignoreSubscribers) flush()
     const res = originalReplaceState.apply(win.history, args as any)
     if (alive && !history._ignoreSubscribers) onPushPop('REPLACE')
     return res
