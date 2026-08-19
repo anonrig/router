@@ -904,26 +904,42 @@ function executeFastServerLane(
         const data = loaderFn(loaderContext)
         if (data instanceof Promise) {
           if (!extra) fastServerLoaderCtx = undefined
-          return data.then((value) => {
-            if (isRedirect(value)) {
-              abortLane()
-              throw value
-            }
-            if (isNotFound(value)) throw value
-            match.loaderData = value
-            match.status = 'success'
-            match.invalid = false
-            match.error = undefined
-            match.updatedAt = 0
-            return executeFastServerLane(
-              router,
-              location,
-              matches,
-              i + 1,
-              loaderParentContext,
-              status,
-            )
-          })
+          return data.then(
+            (value) => {
+              if (isRedirect(value)) {
+                abortLane()
+                throw value
+              }
+              if (isNotFound(value)) throw value
+              match.loaderData = value
+              match.status = 'success'
+              match.invalid = false
+              match.error = undefined
+              match.updatedAt = 0
+              return executeFastServerLane(
+                router,
+                location,
+                matches,
+                i + 1,
+                loaderParentContext,
+                status,
+              )
+            },
+            (cause) => {
+              if (isRedirect(cause)) {
+                abortLane()
+                throw cause
+              }
+              match.status = isNotFound(cause) ? 'notFound' : 'error'
+              match.error = cause
+              match.updatedAt = 0
+              return {
+                type: 'render',
+                status: isNotFound(cause) ? 404 : 500,
+                matches,
+              }
+            },
+          )
         }
         if (isRedirect(data)) {
           abortLane()
