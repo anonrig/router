@@ -198,7 +198,11 @@ function createFileRouteImportSource(program: EstreeNode): string | undefined {
   return undefined
 }
 
-function neededStatements(program: EstreeNode, seeds: Array<EstreeNode>): Set<EstreeNode> {
+function neededStatements(
+  program: EstreeNode,
+  seeds: Array<EstreeNode>,
+  skip?: (statement: EstreeNode) => boolean,
+): Set<EstreeNode> {
   const statements: Array<EstreeNode> = program.body ?? []
   const needed = new Set<EstreeNode>(seeds)
   const used = new Set<string>()
@@ -209,6 +213,7 @@ function neededStatements(program: EstreeNode, seeds: Array<EstreeNode>): Set<Es
     grew = false
     for (const statement of statements) {
       if (needed.has(statement)) continue
+      if (skip?.(statement)) continue
       const names = declaredNames(statement)
       if (!names.some((name) => used.has(name))) continue
       needed.add(statement)
@@ -217,6 +222,15 @@ function neededStatements(program: EstreeNode, seeds: Array<EstreeNode>): Set<Es
     }
   }
   return needed
+}
+
+function hasDisabledSsr(options: EstreeNode): boolean {
+  for (const property of options.properties ?? []) {
+    if (propertyNameOf(property) !== 'ssr') continue
+    const value = propertyValue(property)
+    if (value?.type === 'Literal' && value.value === false) return true
+  }
+  return false
 }
 
 function printNamedImport(
@@ -285,12 +299,13 @@ function slice(code: string, node: EstreeNode) {
 
 /**
  * Rewrite a route file so split UI properties load through `lazyRouteComponent`.
+ * Only `ssr: false` routes are split, so SSR pages keep their components eager.
  * Loaders, `beforeLoad`, `head`, `ssr`, and `staticData` stay in this module.
  */
 export function compileReferenceRoute(code: string, fileName: string): string | null {
   const program = parseProgram(fileName, code)
   const options = getCreateFileRouteOptions(program)
-  if (!options) return null
+  if (!options || !hasDisabledSsr(options)) return null
   const properties = splitPropertiesOf(options)
   if (properties.length === 0) return null
 
@@ -349,11 +364,15 @@ export function compileVirtualRoute(
     if (containsCreateFileRoute(statement)) return false
     return declaredNames(statement).some((name) => used.has(name))
   })
-  const needed = neededStatements(program, seeds)
+  const needed = neededStatements(program, seeds, containsCreateFileRoute)
+  const usedInModule = identifiersIn(needed)
+  for (const name of used) usedInModule.add(name)
   const parts: Array<string> = []
+  if (usedInModule.has('Route')) {
+    parts.push(`import { Route } from './${basename(fileName)}'`)
+  }
   for (const statement of program.body ?? []) {
     if (!needed.has(statement)) continue
-    if (containsCreateFileRoute(statement)) continue
     parts.push(slice(code, statement))
   }
   parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)

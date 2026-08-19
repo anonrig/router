@@ -33,8 +33,10 @@ function isRootRouteFile(fileName: string) {
  * Drop-in for `@tanstack/router-plugin/vite`.
  * Emits the same `routeTree.gen.ts` shape: eager `Route` imports, `.update()`,
  * and `declare module '@tanstack/react-router'`.
- * When `autoCodeSplitting` is on, route UI properties become `lazyRouteComponent`
- * imports so `ssr: false` components stay out of the SSR graph.
+ * When `autoCodeSplitting` is on, `ssr: false` route UI properties become
+ * `lazyRouteComponent` imports so those components stay out of the SSR graph.
+ * SSR pages keep eager components so `Route.useLoaderData()` and body markup
+ * still render on the server.
  */
 export function tanstackRouter(options: TanStackRouterPluginOptions = {}): PluginOption {
   if (options.enableRouteGeneration === false) {
