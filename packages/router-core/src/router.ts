@@ -1738,6 +1738,7 @@ export class RouterCore<
       })
       hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
+    const state = resolveBuildState(rest, this.latestLocation)
     const location: ParsedLocation = {
       href: hrefFull,
       publicHref: hrefFull,
@@ -1745,7 +1746,7 @@ export class RouterCore<
       search: searchStr ? (this.options.parseSearch ?? defaultParseSearch)(searchStr) : EMPTY_OBJ,
       searchStr,
       hash,
-      state: rest.state ?? EMPTY_OBJ,
+      state,
       external: false,
     }
 
@@ -1784,8 +1785,8 @@ export class RouterCore<
     }
     this._committing = true
     const pushed = rest.replace
-      ? history.replace(hrefFull, rest.state, historyOpts)
-      : history.push(hrefFull, rest.state, historyOpts)
+      ? history.replace(hrefFull, state, historyOpts)
+      : history.push(hrefFull, state, historyOpts)
 
     const afterCommit = (): Promise<void> => {
       history.flush()
