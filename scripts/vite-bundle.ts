@@ -73,6 +73,7 @@ export async function viteBundle(opts: {
   define?: Record<string, string>
   write?: boolean
   cacheDir?: string
+  ssr?: boolean
 }): Promise<ViteBundleResult> {
   const write = opts.write ?? true
   if (write) {
@@ -98,6 +99,7 @@ export async function viteBundle(opts: {
       minify: opts.minify ?? false,
       cssCodeSplit: false,
       sourcemap: false,
+      ssr: opts.ssr,
       lib: {
         entry: opts.entry,
         formats: ['es'],

@@ -355,22 +355,27 @@ export type ListenerFn = RouterListener
 
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 export const RESOLVED: Promise<void> = Promise.resolve()
-let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
-let loadClientRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
-let preloadClientRouteCached: ((router: any, opts?: any) => Promise<any>) | undefined
+let serverLoadCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let clientLoadCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let clientPreloadCached: ((router: any, opts?: any) => Promise<any>) | undefined
+
+/** SSR handlers and tests install the server loader so client Vite builds can DCE `load-server`. */
+export function setLoadServerRoute(load: (router: any, opts?: any) => void | Promise<void>) {
+  serverLoadCached = load
+}
 
 function importLoadClient(router: any, opts?: any) {
-  if (loadClientRouteCached) return loadClientRouteCached(router, opts)
+  if (clientLoadCached) return clientLoadCached(router, opts)
   return import('./load-client').then(({ loadClientRoute }) => {
-    loadClientRouteCached = loadClientRoute
+    clientLoadCached = loadClientRoute
     return loadClientRoute(router, opts)
   })
 }
 
 function importPreloadClient(router: any, opts?: any) {
-  if (preloadClientRouteCached) return preloadClientRouteCached(router, opts)
+  if (clientPreloadCached) return clientPreloadCached(router, opts)
   return import('./load-client').then(({ preloadClientRoute }) => {
-    preloadClientRouteCached = preloadClientRoute
+    clientPreloadCached = preloadClientRoute
     return preloadClientRoute(router, opts)
   })
 }
@@ -1600,11 +1605,16 @@ export class RouterCore<
   }
 
   private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
-    if (loadServerRouteCached) return loadServerRouteCached(this, opts)
-    return import('./load-server').then(({ loadServerRoute }) => {
-      loadServerRouteCached = loadServerRoute
-      return loadServerRoute(this, opts)
-    })
+    if (serverLoadCached) return serverLoadCached(this, opts)
+    // `import.meta.env.SSR` is a Vite compile-time constant. A runtime
+    // `this.isServer` check leaves `import('./load-server')` in the client graph.
+    if (import.meta.env.SSR) {
+      return import('./load-server').then(({ loadServerRoute }) => {
+        serverLoadCached = loadServerRoute
+        return loadServerRoute(this, opts)
+      })
+    }
+    return importLoadClient(this, opts)
   }
 
   private isolateServerRequest() {
