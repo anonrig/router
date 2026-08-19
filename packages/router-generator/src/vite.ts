@@ -1,7 +1,13 @@
 import { basename, relative, resolve, sep } from 'node:path'
+import {
+  compileReferenceRoute,
+  compileVirtualRoute,
+  fileNameFromModuleId,
+  splitTargetFromModuleId,
+} from './code-split'
 import { generateRouteTree, type GenerateRouteTreeOptions } from './generate'
 import { isRouteFile, matchesRouteFileIgnorePattern } from './scan'
-import type { Plugin, ResolvedConfig } from 'vite'
+import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
 
 export type TanStackRouterPluginOptions = GenerateRouteTreeOptions & {
   /** Accepted for `@tanstack/router-plugin/vite` drop-in compatibility. */
@@ -19,12 +25,18 @@ function isInsideDirectory(file: string, directory: string) {
   return resolved === directory || resolved.startsWith(directory + sep)
 }
 
+function isRootRouteFile(fileName: string) {
+  return basename(fileName).startsWith('__root.')
+}
+
 /**
  * Drop-in for `@tanstack/router-plugin/vite`.
  * Emits the same `routeTree.gen.ts` shape: eager `Route` imports, `.update()`,
  * and `declare module '@tanstack/react-router'`.
+ * When `autoCodeSplitting` is on, route UI properties become `lazyRouteComponent`
+ * imports so `ssr: false` components stay out of the SSR graph.
  */
-export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugin | undefined {
+export function tanstackRouter(options: TanStackRouterPluginOptions = {}): PluginOption {
   if (options.enableRouteGeneration === false) {
     return
   }
@@ -47,6 +59,16 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
       quoteStyle: options.quoteStyle,
       semicolons: options.semicolons,
     }
+  }
+
+  function isSplitableRoute(id: string) {
+    const fileName = fileNameFromModuleId(id)
+    if (!routesDirectory || !isInsideDirectory(fileName, routesDirectory)) return false
+    if (!isRouteFile(basename(fileName))) return false
+    return !matchesRouteFileIgnorePattern(
+      toPosix(relative(routesDirectory, fileName)),
+      options.routeFileIgnorePattern,
+    )
   }
 
   const run = () => {
@@ -72,7 +94,7 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
     return true
   }
 
-  return {
+  const generator: Plugin = {
     name: 'tanstack-router',
     configResolved(config) {
       resolved = resolveOptions(config)
@@ -96,4 +118,28 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
       server.watcher.on('unlink', regen)
     },
   }
+
+  if (!options.autoCodeSplitting) return generator
+
+  const splitter: Plugin = {
+    name: 'tanstack-router:code-splitter',
+    enforce: 'pre',
+    configResolved(config) {
+      if (!routesDirectory) {
+        routesDirectory = resolve(config.root, options.routesDirectory ?? 'src/routes')
+      }
+    },
+    transform(code, id) {
+      if (!isSplitableRoute(id)) return null
+      const fileName = fileNameFromModuleId(id)
+      const splitTarget = splitTargetFromModuleId(id)
+      if (splitTarget) {
+        return compileVirtualRoute(code, fileName, splitTarget)
+      }
+      if (isRootRouteFile(fileName)) return null
+      return compileReferenceRoute(code, fileName)
+    },
+  }
+
+  return [generator, splitter]
 }

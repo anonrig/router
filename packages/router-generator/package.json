@@ -40,6 +40,9 @@
   "scripts": {
     "build": "node --disable-warning=ExperimentalWarning --experimental-transform-types --import ../../scripts/register-ts.mjs ../../scripts/build-packages.ts --package router-generator"
   },
+  "dependencies": {
+    "oxc-parser": "^0.144.0"
+  },
   "peerDependencies": {
     "vite": ">=6"
   },
