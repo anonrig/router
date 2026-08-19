@@ -239,7 +239,7 @@ const composeHandlers = (handlers: Array<undefined | EventHandler<any>>) => (e: 
   }
 }
 
-export function useLinkProps(
+function useLinkPropsImpl(
   options: LinkProps,
   forwardedRef?: { current: any } | ((instance: any) => void) | null,
 ): ComponentPropsWithRef<'a'> {
@@ -532,9 +532,11 @@ export function useLinkProps(
   } as ComponentPropsWithRef<'a'>
 }
 
+export const useLinkProps = useLinkPropsImpl as typeof import('./link-types').useLinkProps
+
 export const Link = forwardRef<Element, any>(function LinkImpl(props, ref) {
   const { _asChild, ...rest } = props
-  const { type: _type, ...linkProps } = useLinkProps(rest as LinkProps, ref as any)
+  const { type: _type, ...linkProps } = useLinkPropsImpl(rest as LinkProps, ref as any)
   void _type
 
   const children =
