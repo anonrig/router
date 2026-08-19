@@ -794,11 +794,12 @@ function fillFastServerLoaderContext(
   navigate: AnyRouter['navigate'],
   context: Record<string, any>,
   route: AnyRoute,
+  parentMatchPromise: LoaderFnContext['parentMatchPromise'] | undefined,
 ) {
   ctx.params = match.params
   ctx.deps = match.loaderDeps
   ctx.preload = false
-  ctx.parentMatchPromise = undefined
+  ctx.parentMatchPromise = parentMatchPromise
   ctx.abortController = match.abortController
   ctx.context = context
   ctx.location = location
@@ -877,12 +878,16 @@ function executeFastServerLane(
     if (loaderFn) {
       try {
         const extra = router.options.additionalContext
+        const parentMatchPromise =
+          i > 0
+            ? (Promise.resolve(matches[i - 1]!) as LoaderFnContext['parentMatchPromise'])
+            : undefined
         const loaderContext = extra
           ? {
               params: match.params,
               deps: match.loaderDeps,
               preload: false,
-              parentMatchPromise: undefined,
+              parentMatchPromise,
               abortController: match.abortController,
               context: loaderParentContext,
               location,
@@ -898,6 +903,7 @@ function executeFastServerLane(
               router.navigate,
               loaderParentContext,
               route,
+              parentMatchPromise,
             )
         const data = loaderFn(loaderContext)
         if (data != null && typeof (data as { then?: unknown }).then === 'function') {
