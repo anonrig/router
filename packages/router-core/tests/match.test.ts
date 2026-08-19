@@ -29,6 +29,23 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('prefers earlier static segments between optional routes', () => {
+    const root = createRootRoute()
+    const lateStatic = createRoute({
+      getParentRoute: () => root,
+      path: '/{-$a}/b',
+    })
+    const earlyStatic = createRoute({
+      getParentRoute: () => root,
+      path: '/a/{-$b}',
+    })
+    root.addChildren([lateStatic, earlyStatic])
+
+    const match = findRouteMatch(processRouteTree(root as any), '/a/b')
+
+    expect(match?.at(-1)?.route.id).toBe('/a/{-$b}')
+  })
+
   it('rejects malformed percent encoding in dynamic segments', () => {
     const root = createRootRoute()
     const dynamic = createRoute({
