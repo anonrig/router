@@ -14,19 +14,28 @@ function looksLikeJson(val: string) {
 export const defaultParseSearch = parseSearchWith(JSON.parse)
 export const defaultStringifySearch = stringifySearchWith(JSON.stringify, JSON.parse)
 
+function parseSearchValue(parser: (str: string) => any, value: unknown): unknown {
+  if (typeof value === 'string') {
+    try {
+      return parser(value)
+    } catch {
+      return value
+    }
+  }
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      value[i] = parseSearchValue(parser, value[i])
+    }
+  }
+  return value
+}
+
 export function parseSearchWith(parser: (str: string) => any) {
   return (searchStr: string): Record<string, any> => {
     if (searchStr.charCodeAt(0) === 63) searchStr = searchStr.substring(1)
     const query = decode(searchStr)
     for (const key in query) {
-      const value = query[key]
-      if (typeof value === 'string') {
-        try {
-          query[key] = parser(value)
-        } catch {
-          // keep the raw string
-        }
-      }
+      query[key] = parseSearchValue(parser, query[key])
     }
     return query
   }
