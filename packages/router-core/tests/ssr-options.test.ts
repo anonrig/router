@@ -198,6 +198,34 @@ describe('fast server loader failures', () => {
 })
 
 describe('fast server request cancellation', () => {
+  it('propagates an abort raised synchronously inside the loader', async () => {
+    const request = new AbortController()
+    const reason = new Error('synchronous cancellation')
+    let routeSignal!: AbortSignal
+    const root = createRootRoute({
+      loader: ({ abortController }) => {
+        routeSignal = abortController.signal
+        request.abort(reason)
+        return new Promise<void>(() => {})
+      },
+    })
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+
+    const loading = Promise.resolve(loadServerRoute(router, { _signal: request.signal }))
+    let caught: unknown
+    const rejected = loading.catch((error) => {
+      caught = error
+    })
+
+    expect(routeSignal.aborted).toBe(true)
+    await rejected
+    expect(caught).toBe(reason)
+  })
+
   it('aborts route loaders and rejects without waiting for them', async () => {
     let started!: () => void
     const didStart = new Promise<void>((resolve) => {
