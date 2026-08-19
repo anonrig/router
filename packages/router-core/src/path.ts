@@ -11,8 +11,14 @@ export function joinPaths(paths: Array<string | undefined>) {
   return cleanPath(paths.filter(Boolean).join('/'))
 }
 
+let lastCleanIn = ''
+let lastCleanOut = ''
+
 export function cleanPath(path: string) {
-  return path.indexOf('//') === -1 ? path : path.replace(/\/{2,}/g, '/')
+  if (path === lastCleanIn) return lastCleanOut
+  lastCleanIn = path
+  lastCleanOut = path.indexOf('//') === -1 ? path : path.replace(/\/{2,}/g, '/')
+  return lastCleanOut
 }
 
 export function trimPathLeft(path: string) {
@@ -57,7 +63,27 @@ interface ResolvePathOptions {
   trailingSlash?: 'always' | 'never' | 'preserve'
 }
 
+let lastResolveBase = ''
+let lastResolveTo = ''
+let lastResolveSlash: ResolvePathOptions['trailingSlash']
+let lastResolveOut = ''
+
 export function resolvePath({ base, to, trailingSlash = 'never' }: ResolvePathOptions) {
+  if (base === lastResolveBase && to === lastResolveTo && trailingSlash === lastResolveSlash) {
+    return lastResolveOut
+  }
+  lastResolveBase = base
+  lastResolveTo = to
+  lastResolveSlash = trailingSlash
+  lastResolveOut = resolvePathOpen(base, to, trailingSlash)
+  return lastResolveOut
+}
+
+function resolvePathOpen(
+  base: string,
+  to: string,
+  trailingSlash: ResolvePathOptions['trailingSlash'],
+) {
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
 
@@ -189,18 +215,35 @@ function encodeParam(
   return encodePathParam(value, decoder)
 }
 
+let lastInterpPath: string | undefined
+let lastInterpParams: Record<string, unknown> | undefined
+let lastInterpDecoder: InterpolatePathOptions['decoder']
+let lastInterpResult: InterPolatePathResult | undefined
+
 export function interpolatePath({
   path,
   params,
   decoder,
 }: InterpolatePathOptions): InterPolatePathResult {
-  if (!path || path === '/') {
-    return { interpolatedPath: '/', usedParams: Object.create(null), isMissingParams: false }
+  if (
+    path === lastInterpPath &&
+    params === lastInterpParams &&
+    decoder === lastInterpDecoder &&
+    lastInterpResult
+  ) {
+    return lastInterpResult
   }
-  if (path.indexOf('$') === -1) {
-    return { interpolatedPath: path, usedParams: Object.create(null), isMissingParams: false }
-  }
-  return interpolateBracedParams(path, params, decoder)
+  const result =
+    !path || path === '/'
+      ? { interpolatedPath: '/', usedParams: Object.create(null), isMissingParams: false }
+      : path.indexOf('$') === -1
+        ? { interpolatedPath: path, usedParams: Object.create(null), isMissingParams: false }
+        : interpolateBracedParams(path, params, decoder)
+  lastInterpPath = path
+  lastInterpParams = params
+  lastInterpDecoder = decoder
+  lastInterpResult = result
+  return result
 }
 
 function interpolateBracedParams(
