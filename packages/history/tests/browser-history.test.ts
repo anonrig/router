@@ -7,12 +7,24 @@ function createBrowserHistoryHarness() {
     search: '',
     hash: '',
   }
-  const pushState = vi.fn()
-  const replaceState = vi.fn()
+  let nativeState: any = { __TSR_index: 0, __TSR_key: '0' }
+  const pushState = vi.fn((state: any, _title: string, href?: string) => {
+    nativeState = state
+    if (href) location.pathname = new URL(href, 'http://localhost').pathname
+  })
+  const replaceState = vi.fn((state: any, _title: string, href?: string) => {
+    nativeState = state
+    if (href) location.pathname = new URL(href, 'http://localhost').pathname
+  })
   const go = vi.fn()
   const listeners: Record<string, (e?: any) => any> = {}
   const nativeHistory = {
-    state: { __TSR_index: 0, __TSR_key: '0' },
+    get state() {
+      return nativeState
+    },
+    set state(next) {
+      nativeState = next
+    },
     length: 1,
     pushState,
     replaceState,
@@ -41,6 +53,39 @@ function createBrowserHistoryHarness() {
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('rolls back when a popstate blocker rejects', async () => {
+    const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/first'
+    await listeners.popstate?.()
+    go.mockClear()
+    history.block({
+      blockerFn: async () => {
+        throw new Error('blocker failed')
+      },
+    })
+
+    nativeHistory.state = { __TSR_index: 2, __TSR_key: '2' }
+    location.pathname = '/second'
+
+    await expect(listeners.popstate?.()).rejects.toThrow('blocker failed')
+    expect(go).toHaveBeenCalledWith(-1)
+    expect(history.location.pathname).toBe('/first')
+    history.destroy()
+  })
+
+  test('orders a native push after an already queued router push', async () => {
+    const { history, nativeHistory, location } = createBrowserHistoryHarness()
+
+    history.push('/queued')
+    nativeHistory.pushState({ __TSR_index: 2, __TSR_key: 'external' }, '', '/external')
+    await Promise.resolve()
+
+    expect(history.location.pathname).toBe('/external')
+    expect(location.pathname).toBe('/external')
+    history.destroy()
+  })
+
   test('rolls back forward navigation by calling win.history.go(-1) when blocked', async () => {
     const harness = createBrowserHistoryHarness()
     const { history, nativeHistory, location, go, listeners } = harness

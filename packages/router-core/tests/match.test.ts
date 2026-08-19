@@ -41,11 +41,34 @@ describe('matcher', () => {
     expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts'])
   })
 
+  it('reprocesses nested children added after the tree was cached', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/parent' })
+    root.addChildren([parent])
+    processRouteTree(root as any)
+
+    const child = createRoute({ getParentRoute: () => parent, path: '/child' })
+    parent.addChildren([child])
+
+    const processed = processRouteTree(root as any)
+    expect(findRouteMatch(processed, '/parent/child')?.at(-1)?.route.id).toBe('/parent/child')
+  })
+
   it('matches params', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/posts/tkdodo')
     expect(matches?.at(-1)?.params).toEqual({ slug: 'tkdodo' })
     expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts', '/posts/$slug'])
+  })
+
+  it('matches parameter affixes case-insensitively by default', () => {
+    const root = createRootRoute()
+    const child = createRoute({ getParentRoute: () => root, path: '/pre{$id}suf' })
+    root.addChildren([child])
+
+    const matches = findRouteMatch(processRouteTree(root as any), '/PRExSUF')
+
+    expect(matches?.at(-1)?.params).toEqual({ id: 'x' })
   })
 
   it('matches pathless layouts', () => {

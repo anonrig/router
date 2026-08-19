@@ -236,13 +236,15 @@ function parseSegments(
       node = nextNode
     }
 
-    if (
-      parseParams &&
-      route.children &&
-      !route.isRoot &&
-      route.id &&
-      route.id.charCodeAt(route.id.lastIndexOf('/') + 1) === 95
-    ) {
+    const lastSlash = route.id ? route.id.lastIndexOf('/') : -1
+    const lastSegment = route.id ? route.id.slice(lastSlash + 1) : ''
+    const prefix = lastSegment.charCodeAt(0)
+    const isPathlessSegment =
+      prefix === 95 ||
+      prefix === 64 ||
+      (prefix === 40 && lastSegment.charCodeAt(lastSegment.length - 1) === 41)
+
+    if (parseParams && route.children && !route.isRoot && isPathlessSegment) {
       const pathlessNode = createStaticNode(path)
       pathlessNode.kind = SEGMENT_TYPE_PATHLESS
       pathlessNode.parent = node

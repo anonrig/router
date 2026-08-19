@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
 import { createRootRoute, createRoute } from '../src/route'
-import { createRouter, SearchParamError } from '../src/router'
+import { createRouter, SearchParamError, setLoadServerRoute } from '../src/router'
 import { createRequestHandler } from '../src/ssr/create-request-handler'
+import { attachRouterServerSsrUtils } from '../src/ssr/ssr-server'
+import { registerLoadServerRoute } from '../src/ssr/register-load-server'
 import type { AnyRouter, SSROption } from '../src/router'
 
 type SsrValue = SSROption | undefined
@@ -66,6 +68,26 @@ async function loadTree(options: {
   const response = await loadServerResponse(router, path)
   return { router, response, rootRoute, childRoute, grandRoute }
 }
+
+describe('SSR loader registration', () => {
+  it('attachRouterServerSsrUtils reinstalls the server loader', async () => {
+    setLoadServerRoute(() => {
+      throw new Error('client loader ran')
+    })
+    try {
+      const router = createRouter({
+        routeTree: createRootRoute(),
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+        isServer: true,
+      })
+      attachRouterServerSsrUtils({ router, manifest: undefined })
+      await router.load()
+      expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
+    } finally {
+      registerLoadServerRoute()
+    }
+  })
+})
 
 describe('route ssr option resolution', () => {
   it.each([

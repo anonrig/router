@@ -1,6 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { scriptStringPlugin, viteBundle } from '../../../scripts/vite-bundle.ts'
@@ -24,9 +23,11 @@ afterEach(async () => {
 
 async function bundle(
   source: string,
-  opts: { filename?: string } = {},
+  opts: { filename?: string; ssr?: boolean; cacheDir?: string } = {},
 ): Promise<{ entry: string; chunks: Record<string, string> }> {
-  const dir = await mkdtemp(join(tmpdir(), 'speedy-router-dce-'))
+  const cache = join(root, 'node_modules/.cache')
+  await mkdir(cache, { recursive: true })
+  const dir = await mkdtemp(join(cache, 'speedy-router-dce-'))
   dirs.push(dir)
   const filename = opts.filename ?? 'entry.ts'
   const entry = join(dir, filename)
@@ -35,11 +36,23 @@ async function bundle(
     root,
     entry,
     outDir: join(dir, 'out'),
+    write: false,
+    ssr: opts.ssr,
+    cacheDir: join(
+      root,
+      opts.cacheDir ??
+        (opts.ssr
+          ? 'node_modules/.cache/speedy-router-vite-ssr'
+          : 'node_modules/.cache/speedy-router-vite'),
+    ),
     alias: {
       'speedy-router-history': join(root, 'packages/history/src/index.ts'),
       'speedy-router-core': join(root, 'packages/router-core/src/index.ts'),
       'speedy-router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
+      'speedy-router-core/ssr/client': join(root, 'packages/router-core/src/ssr/client.ts'),
+      'speedy-router-core/ssr/server': join(root, 'packages/router-core/src/ssr/server.ts'),
       'speedy-router': join(root, 'packages/react-router/src/index.ts'),
+      'speedy-router/ssr/client': join(root, 'packages/react-router/src/ssr/client.ts'),
     },
     external: [
       'react',
@@ -53,6 +66,10 @@ async function bundle(
     ],
     plugins: [scriptStringPlugin({ stub: true })],
   })
+}
+
+function allCode(chunks: Record<string, string>) {
+  return Object.values(chunks).join('\n')
 }
 
 describe('dead code elimination', () => {
@@ -76,21 +93,57 @@ describe('dead code elimination', () => {
     expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 
-  it('keeps load-server out of the client createRouter chunk', async () => {
+  it('keeps load-server out of the client createRouter graph', async () => {
     const { entry, chunks } = await bundle(`
       import { createRootRoute, createRouter } from 'speedy-router-core'
       export const router = createRouter({ routeTree: createRootRoute() })
     `)
     expect(entry).toContain('createRouter')
     expect(entry).not.toContain('tsr-scroll-restoration-v1_3')
-    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
-    const asyncCode = Object.entries(chunks)
-      .filter(([name]) => name !== 'entry.js')
-      .map(([, code]) => code)
-      .join('\n')
-    expect(asyncCode).toContain('loadServerRoute')
+    expect(serverMarkers.filter((marker) => allCode(chunks).includes(marker))).toEqual([])
     expect(entry).not.toContain('runClientTransaction')
-    expect(asyncCode).toContain('runClientTransaction')
+    expect(allCode(chunks)).toContain('runClientTransaction')
+  })
+
+  it('keeps load-server in the SSR createRouter graph', async () => {
+    const { chunks } = await bundle(
+      `
+      import { createRootRoute, createRouter } from 'speedy-router-core'
+      export const router = createRouter({ routeTree: createRootRoute() })
+    `,
+      { ssr: true },
+    )
+    expect(allCode(chunks)).toContain('loadServerRoute')
+  })
+
+  it('registers load-server from the SSR entry when import.meta.env.SSR is false', async () => {
+    const { chunks } = await bundle(
+      `
+      import { createRootRoute, createRouter } from 'speedy-router-core'
+      import { attachRouterServerSsrUtils } from 'speedy-router-core/ssr/server'
+      const router = createRouter({ routeTree: createRootRoute() })
+      attachRouterServerSsrUtils({ router, manifest: undefined })
+      export { router }
+    `,
+      { cacheDir: 'node_modules/.cache/speedy-router-vite-ssr-entry' },
+    )
+    const code = allCode(chunks)
+    expect(code).toContain('loadServerRoute')
+    expect(code).toMatch(/setLoadServerRoute\s*\(\s*loadServerRoute\s*\)/)
+  })
+
+  it('keeps scroll setup listeners out of useElementScrollRestoration', async () => {
+    const { chunks } = await bundle(
+      `
+        export { useElementScrollRestoration } from 'speedy-router'
+      `,
+      { filename: 'entry.tsx' },
+    )
+    const code = allCode(chunks)
+    expect(code).toContain('getElementScrollRestorationEntry')
+    expect(code).not.toContain('pagehide')
+    expect(code).not.toContain('history.scrollRestoration')
+    expect(serverMarkers.filter((marker) => code.includes(marker))).toEqual([])
   })
 
   it('drops unused Scripts and HeadContent from a client react-router import', async () => {
@@ -104,6 +157,27 @@ describe('dead code elimination', () => {
     expect(entry).not.toContain('tsr-meta-')
     expect(entry).not.toContain('preventScriptHoist')
     expect(entry).not.toContain('HeadContent')
+    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
+  })
+
+  it('keeps scroll restoration out of the public client constructors', async () => {
+    const { entry } = await bundle(
+      `
+        export {
+          Link,
+          Outlet,
+          RouterProvider,
+          createRootRoute,
+          createRoute,
+          createRouter,
+        } from 'speedy-router'
+      `,
+      { filename: 'entry.tsx' },
+    )
+    expect(entry).toContain('createRouter')
+    expect(entry).not.toContain('tsr-scroll-restoration-v1_3')
+    expect(entry).not.toContain('getElementScrollRestorationEntry')
+    expect(entry).not.toContain('sessionStorage')
     expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 })

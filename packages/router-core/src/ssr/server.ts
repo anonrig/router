@@ -1,3 +1,5 @@
+import './register-load-server'
+
 export { createRequestHandler, waitForRequest } from './create-request-handler'
 export type { RequestHandler } from './create-request-handler'
 export {

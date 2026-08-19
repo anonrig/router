@@ -7,6 +7,7 @@ import type { HandlerCallback, HandlerCallbackResult } from './handler-callback'
 import type { AnyHeaders } from './headers'
 import { RESOLVED, type AnyRouter } from '../router'
 import type { ServerManifest } from '../manifest'
+import './register-load-server'
 
 export type RequestHandler<TRouter extends AnyRouter> = (
   cb: HandlerCallback<TRouter>,
