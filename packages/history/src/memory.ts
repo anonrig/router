@@ -90,6 +90,9 @@ class MemoryHistory implements RouterHistory {
     states.copyWithin(0, drop)
     states.length = MEMORY_HISTORY_KEEP
     this.index = MEMORY_HISTORY_KEEP - 1
+    for (let i = 0; i < states.length; i++) {
+      states[i]![STATE_INDEX] = i
+    }
   }
 
   get subscribers() {
@@ -225,7 +228,7 @@ class MemoryHistory implements RouterHistory {
   }
 
   canGoBack() {
-    return this.location.state[STATE_INDEX] !== 0
+    return this.index !== 0
   }
 
   createHref(path: string) {
