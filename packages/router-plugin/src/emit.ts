@@ -103,7 +103,8 @@ function importSpecifier(fromFile: string, toFile: string) {
 
 function quote(value: string, style: 'single' | 'double') {
   if (style === 'double') return JSON.stringify(value)
-  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+  const escaped = JSON.stringify(value).slice(1, -1).replace(/'/g, "\\'")
+  return `'${escaped}'`
 }
 
 function uniqueVariableNames(routes: Array<ScannedRoute>): Array<NamedRoute> {
