@@ -193,8 +193,8 @@ function specifierFor(fileName: string, splitKey: string) {
   return `./${basename(fileName.split('?')[0] ?? fileName)}?${TSR_SPLIT_QUERY}=${splitKey}`
 }
 
-function lazyWrapper(fileName: string, splitKey: string) {
-  return `lazyRouteComponent(() => import('${specifierFor(fileName, splitKey)}'), '${splitKey}')`
+function lazyWrapper(fileName: string, splitKey: string, helperName: string) {
+  return `${helperName}(() => import('${specifierFor(fileName, splitKey)}'), '${splitKey}')`
 }
 
 function createFileRouteImportSource(program: EstreeNode): string | undefined {
@@ -391,10 +391,23 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   if (properties.length === 0) return null
 
   const splitIds = splitIdentifierNames(properties)
+  const bindings = new Set(
+    (program.body ?? []).flatMap((statement: EstreeNode) => declaredNames(statement)),
+  )
+  let helperName = 'lazyRouteComponent'
+  if (
+    (program.body ?? []).some(
+      (statement: EstreeNode) =>
+        statement.type !== 'ImportDeclaration' && declaredNames(statement).includes(helperName),
+    )
+  ) {
+    helperName = '__lazyRouteComponent'
+    while (bindings.has(helperName)) helperName = `_${helperName}`
+  }
   const replacements = properties.map(({ key, value }) => ({
     start: value.start,
     end: value.end,
-    text: lazyWrapper(fileName, key),
+    text: lazyWrapper(fileName, key, helperName),
   }))
   const rewritten = applyReplacements(code, replacements)
   const nextProgram = parseProgram(fileName, rewritten)
@@ -407,21 +420,26 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   if (seeds.length === 0) return rewritten
   const needed = neededStatements(nextProgram, seeds)
   const used = identifiersIn(needed)
-  used.add('lazyRouteComponent')
+  used.add(helperName)
 
   const runtimeImport = createFileRouteImportSource(nextProgram) ?? '@tanstack/react-router'
   const parts: Array<string> = []
   for (const statement of nextProgram.body ?? []) {
     if (!needed.has(statement)) continue
     if (statement.type === 'ImportDeclaration') {
-      const extra = statement.source?.value === runtimeImport ? ['lazyRouteComponent'] : []
+      const extra =
+        statement.source?.value === runtimeImport && helperName === 'lazyRouteComponent'
+          ? ['lazyRouteComponent']
+          : []
       const printed = printNamedImport(statement, used, extra, rewritten)
       if (printed) parts.push(printed)
       continue
     }
     parts.push(slice(rewritten, statement))
   }
-  if (!parts.some((part) => part.includes('lazyRouteComponent'))) {
+  if (helperName !== 'lazyRouteComponent') {
+    parts.unshift(`import { lazyRouteComponent as ${helperName} } from '${runtimeImport}'`)
+  } else if (!parts.some((part) => part.includes('lazyRouteComponent'))) {
     parts.unshift(`import { lazyRouteComponent } from '${runtimeImport}'`)
   }
   return `${parts.join('\n\n')}\n`

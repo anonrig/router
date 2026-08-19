@@ -56,6 +56,15 @@ export const Route = createFileRoute('/inbox')({
 `
 
 describe('compileReferenceRoute', () => {
+  it('aliases the lazy helper when a route exports the same binding', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nexport function lazyRouteComponent() { return 'public helper' }\nfunction Page() { return <main>enough route component content to force automatic splitting</main> }\nexport const Route = createFileRoute('/collision')({ component: Page })\n`
+
+    const result = compileReferenceRoute(source, '/app/src/routes/collision.tsx')
+
+    expect(result).toContain('lazyRouteComponent as __lazyRouteComponent')
+    expect(result).toContain('__lazyRouteComponent(() => import(')
+  })
+
   it('keeps server hooks and exported helpers, drops component-only imports', () => {
     const result = compileReferenceRoute(inboxRoute, '/app/src/routes/inbox.tsx')
     expect(result).toBeTruthy()
