@@ -19,7 +19,10 @@
     "README.md"
   ],
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/ssr/register-load-server.js",
+    "./dist/ssr/server.js"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
