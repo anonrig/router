@@ -1015,19 +1015,28 @@ export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): vo
     if (canUseFastServerLane(router, matches)) {
       const result = executeFastServerLane(router, next, matches)
       if (result instanceof Promise) {
-        return (result as Promise<ServerLoadResult>).then(
-          (resolved) => {
-            opts?._signal?.throwIfAborted()
-            commitServerLoad(router, next, previous, resolved)
-            return
-          },
-          (cause) => {
-            opts?._signal?.throwIfAborted()
-            if (!isRedirect(cause)) throw cause
-            commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
-            return
-          },
-        )
+        const signal = opts?._signal
+        const abortMatches = () => {
+          for (let i = 0; i < matches.length; i++) {
+            matches[i]!.abortController?.abort(signal?.reason)
+          }
+        }
+        signal?.addEventListener('abort', abortMatches, { once: true })
+        return waitFor(result as Promise<ServerLoadResult>, signal)
+          .then(
+            (resolved) => {
+              signal?.throwIfAborted()
+              commitServerLoad(router, next, previous, resolved)
+              return
+            },
+            (cause) => {
+              signal?.throwIfAborted()
+              if (!isRedirect(cause)) throw cause
+              commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
+              return
+            },
+          )
+          .finally(() => signal?.removeEventListener('abort', abortMatches))
       }
       commitServerLoad(router, next, previous, result as ServerLoadResult)
       return
