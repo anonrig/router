@@ -1170,7 +1170,22 @@ export class RouterCore<
       opts._fromLocation || this._pendingLocation || this.latestLocation || this.state?.location
     let dest = slotRuntime?.d(this, opts, current) ?? opts
     if (dest.href) {
-      const parsed = parseHref(dest.href, {} as any)
+      // Search-only ("?q=1") and hash-only ("#x") hrefs carry no pathname.
+      // Resolve them against the current location so the route is kept and
+      // only the specified part changes (mirrors navigateHrefFast).
+      let href = dest.href as string
+      const href0 = href.charCodeAt(0)
+      if (current && (href0 === 63 || href0 === 35)) {
+        if (href0 === 35) {
+          href = `${current.pathname}${current.searchStr}${href}`
+        } else {
+          // A search-only href keeps the current hash unless it carries its own.
+          const inheritedHash =
+            href.indexOf('#') === -1 && current.hash ? `#${stripLeadingHash(current.hash)}` : ''
+          href = `${current.pathname}${href}${inheritedHash}`
+        }
+      }
+      const parsed = parseHref(href, {} as any)
       dest = {
         ...dest,
         to: executeRewriteInput(this.rewrite, new URL(parsed.pathname, this.origin)).pathname,
@@ -1640,6 +1655,12 @@ export class RouterCore<
       searchStr = parsed.search
       hash = stripLeadingHash(parsed.hash)
       pathname = parsed.pathname
+      const href0 = href.charCodeAt(0)
+      if (!pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
+        pathname = this.latestLocation.pathname
+        if (href0 === 35) searchStr = this.latestLocation.searchStr
+        else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
+      }
       hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
     const location: ParsedLocation = {
