@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 import { useMatch } from '../src/use-match'
 import { useMatches } from '../src/matches'
+import { useLoaderDeps } from '../src/use-loader-deps'
 import { useRouterState } from '../src/use-router-state'
 
 vi.mock('../src/use-router', () => ({
@@ -32,6 +33,16 @@ test('useMatch forwards structural sharing', () => {
 
 test('useMatches forwards structural sharing', () => {
   useMatches({ structuralSharing: true })
+
+  expect(useRouterState).toHaveBeenCalledWith(expect.objectContaining({ structuralSharing: true }))
+})
+
+test('useLoaderDeps forwards structural sharing', () => {
+  useLoaderDeps({
+    strict: false,
+    shouldThrow: false,
+    structuralSharing: true,
+  } as any)
 
   expect(useRouterState).toHaveBeenCalledWith(expect.objectContaining({ structuralSharing: true }))
 })

@@ -50,6 +50,8 @@ export function useLoaderDeps<
   return useMatch({
     from: opts?.from as any,
     strict: (opts as any)?.strict,
+    shouldThrow: (opts as any)?.shouldThrow,
+    structuralSharing: opts?.structuralSharing,
     select: (match: any) => {
       const route = router.routesById[match.routeId]
       const deps =
