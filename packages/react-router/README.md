@@ -174,14 +174,14 @@ jsdom `URLSearchParams` numbers from `pnpm bench` are a different environment. D
 
 ### Bundle size
 
-Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The client load coordinator, SSR `load` chunk, invalidate, default scroll, and `loadRouteChunk` are dynamic imports and are not counted.
+Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip -9, `react` / `react-dom` external. The client load coordinator, SSR `load` chunk, and `loadRouteChunk` are dynamic imports and are not counted.
 
 | Package              | speedy-router |    gzip |     TanStack |        gzip |
 | -------------------- | ------------: | ------: | -----------: | ----------: |
-| `speedy-router`      |      116.9 kB | 32.7 kB | **104.5 kB** | **29.5 kB** |
-| `speedy-router-core` |       96.1 kB | 26.6 kB |  **75.1 kB** | **21.6 kB** |
+| `speedy-router`      |      118.9 kB | 33.0 kB | **104.5 kB** | **29.5 kB** |
+| `speedy-router-core` |       99.1 kB | 27.2 kB |  **75.1 kB** | **21.6 kB** |
 
-TanStack is still smaller on both client graphs (1.11× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator, SSR `load` chunk, invalidate, default scroll, and `loadRouteChunk` are dynamic imports and are not counted. The remaining extra is the warm-path / matcher interners. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs (1.12× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator, SSR `load` chunk, and `loadRouteChunk` are dynamic imports and are not counted. The remaining extra is the warm-path / matcher interners. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 

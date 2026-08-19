@@ -38,8 +38,10 @@ import {
   validateSearch,
 } from './router-search'
 import { defaultParseSearch, defaultStringifySearch } from './search-params'
+import { setupDefaultScroll } from './scroll-default'
 import { createStore } from './store'
 import { createServerRouterStores } from './router-stores-server'
+import { invalidateRouter } from './router-invalidate'
 import {
   createNonReactiveMutableStore,
   createNonReactiveReadonlyStore,
@@ -994,9 +996,7 @@ export class RouterCore<
               setupScrollRestoration(this)
             })()
           } else {
-            void import('./scroll-default').then(({ setupDefaultScroll }) =>
-              setupDefaultScroll(this),
-            )
+            setupDefaultScroll(this)
           }
         }
       } else {
@@ -1361,7 +1361,6 @@ export class RouterCore<
   }
 
   async invalidate(opts?: Parameters<InvalidateFn<this>>[0]) {
-    const { invalidateRouter } = await import('./router-invalidate')
     return invalidateRouter(this as any, opts)
   }
 
@@ -2378,8 +2377,7 @@ export const createRouter: CreateRouterFn = /*#__PURE__*/ (options) => new Route
 if (process.env.NODE_ENV !== 'production') {
   RouterCore.prototype._replaceRouteChunk = (
     ...args: Parameters<typeof import('./load-chunk').replaceRouteChunk>
-  ) =>
-    import('./load-chunk').then(({ replaceRouteChunk }) => replaceRouteChunk(...args))
+  ) => import('./load-chunk').then(({ replaceRouteChunk }) => replaceRouteChunk(...args))
   RouterCore.prototype._refreshRoute = async function () {
     this._serverResult = undefined
     this.updateLatestLocation()
