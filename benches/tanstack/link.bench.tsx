@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react'
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { bench, describe } from 'vitest'
 import {
   Link,
@@ -12,6 +12,11 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
+
+function renderProvider(router: ReturnType<typeof createRouter>) {
+  render(<RouterProvider router={router} />)
+  cleanup()
+}
 
 const createRouterRenderer = (routesCount: number) => (children: ReactNode) => {
   const rootRoute = createRootRoute()
@@ -76,7 +81,7 @@ describe.each([
           </a>
         )),
       )
-      render(<RouterProvider router={router} />)
+      renderProvider(router)
     },
     { warmupIterations: 1 },
   )
@@ -95,7 +100,7 @@ describe.each([
           </InterpolatePathLink>
         )),
       )
-      render(<RouterProvider router={router} />)
+      renderProvider(router)
     },
     { warmupIterations: 1 },
   )
@@ -114,7 +119,7 @@ describe.each([
           </BuildLocationLink>
         )),
       )
-      render(<RouterProvider router={router} />)
+      renderProvider(router)
     },
     { warmupIterations: 1 },
   )
@@ -133,7 +138,7 @@ describe.each([
           </Link>
         )),
       )
-      render(<RouterProvider router={router} />)
+      renderProvider(router)
     },
     { warmupIterations: 1 },
   )
@@ -152,7 +157,7 @@ describe.each([
           )
         }),
       )
-      render(<RouterProvider router={router} />)
+      renderProvider(router)
     },
     { warmupIterations: 1 },
   )
@@ -167,7 +172,7 @@ describe.each([
           </Link>
         )),
       )
-      render(<RouterProvider router={router} />)
+      renderProvider(router)
     },
     { warmupIterations: 1 },
   )
