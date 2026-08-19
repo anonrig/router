@@ -1,6 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { scriptStringPlugin, viteBundle } from '../../../scripts/vite-bundle.ts'
@@ -26,7 +25,9 @@ async function bundle(
   source: string,
   opts: { filename?: string } = {},
 ): Promise<{ entry: string; chunks: Record<string, string> }> {
-  const dir = await mkdtemp(join(tmpdir(), 'speedy-router-dce-'))
+  const cache = join(root, 'node_modules/.cache')
+  await mkdir(cache, { recursive: true })
+  const dir = await mkdtemp(join(cache, 'speedy-router-dce-'))
   dirs.push(dir)
   const filename = opts.filename ?? 'entry.ts'
   const entry = join(dir, filename)
@@ -35,6 +36,8 @@ async function bundle(
     root,
     entry,
     outDir: join(dir, 'out'),
+    write: false,
+    cacheDir: join(root, 'node_modules/.cache/speedy-router-vite'),
     alias: {
       'speedy-router-history': join(root, 'packages/history/src/index.ts'),
       'speedy-router-core': join(root, 'packages/router-core/src/index.ts'),
@@ -104,6 +107,27 @@ describe('dead code elimination', () => {
     expect(entry).not.toContain('tsr-meta-')
     expect(entry).not.toContain('preventScriptHoist')
     expect(entry).not.toContain('HeadContent')
+    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
+  })
+
+  it('keeps scroll restoration out of the public client constructors', async () => {
+    const { entry } = await bundle(
+      `
+        export {
+          Link,
+          Outlet,
+          RouterProvider,
+          createRootRoute,
+          createRoute,
+          createRouter,
+        } from 'speedy-router'
+      `,
+      { filename: 'entry.tsx' },
+    )
+    expect(entry).toContain('createRouter')
+    expect(entry).not.toContain('tsr-scroll-restoration-v1_3')
+    expect(entry).not.toContain('getElementScrollRestorationEntry')
+    expect(entry).not.toContain('sessionStorage')
     expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 })
