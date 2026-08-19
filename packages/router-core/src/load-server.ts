@@ -156,32 +156,42 @@ function waitFor<T>(value: Promise<T>, signal?: AbortSignal): Promise<T> {
   return signal ? waitForReason(value, signal) : value
 }
 
+function inherit(value: SSROption, parentSsr: SSROption | undefined): SSROption {
+  return value === true && parentSsr === 'data-only' ? 'data-only' : value
+}
+
+/** The policy a match holds before its own `ssr` option is consulted. */
+function inheritedSsr(router: AnyRouter, lane: MatchedLane, index: number): SSROption {
+  const match = lane.matches[index]!
+  if (router.isShell()) {
+    return getRoute(router, match).id === rootRouteId
+  }
+  const parentSsr = lane.matches[index - 1]?.ssr
+  if (parentSsr === false) {
+    return false
+  }
+  return inherit(router.options.defaultSsr ?? true, parentSsr)
+}
+
 async function resolveSsr(router: AnyRouter, lane: MatchedLane, index: number): Promise<SSROption> {
   const match = lane.matches[index]!
   const route = getRoute(router, match)
   const parentSsr = lane.matches[index - 1]?.ssr
-
-  if (router.isShell()) {
-    return route.id === rootRouteId
-  }
-  if (parentSsr === false) {
-    return false
-  }
-
-  const inherit = (value: SSROption): SSROption => {
-    return value === true && parentSsr === 'data-only' ? 'data-only' : value
-  }
-  const defaultSsr = router.options.defaultSsr ?? true
-  const inheritedDefault = inherit(defaultSsr)
   // A functional override can fail. Establish the inherited policy first so
   // the selected error boundary retains the route's actual renderability.
-  match.ssr = inheritedDefault
+  const inheritedDefault = (match.ssr = inheritedSsr(router, lane, index))
+
+  if (router.isShell() || parentSsr === false) {
+    return inheritedDefault
+  }
+
+  const defaultSsr = router.options.defaultSsr ?? true
   const option = route.options.ssr
   if (option === undefined) {
     return inheritedDefault
   }
   if (typeof option !== 'function') {
-    return inherit(option)
+    return inherit(option, parentSsr)
   }
 
   const context: SsrContextOptions<any, any, any> = {
@@ -200,7 +210,7 @@ async function resolveSsr(router: AnyRouter, lane: MatchedLane, index: number): 
       ssr: candidate.ssr,
     })),
   }
-  return inherit((await option(context)) ?? defaultSsr)
+  return inherit((await option(context)) ?? defaultSsr, parentSsr)
 }
 
 function stampNotFound(match: AnyRouteMatch, outcome: LoaderOutcome): LoaderOutcome {
@@ -231,6 +241,9 @@ async function contextualize(
       match.ssr = await resolveSsr(router, lane, index)
     } catch (cause) {
       signal?.throwIfAborted()
+      // A rejected option chunk fails before `resolveSsr` runs, so the policy
+      // this boundary renders under is still the inherited default.
+      match.ssr ??= inheritedSsr(router, lane, index)
       failure = [index, stampNotFound(match, normalizeError(router, lane, route, cause, signal))]
       end = index
     }

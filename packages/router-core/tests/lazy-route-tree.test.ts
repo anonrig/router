@@ -53,6 +53,72 @@ describe('lazy file routes', () => {
     })
   })
 
+  it('stamps lane ownership and inherited context on rejected lazy options', async () => {
+    const error = new Error('lazy chunk failed')
+    const root = createRootRoute({ context: () => ({ rootContext: true }) })
+    const lazy = lazyRoute({
+      id: '/lazy',
+      path: '/lazy',
+      parent: () => root,
+      load: async () => {
+        throw error
+      },
+    })
+    const router = createRouter({
+      routeTree: root.addChildren([lazy]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      context: { routerContext: true },
+    })
+    await router.load()
+
+    await router.navigate({ to: '/lazy' })
+
+    const errored = router.state.matches.at(-1)!
+    expect(errored).toMatchObject({ status: 'error', error })
+    expect(errored.context).toEqual({ routerContext: true, rootContext: true })
+    expect(errored.abortController).toBe(router.state.matches[0]!.abortController)
+  })
+
+  it('stamps the inherited ssr default on rejected lazy options', async () => {
+    const error = new Error('lazy chunk failed')
+    let attempts = 0
+    let errorComponentLoaded = false
+    const root = createRootRoute()
+    const lazy = lazyRoute({
+      id: '/lazy',
+      path: '/lazy',
+      parent: () => root,
+      load: async () => {
+        if (++attempts === 1) {
+          throw error
+        }
+        return {
+          options: {
+            errorComponent: Object.assign(() => null, {
+              preload: async () => {
+                errorComponentLoaded = true
+              },
+            }),
+          },
+        }
+      },
+    })
+    const router = createRouter({
+      routeTree: root.addChildren([lazy]),
+      history: createMemoryHistory({ initialEntries: ['/lazy'] }),
+      isServer: true,
+    })
+
+    await loadServerRoute(router)
+
+    expect(router.state.matches.at(-1)).toMatchObject({
+      status: 'error',
+      error,
+      ssr: true,
+    })
+    expect(errorComponentLoaded).toBe(true)
+  })
+
   it('reduces rejected lazy options into server error results', async () => {
     const error = new Error('lazy chunk failed')
     const root = createRootRoute()

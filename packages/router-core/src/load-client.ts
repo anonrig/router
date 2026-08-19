@@ -284,6 +284,10 @@ async function contextualize(
       const pendingOptions = ensureRouteOptions(route, signal)
       if (pendingOptions) await pendingOptions
     } catch (cause) {
+      // The failing match still renders this lane's boundary, so it owns the
+      // lane controller and the context its ancestors already resolved.
+      match.abortController = options[0 /* controller */]
+      match.context = matchParentContext(matches, index, match) ?? router.options.context ?? {}
       releaseFlight(router, match)
       return [index, normalizeLaneError(router, lane, route, cause, options)]
     }
