@@ -32,6 +32,7 @@
         "src/new-process-route-tree.ts",
         "src/utils.ts",
         "src/ssr/server.ts",
+        "src/ssr/register-load-server.ts",
         "src/ssr/client.ts",
         "src/ssr/ssr-match-id.ts",
         "src/ssr/serializer/transformer-types.ts",
