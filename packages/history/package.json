@@ -1,6 +1,6 @@
 {
   "name": "speedy-router-history",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Browser, hash, and memory history for speedy-router.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {

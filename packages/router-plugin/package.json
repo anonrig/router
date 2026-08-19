@@ -1,6 +1,6 @@
 {
   "name": "speedy-router-plugin",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "TanStack-compatible routeTree.gen.ts generator and Vite plugin.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
