@@ -14,14 +14,16 @@ permissions:
 
 concurrency:
   group: codspeed-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
 
 jobs:
   benchmarks:
     name: Run ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - name: core
@@ -38,7 +40,7 @@ jobs:
             files: benches/tanstack/closing-tag-detection.bench.ts
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 24
