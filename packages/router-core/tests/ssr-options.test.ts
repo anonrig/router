@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
 import { createRootRoute, createRoute } from '../src/route'
+import { notFound } from '../src/not-found'
+import { redirect } from '../src/redirect'
 import { createRouter, SearchParamError, setLoadServerRoute } from '../src/router'
 import { createRequestHandler } from '../src/ssr/create-request-handler'
 import { attachRouterServerSsrUtils } from '../src/ssr/ssr-server'
@@ -113,6 +115,67 @@ describe('SSR loader registration', () => {
       expect(response.status).toBe(200)
       expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
     })
+  })
+})
+
+describe('fast server loader failures', () => {
+  it('commits rejected errors as 500 results', async () => {
+    const error = new Error('async failure')
+    const { router, response, rootRoute } = await loadTree({
+      root: {
+        loader: async () => {
+          throw error
+        },
+      },
+    })
+
+    expect(response.status).toBe(500)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('error')
+    expect(matchOf(router, rootRoute.id)?.error).toBe(error)
+  })
+
+  it('commits rejected not-found values as 404 results', async () => {
+    const { router, response, rootRoute } = await loadTree({
+      root: {
+        loader: async () => {
+          throw notFound()
+        },
+      },
+    })
+
+    expect(response.status).toBe(404)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('notFound')
+  })
+
+  it('commits resolved not-found values as 404 results', async () => {
+    const notFoundValue = notFound()
+    const { router, response, rootRoute } = await loadTree({
+      root: { loader: async () => notFoundValue },
+    })
+
+    expect(response.status).toBe(404)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('notFound')
+    expect(matchOf(router, rootRoute.id)?.error).toBe(notFoundValue)
+  })
+
+  it('commits resolved redirects', async () => {
+    const { router, response } = await loadTree({
+      root: { loader: async () => redirect({ to: '/child' }) },
+    })
+
+    expect(response.status).toBe(307)
+    expect(router._serverResult).toMatchObject({ type: 'redirect' })
+  })
+
+  it('keeps resolved error instances as loader data', async () => {
+    const value = new Error('not a failure')
+    const { router, response, rootRoute } = await loadTree({
+      root: { loader: async () => value },
+    })
+
+    expect(response.status).toBe(200)
+    expect(matchOf(router, rootRoute.id)?.status).toBe('success')
+    expect(matchOf(router, rootRoute.id)?.loaderData).toBe(value)
   })
 })
 

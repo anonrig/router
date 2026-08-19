@@ -904,12 +904,21 @@ function executeFastServerLane(
         const data = loaderFn(loaderContext)
         if (data instanceof Promise) {
           if (!extra) fastServerLoaderCtx = undefined
-          return data.then((value) => {
-            if (isRedirect(value)) {
+          // Redirects stay thrown so loadServerRoute can resolve them, but every
+          // other failure has to produce a render result or the load never commits.
+          const settleFailure = (cause: unknown): ServerLoadResult => {
+            if (isRedirect(cause)) {
               abortLane()
-              throw value
+              throw cause
             }
-            if (isNotFound(value)) throw value
+            const notFoundCause = isNotFound(cause)
+            match.status = notFoundCause ? 'notFound' : 'error'
+            match.error = cause
+            match.updatedAt = 0
+            return { type: 'render', status: notFoundCause ? 404 : 500, matches }
+          }
+          return data.then((value) => {
+            if (isRedirect(value) || isNotFound(value)) return settleFailure(value)
             match.loaderData = value
             match.status = 'success'
             match.invalid = false
@@ -923,7 +932,7 @@ function executeFastServerLane(
               loaderParentContext,
               status,
             )
-          })
+          }, settleFailure)
         }
         if (isRedirect(data)) {
           abortLane()
