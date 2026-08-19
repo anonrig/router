@@ -56,7 +56,9 @@ import {
   DEFAULT_PROTOCOL_SET,
   encodePathLikeUrl,
   functionalUpdate,
+  hasOwn,
   isDangerousProtocol,
+  isPlainObject,
   nullReplaceEqualDeep,
   replaceEqualDeep,
   type PickAsRequired,
@@ -1020,7 +1022,15 @@ export class RouterCore<
   update(newOptions: RouterOptions) {
     const prevTree = this.routeTree
     const prevCaseSensitive = this.options?.caseSensitive ?? false
+    const prevContext = this.options?.context
     this.options = { ...this.options, ...newOptions } as any
+    const nextContext = this.options.context
+    // `RouterContextProvider` rebuilds `context` on every render, so identity
+    // alone would drop warm matches that are still valid. Only a value change
+    // makes cached matches and their loader data stale.
+    if (prevTree && nextContext !== prevContext && !sameContext(prevContext, nextContext)) {
+      this.clearContextCache()
+    }
     this.isServer = this.options.isServer ?? typeof document === 'undefined'
     if (
       this.options.protocolAllowlist &&
@@ -1546,6 +1556,21 @@ export class RouterCore<
     this.shouldViewTransition = false
     this._matchesByPath?.clear()
     return this.load({ sync: opts?.sync })
+  }
+
+  /**
+   * Drop the caches that captured the previous router context. In-flight work
+   * is left alone: a navigation must still be able to adopt it, and `update`
+   * cannot start a replacement load because React calls it during render.
+   */
+  private clearContextCache() {
+    this._matchesByPath?.clear()
+    const cached = this._cache
+    for (const id in cached) {
+      const match = cached[id]!
+      if (match.isFetching || match.status === 'pending' || match._flight) continue
+      delete cached[id]
+    }
   }
 
   clearCache(opts?: Parameters<ClearCacheFn<this>>[0]) {
@@ -3015,6 +3040,8 @@ function parseHistoryLocation(
 
 const WARM_MATCH_CACHE_MAX = 64
 
+const CONTEXT_COMPARE_MAX_DEPTH = 4
+
 function fillWarmLoaderContext(
   match: RouteMatch,
   location: ParsedLocation,
@@ -3114,6 +3141,27 @@ function warmMatchNeedsLoader(
     if (prev.routeId === routeId && prev.id !== matchId) return true
   }
   return false
+}
+
+/**
+ * Compare router context by value. Router context may hold cyclic values, so
+ * `deepEqual` cannot be used here: the depth bound doubles as the cycle guard,
+ * and values below it must match by identity.
+ */
+function sameContext(prev: any, next: any, depth = 0): boolean {
+  if (prev === next) return true
+  if (depth === CONTEXT_COMPARE_MAX_DEPTH) return false
+  if (!isPlainObject(prev) || !isPlainObject(next)) return false
+  let keys = 0
+  for (const key in next) {
+    if (!hasOwn.call(next, key)) continue
+    keys++
+    if (!hasOwn.call(prev, key) || !sameContext(prev[key], next[key], depth + 1)) return false
+  }
+  for (const key in prev) {
+    if (hasOwn.call(prev, key)) keys--
+  }
+  return keys === 0
 }
 
 function findPrevMatch(matches: RouteMatch[], routeId: string) {

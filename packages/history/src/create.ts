@@ -15,7 +15,7 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
   getLength: () => number
   pushState: (path: string, state: any) => void
   replaceState: (path: string, state: any) => void
-  go: (n: number) => void
+  go: (n: number, ignoreBlocker: boolean) => void
   back: (ignoreBlocker: boolean) => void
   forward: (ignoreBlocker: boolean) => void
   createHref: (path: string) => string
@@ -152,8 +152,8 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
       opts.replaceState(path, nextState)
       notify(REPLACE_ACTION)
     },
-    go: (index) => {
-      opts.go(index)
+    go: (index, navigateOpts) => {
+      opts.go(index, navigateOpts?.ignoreBlocker === true)
       handleIndexChange({ type: 'GO', index })
     },
     back: (navigateOpts) => {

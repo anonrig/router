@@ -119,6 +119,23 @@ describe('SSR loader registration', () => {
   })
 })
 
+describe('fast server loader thenables', () => {
+  it('awaits PromiseLike loader results', async () => {
+    const { router, response, rootRoute } = await loadTree({
+      root: {
+        loader: () => {
+          // The fast server lane must await PromiseLike results, not only Promises.
+          // oxlint-disable-next-line unicorn/no-thenable
+          return { then: (resolve: (value: string) => void) => resolve('resolved data') }
+        },
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(matchOf(router, rootRoute.id)?.loaderData).toBe('resolved data')
+  })
+})
+
 describe('fast server loader failures', () => {
   it('commits rejected errors as 500 results', async () => {
     const error = new Error('async failure')

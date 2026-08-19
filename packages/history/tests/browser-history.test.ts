@@ -48,11 +48,103 @@ function createBrowserHistoryHarness() {
     nativeHistory,
     location,
     go,
+    pushState,
     listeners,
   }
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('flushes a queued push before traversing back', () => {
+    const { history, nativeHistory, pushState } = createBrowserHistoryHarness()
+
+    history.push('/queued')
+    history.back()
+
+    expect(pushState).toHaveBeenCalledOnce()
+    expect(pushState.mock.invocationCallOrder[0]).toBeLessThan(
+      nativeHistory.back.mock.invocationCallOrder[0]!,
+    )
+    history.destroy()
+  })
+
+  test('does not leak blocker bypass from a no-op ignored traversal', async () => {
+    const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
+    const blockerFn = vi.fn(() => true)
+    history.block({ blockerFn })
+
+    history.back({ ignoreBlocker: true })
+    history.forward()
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/forward'
+    await listeners.popstate?.()
+
+    expect(blockerFn).toHaveBeenCalledOnce()
+    expect(go).toHaveBeenCalledWith(-1)
+    expect(history.location.pathname).toBe('/')
+    history.destroy()
+  })
+
+  test('does not classify back as go after an out-of-range go', async () => {
+    const { history, nativeHistory, location, listeners } = createBrowserHistoryHarness()
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/one'
+    await listeners.popstate?.()
+    const actions: any[] = []
+    history.subscribe(({ action }) => actions.push(action))
+
+    history.go(99)
+    history.back()
+    nativeHistory.state = { __TSR_index: 0, __TSR_key: '0' }
+    location.pathname = '/'
+    await listeners.popstate?.()
+
+    expect(actions).toEqual([{ type: 'BACK' }])
+    history.destroy()
+  })
+
+  test('assigns a finite index after an external pushState without router state', async () => {
+    const { history, nativeHistory } = createBrowserHistoryHarness()
+
+    nativeHistory.pushState({ foreign: true }, '', '/external')
+    history.push('/router')
+    await Promise.resolve()
+
+    expect(history.location.state.__TSR_index).toBe(2)
+    expect(nativeHistory.state.__TSR_index).toBe(2)
+    history.destroy()
+  })
+
+  test('go can bypass popstate blockers', async () => {
+    const { history, nativeHistory, location, listeners } = createBrowserHistoryHarness()
+    const blockerFn = vi.fn(() => true)
+    history.block({ blockerFn })
+
+    history.go(2, { ignoreBlocker: true })
+    nativeHistory.state = { __TSR_index: 2, __TSR_key: '2' }
+    location.pathname = '/step2'
+    await listeners.popstate?.()
+
+    expect(blockerFn).not.toHaveBeenCalled()
+    expect(history.location.pathname).toBe('/step2')
+    history.destroy()
+  })
+
+  test('normal back navigation does not suppress beforeunload blockers', () => {
+    const { history, listeners } = createBrowserHistoryHarness()
+    history.block({ blockerFn: () => false })
+    const event = {
+      preventDefault: vi.fn(),
+      returnValue: undefined,
+    }
+
+    history.back()
+    listeners.beforeunload?.(event)
+
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(event.returnValue).toBe('')
+    history.destroy()
+  })
+
   test('ignores stale async blocker results after a newer popstate settles', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 2, __TSR_key: '2' }
