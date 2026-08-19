@@ -11,7 +11,8 @@ export const createHashHistory = /*#__PURE__*/ function createHashHistory(opts?:
     parseLocation: () => {
       const hashSplit = win.location.hash.split('#').slice(1)
       const pathPart = hashSplit[0] ?? '/'
-      const searchPart = win.location.search
+      const hashHasSearch = pathPart.indexOf('?') !== -1
+      const searchPart = hashHasSearch ? '' : win.location.search
       const hashEntries = hashSplit.slice(1)
       const hashPart = hashEntries.length === 0 ? '' : `#${hashEntries.join('#')}`
       return parseHref(`${pathPart}${searchPart}${hashPart}`, win.history.state)
