@@ -1,5 +1,5 @@
 import { dirname, relative, sep } from 'node:path'
-import { urlPathFromId, type ScannedRoute } from './scan'
+import type { ScannedRoute } from './scan'
 
 export type EmitRouteTreeOptions = {
   routes: Array<ScannedRoute>
@@ -166,7 +166,7 @@ function fileRoutesByPathInterface(
     return `    ${quoted(route.key)}: {
           id: ${quoted(route.key)}
           path: ${quoted(typePath(route.path))}
-          fullPath: ${quoted(urlPathFromId(route.key) ?? '/')}
+          fullPath: ${quoted(route.fullPath)}
           preLoaderRoute: typeof ${route.variableName}RouteImport
           parentRoute: typeof ${parent}
         }`
@@ -246,7 +246,7 @@ export function emitRouteTree(options: EmitRouteTreeOptions): string {
   const byFullPath = new Map<string, NamedRoute>()
   const byTo = new Map<string, NamedRoute>()
   for (const route of children) {
-    const fullPath = urlPathFromId(route.key) ?? '/'
+    const fullPath = route.fullPath
     const existingFull = byFullPath.get(fullPath)
     if (!existingFull || preferFullPath(route, existingFull)) {
       byFullPath.set(fullPath, route)

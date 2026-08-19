@@ -15,6 +15,8 @@ export type ScannedRoute = {
   id: string
   /** `route.update({ path })` value. Omitted for pathless layouts. */
   path?: string
+  /** Public URL path of the whole branch (`FileRoutesByFullPath` key). */
+  fullPath: string
   /** Parent key (`__root__` for root children). */
   parentId: string
   isRoot: boolean
@@ -110,6 +112,19 @@ const ESCAPED_DOT = '\0'
 const ESCAPED_OPEN = '\u0001'
 const ESCAPED_CLOSE = '\u0002'
 
+/** Drops the markers that record which characters came from `[...]`. */
+function stripEscapeMarkers(value: string) {
+  return value.replaceAll(ESCAPED_OPEN, '').replaceAll(ESCAPED_CLOSE, '')
+}
+
+function startsEscaped(segment: string) {
+  return segment.charCodeAt(0) === 1
+}
+
+function endsEscaped(segment: string) {
+  return segment.charCodeAt(segment.length - 1) === 2
+}
+
 /** TanStack flat routes: `.` nests; bracketed text escapes route-file tokens. */
 function flattenRouteFileId(fileId: string) {
   return fileId
@@ -122,23 +137,23 @@ function flattenRouteFileId(fileId: string) {
     .replaceAll(ESCAPED_DOT, '.')
 }
 
-function fileIdToKey(fileId: string) {
+/**
+ * Route key that still carries the escape markers. Every path-shaping helper
+ * reads this form so a bracket-escaped `_`, `@`, or `(` stays a literal URL
+ * character instead of turning the segment pathless.
+ */
+function fileIdToEscapedKey(fileId: string) {
   if (fileId === '__root') return '__root__'
   const raw = flattenRouteFileId(fileId).split('/').filter(Boolean)
   const segments = stripRouteToken(raw)
   if (segments.length === 0) return '/'
-  const last = segments[segments.length - 1]!
-  if (last === 'index') {
+  // Compared before stripping markers so `[index]` and `[route]` stay literal.
+  if (segments[segments.length - 1] === 'index') {
     segments[segments.length - 1] = ''
   }
-  const joined = segments.join('/').replaceAll(ESCAPED_OPEN, '').replaceAll(ESCAPED_CLOSE, '')
+  const joined = segments.join('/')
   if (joined === '') return '/'
-  return joined.endsWith('/') ? `/${joined}` : `/${joined}`
-}
-
-function hasEscapedPathlessPrefix(fileId: string) {
-  const segment = fileId.slice(Math.max(fileId.lastIndexOf('/'), fileId.lastIndexOf('.')) + 1)
-  return segment.startsWith('[_]') || segment.startsWith('[@]') || segment.startsWith('[(]')
+  return `/${joined}`
 }
 
 function lastSegment(key: string) {
@@ -157,13 +172,17 @@ function countSlashSeparatedParts(path: string) {
   return count
 }
 
-/** Pathless `_` / `@` layouts and parenthesized `(group)` segments. */
+/**
+ * Pathless `_` / `@` layouts and parenthesized `(group)` segments. A leading
+ * token written as `[_]`, `[@]`, or `[(]` is escaped, so it stays part of the
+ * URL instead of making the segment pathless.
+ */
 function isPathlessSegment(segment: string) {
-  return (
-    (segment.startsWith('_') && segment !== '__root__') ||
-    segment.startsWith('@') ||
-    (segment.startsWith('(') && segment.endsWith(')'))
-  )
+  if (startsEscaped(segment)) return false
+  const plain = stripEscapeMarkers(segment)
+  if (plain.startsWith('_')) return plain !== '__root__'
+  if (plain.startsWith('@')) return true
+  return plain.startsWith('(') && plain.endsWith(')') && !endsEscaped(segment)
 }
 
 function isPathlessKey(key: string) {
@@ -173,16 +192,21 @@ function isPathlessKey(key: string) {
 
 function slotNameOf(key: string) {
   const segment = lastSegment(key)
-  return segment.startsWith('@') ? segment.slice(1) : undefined
+  if (startsEscaped(segment)) return undefined
+  const plain = stripEscapeMarkers(segment)
+  return plain.startsWith('@') ? plain.slice(1) : undefined
 }
 
-export function urlPathFromId(id: string): string | undefined {
+/** Takes an escape-marked id and returns the public URL path. */
+function urlPathFromId(id: string): string | undefined {
   const trailingSlash = id.endsWith('/') && id !== '/'
   const parts: Array<string> = []
   for (const segment of id.split('/')) {
     if (!segment) continue
-    if (segment.startsWith('_') || isPathlessSegment(segment)) continue
-    parts.push(segment.endsWith('_') ? segment.slice(0, -1) : segment)
+    if (isPathlessSegment(segment)) continue
+    const plain = stripEscapeMarkers(segment)
+    // A trailing `_` opts out of nesting, unless it was written as `[_]`.
+    parts.push(plain.endsWith('_') && !endsEscaped(segment) ? plain.slice(0, -1) : plain)
   }
   if (parts.length === 0) {
     if (id === '/' || trailingSlash) return '/'
@@ -222,17 +246,27 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
     compileRouteFileIgnorePattern(options.routeFileIgnorePattern),
   )
 
-  const pending: Array<Omit<ScannedRoute, 'id' | 'path' | 'parentId' | 'isPathless'>> = []
+  type PendingRoute = {
+    filePath: string
+    fileId: string
+    key: string
+    escapedKey: string
+    isRoot: boolean
+  }
+
+  const pending: Array<PendingRoute> = []
   for (const filePath of files) {
     const fileId = toPosix(relative(rootDir, filePath)).replace(/\.[^.]+$/, '')
     if (basename(fileId) === '__root' && fileId !== '__root') {
       throw new Error(`Root route file must be directly inside the routes directory: "${fileId}"`)
     }
     const isRoot = fileId === '__root'
+    const escapedKey = fileIdToEscapedKey(fileId)
     pending.push({
       filePath,
       fileId,
-      key: fileIdToKey(fileId),
+      key: stripEscapeMarkers(escapedKey),
+      escapedKey,
       isRoot,
     })
   }
@@ -242,6 +276,7 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
   }
 
   const keys = new Set<string>()
+  const escapedKeys = new Map<string, string>()
   for (const route of pending) {
     if (route.isRoot) continue
     if (keys.has(route.key)) {
@@ -251,34 +286,36 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
       )
     }
     keys.add(route.key)
+    escapedKeys.set(route.key, route.escapedKey)
   }
 
   const routes: Array<ScannedRoute> = []
 
-  for (const route of pending) {
+  for (const { escapedKey, ...route } of pending) {
     if (route.isRoot) {
       routes.push({
         ...route,
         key: '__root__',
         id: '__root__',
+        fullPath: '/',
         parentId: '__root__',
         isPathless: false,
       })
       continue
     }
     const parentId = parentKeyOf(route.key, keys)
-    const escapedPathless = hasEscapedPathlessPrefix(route.fileId)
-    const pathless = !escapedPathless && isPathlessKey(route.key)
-    const id = relativeId(route.key, parentId)
-    const slot = slotNameOf(route.key)
+    // Both sides keep their markers so the escaped tail survives the slice.
+    const escapedId = relativeId(escapedKey, escapedKeys.get(parentId) ?? '__root__')
+    const slot = slotNameOf(escapedKey)
     routes.push({
       ...route,
-      id,
-      path: escapedPathless ? id : urlPathFromId(id),
+      id: relativeId(route.key, parentId),
+      path: urlPathFromId(escapedId),
+      fullPath: urlPathFromId(escapedKey) ?? '/',
       parentId,
-      isPathless: pathless,
+      isPathless: isPathlessKey(escapedKey),
       slot,
-      isSlotRoot: !!slot && !route.key.endsWith('/') && lastSegment(route.key).startsWith('@'),
+      isSlotRoot: !!slot && !escapedKey.endsWith('/'),
     })
   }
 

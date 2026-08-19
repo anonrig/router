@@ -27,12 +27,89 @@ describe('scanRoutes', () => {
     expect(byFileId['[index]']).toMatchObject({
       key: '/index',
       path: '/index',
+      fullPath: '/index',
     })
     expect(byFileId['[_]auth']).toMatchObject({
       key: '/_auth',
       path: '/_auth',
+      fullPath: '/_auth',
       isPathless: false,
     })
+  })
+
+  it('keeps escaped tokens in fullPath for leaf and parent segments', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-escaped-full-paths-'))
+    write(dir, '__root.tsx')
+    write(dir, '[_]auth.login.tsx')
+    write(dir, '[(]marketing[)].about.tsx')
+    write(dir, 'posts[_].tsx')
+    write(dir, 'shop.[_]tab.reviews.tsx')
+
+    const routes = scanRoutes({ routesDirectory: dir })
+    const byFileId = Object.fromEntries(routes.map((route) => [route.fileId, route]))
+
+    expect(byFileId['[_]auth.login']).toMatchObject({
+      key: '/_auth/login',
+      path: '/_auth/login',
+      fullPath: '/_auth/login',
+      isPathless: false,
+    })
+    expect(byFileId['[(]marketing[)].about']).toMatchObject({
+      key: '/(marketing)/about',
+      path: '/(marketing)/about',
+      fullPath: '/(marketing)/about',
+    })
+    expect(byFileId['shop.[_]tab.reviews']).toMatchObject({
+      key: '/shop/_tab/reviews',
+      path: '/shop/_tab/reviews',
+      fullPath: '/shop/_tab/reviews',
+    })
+    // A trailing `_` opts out of nesting, but `[_]` is a literal character.
+    expect(byFileId['posts[_]']).toMatchObject({
+      key: '/posts_',
+      path: '/posts_',
+      fullPath: '/posts_',
+    })
+  })
+
+  it('keeps escaped tokens in child paths when the escaped layout is a real parent', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-escaped-parent-'))
+    write(dir, '__root.tsx')
+    write(dir, '[_]auth.tsx')
+    write(dir, '[_]auth.login.tsx')
+
+    const routes = scanRoutes({ routesDirectory: dir })
+    const byFileId = Object.fromEntries(routes.map((route) => [route.fileId, route]))
+
+    expect(byFileId['[_]auth']).toMatchObject({ key: '/_auth', path: '/_auth', fullPath: '/_auth' })
+    expect(byFileId['[_]auth.login']).toMatchObject({
+      key: '/_auth/login',
+      parentId: '/_auth',
+      id: '/login',
+      path: '/login',
+      fullPath: '/_auth/login',
+    })
+  })
+
+  it('does not treat an escaped @ file as a parallel-route slot', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-escaped-slot-'))
+    write(dir, '__root.tsx')
+    write(dir, '[@]modal.tsx')
+    write(dir, '@drawer.tsx')
+
+    const routes = scanRoutes({ routesDirectory: dir })
+    const byFileId = Object.fromEntries(routes.map((route) => [route.fileId, route]))
+
+    expect(byFileId['[@]modal']).toMatchObject({
+      key: '/@modal',
+      path: '/@modal',
+      fullPath: '/@modal',
+      isPathless: false,
+      isSlotRoot: false,
+    })
+    expect(byFileId['[@]modal']?.slot).toBeUndefined()
+    expect(byFileId['@drawer']).toMatchObject({ slot: 'drawer', isSlotRoot: true })
+    expect(byFileId['@drawer']?.path).toBeUndefined()
   })
 
   it('rejects nested root route files', () => {
@@ -379,6 +456,29 @@ describe('generateRouteTree', () => {
     expect(runtime).toContain(
       'const UsernameProfileRouteWithChildren = UsernameProfileRoute._addFileChildren',
     )
+  })
+
+  it('does not collapse escaped pathless routes onto the index fullPath', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-gen-escaped-'))
+    const routes = join(dir, 'routes')
+    write(routes, '__root.tsx')
+    write(routes, 'index.tsx')
+    write(routes, '[_]auth.tsx')
+    write(routes, '[@]modal.tsx')
+    const generated = join(dir, 'routeTree.gen.ts')
+    generateRouteTree({
+      routesDirectory: routes,
+      generatedRouteTree: generated,
+    })
+    const runtime = readFileSync(generated, 'utf8')
+
+    expect(runtime).toContain("fullPath: '/_auth'")
+    expect(runtime).toContain("fullPath: '/@modal'")
+    expect(runtime).toContain("  '/': typeof IndexRoute")
+    expect(runtime).toContain("  '/_auth': typeof Char91_Char93authRoute")
+    expect(runtime).toContain("  '/@modal': typeof Char91AtChar93modalRoute")
+    expect(runtime).not.toContain("  '/': typeof Char91_Char93authRoute")
+    expect(runtime).not.toContain("  '/': typeof Char91AtChar93modalRoute")
   })
 
   it('eager-imports slot files instead of synthesizing createSlotRoute stubs', () => {
