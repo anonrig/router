@@ -46,6 +46,31 @@ describe('matcher', () => {
     expect(findRouteMatch(tree, '/a/bazxqux')?.at(-1)?.route.id).toBe('/a/baz{$}qux')
   })
 
+  it('attaches index and pathless children of an affixed wildcard to the same node', () => {
+    const root = createRootRoute()
+    const affixed = createRoute({
+      getParentRoute: () => root,
+      path: 'raw-{$}',
+      caseSensitive: true,
+    })
+    const index = createRoute({ getParentRoute: () => affixed, path: '/' })
+    const layout = createRoute({ getParentRoute: () => affixed, id: '_wild' })
+    root.addChildren([affixed.addChildren([index, layout])])
+    const tree = processRouteTree(root as any)
+
+    const wildcards = tree.root.wildcardChildren
+    expect(wildcards).toHaveLength(1)
+    const wildcard = wildcards![0]!
+    expect(wildcard.affixCaseSensitive).toBe(true)
+    expect(wildcard.route?.id).toBe('/raw-{$}')
+    expect(wildcard.indexRoute?.id).toBe('/raw-{$}/')
+    expect(wildcard.pathless?.map((route) => route.id)).toEqual(['/raw-{$}/_wild'])
+
+    const match = findRouteMatch(tree, '/raw-a/b')
+    expect(match?.map((entry) => entry.route.id)).toEqual(['__root__', '/raw-{$}', '/raw-{$}/'])
+    expect(match?.at(-1)?.params).toMatchObject({ _splat: 'a/b' })
+  })
+
   it('matches an empty splat on a catch-all registered after an affixed wildcard', () => {
     const root = createRootRoute()
     const parent = createRoute({ getParentRoute: () => root, path: '/a' })
