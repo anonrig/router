@@ -378,4 +378,56 @@ describe('warm-path TanStack behavior parity', () => {
     expect(postsCalls).toBe(1)
     expect(posts?.isFetching).toBe(false)
   })
+
+  test('a child that settles first is not kept when the parent loader later fails', async () => {
+    const boom = new Error('root-boom')
+    let rootCalls = 0
+    let postsCalls = 0
+    let rejectRoot!: (error: unknown) => void
+    let resolvePosts!: (value: string) => void
+    const router = createApp({
+      root: {
+        loader: () => {
+          rootCalls++
+          if (rootCalls > 1) return `root-${rootCalls}`
+          return new Promise<string>((_resolve, reject) => {
+            rejectRoot = reject
+          })
+        },
+      },
+      posts: {
+        // Infinity keeps a successful match reusable, so a child published too
+        // early would let the next warm navigation skip its loader.
+        staleTime: Infinity,
+        loader: () => {
+          postsCalls++
+          if (postsCalls > 1) return `posts-${postsCalls}`
+          return new Promise<string>((resolve) => {
+            resolvePosts = resolve
+          })
+        },
+      },
+    })
+
+    const navigation = router.navigate({ href: '/posts' } as any)
+    resolvePosts('posts-1')
+    await Promise.resolve()
+    rejectRoot(boom)
+    await expect(navigation).resolves.toBeUndefined()
+
+    const [root, posts] = router.state.matches
+    expect(postsCalls).toBe(1)
+    expect(root?.status).toBe('error')
+    expect(root?.error).toBe(boom)
+    expect(posts?.status).toBe('pending')
+    expect(posts?.loaderData).toBeUndefined()
+    expect(posts?.isFetching).toBe(false)
+    expect(router.getMatch(posts!.id)?.status).not.toBe('success')
+
+    await router.navigate({ href: '/about' } as any)
+    await router.navigate({ href: '/posts' } as any)
+
+    expect(postsCalls).toBe(2)
+    expect(router.state.matches.at(-1)?.loaderData).toBe('posts-2')
+  })
 })

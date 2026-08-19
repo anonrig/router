@@ -1986,6 +1986,10 @@ export class RouterCore<
     const pending: Promise<void>[] = []
     const matchPromises: Array<Promise<RouteMatch>> = []
     let canceled = false
+    // Loader data lands on the match as soon as that loader settles so a child
+    // awaiting `parentMatchPromise` observes its parent data, but the match is
+    // only cached and remembered once the whole tree commits in `settle`.
+    const settled: RouteMatch[] = []
     const settleSuccess = (result: WarmResult, updatedAt: number) => {
       if (
         canceled ||
@@ -2001,7 +2005,20 @@ export class RouterCore<
       result.match.isFetching = false
       result.match.updatedAt = updatedAt
       result.match.context = result.context
-      this._cache[result.match.id] = result.match
+      settled.push(result.match)
+    }
+    // A failing or redirecting match invalidates everything below it, including
+    // children that finished first, so their data can never be reused.
+    const discardSettledBelow = (failed: RouteMatch) => {
+      const failedIndex = matches.indexOf(failed)
+      for (let i = 0; i < settled.length; i++) {
+        const match = settled[i]!
+        if (matches.indexOf(match) <= failedIndex) continue
+        match.loaderData = undefined
+        match.status = 'pending'
+        match.isFetching = false
+        match.updatedAt = 0
+      }
     }
     for (let i = start; i < matches.length; i++) {
       if (id !== this.loadId) return
@@ -2035,6 +2052,7 @@ export class RouterCore<
               candidate.isFetching = false
             }
           }
+          discardSettledBelow(match)
           return this.settleWarmFailure(location, id, matches, match, route, cause)
         }
       } else {
@@ -2095,6 +2113,7 @@ export class RouterCore<
       for (let i = 0; i < results.length; i++) {
         const result = results[i]!
         if (!result.ok) {
+          discardSettledBelow(result.match)
           return this.settleWarmFailure(
             location,
             id,
@@ -2105,6 +2124,7 @@ export class RouterCore<
           )
         }
         if (isRedirect(result.value) || isNotFound(result.value)) {
+          discardSettledBelow(result.match)
           return importLoadClient(this)
         }
       }
