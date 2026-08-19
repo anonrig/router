@@ -186,7 +186,8 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
       ignoreNextBeforeUnload = true
       win.history.forward()
     },
-    go: (n) => {
+    go: (n, ignoreBlocker) => {
+      skipBlockerNextPop = ignoreBlocker
       nextPopIsGo = true
       win.history.go(n)
     },
