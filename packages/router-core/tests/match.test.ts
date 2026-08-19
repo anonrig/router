@@ -29,6 +29,25 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('requires affixed parameters to consume a value', () => {
+    const root = createRootRoute()
+    const normal = createRoute({
+      getParentRoute: () => root,
+      path: '/pre{$id}suf',
+    })
+    const overlapping = createRoute({
+      getParentRoute: () => root,
+      path: '/ab{$id}bc',
+    })
+    root.addChildren([normal, overlapping])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/presuf')).toBeNull()
+    expect(findRouteMatch(tree, '/abc')).toBeNull()
+    expect(findRouteMatch(tree, '/preXsuf')?.at(-1)?.params.id).toBe('X')
+    expect(findRouteMatch(tree, '/abXbc')?.at(-1)?.params.id).toBe('X')
+  })
+
   it('rejects malformed percent encoding in dynamic segments', () => {
     const root = createRootRoute()
     const dynamic = createRoute({
