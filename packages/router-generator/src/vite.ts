@@ -1,11 +1,6 @@
 import { basename, relative, resolve, sep } from 'node:path'
-import {
-  compileReferenceRoute,
-  compileVirtualRoute,
-  fileNameFromModuleId,
-  splitTargetFromModuleId,
-} from './code-split'
 import { generateRouteTree, type GenerateRouteTreeOptions } from './generate'
+import { fileNameFromModuleId, splitTargetFromModuleId } from './module-id'
 import { isRouteFile, matchesRouteFileIgnorePattern } from './scan'
 import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
 
@@ -131,10 +126,11 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
         routesDirectory = resolve(config.root, options.routesDirectory ?? 'src/routes')
       }
     },
-    transform(code, id) {
+    async transform(code, id) {
       if (!isSplitableRoute(id)) return null
       const fileName = fileNameFromModuleId(id)
       const splitTarget = splitTargetFromModuleId(id)
+      const { compileReferenceRoute, compileVirtualRoute } = await import('./code-split')
       if (splitTarget) {
         return compileVirtualRoute(code, fileName, splitTarget)
       }

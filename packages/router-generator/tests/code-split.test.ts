@@ -64,12 +64,35 @@ describe('compileReferenceRoute', () => {
     expect(result).toContain('requireAuth')
     expect(result).toContain('lazyRouteComponent(() => import')
     expect(result).toContain('./chat.tsx?tsr-split=component')
-    expect(result).toContain('mapRouterParamsToChatParams')
-    expect(result).toContain('mapRequestsRouterParams')
+    expect(result).not.toContain('mapRouterParamsToChatParams')
+    expect(result).not.toContain('mapRequestsRouterParams')
     expect(result).not.toContain('XChatProvider')
     expect(result).not.toContain('chatFallback')
     expect(result).not.toContain("from 'react'")
     expect(result).not.toContain('@x-clients/xds/loader')
+    expect(result).not.toContain('@x-clients/features/app/params')
+  })
+
+  it('leaves tiny inline UI in the eager module', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+export const Route = createFileRoute('/status')({
+  ssr: false,
+  beforeLoad: () => undefined,
+  pendingComponent: () => <div>Loading</div>,
+  component: BigPage,
+})
+function BigPage() {
+  return <Heavy />
+}
+function Heavy() {
+  return <div>ready</div>
+}
+`
+    const result = compileReferenceRoute(source, '/app/src/routes/status.tsx')
+    expect(result).toContain('pendingComponent: () => <div>Loading</div>')
+    expect(result).toContain('?tsr-split=component')
+    expect(result).not.toContain('function BigPage')
+    expect(result).not.toContain('function Heavy')
   })
 
   it('leaves routes without split properties unchanged', () => {
@@ -134,6 +157,8 @@ describe('compileVirtualRoute', () => {
     expect(result).toContain('XChatProvider')
     expect(result).toContain('chatFallback')
     expect(result).toContain('useChatParams')
+    expect(result).toContain('useParams')
+    expect(result).toContain('Outlet')
     expect(result).not.toContain('createFileRoute')
     expect(result).not.toContain('requireAuth')
     expect(result).not.toContain('ssr: false')

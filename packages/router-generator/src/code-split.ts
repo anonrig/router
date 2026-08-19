@@ -1,8 +1,8 @@
 import { basename } from 'node:path'
 import { parseSync } from 'oxc-parser'
+import { TSR_SPLIT_QUERY } from './module-id'
 
-/** Same query TanStack uses for virtual split modules. */
-export const TSR_SPLIT_QUERY = 'tsr-split'
+export { fileNameFromModuleId, splitTargetFromModuleId, TSR_SPLIT_QUERY } from './module-id'
 
 export const SPLIT_PROPERTIES = [
   'component',
@@ -42,7 +42,12 @@ function walk(node: unknown, visit: (value: EstreeNode) => void) {
       key === 'end' ||
       key === 'loc' ||
       key === 'range' ||
-      key === 'span'
+      key === 'span' ||
+      key === 'comments' ||
+      key === 'tokens' ||
+      key === 'leadingComments' ||
+      key === 'trailingComments' ||
+      key === 'innerComments'
     ) {
       continue
     }
@@ -53,7 +58,14 @@ function walk(node: unknown, visit: (value: EstreeNode) => void) {
 function collectIdentifiers(node: EstreeNode, into: Set<string>) {
   walk(node, (value) => {
     if (value.type === 'Identifier' && typeof value.name === 'string') into.add(value.name)
-    if (value.type === 'JSXIdentifier' && typeof value.name === 'string') into.add(value.name)
+    // Host elements (`div`) are not bindings; only user components pull deps.
+    if (
+      value.type === 'JSXIdentifier' &&
+      typeof value.name === 'string' &&
+      value.name.charCodeAt(0) < 97
+    ) {
+      into.add(value.name)
+    }
   })
 }
 
@@ -105,14 +117,6 @@ function declaredNames(statement: EstreeNode): Array<string> {
     return declaredNames(statement.declaration)
   }
   return []
-}
-
-function isExportedStatement(statement: EstreeNode): boolean {
-  return (
-    statement.type === 'ExportNamedDeclaration' ||
-    statement.type === 'ExportDefaultDeclaration' ||
-    statement.type === 'ExportAllDeclaration'
-  )
 }
 
 function isSideEffectImport(statement: EstreeNode): boolean {
@@ -174,7 +178,7 @@ function splitPropertiesOf(options: EstreeNode) {
     const key = propertyNameOf(property)
     if (!key || !SPLIT_PROPERTY_SET.has(key)) continue
     const value = propertyValue(property)
-    if (!value || isAlreadyLazy(value)) continue
+    if (!value || isAlreadyLazy(value) || isTrivialSplitValue(value)) continue
     properties.push({ key: key as SplitProperty, value })
   }
   return properties
@@ -198,27 +202,38 @@ function createFileRouteImportSource(program: EstreeNode): string | undefined {
   return undefined
 }
 
+function indexDeclarations(statements: Array<EstreeNode>) {
+  const byName = new Map<string, Array<EstreeNode>>()
+  for (const statement of statements) {
+    for (const name of declaredNames(statement)) {
+      const list = byName.get(name)
+      if (list) list.push(statement)
+      else byName.set(name, [statement])
+    }
+  }
+  return byName
+}
+
 function neededStatements(
   program: EstreeNode,
   seeds: Array<EstreeNode>,
   skip?: (statement: EstreeNode) => boolean,
 ): Set<EstreeNode> {
   const statements: Array<EstreeNode> = program.body ?? []
+  const byName = indexDeclarations(statements)
   const needed = new Set<EstreeNode>(seeds)
+  const pending = seeds.slice()
   const used = new Set<string>()
-  for (const statement of needed) collectIdentifiers(statement, used)
-
-  let grew = true
-  while (grew) {
-    grew = false
-    for (const statement of statements) {
-      if (needed.has(statement)) continue
-      if (skip?.(statement)) continue
-      const names = declaredNames(statement)
-      if (!names.some((name) => used.has(name))) continue
-      needed.add(statement)
-      collectIdentifiers(statement, used)
-      grew = true
+  for (let i = 0; i < pending.length; i++) {
+    collectIdentifiers(pending[i]!, used)
+    for (const name of used) {
+      const declarations = byName.get(name)
+      if (!declarations) continue
+      for (const statement of declarations) {
+        if (needed.has(statement) || skip?.(statement)) continue
+        needed.add(statement)
+        pending.push(statement)
+      }
     }
   }
   return needed
@@ -231,6 +246,38 @@ function hasDisabledSsr(options: EstreeNode): boolean {
     if (value?.type === 'Literal' && value.value === false) return true
   }
   return false
+}
+
+function exportedLocalNames(statement: EstreeNode): Array<string> {
+  if (statement.type !== 'ExportNamedDeclaration') return []
+  const names: Array<string> = []
+  for (const specifier of statement.specifiers ?? []) {
+    const exported = specifier.exported?.name ?? specifier.exported?.value
+    const local = specifier.local?.name
+    if (exported === 'Route' || local === 'Route') {
+      if (local) names.push(local)
+    }
+  }
+  return names
+}
+
+/** Keep the Route factory and its remaining options, not component-only helpers. */
+function isRouteExport(statement: EstreeNode): boolean {
+  if (statement.type === 'ExportDefaultDeclaration') return true
+  if (statement.type === 'ExportAllDeclaration') return true
+  if (statement.type !== 'ExportNamedDeclaration') return false
+  if (containsCreateFileRoute(statement)) return true
+  if (declaredNames(statement).includes('Route')) return true
+  return exportedLocalNames(statement).length > 0
+}
+
+const TRIVIAL_SPLIT_CHARS = 96
+
+function isTrivialSplitValue(value: EstreeNode): boolean {
+  if (value.end - value.start > TRIVIAL_SPLIT_CHARS) return false
+  const used = new Set<string>()
+  collectIdentifiers(value, used)
+  return used.size === 0
 }
 
 function printNamedImport(
@@ -317,7 +364,7 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   const rewritten = applyReplacements(code, replacements)
   const nextProgram = parseProgram(fileName, rewritten)
   const seeds = (nextProgram.body ?? []).filter(
-    (statement: EstreeNode) => isExportedStatement(statement) || isSideEffectImport(statement),
+    (statement: EstreeNode) => isRouteExport(statement) || isSideEffectImport(statement),
   )
   if (seeds.length === 0) return rewritten
   const needed = neededStatements(nextProgram, seeds)
@@ -361,32 +408,27 @@ export function compileVirtualRoute(
   const used = new Set<string>()
   collectIdentifiers(match.value, used)
   const seeds = (program.body ?? []).filter((statement: EstreeNode) => {
-    if (containsCreateFileRoute(statement)) return false
+    if (statement.type !== 'ImportDeclaration' && containsCreateFileRoute(statement)) return false
     return declaredNames(statement).some((name) => used.has(name))
   })
   const needed = neededStatements(program, seeds, containsCreateFileRoute)
-  const usedInModule = identifiersIn(needed)
-  for (const name of used) usedInModule.add(name)
+  const live = identifiersIn(needed)
+  collectIdentifiers(match.value, live)
+  live.delete('createFileRoute')
   const parts: Array<string> = []
-  if (usedInModule.has('Route')) {
+  if (live.has('Route')) {
     parts.push(`import { Route } from './${basename(fileName)}'`)
   }
   for (const statement of program.body ?? []) {
     if (!needed.has(statement)) continue
+    if (statement.type === 'ImportDeclaration') {
+      const printed = printNamedImport(statement, live, [], code)
+      if (printed) parts.push(printed)
+      continue
+    }
+    if (containsCreateFileRoute(statement)) continue
     parts.push(slice(code, statement))
   }
   parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
   return `${parts.join('\n\n')}\n`
-}
-
-export function fileNameFromModuleId(id: string) {
-  const withoutNull = id.startsWith('\0') ? id.slice(1) : id
-  return withoutNull.split('?')[0] ?? withoutNull
-}
-
-export function splitTargetFromModuleId(id: string) {
-  const queryIndex = id.indexOf('?')
-  if (queryIndex === -1) return undefined
-  const params = new URLSearchParams(id.slice(queryIndex + 1))
-  return params.get(TSR_SPLIT_QUERY) ?? undefined
 }
