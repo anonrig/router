@@ -85,6 +85,7 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
         clearTimeout(session[3 /* revealTimer */])
         router._pending = undefined
       }
+      settleOwner(acknowledgement, false)
       router._detachHistory?.()
       mountedFor.current = undefined
     }
