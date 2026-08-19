@@ -167,10 +167,15 @@ class MemoryHistory implements RouterHistory {
     ) {
       // Index must be assigned at commit time so overlapping async blockers
       // cannot reuse the same __TSR_index.
-      return this.runPushBlockers('PUSH', path, assignKeyAndIndex(0, state), () => {
-        const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
-        this.commitPush(path, nextState)
-      })
+      return this.runPushBlockers(
+        'PUSH',
+        path,
+        assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state),
+        () => {
+          const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
+          this.commitPush(path, nextState)
+        },
+      )
     }
     const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
     const { entries, states } = this
@@ -196,10 +201,15 @@ class MemoryHistory implements RouterHistory {
       navigateOpts?.ignoreBlocker !== true &&
       typeof document !== 'undefined'
     ) {
-      return this.runPushBlockers('REPLACE', path, assignKeyAndIndex(0, state), () => {
-        const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
-        this.commitReplace(path, nextState)
-      })
+      return this.runPushBlockers(
+        'REPLACE',
+        path,
+        assignKeyAndIndex(this.location.state[STATE_INDEX], state),
+        () => {
+          const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
+          this.commitReplace(path, nextState)
+        },
+      )
     }
     const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
     this.states[this.index] = nextState

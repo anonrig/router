@@ -48,6 +48,16 @@ describe('matcher', () => {
     expect(matches?.map((m) => m.route.id)).toEqual(['__root__', '/posts', '/posts/$slug'])
   })
 
+  it('matches parameter affixes case-insensitively by default', () => {
+    const root = createRootRoute()
+    const child = createRoute({ getParentRoute: () => root, path: '/pre{$id}suf' })
+    root.addChildren([child])
+
+    const matches = findRouteMatch(processRouteTree(root as any), '/PRExSUF')
+
+    expect(matches?.at(-1)?.params).toEqual({ id: 'x' })
+  })
+
   it('matches pathless layouts', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/u/anonrig')
