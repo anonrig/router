@@ -23,4 +23,23 @@ describe('segment-tree deep optional bitmask', () => {
     expect(match?.rawParams).not.toEqual({})
     expect(Object.keys(match?.rawParams ?? {})).toHaveLength(1)
   })
+
+  it('matches pathless route groups and slot layouts with param parsers in segment tree', () => {
+    const root = createRootRoute()
+    const auth = createRoute({
+      getParentRoute: () => root,
+      id: '(auth)',
+      params: {
+        parse: (params: any) => params,
+      },
+    })
+    const login = createRoute({
+      getParentRoute: () => auth,
+      path: '/login',
+    })
+    root.addChildren([auth.addChildren([login])])
+    const { processedTree } = processRouteTree(root as any)
+    const match = findSingleMatch('/login', false, false, '/login', processedTree)
+    expect(match).not.toBeNull()
+  })
 })
