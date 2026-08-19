@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   Outlet,
@@ -70,8 +70,13 @@ function createBlockerRouter() {
     path: '/about',
     component: () => <h1>About</h1>,
   })
+  const otherRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/other',
+    component: () => <h1>Other</h1>,
+  })
   return createRouter({
-    routeTree: rootRoute.addChildren([indexRoute, aboutRoute]),
+    routeTree: rootRoute.addChildren([indexRoute, aboutRoute, otherRoute]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
 }
@@ -132,5 +137,44 @@ describe('useBlocker withResolver', () => {
     expect(screen.getByTestId('status').textContent).toBe('idle')
     expect(router.state.location.pathname).toBe('/')
     expect(screen.getByTestId('next-path').textContent).toBe('none')
+  })
+
+  it('settles a superseded resolver navigation', async () => {
+    const router = createBlockerRouter()
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    let first!: Promise<void>
+    act(() => {
+      first = router.history.push('/about') as unknown as Promise<void>
+    })
+    expect(await screen.findByText('blocked')).toBeInTheDocument()
+
+    let second!: Promise<void>
+    act(() => {
+      second = router.history.push('/other') as unknown as Promise<void>
+    })
+    expect(await screen.findByText('/other')).toBeInTheDocument()
+    await first
+
+    fireEvent.click(screen.getByTestId('proceed-btn'))
+    await second
+    expect(await screen.findByText('Other')).toBeInTheDocument()
+  })
+
+  it('settles an active resolver when the blocker unmounts', async () => {
+    const router = createBlockerRouter()
+    const view = render(<RouterProvider router={router} />)
+    expect(await screen.findByTestId('status')).toHaveTextContent('idle')
+
+    let navigation!: Promise<void>
+    act(() => {
+      navigation = router.navigate({ to: '/about' })
+    })
+    expect(await screen.findByText('blocked')).toBeInTheDocument()
+
+    view.unmount()
+    await navigation
+    expect(router.state.location.pathname).toBe('/')
   })
 })

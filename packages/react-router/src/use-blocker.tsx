@@ -95,13 +95,16 @@ export function useBlocker(opts?: any): any {
   }>({ status: 'idle' })
   const proceedRef = useRef<(() => void) | undefined>(undefined)
   const resetRef = useRef<(() => void) | undefined>(undefined)
+  const activeResolverRef = useRef<
+    { settle: (blocked: boolean, updateState?: boolean) => void } | undefined
+  >(undefined)
 
   useEffect(() => {
     optsRef.current = opts
   })
 
   useEffect(() => {
-    return router.history.block({
+    const unblock = router.history.block({
       blockerFn: async (args: any) => {
         const current = optsRef.current
         if (current && typeof current !== 'function' && current.disabled) return false
@@ -130,26 +133,40 @@ export function useBlocker(opts?: any): any {
         if (!should) return false
         if (typeof current !== 'function' && current?.withResolver) {
           return await new Promise<boolean>((resolve) => {
+            activeResolverRef.current?.settle(true)
+            let settled = false
+            const entry = {
+              settle: (blocked: boolean, updateState = true) => {
+                if (settled) return
+                settled = true
+                if (activeResolverRef.current === entry) {
+                  activeResolverRef.current = undefined
+                  proceedRef.current = undefined
+                  resetRef.current = undefined
+                  if (updateState) setState({ status: 'idle' })
+                }
+                resolve(blocked)
+              },
+            }
+            activeResolverRef.current = entry
             setState({
               status: 'blocked',
               current: mapped.current,
               next: mapped.next,
               action: mapped.action,
             })
-            proceedRef.current = () => {
-              setState({ status: 'idle' })
-              resolve(false)
-            }
-            resetRef.current = () => {
-              setState({ status: 'idle' })
-              resolve(true)
-            }
+            proceedRef.current = () => entry.settle(false)
+            resetRef.current = () => entry.settle(true)
           })
         }
         return should
       },
       enableBeforeUnload: typeof opts === 'function' ? true : (opts?.enableBeforeUnload ?? true),
     })
+    return () => {
+      unblock()
+      activeResolverRef.current?.settle(true, false)
+    }
   }, [router])
 
   if (state.status === 'blocked') {
