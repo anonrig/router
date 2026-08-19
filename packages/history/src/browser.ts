@@ -1,6 +1,6 @@
 import { BEFORE_UNLOAD, POP_STATE, STATE_INDEX } from './constants'
 import { createHistory } from './create'
-import { createRandomKey, parseHref } from './parse'
+import { assignKeyAndIndex, createRandomKey, parseHref } from './parse'
 import type {
   HistoryLocation,
   NavigationBlocker,
@@ -223,6 +223,10 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
 
   function pushStateWrapper(...args: Array<any>) {
     if (next && !history._ignoreSubscribers) flush()
+    if (!history._ignoreSubscribers && !Number.isFinite(args[0]?.[STATE_INDEX])) {
+      const currentIndex = currentLocation.state[STATE_INDEX]
+      args[0] = assignKeyAndIndex((Number.isFinite(currentIndex) ? currentIndex : 0) + 1, args[0])
+    }
     const res = originalPushState.apply(win.history, args as any)
     if (alive && !history._ignoreSubscribers) onPushPop('PUSH')
     return res
@@ -230,6 +234,10 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
 
   function replaceStateWrapper(...args: Array<any>) {
     if (next && !history._ignoreSubscribers) flush()
+    if (!history._ignoreSubscribers && !Number.isFinite(args[0]?.[STATE_INDEX])) {
+      const currentIndex = currentLocation.state[STATE_INDEX]
+      args[0] = assignKeyAndIndex(Number.isFinite(currentIndex) ? currentIndex : 0, args[0])
+    }
     const res = originalReplaceState.apply(win.history, args as any)
     if (alive && !history._ignoreSubscribers) onPushPop('REPLACE')
     return res

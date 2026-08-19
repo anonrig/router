@@ -53,6 +53,18 @@ function createBrowserHistoryHarness() {
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('assigns a finite index after an external pushState without router state', async () => {
+    const { history, nativeHistory } = createBrowserHistoryHarness()
+
+    nativeHistory.pushState({ foreign: true }, '', '/external')
+    history.push('/router')
+    await Promise.resolve()
+
+    expect(history.location.state.__TSR_index).toBe(2)
+    expect(nativeHistory.state.__TSR_index).toBe(2)
+    history.destroy()
+  })
+
   test('rolls back when a popstate blocker rejects', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
