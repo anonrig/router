@@ -225,9 +225,9 @@ async function contextualize(
   for (let index = 0; index < end; index++) {
     const match = lane.matches[index]!
     const route = getRoute(router, match)
-    const pendingOptions = ensureRouteOptions(route, signal)
-    if (pendingOptions) await pendingOptions
     try {
+      const pendingOptions = ensureRouteOptions(route, signal)
+      if (pendingOptions) await pendingOptions
       match.ssr = await resolveSsr(router, lane, index)
     } catch (cause) {
       signal?.throwIfAborted()

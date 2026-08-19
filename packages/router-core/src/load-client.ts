@@ -280,8 +280,13 @@ async function contextualize(
   for (let index = options[7 /* resolvedPrefix */] ?? 0; index < end; index++) {
     const match = matches[index]!
     const route = getRoute(router, match)
-    const pendingOptions = ensureRouteOptions(route, signal)
-    if (pendingOptions) await pendingOptions
+    try {
+      const pendingOptions = ensureRouteOptions(route, signal)
+      if (pendingOptions) await pendingOptions
+    } catch (cause) {
+      releaseFlight(router, match)
+      return [index, normalizeLaneError(router, lane, route, cause, options)]
+    }
 
     match.abortController = options[0 /* controller */]
     // Contextualization is serial, so the previous match already contains the

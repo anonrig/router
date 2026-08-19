@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
 import { createRootRoute, createRoute } from '../src/route'
 import { createRouter } from '../src/router'
+import { loadServerRoute } from '../src/load-server'
 
 function lazyRoute(opts: {
   id: string
@@ -24,6 +25,62 @@ function lazyRoute(opts: {
 }
 
 describe('lazy file routes', () => {
+  it('reduces rejected lazy options into client route errors', async () => {
+    const error = new Error('lazy chunk failed')
+    const root = createRootRoute()
+    const lazy = lazyRoute({
+      id: '/lazy',
+      path: '/lazy',
+      parent: () => root,
+      load: async () => {
+        throw error
+      },
+    })
+    const history = createMemoryHistory({ initialEntries: ['/'] })
+    const router = createRouter({
+      routeTree: root.addChildren([lazy]),
+      history,
+    })
+    await router.load()
+
+    await router.navigate({ to: '/lazy' })
+
+    expect(history.location.pathname).toBe('/lazy')
+    expect(router.state.location.pathname).toBe('/lazy')
+    expect(router.state.matches.at(-1)).toMatchObject({
+      status: 'error',
+      error,
+    })
+  })
+
+  it('reduces rejected lazy options into server error results', async () => {
+    const error = new Error('lazy chunk failed')
+    const root = createRootRoute()
+    const lazy = lazyRoute({
+      id: '/lazy',
+      path: '/lazy',
+      parent: () => root,
+      load: async () => {
+        throw error
+      },
+    })
+    const router = createRouter({
+      routeTree: root.addChildren([lazy]),
+      history: createMemoryHistory({ initialEntries: ['/lazy'] }),
+      isServer: true,
+    })
+
+    await expect(Promise.resolve(loadServerRoute(router))).resolves.toBeUndefined()
+    expect((router as any)._serverResult).toMatchObject({
+      type: 'render',
+      status: 500,
+    })
+    expect(router.state.matches.at(-1)).toMatchObject({
+      status: 'error',
+      error,
+    })
+  })
+
   it('matches without importing unused route modules', async () => {
     const loaded: Array<string> = []
     const root = createRootRoute()
