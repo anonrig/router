@@ -77,4 +77,18 @@ describe('relative search/hash href navigation', () => {
     expect(hashOnly.search).toEqual({ old: 1 })
     expect(hashOnly.hash).toBe('section')
   })
+
+  test('dot-relative hrefs resolve against the current path, not the origin', async () => {
+    const router = setup('/posts')
+    await router.load()
+
+    expect(router.buildLocation({ href: './comments' } as any).pathname).toBe('/posts/comments')
+    expect(router.buildLocation({ href: '../about' } as any).pathname).toBe('/about')
+
+    await router.navigate({ href: './comments' } as any)
+    expect(router.state.location.pathname).toBe('/posts/comments')
+
+    await router.navigate({ href: '../about' } as any)
+    expect(router.state.location.pathname).toBe('/about')
+  })
 })
