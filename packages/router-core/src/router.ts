@@ -1031,9 +1031,14 @@ export class RouterCore<
       this.pathParamsDecoder = undefined
     }
 
+    const prevHistory = this.history
     if (!this.history || (this.options.history && this.options.history !== this.history)) {
       if (this.options.history) this.history = this.options.history as TRouterHistory
       else if (!this.isServer) this.history = createBrowserHistory() as TRouterHistory
+    }
+    if (this.history !== prevHistory) {
+      this.unsubHistory?.()
+      this.unsubHistory = undefined
     }
 
     this.origin =
