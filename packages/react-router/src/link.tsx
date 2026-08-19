@@ -3,12 +3,15 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   type AnchorHTMLAttributes,
+  type ComponentPropsWithRef,
+  type EventHandler,
   type FocusEvent,
   type MouseEvent,
   type ReactNode,
-  type TouchEvent,
+  type SyntheticEvent,
 } from 'react'
 import {
   deepEqual,
@@ -18,10 +21,11 @@ import {
   preloadWarning,
   removeTrailingSlash,
 } from 'speedy-router-core'
-import { useIntersectionObserver } from './utils'
+import { useHydrated } from './client-only'
+import { useIntersectionObserver, useForwardedRef } from './utils'
 import { useRouter } from './use-router'
 import { useStore } from './use-store'
-import type { ActiveOptions, NavigateOptions, ParsedLocation } from 'speedy-router-core'
+import type { ActiveOptions, AnyRouter, NavigateOptions, ParsedLocation } from 'speedy-router-core'
 
 export type LinkProps = NavigateOptions &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
@@ -38,8 +42,10 @@ export type LinkProps = NavigateOptions &
     disabled?: boolean
     target?: string
     children?: ReactNode | ((state: { isActive: boolean }) => ReactNode)
+    _asChild?: any
   }
 
+const STATIC_EMPTY_OBJECT = {}
 const STATIC_ACTIVE_OBJECT = { className: 'active' }
 const STATIC_DISABLED_PROPS = { role: 'link', 'aria-disabled': true }
 const STATIC_ACTIVE_PROPS = { 'data-status': 'active', 'aria-current': 'page' }
@@ -69,6 +75,7 @@ export const INTERNAL_LINK_KEYS = new Set([
   'ignoreBlocker',
   'children',
   'href',
+  '_asChild',
 ])
 
 const DEST_KEYS = [
@@ -94,23 +101,75 @@ const DEST_KEYS = [
   'slots',
 ] as const
 
-function destFromLinkProps(props: LinkProps): Record<string, unknown> {
+function destFromLinkProps(props: Record<string, unknown>): Record<string, unknown> {
   const dest: Record<string, unknown> = {}
   for (const key of DEST_KEYS) {
-    const value = (props as Record<string, unknown>)[key]
+    const value = props[key]
     if (value !== undefined) dest[key] = value
   }
   // A real `to` must win over leftover/placeholder `href` (`#`, Next wrappers).
   // `buildLocation({ href })` otherwise replaces `to` with the href pathname.
-  if (dest.to != null && dest.href != null && !isExternalTo(dest.to)) {
+  if (dest.to != null && dest.href != null) {
     delete dest.href
   }
   return dest
 }
 
-function isExternalTo(to: unknown) {
-  if (typeof to !== 'string' || isSafeInternal(to)) return false
-  return to.indexOf(':') > -1 || (to.charCodeAt(0) === 47 && to.charCodeAt(1) === 47)
+function omitInternalKeys(props: Record<string, unknown>) {
+  const out: Record<string, unknown> = { ...props }
+  for (const key of INTERNAL_LINK_KEYS) {
+    delete out[key]
+  }
+  return out
+}
+
+function isSafeInternal(to: unknown) {
+  if (typeof to !== 'string') return false
+  const zero = to.charCodeAt(0)
+  if (zero === 47) return to.charCodeAt(1) !== 47
+  return zero === 46
+}
+
+function useValueStable<T>(value: T): T {
+  const ref = useRef(value)
+  // `ignoreUndefined: false` is required: an explicit `undefined` clears an
+  // inherited param or search key, so `{}` and `{ category: undefined }` build
+  // different locations and must not be treated as equal here.
+  if (!deepEqual(ref.current, value, { ignoreUndefined: false })) {
+    ref.current = value
+  }
+  return ref.current
+}
+
+function compareLinkState(a: LinkState, b: LinkState) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+}
+
+function resolveExternalLink(
+  hrefOption: { href: string; external?: boolean } | undefined,
+  to: unknown,
+  protocolAllowlist: AnyRouter['protocolAllowlist'],
+): string | undefined {
+  if (hrefOption?.external) {
+    if (isDangerousProtocol(hrefOption.href, protocolAllowlist)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`Blocked Link with dangerous protocol: ${hrefOption.href}`)
+      }
+      return undefined
+    }
+    return hrefOption.href
+  }
+  if (isSafeInternal(to) || typeof to !== 'string' || to.indexOf(':') === -1) {
+    return undefined
+  }
+  if (!URL.canParse(to)) return undefined
+  if (isDangerousProtocol(to, protocolAllowlist)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`Blocked Link with dangerous protocol: ${to}`)
+    }
+    return undefined
+  }
+  return to
 }
 
 function resolveIsActive(
@@ -118,7 +177,10 @@ function resolveIsActive(
   next: ParsedLocation,
   activeOptions: ActiveOptions | undefined,
   basepath: string,
+  isHydrated: boolean,
+  isExternal: boolean,
 ): boolean {
+  if (isExternal) return false
   if (activeOptions?.exact) {
     if (!exactPathTest(location.pathname, next.pathname, basepath)) return false
   } else {
@@ -140,304 +202,360 @@ function resolveIsActive(
   }
 
   if (activeOptions?.includeHash) {
-    return location.hash === next.hash
+    return isHydrated && location.hash === next.hash
   }
   return true
 }
 
-function omitInternalProps(props: Record<string, unknown>) {
-  const out: Record<string, unknown> = {}
-  for (const key in props) {
-    if (!INTERNAL_LINK_KEYS.has(key)) out[key] = props[key]
+function getHrefOption(
+  publicHref: string | undefined,
+  external: boolean | undefined,
+  history: AnyRouter['history'],
+  disabled: boolean | undefined,
+) {
+  if (disabled) return undefined
+  if (external) {
+    return { href: publicHref ?? '', external: true as const }
   }
-  return out
-}
-
-function isSafeInternal(to: unknown) {
-  if (typeof to !== 'string') return false
-  const zero = to.charCodeAt(0)
-  if (zero === 47) return to.charCodeAt(1) !== 47
-  return zero === 46
-}
-
-function resolveExternalLink(
-  hrefOption: { href?: string; external?: boolean } | undefined,
-  to: unknown,
-  protocolAllowlist: Set<string>,
-): string | undefined {
-  if (hrefOption?.external && hrefOption.href) {
-    if (isDangerousProtocol(hrefOption.href, protocolAllowlist)) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(`Blocked Link with dangerous protocol: ${hrefOption.href}`)
-      }
-      return undefined
-    }
-    return hrefOption.href
+  return {
+    href: history.createHref(publicHref ?? '') || '/',
+    external: false as const,
   }
-  if (isSafeInternal(to) || typeof to !== 'string' || to.indexOf(':') === -1) return undefined
-  if (!URL.canParse(to)) return undefined
-  if (isDangerousProtocol(to, protocolAllowlist)) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(`Blocked Link with dangerous protocol: ${to}`)
-    }
-    return undefined
-  }
-  return to
 }
 
 type LinkState = [href: string | undefined, externalLink: string | undefined, isActive: boolean]
 
-function compareLinkState(a: LinkState, b: LinkState) {
-  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+const timeoutMap = new WeakMap<object, ReturnType<typeof setTimeout>>()
+const cancelPreload = (eventTarget: object) => {
+  clearTimeout(timeoutMap.get(eventTarget))
+  timeoutMap.delete(eventTarget)
+}
+
+const composeHandlers = (handlers: Array<undefined | EventHandler<any>>) => (e: SyntheticEvent) => {
+  for (const handler of handlers) {
+    if (!handler) continue
+    if (e.defaultPrevented) return
+    handler(e)
+  }
 }
 
 export function useLinkProps(
-  props: LinkProps,
-  forwardedRef?: { current: HTMLAnchorElement | null },
-): AnchorHTMLAttributes<HTMLAnchorElement> {
+  options: LinkProps,
+  forwardedRef?: { current: any } | ((instance: any) => void) | null,
+): ComponentPropsWithRef<'a'> {
   const router = useRouter()
-  const innerRef = useRef<HTMLAnchorElement | null>(null)
-  const ref = forwardedRef ?? innerRef
-  const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const didRenderPreload = useRef(false)
-  const propsRef = useRef(props)
-  propsRef.current = props
+  const innerRef = useForwardedRef(forwardedRef as any)
+
+  const {
+    activeProps,
+    inactiveProps,
+    activeOptions,
+    to,
+    preload: userPreload,
+    preloadDelay: userPreloadDelay,
+    preloadIntentProximity: _preloadIntentProximity,
+    hashScrollIntoView,
+    replace,
+    startTransition,
+    resetScroll,
+    viewTransition,
+    children,
+    target,
+    disabled,
+    style,
+    className,
+    onClick,
+    onBlur,
+    onFocus,
+    onMouseEnter,
+    onMouseLeave,
+    onTouchStart,
+    ignoreBlocker,
+    params: _params,
+    search: _search,
+    hash: _hash,
+    state: _state,
+    mask: _mask,
+    reloadDocument: _reloadDocument,
+    unsafeRelative: _unsafeRelative,
+    from: _from,
+    _fromLocation,
+    href: _href,
+    _asChild,
+    ...rest
+  } = options
+
+  void _preloadIntentProximity
+  void children
+  void _params
+  void _search
+  void _hash
+  void _state
+  void _mask
+  void _reloadDocument
+  void _unsafeRelative
+  void _from
+  void _fromLocation
+  void _href
+  void _asChild
+
+  const propsSafeToSpread = omitInternalKeys(rest as Record<string, unknown>)
+
+  const isHydrated = useHydrated()
+  const stableSearch = useValueStable(options.search)
+  const stableParams = useValueStable(options.params)
+  const stableActiveOptions = useValueStable(activeOptions)
+  const _options = useMemo(
+    () => destFromLinkProps(options as Record<string, unknown>),
+    // Destination identity is pinned to these fields so inline params/search
+    // objects do not rebuild the store selector on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      router,
+      options.from,
+      options._fromLocation,
+      options.hash,
+      options.to,
+      options.href,
+      stableSearch,
+      stableParams,
+      options.state,
+      options.mask,
+      options.unsafeRelative,
+      options.reloadDocument,
+      options.replace,
+      options.resetScroll,
+      options.viewTransition,
+      options.ignoreBlocker,
+      options.hashScrollIntoView,
+      options.startTransition,
+      (options as Record<string, unknown>).publicHref,
+      (options as Record<string, unknown>).leaveParams,
+      (options as Record<string, unknown>).slots,
+    ],
+  )
+
+  const selectLinkState = useCallback(
+    (state: { location: ParsedLocation }): LinkState => {
+      const location = state.location
+      const next = router.buildLocation({
+        _fromLocation: location,
+        ..._options,
+      } as any)
+
+      const hrefOption = getHrefOption(
+        next.maskedLocation ? next.maskedLocation.publicHref : next.publicHref,
+        next.maskedLocation ? next.maskedLocation.external : next.external,
+        router.history,
+        disabled,
+      )
+
+      const resolvedExternal = resolveExternalLink(hrefOption, to, router.protocolAllowlist)
+
+      return [
+        disabled ? undefined : hrefOption?.href,
+        disabled ? undefined : resolvedExternal,
+        resolveIsActive(
+          location,
+          next,
+          stableActiveOptions,
+          router.basepath,
+          isHydrated,
+          resolvedExternal !== undefined,
+        ),
+      ]
+    },
+    [stableActiveOptions, disabled, isHydrated, _options, router, to],
+  )
 
   const [href, externalLink, isActive] = useStore(
     router.stores.state,
-    (state: { location: ParsedLocation }): LinkState => {
-      const location = state.location
-      const dest = destFromLinkProps(props)
-      if (isExternalTo(dest.to)) {
-        const external = resolveExternalLink(undefined, dest.to, router.protocolAllowlist)
-        if (external) {
-          return [
-            props.disabled ? undefined : external,
-            props.disabled ? undefined : external,
-            false,
-          ]
-        }
-      }
-      const next = router.buildLocation({
-        _fromLocation: location,
-        ...dest,
-      } as any)
-      const publicHref = next.maskedLocation ? next.maskedLocation.publicHref : next.publicHref
-      const isExternal = next.maskedLocation ? next.maskedLocation.external : next.external
-      const builtHref = props.disabled
-        ? undefined
-        : isExternal
-          ? publicHref
-          : router.history.createHref(
-              publicHref || `${next.pathname}${next.searchStr}${next.hash}`,
-            ) || '/'
-      const external = resolveExternalLink(
-        isExternal ? { href: publicHref, external: true } : { href: builtHref },
-        dest.to,
-        router.protocolAllowlist,
-      )
-      return [
-        props.disabled ? undefined : (external ?? builtHref),
-        props.disabled ? undefined : external,
-        resolveIsActive(location, next, props.activeOptions, router.basepath),
-      ]
-    },
+    selectLinkState,
     compareLinkState,
   )
 
-  const preload =
-    props.reloadDocument || props.disabled || externalLink
-      ? false
-      : (props.preload ?? router.options.defaultPreload)
-  const preloadDelay = props.preloadDelay ?? router.options.defaultPreloadDelay ?? 0
+  const resolvedActiveProps: AnchorHTMLAttributes<HTMLAnchorElement> = isActive
+    ? (functionalUpdate(activeProps as any, {}) ?? STATIC_ACTIVE_OBJECT)
+    : STATIC_EMPTY_OBJECT
 
-  const doPreload = useCallback(() => {
-    const current = propsRef.current
-    const enabled =
-      current.reloadDocument || current.disabled
-        ? false
-        : (current.preload ?? router.options.defaultPreload)
-    if (!enabled) return
-    void router.preloadRoute(destFromLinkProps(current) as NavigateOptions).catch((err) => {
-      console.warn(err)
-      console.warn(preloadWarning)
-    })
-  }, [router])
+  const resolvedInactiveProps: AnchorHTMLAttributes<HTMLAnchorElement> = isActive
+    ? STATIC_EMPTY_OBJECT
+    : (functionalUpdate(inactiveProps as any, {}) ?? STATIC_EMPTY_OBJECT)
 
-  const cancelPreload = useCallback(() => {
-    if (preloadTimer.current) {
-      clearTimeout(preloadTimer.current)
-      preloadTimer.current = undefined
-    }
-  }, [])
-
-  const enqueuePreload = useCallback(
-    (event?: MouseEvent | FocusEvent | IntersectionObserverEntry) => {
-      if (!event) {
-        cancelPreload()
-        return
-      }
-      if ('isIntersecting' in event) {
-        if (!event.isIntersecting) {
-          cancelPreload()
-          return
-        }
-      } else if (preload !== 'intent') {
-        return
-      }
-      if (!preloadDelay) {
-        doPreload()
-        return
-      }
-      if (preloadTimer.current) return
-      preloadTimer.current = setTimeout(() => {
-        preloadTimer.current = undefined
-        doPreload()
-      }, preloadDelay)
-    },
-    [cancelPreload, doPreload, preload, preloadDelay],
-  )
-
-  useIntersectionObserver(
-    ref,
-    enqueuePreload,
-    preload !== 'viewport',
-    undefined,
-    `${String(props.to)}:${String(preload)}:${String(preloadDelay)}`,
-    cancelPreload,
-  )
-
-  useEffect(() => {
-    if (didRenderPreload.current) return
-    if (preload === 'render') {
-      doPreload()
-      didRenderPreload.current = true
-    }
-  }, [doPreload, preload])
-
-  useEffect(() => cancelPreload, [cancelPreload, preload, preloadDelay, props.to])
-
-  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    props.onClick?.(e)
-    if (props.disabled) {
-      e.preventDefault()
-      return
-    }
-    if (externalLink) return
-    const elementTarget = (e.currentTarget as HTMLAnchorElement).getAttribute('target')
-    const effectiveTarget = props.target !== undefined ? props.target : elementTarget
-    if (
-      e.defaultPrevented ||
-      e.button !== 0 ||
-      (effectiveTarget && effectiveTarget !== '_self') ||
-      e.metaKey ||
-      e.altKey ||
-      e.ctrlKey ||
-      e.shiftKey
-    ) {
-      return
-    }
-    e.preventDefault()
-    void router.navigate(destFromLinkProps(propsRef.current) as NavigateOptions)
-  }
-
-  const onMouseEnter = (e: MouseEvent<HTMLAnchorElement>) => {
-    props.onMouseEnter?.(e)
-    if (preload === 'intent') enqueuePreload(e)
-  }
-  const onMouseLeave = (e: MouseEvent<HTMLAnchorElement>) => {
-    props.onMouseLeave?.(e)
-    if (preload === 'intent') cancelPreload()
-  }
-  const onFocus = (e: FocusEvent<HTMLAnchorElement>) => {
-    props.onFocus?.(e)
-    if (preload === 'intent') enqueuePreload(e)
-  }
-  const onBlur = (e: FocusEvent<HTMLAnchorElement>) => {
-    props.onBlur?.(e)
-    if (preload === 'intent') cancelPreload()
-  }
-  const onTouchStart = (e: TouchEvent<HTMLAnchorElement>) => {
-    props.onTouchStart?.(e)
-    if (preload === 'intent') doPreload()
-  }
-
-  const resolvedActiveProps = isActive
-    ? (functionalUpdate(props.activeProps as any, {}) ?? STATIC_ACTIVE_OBJECT)
-    : {}
-  const resolvedInactiveProps = isActive
-    ? {}
-    : (functionalUpdate(props.inactiveProps as any, {}) ?? {})
-
-  const className = [
-    props.className,
+  const resolvedClassName = [
+    className,
     resolvedActiveProps.className,
     resolvedInactiveProps.className,
   ]
     .filter(Boolean)
     .join(' ')
-  const style =
-    props.style || resolvedActiveProps.style || resolvedInactiveProps.style
-      ? { ...props.style, ...resolvedActiveProps.style, ...resolvedInactiveProps.style }
-      : undefined
+
+  const resolvedStyle = (style || resolvedActiveProps.style || resolvedInactiveProps.style) && {
+    ...style,
+    ...resolvedActiveProps.style,
+    ...resolvedInactiveProps.style,
+  }
+
+  const hasRenderFetched = useRef(false)
+
+  const preload =
+    options.reloadDocument || externalLink || disabled
+      ? false
+      : (userPreload ?? router.options.defaultPreload)
+  const preloadDelay = userPreloadDelay ?? router.options.defaultPreloadDelay ?? 0
+
+  const doPreload = useCallback(() => {
+    router.preloadRoute(_options as NavigateOptions).catch((err) => {
+      console.warn(err)
+      console.warn(preloadWarning)
+    })
+  }, [router, _options])
+
+  const enqueuePreload = useCallback(
+    (e?: MouseEvent | FocusEvent | IntersectionObserverEntry) => {
+      if (!e) {
+        cancelPreload(innerRef)
+        return
+      }
+
+      if (!((e as IntersectionObserverEntry).isIntersecting ?? preload === 'intent')) {
+        if ((e as IntersectionObserverEntry).isIntersecting === false) {
+          cancelPreload(innerRef)
+        }
+        return
+      }
+
+      if (!preloadDelay) {
+        doPreload()
+        return
+      }
+
+      if (timeoutMap.has(innerRef)) return
+
+      timeoutMap.set(
+        innerRef,
+        setTimeout(() => {
+          timeoutMap.delete(innerRef)
+          doPreload()
+        }, preloadDelay),
+      )
+    },
+    [doPreload, innerRef, preload, preloadDelay],
+  )
+
+  useIntersectionObserver(innerRef, enqueuePreload, preload !== 'viewport')
+
+  useEffect(() => {
+    if (hasRenderFetched.current) return
+    if (preload === 'render') {
+      doPreload()
+      hasRenderFetched.current = true
+    }
+  }, [doPreload, preload])
+
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (disabled) {
+      e.preventDefault()
+      return
+    }
+
+    const elementTarget = (e.currentTarget as HTMLAnchorElement).getAttribute('target')
+    const effectiveTarget = target !== undefined ? target : elementTarget
+
+    if (
+      !(e.metaKey || e.altKey || e.ctrlKey || e.shiftKey) &&
+      !e.defaultPrevented &&
+      (!effectiveTarget || effectiveTarget === '_self') &&
+      e.button === 0
+    ) {
+      e.preventDefault()
+      void router.navigate({
+        ..._options,
+        replace,
+        resetScroll,
+        hashScrollIntoView,
+        startTransition,
+        viewTransition,
+        ignoreBlocker,
+      } as NavigateOptions)
+    }
+  }
+
+  if (externalLink) {
+    return {
+      ...propsSafeToSpread,
+      ref: innerRef,
+      href: externalLink,
+      ...(children && { children }),
+      ...(target && { target }),
+      ...(disabled && { disabled }),
+      ...(style && { style }),
+      ...(className && { className }),
+      ...(onClick && { onClick }),
+      ...(onBlur && { onBlur }),
+      ...(onFocus && { onFocus }),
+      ...(onMouseEnter && { onMouseEnter }),
+      ...(onMouseLeave && { onMouseLeave }),
+      ...(onTouchStart && { onTouchStart }),
+    } as ComponentPropsWithRef<'a'>
+  }
+
+  const handleTouchStart = () => {
+    if (preload !== 'intent') return
+    doPreload()
+  }
+
+  const handleLeave = () => {
+    if (preload === 'intent') {
+      cancelPreload(innerRef)
+    }
+  }
 
   return {
-    ...omitInternalProps(props as Record<string, unknown>),
+    ...propsSafeToSpread,
     ...resolvedActiveProps,
     ...resolvedInactiveProps,
-    href: externalLink || href,
-    ref,
-    className: className || undefined,
-    style,
-    target: props.target,
-    disabled: props.disabled,
-    onClick: handleClick,
-    onMouseEnter,
-    onMouseLeave,
-    onFocus,
-    onBlur,
-    onTouchStart,
-    ...(props.disabled ? STATIC_DISABLED_PROPS : undefined),
-    ...(isActive ? STATIC_ACTIVE_PROPS : undefined),
-  } as AnchorHTMLAttributes<HTMLAnchorElement>
+    href,
+    ref: innerRef,
+    onClick: composeHandlers([onClick, handleClick]),
+    onBlur: composeHandlers([onBlur, handleLeave]),
+    onFocus: composeHandlers([onFocus, enqueuePreload]),
+    onMouseEnter: composeHandlers([onMouseEnter, enqueuePreload]),
+    onMouseLeave: composeHandlers([onMouseLeave, handleLeave]),
+    onTouchStart: composeHandlers([onTouchStart, handleTouchStart]),
+    disabled: !!disabled,
+    target,
+    ...(resolvedStyle && { style: resolvedStyle }),
+    ...(resolvedClassName && { className: resolvedClassName }),
+    ...(disabled && STATIC_DISABLED_PROPS),
+    ...(isActive && STATIC_ACTIVE_PROPS),
+  } as ComponentPropsWithRef<'a'>
 }
 
-export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function LinkImpl(props, ref) {
-  const { children } = props
-  const innerRef = useRef<HTMLAnchorElement | null>(null)
-  const setRefs = useCallback(
-    (node: HTMLAnchorElement | null) => {
-      innerRef.current = node
-      if (typeof ref === 'function') {
-        ref(node)
-      } else if (ref) {
-        ;(ref as { current: HTMLAnchorElement | null }).current = node
-      }
-    },
-    [ref],
-  )
-  const linkProps = useLinkProps(props, innerRef)
-  const resolvedChildren =
-    typeof children === 'function'
-      ? children({ isActive: (linkProps as any)['data-status'] === 'active' })
-      : children
-  const { disabled: _disabled, ...anchorProps } =
-    linkProps as AnchorHTMLAttributes<HTMLAnchorElement> & {
+export const Link = forwardRef<Element, any>(function LinkImpl(props, ref) {
+  const { _asChild, ...rest } = props
+  const { type: _type, ...linkProps } = useLinkProps(rest as LinkProps, ref as any)
+  void _type
+
+  const children =
+    typeof rest.children === 'function'
+      ? rest.children({
+          isActive: (linkProps as any)['data-status'] === 'active',
+        })
+      : rest.children
+
+  if (!_asChild) {
+    const { disabled: _, ...anchorProps } = linkProps as ComponentPropsWithRef<'a'> & {
       disabled?: boolean
     }
-  void _disabled
-  return createElement('a', { ...anchorProps, ref: setRefs, children: resolvedChildren })
+    return createElement('a', anchorProps, children)
+  }
+  return createElement(_asChild, linkProps, children)
 }) as unknown as import('./link-types').LinkComponent<'a'>
 
 export const createLink = /*#__PURE__*/ ((Comp: any) => {
-  return forwardRef((props: any, forwardedRef) => {
-    const { children, ...rest } = props
-    const linkProps = useLinkProps(rest)
-    const resolvedChildren =
-      typeof children === 'function'
-        ? children({ isActive: (linkProps as any)['data-status'] === 'active' })
-        : children
-    return createElement(Comp, { ...linkProps, ref: forwardedRef, children: resolvedChildren })
+  return forwardRef(function CreatedLink(props: any, ref) {
+    return createElement(Link as any, { ...props, _asChild: Comp, ref })
   })
 }) as typeof import('./link-types').createLink
 

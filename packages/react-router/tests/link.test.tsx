@@ -4,6 +4,7 @@ import {
   Link,
   Outlet,
   RouterProvider,
+  createLink,
   createMemoryHistory,
   createRootRoute,
   createRoute,
@@ -130,6 +131,68 @@ describe('Link', () => {
       'href',
       'https://example.com',
     )
+  })
+
+  it('does not navigate when the user handler calls preventDefault', async () => {
+    const rootRoute = createRootRoute({
+      component: () => (
+        <Link
+          to="/about"
+          onClick={(event) => {
+            event.preventDefault()
+          }}
+        >
+          Stay
+        </Link>
+      ),
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About page</h1>,
+    })
+    const blocked = createRouter({
+      routeTree: rootRoute.addChildren([aboutRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={blocked} />)
+    fireEvent.click(await screen.findByRole('link', { name: 'Stay' }))
+    expect(blocked.state.location.pathname).toBe('/')
+  })
+
+  it('passes disabled through createLink hosts and keeps leftover href from winning', async () => {
+    const ButtonLink = createLink('button')
+    const rootRoute = createRootRoute({
+      component: () => (
+        <div>
+          <ButtonLink to="/about" disabled>
+            Disabled button
+          </ButtonLink>
+          <Link to="/about" href={'#' as any}>
+            About leftover
+          </Link>
+          <Outlet />
+        </div>
+      ),
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About page</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([aboutRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    cleanup()
+    render(<RouterProvider router={router} />)
+    const button = await screen.findByRole('link', { name: 'Disabled button' })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(router.state.location.pathname).toBe('/')
+    fireEvent.click(await screen.findByRole('link', { name: 'About leftover' }))
+    expect(await screen.findByText('About page')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/about')
   })
 
   it('navigates through Route.Link with from set', async () => {
