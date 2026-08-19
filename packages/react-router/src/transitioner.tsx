@@ -16,24 +16,53 @@ export function settleOwner(owner: NonNullable<AnyRouter['_rendered']>, rendered
   settle?.(rendered)
 }
 
+type CoreTransition = AnyRouter['startTransition']
+
+interface WrappedTransition {
+  (fn: () => void, expected?: any): Promise<boolean>
+  /** Identifies the Transitioner instance that installed this wrapper. */
+  owner: object
+  /** The implementation this wrapper replaced. */
+  core: CoreTransition
+}
+
+function installTransition(router: AnyRouter, wrapper: WrappedTransition) {
+  const current = router.startTransition as CoreTransition & Partial<WrappedTransition>
+  if (current === wrapper) return
+  // Re-installing over an earlier wrapper of the same instance must keep the core
+  // implementation, otherwise unmount would restore a wrapper instead of the core.
+  wrapper.core = current.owner === wrapper.owner ? current.core! : current
+  router.startTransition = wrapper
+}
+
+function uninstallTransition(router: AnyRouter, owner: object) {
+  const current = router.startTransition as CoreTransition & Partial<WrappedTransition>
+  if (current.owner === owner) router.startTransition = current.core!
+}
+
 export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | undefined>> }) {
   const router = useRouter()
   const acknowledgement = (router._rendered ??= [])
   const mountedFor = useRef<AnyRouter | undefined>(undefined)
-  const originalTransition = useRef(router.startTransition)
-  const installedTransition = useRef(router.startTransition)
+  const installedTransition = useRef<WrappedTransition | undefined>(undefined)
 
-  const transition = (fn: () => void, expected?: any) =>
+  const transition = ((fn: () => void, expected?: any) =>
     new Promise<boolean>((resolve) => {
       settleOwner(acknowledgement, false)
       acknowledgement.push(expected, resolve)
       t?.(router)
       reactStartTransition(fn)
-    })
+    })) as WrappedTransition
+  // The ref object is a stable per-instance identity, so it doubles as the owner tag.
+  transition.owner = installedTransition
+  installTransition(router, transition)
   installedTransition.current = transition
-  router.startTransition = transition
 
   useLayoutEffect(() => {
+    // Effects can remount without a re-render (Strict Mode's extra pass, Activity
+    // hide/show), so the wrapper has to be reinstalled here and not only in render.
+    const wrapper = installedTransition.current
+    if (wrapper) installTransition(router, wrapper)
     router._attachHistory?.()
     if (mountedFor.current !== router) {
       mountedFor.current = router
@@ -90,9 +119,7 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
         router._pending = undefined
       }
       settleOwner(acknowledgement, false)
-      if (router.startTransition === installedTransition.current) {
-        router.startTransition = originalTransition.current
-      }
+      uninstallTransition(router, installedTransition)
       router._detachHistory?.()
       mountedFor.current = undefined
     }
