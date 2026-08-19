@@ -176,10 +176,10 @@ Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip
 
 | Package              | speedy-router |    gzip |     TanStack |        gzip |
 | -------------------- | ------------: | ------: | -----------: | ----------: |
-| `speedy-router`      |      118.9 kB | 33.0 kB | **104.5 kB** | **29.5 kB** |
-| `speedy-router-core` |       99.1 kB | 27.2 kB |  **75.1 kB** | **21.6 kB** |
+| `speedy-router`      |      121.2 kB | 33.8 kB | **104.5 kB** | **29.5 kB** |
+| `speedy-router-core` |       99.7 kB | 27.4 kB |  **75.1 kB** | **21.6 kB** |
 
-TanStack is still smaller on both client graphs (1.12× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator, SSR `load` chunk, and optional `speedy-router-core/warm` sync loader are not counted. The remaining extra is matcher interners. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs (1.14× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator, SSR `load` chunk, and optional `speedy-router-core/warm` sync loader are not counted. The remaining extra is matcher interners. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 

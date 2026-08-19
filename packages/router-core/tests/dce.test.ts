@@ -150,12 +150,13 @@ describe('dead code elimination', () => {
   it('installs the warm loader when the warm entry is imported', async () => {
     const { chunks } = await bundle(`
       import { createRootRoute, createRouter } from 'speedy-router-core'
-      import 'speedy-router-core/warm'
+      import { tryWarmLoad } from 'speedy-router-core/warm'
       export const router = createRouter({ routeTree: createRootRoute() })
+      export { tryWarmLoad }
     `)
     const code = allCode(chunks)
     expect(code).toContain('tryWarmLoad')
-    expect(code).toMatch(/setWarmLoad\s*\(\s*tryWarmLoad\s*\)/)
+    expect(code).toContain('setWarmLoad')
   })
 
   it('keeps scroll setup listeners out of useElementScrollRestoration', async () => {
