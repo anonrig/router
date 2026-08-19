@@ -137,6 +137,27 @@ describe('scanRoutes', () => {
     expect(byKey['/dashboard/@activity/']?.parentId).toBe('/dashboard/@activity')
   })
 
+  it('treats parenthesized route groups as pathless and strips them from URL paths', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-group-routes-'))
+    write(dir, '__root.tsx')
+    write(dir, '(auth)/login.tsx')
+    write(dir, '(auth)/sign-up.tsx')
+    write(dir, '(auth).tsx')
+    write(dir, '(app)/(dashboard)/settings.tsx')
+
+    const scanned = scanRoutes({ routesDirectory: dir })
+    const byKey = Object.fromEntries(
+      scanned.filter((route) => !route.isRoot).map((route) => [route.key, route]),
+    )
+
+    expect(byKey['/(auth)']?.path).toBeUndefined()
+    expect(byKey['/(auth)']?.isPathless).toBe(true)
+    expect(byKey['/(auth)/login']?.parentId).toBe('/(auth)')
+    expect(byKey['/(auth)/login']?.path).toBe('/login')
+    expect(byKey['/(auth)/sign-up']?.path).toBe('/sign-up')
+    expect(byKey['/(app)/(dashboard)/settings']?.path).toBe('/settings')
+  })
+
   it('walks dirents once and skips node_modules, dot dirs, and split files', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-skip-'))
     write(dir, '__root.tsx')

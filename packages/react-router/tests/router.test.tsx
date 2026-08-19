@@ -104,6 +104,19 @@ describe('createFileRoute', () => {
     expect(auth.id).toBe('/_auth')
     expect(auth.fullPath).toBe('/')
     expect(auth.to).toBe('/')
+
+    const groupLayout = createFileRoute('/(auth)')({})
+    expect(groupLayout.id).toBe('/(auth)')
+    expect(groupLayout.fullPath).toBe('/')
+    expect(groupLayout.to).toBe('/')
+
+    const grouped = createFileRoute('/(auth)/login')({})
+    expect(grouped.id).toBe('/(auth)/login')
+    expect(grouped.fullPath).toBe('/login')
+    expect(grouped.to).toBe('/login')
+
+    const nestedGroup = createFileRoute('/(app)/(dashboard)/settings')({})
+    expect(nestedGroup.fullPath).toBe('/settings')
   })
 
   it('reads params from the file Route after a generator-style lazy stub load', async () => {

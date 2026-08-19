@@ -39,15 +39,21 @@ import type { UseRouteContextRoute } from './use-route-context'
 type FileRoutesByPath = CoreFileRoutesByPath & ReactFileRoutesByPath
 
 /**
- * FileRoutesByPath key → public URL path. Pathless `_` / `@` segments are
- * dropped, matching speedy-router-plugin's `urlPathFromId`.
+ * FileRoutesByPath key → public URL path. Pathless `_` / `@` / `(group)`
+ * segments are dropped, matching speedy-router-plugin's `urlPathFromId`.
  */
 function fileRouteFullPath(id: string): string | undefined {
   const trailingSlash = id.endsWith('/') && id !== '/'
   const parts: Array<string> = []
   for (const segment of id.split('/')) {
     if (!segment) continue
-    if (segment.startsWith('_') || segment.startsWith('@')) continue
+    if (
+      segment.startsWith('_') ||
+      segment.startsWith('@') ||
+      (segment.startsWith('(') && segment.endsWith(')'))
+    ) {
+      continue
+    }
     parts.push(segment.endsWith('_') ? segment.slice(0, -1) : segment)
   }
   if (parts.length === 0) {
@@ -68,8 +74,8 @@ function bindFileRoutePath(route: Record<string, unknown>, path?: string) {
   route.isRoot = false
   if (typeof path !== 'string' || path === '') return
   route._id = path
-  // Pure pathless ids (`/_auth`, `/@modal`) have no URL segments. Match
-  // generator `urlPathFromId(...) ?? '/'` and Route.init() under root.
+  // Pure pathless ids (`/_auth`, `/@modal`, `/(auth)`) have no URL segments.
+  // Match plugin `urlPathFromId(...) ?? '/'` and Route.init() under root.
   const fullPath = fileRouteFullPath(path) ?? '/'
   route._fullPath = fullPath
   route._to = fullPath !== '/' && fullPath.endsWith('/') ? fullPath.slice(0, -1) : fullPath
