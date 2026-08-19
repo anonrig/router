@@ -332,7 +332,7 @@ type ParamExtractionState = {
 type MatchStackFrame = {
   node: SegmentTreeNode
   index: number
-  skipped: number
+  skipped: bigint
   statics: number
   dynamics: number
   optionals: number
@@ -354,7 +354,7 @@ function extractParams(
   parts: string[],
   leaf: {
     node: SegmentTreeNode
-    skipped: number
+    skipped: bigint
     extract?: ParamExtractionState
     rawParams?: Record<string, string>
   },
@@ -393,7 +393,7 @@ function extractParams(
         rawParams[name] = decodeURIComponent(part!)
       }
     } else if (node.kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      if (leaf.skipped & (1 << nodeIndex)) {
+      if (leaf.skipped & (1n << BigInt(nodeIndex))) {
         partIndex--
         pathIndex = currentPathIndex - 1
         continue
@@ -478,7 +478,7 @@ function isFrameMoreSpecific(prev: MatchStackFrame | null, next: MatchStackFrame
 
 function getNodeMatch(path: string, parts: string[], segmentTree: SegmentTreeNode, fuzzy: boolean) {
   if (path === '/' && segmentTree.index) {
-    return { node: segmentTree.index, skipped: 0 } as Pick<MatchStackFrame, 'node' | 'skipped'>
+    return { node: segmentTree.index, skipped: 0n } as Pick<MatchStackFrame, 'node' | 'skipped'>
   }
 
   const trailingSlash = !last(parts)
@@ -489,7 +489,7 @@ function getNodeMatch(path: string, parts: string[], segmentTree: SegmentTreeNod
     {
       node: segmentTree,
       index: 1,
-      skipped: 0,
+      skipped: 0n,
       statics: 0,
       dynamics: 0,
       optionals: 0,
@@ -598,7 +598,7 @@ function getNodeMatch(path: string, parts: string[], segmentTree: SegmentTreeNod
     }
 
     if (node.optional) {
-      const nextSkipped = skipped | (1 << (node.depth + 1))
+      const nextSkipped = skipped | (1n << BigInt(node.depth + 1))
       for (let i = node.optional.length - 1; i >= 0; i--) {
         const segment = node.optional[i]!
         stack.push({
