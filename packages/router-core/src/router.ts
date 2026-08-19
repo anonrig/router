@@ -1025,6 +1025,8 @@ export class RouterCore<
 
     if (this.options.pathParamsAllowedCharacters) {
       this.pathParamsDecoder = compileDecodeCharMap(this.options.pathParamsAllowedCharacters)
+    } else {
+      this.pathParamsDecoder = undefined
     }
 
     if (!this.history || (this.options.history && this.options.history !== this.history)) {
