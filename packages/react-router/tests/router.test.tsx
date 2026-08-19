@@ -11,6 +11,7 @@ import {
   createRouter,
   getRouteApi,
   useElementScrollRestoration,
+  useMatch,
 } from '../src'
 
 afterEach(() => {
@@ -172,6 +173,38 @@ describe('createFileRoute', () => {
     expect(await screen.findByText('profile:jack')).toBeInTheDocument()
     expect(screen.getByText('from:/$username')).toBeInTheDocument()
     expect(screen.getByText('posts')).toBeInTheDocument()
+  })
+})
+
+describe('useMatch', () => {
+  it('resolves active match when from is passed as fullPath, routeId, or id', async () => {
+    function PostComponent() {
+      const matchByFullPath = useMatch({ from: '/posts' as any })
+      const matchByRouteId = useMatch({ from: '/_layout/posts' as any })
+      return (
+        <div>
+          <span>byFullPath:{matchByFullPath.routeId}</span>
+          <span>byRouteId:{matchByRouteId.routeId}</span>
+        </div>
+      )
+    }
+
+    const root = createRootRoute({ component: () => <Outlet /> })
+    const layout = createRoute({ getParentRoute: () => root, id: '_layout' })
+    const posts = createRoute({
+      getParentRoute: () => layout,
+      path: '/posts',
+      component: PostComponent,
+    })
+
+    const router = createRouter({
+      routeTree: root.addChildren([layout.addChildren([posts])]),
+      history: createMemoryHistory({ initialEntries: ['/posts'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+    expect(await screen.findByText('byFullPath:/_layout/posts')).toBeInTheDocument()
+    expect(screen.getByText('byRouteId:/_layout/posts')).toBeInTheDocument()
   })
 })
 

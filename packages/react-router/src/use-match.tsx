@@ -82,9 +82,26 @@ export function useMatch<
   return useRouterState({
     select: (state) => {
       const matches = state.matches
-      const match = from
-        ? matches.find((m: any) => m.routeId === from)
-        : matches[matches.length - 1]
+      let match = from
+        ? matches.find((m: any) => m.routeId === from || m.route?.id === from)
+        : undefined
+      if (!match && from) {
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const m = matches[i] as any
+          if (
+            m.routeId === from ||
+            m.route?.id === from ||
+            m.fullPath === from ||
+            m.route?.fullPath === from
+          ) {
+            match = m
+            break
+          }
+        }
+      }
+      if (!match && !from) {
+        match = matches[matches.length - 1]
+      }
       if (!match) {
         if (opts?.shouldThrow === false || opts?.strict === false) {
           return undefined as any
