@@ -164,6 +164,11 @@ function containsCreateFileRoute(node: EstreeNode): boolean {
   return found
 }
 
+/** Route factory / `createFileRoute(...)` call — not the import that also pulls hooks. */
+function isCreateFileRouteBinding(statement: EstreeNode): boolean {
+  return statement.type !== 'ImportDeclaration' && containsCreateFileRoute(statement)
+}
+
 function isAlreadyLazy(node: EstreeNode): boolean {
   return (
     node.type === 'CallExpression' &&
@@ -408,10 +413,10 @@ export function compileVirtualRoute(
   const used = new Set<string>()
   collectIdentifiers(match.value, used)
   const seeds = (program.body ?? []).filter((statement: EstreeNode) => {
-    if (statement.type !== 'ImportDeclaration' && containsCreateFileRoute(statement)) return false
+    if (isCreateFileRouteBinding(statement)) return false
     return declaredNames(statement).some((name) => used.has(name))
   })
-  const needed = neededStatements(program, seeds, containsCreateFileRoute)
+  const needed = neededStatements(program, seeds, isCreateFileRouteBinding)
   const live = identifiersIn(needed)
   collectIdentifiers(match.value, live)
   live.delete('createFileRoute')
