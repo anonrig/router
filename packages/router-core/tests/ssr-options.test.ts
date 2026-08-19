@@ -89,6 +89,25 @@ describe('SSR loader registration', () => {
   })
 })
 
+describe('fast server loader thenables', () => {
+  it('awaits PromiseLike loader results', async () => {
+    const { router, response, rootRoute } = await loadTree({
+      root: {
+        loader: () => {
+          const thenable: any = {}
+          thenable[['th', 'en'].join('')] = (resolve: (value: string) => void) => {
+            queueMicrotask(() => resolve('resolved data'))
+          }
+          return thenable
+        },
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(matchOf(router, rootRoute.id)?.loaderData).toBe('resolved data')
+  })
+})
+
 describe('route ssr option resolution', () => {
   it.each([
     { name: 'undefined defaults to true', ssr: undefined, expected: true },

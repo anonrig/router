@@ -902,9 +902,9 @@ function executeFastServerLane(
               route,
             )
         const data = loaderFn(loaderContext)
-        if (data instanceof Promise) {
+        if (data != null && typeof data.then === 'function') {
           if (!extra) fastServerLoaderCtx = undefined
-          return data.then((value) => {
+          return Promise.resolve(data).then((value) => {
             if (isRedirect(value)) {
               abortLane()
               throw value
