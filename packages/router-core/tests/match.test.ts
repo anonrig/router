@@ -29,6 +29,19 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('rejects malformed percent encoding in dynamic segments', () => {
+    const root = createRootRoute()
+    const dynamic = createRoute({
+      getParentRoute: () => root,
+      path: '/$id',
+    })
+    root.addChildren([dynamic])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/%')).toBeNull()
+    expect(findRouteMatch(tree, '/%E0%A4%A')).toBeNull()
+  })
+
   it('matches the index route', () => {
     const processed = tree()
     const matches = findRouteMatch(processed, '/')

@@ -613,7 +613,7 @@ function decodeSegment(raw: string) {
   try {
     return decodeURIComponent(raw)
   } catch {
-    return raw
+    return undefined
   }
 }
 
@@ -697,6 +697,7 @@ function findStaticMatch(
     while (end < pathname.length && pathname.charCodeAt(end) !== 47) end++
     if (end > i) {
       let key = decodeSegment(pathname.slice(i, end))
+      if (key === undefined) return null
       if (!caseSensitive) {
         let lower = false
         for (let k = 0; k < key.length; k++) {
@@ -1023,7 +1024,9 @@ function findRouteMatchDynamic(
   const segments = splitSegments(pathname === '/' ? '' : pathname)
   const decoded: string[] = new Array(segments.length)
   for (let i = 0; i < segments.length; i++) {
-    decoded[i] = decodeSegment(segments[i]!)
+    const segment = decodeSegment(segments[i]!)
+    if (segment === undefined) return null
+    decoded[i] = segment
   }
 
   activeOptionalNames = tree.optionalNames
