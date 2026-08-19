@@ -1053,6 +1053,35 @@ describe('buildLocation - hash', () => {
     expect(location.search).toEqual({ page: 2 })
     expect(location.href).toBe('/posts?page=2')
   })
+
+  test('non-string or updater with leading hash should strip leading hash properly', async () => {
+    const rootRoute = new BaseRootRoute({})
+    const postsRoute = new BaseRoute({
+      getParentRoute: () => rootRoute,
+      path: '/posts',
+    })
+
+    const routeTree = rootRoute.addChildren([postsRoute])
+
+    const router = createTestRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/posts'] }),
+    })
+
+    await router.load()
+
+    const loc1 = router.buildLocation({
+      hash: { toString: () => '#custom-section' } as any,
+    })
+    expect(loc1.hash).toBe('custom-section')
+    expect(loc1.href).toBe('/posts#custom-section')
+
+    const loc2 = router.buildLocation({
+      hash: () => ({ toString: () => '#updater-section' }) as any,
+    })
+    expect(loc2.hash).toBe('updater-section')
+    expect(loc2.href).toBe('/posts#updater-section')
+  })
 })
 
 describe('buildLocation - state', () => {

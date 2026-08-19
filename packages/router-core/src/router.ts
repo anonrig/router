@@ -2719,13 +2719,15 @@ function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {
   if (dest.hash === true) return currentHash
   if (typeof dest.hash === 'function') {
     const result = dest.hash(currentHash)
-    return typeof result === 'string' ? stripLeadingHash(result) : String(result ?? '')
+    return typeof result === 'string'
+      ? stripLeadingHash(result)
+      : stripLeadingHash(String(result ?? ''))
   }
   if (typeof dest.hash === 'string') {
     return stripLeadingHash(dest.hash)
   }
   if (dest.hash !== undefined) {
-    return String(dest.hash)
+    return stripLeadingHash(String(dest.hash))
   }
   return dest.to ? '' : currentHash
 }
