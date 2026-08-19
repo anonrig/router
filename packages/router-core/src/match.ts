@@ -496,10 +496,8 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
   // A route only declares the trailing segments of its full path; the leading ones
   // belong to ancestors, so an override must not touch their affix nodes.
   const routeCaseSensitive = route?.options?.caseSensitive
-  const ownedFrom =
-    routeCaseSensitive === undefined
-      ? -1
-      : countSegments(findNearestAncestorPath(route?.parentRoute))
+  // Resolved on the first affix-bearing segment, since static paths never need it.
+  let ownedFrom = -1
   let segmentIndex = -1
 
   while (cursor < trimmed.length) {
@@ -509,15 +507,20 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
     cursor = end + 1
     if (start === end) continue
     segmentIndex++
-    const affixCaseSensitive =
-      ownedFrom !== -1 && segmentIndex >= ownedFrom ? routeCaseSensitive : undefined
 
     const kind = segment[0]
     if (kind === SEGMENT_TYPE_PATHNAME) {
       let key = trimmed.substring(start, end)
       if (!caseSensitive) key = key.toLowerCase()
       current = getOrCreateStatic(current, key, caseSensitive)
-    } else if (kind === SEGMENT_TYPE_PARAM) {
+      continue
+    }
+
+    if (ownedFrom === -1) ownedFrom = countSegments(findNearestAncestorPath(route?.parentRoute))
+    const owned = segmentIndex >= ownedFrom
+    const affixCaseSensitive = owned ? routeCaseSensitive : undefined
+
+    if (kind === SEGMENT_TYPE_PARAM) {
       current = getOrCreateParam(
         current,
         trimmed.substring(segment[2], segment[3]),
@@ -536,11 +539,17 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
         affixCaseSensitive,
       )
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
-      if (!current.wildcardChild) current.wildcardChild = createNode()
-      current.wildcardChild.prefix = trimmed.substring(start, segment[1])
-      current.wildcardChild.suffix = trimmed.substring(segment[4], end)
-      current.wildcardChild.affixCaseSensitive = affixCaseSensitive
-      current = current.wildcardChild
+      let child = current.wildcardChild
+      const fresh = !child
+      if (!child) child = current.wildcardChild = createNode()
+      // Index, pathless, and child inserts walk an ancestor's wildcard again, and a
+      // splat swallows their extra segments, so only the declaring route may write.
+      if (owned || fresh) {
+        child.prefix = trimmed.substring(start, segment[1])
+        child.suffix = trimmed.substring(segment[4], end)
+      }
+      if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
+      current = child
     }
   }
   return current
