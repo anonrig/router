@@ -2,52 +2,52 @@
 import { describe, expect, it } from 'vitest'
 import { compileReferenceRoute, compileVirtualRoute } from '../src/code-split'
 
-const chatRoute = `import { Outlet, createFileRoute, useParams } from '@tanstack/react-router'
+const inboxRoute = `import { Outlet, createFileRoute, useParams } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 
-import { ParamProvider } from '@x-clients/features/app/params'
-import { mapRequestsRouterParams } from '@x-clients/features/dms/navigation/message-requests-path'
-import { XChatProvider } from '@x-clients/features/dms/rweb/x-chat-provider'
-import { Loader } from '@x-clients/xds/loader'
+import { ParamProvider } from '@app/params'
+import { mapInboxRouteParams } from '@app/inbox-path'
+import { InboxProvider } from '@app/inbox-provider'
+import { Spinner } from '@app/spinner'
 
-import { requireAuth } from '@/lib/auth/require-auth'
-import { chatSettings } from '@/lib/xchat-provider-settings'
+import { requireAuth } from '@/lib/require-auth'
+import { inboxSettings } from '@/lib/inbox-settings'
 
-const chatFallback = (
+const inboxFallback = (
   <div>
-    <Loader size="lg" />
+    <Spinner size="lg" />
   </div>
 )
 
-export function mapRouterParamsToChatParams(
+export function mapRouterParamsToInboxParams(
   params: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
-  return mapRequestsRouterParams(params)
+  return mapInboxRouteParams(params)
 }
 
-function useChatParams() {
+function useInboxParams() {
   const params = useParams({ strict: false }) as Record<string, string | undefined>
-  return useMemo(() => mapRouterParamsToChatParams(params), [params])
+  return useMemo(() => mapRouterParamsToInboxParams(params), [params])
 }
 
-export const Route = createFileRoute('/i/chat')({
+export const Route = createFileRoute('/inbox')({
   beforeLoad: ({ context, location }) => {
     requireAuth(context, location)
   },
   staticData: {
-    scribe: { page: 'messages' },
+    section: 'messages',
   },
   ssr: false,
-  component: function ChatLayout() {
-    const params = useChatParams()
+  component: function InboxLayout() {
+    const params = useInboxParams()
     const getParams = useCallback(() => params, [params])
 
     return (
       <ParamProvider useParams={getParams}>
-        <Suspense fallback={chatFallback}>
-          <XChatProvider settings={chatSettings}>
+        <Suspense fallback={inboxFallback}>
+          <InboxProvider settings={inboxSettings}>
             <Outlet />
-          </XChatProvider>
+          </InboxProvider>
         </Suspense>
       </ParamProvider>
     )
@@ -57,20 +57,20 @@ export const Route = createFileRoute('/i/chat')({
 
 describe('compileReferenceRoute', () => {
   it('keeps server hooks and exported helpers, drops component-only imports', () => {
-    const result = compileReferenceRoute(chatRoute, '/app/src/routes/i/chat.tsx')
+    const result = compileReferenceRoute(inboxRoute, '/app/src/routes/inbox.tsx')
     expect(result).toBeTruthy()
-    expect(result).toContain("createFileRoute('/i/chat')")
+    expect(result).toContain("createFileRoute('/inbox')")
     expect(result).toContain('ssr: false')
     expect(result).toContain('requireAuth')
     expect(result).toContain('lazyRouteComponent(() => import')
-    expect(result).toContain('./chat.tsx?tsr-split=component')
-    expect(result).toContain('export function mapRouterParamsToChatParams')
-    expect(result).toContain('mapRequestsRouterParams')
-    expect(result).not.toContain('XChatProvider')
-    expect(result).not.toContain('chatFallback')
+    expect(result).toContain('./inbox.tsx?tsr-split=component')
+    expect(result).toContain('export function mapRouterParamsToInboxParams')
+    expect(result).toContain('mapInboxRouteParams')
+    expect(result).not.toContain('InboxProvider')
+    expect(result).not.toContain('inboxFallback')
     expect(result).not.toContain("from 'react'")
-    expect(result).not.toContain('@x-clients/xds/loader')
-    expect(result).not.toContain('@x-clients/features/app/params')
+    expect(result).not.toContain('@app/spinner')
+    expect(result).not.toContain('@app/params')
   })
 
   it('keeps exported helpers that are not the split UI', () => {
@@ -136,7 +136,7 @@ export const Route = createFileRoute('/login')({
     const source = `import { createFileRoute } from '@tanstack/react-router'
 import { StoriesFeed } from '@/components/stories-feed'
 
-export const Route = createFileRoute('/i/jf/stories/home')({
+export const Route = createFileRoute('/stories/home')({
   loader: async () => ({ stories: [] }),
   component: StoriesHomePage,
 })
@@ -146,14 +146,14 @@ function StoriesHomePage() {
   return <StoriesFeed stories={stories} />
 }
 `
-    expect(compileReferenceRoute(source, '/app/src/routes/i/jf/stories/home.tsx')).toBeNull()
+    expect(compileReferenceRoute(source, '/app/src/routes/stories/home.tsx')).toBeNull()
   })
 
   it('still splits ssr:false routes that call Route.useSearch', () => {
     const source = `import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 
-export const Route = createFileRoute('/i/redirect/')({
+export const Route = createFileRoute('/redirect/')({
   ssr: false,
   component: EmailRedirect,
 })
@@ -167,7 +167,7 @@ function EmailRedirect() {
   return null
 }
 `
-    const result = compileReferenceRoute(source, '/app/src/routes/i/redirect/index.tsx')
+    const result = compileReferenceRoute(source, '/app/src/routes/redirect/index.tsx')
     expect(result).toContain('ssr: false')
     expect(result).toContain(
       "lazyRouteComponent(() => import('./index.tsx?tsr-split=component'), 'component')",
@@ -179,12 +179,12 @@ function EmailRedirect() {
 
 describe('compileVirtualRoute', () => {
   it('emits only the component graph', () => {
-    const result = compileVirtualRoute(chatRoute, '/app/src/routes/i/chat.tsx', 'component')
+    const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()
     expect(result).toContain('export const component =')
-    expect(result).toContain('XChatProvider')
-    expect(result).toContain('chatFallback')
-    expect(result).toContain('useChatParams')
+    expect(result).toContain('InboxProvider')
+    expect(result).toContain('inboxFallback')
+    expect(result).toContain('useInboxParams')
     expect(result).toContain('useParams')
     expect(result).toContain('Outlet')
     expect(result).not.toContain('createFileRoute')
@@ -197,7 +197,7 @@ describe('compileVirtualRoute', () => {
     const source = `import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 
-export const Route = createFileRoute('/i/redirect/')({
+export const Route = createFileRoute('/redirect/')({
   ssr: false,
   component: EmailRedirect,
 })
@@ -211,7 +211,7 @@ function EmailRedirect() {
   return null
 }
 `
-    const result = compileVirtualRoute(source, '/app/src/routes/i/redirect/index.tsx', 'component')
+    const result = compileVirtualRoute(source, '/app/src/routes/redirect/index.tsx', 'component')
     expect(result).toBeTruthy()
     expect(result).toContain("import { Route } from './index.tsx'")
     expect(result).toContain("import { useNavigate } from '@tanstack/react-router'")

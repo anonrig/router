@@ -354,12 +354,56 @@ function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
   return Array.isArray(kids) ? kids : Object.values(kids)
 }
 
+function lastIdSegment(id: string): string {
+  let end = id.length
+  if (end > 1 && id.charCodeAt(end - 1) === 47) end--
+  if (end <= 0) return ''
+  const slash = id.lastIndexOf('/', end - 1)
+  return slash === -1 ? id.slice(0, end) : id.slice(slash + 1, end)
+}
+
+function publicPathHasSegment(path: string, segment: string): boolean {
+  if (!path || !segment) return false
+  let start = path.charCodeAt(0) === 47 ? 1 : 0
+  for (let index = start; index <= path.length; index++) {
+    if (index === path.length || path.charCodeAt(index) === 47) {
+      if (index > start && path.slice(start, index) === segment) return true
+      start = index + 1
+    }
+  }
+  return false
+}
+
 function isPathless(route: AnyRouteLike): boolean {
-  return !route.isRoot && !route.options?.path && !!route.options?.id
+  if (route.isRoot) return false
+  const optionsPath = route.options?.path
+  const optionsId = route.options?.id
+  if (!optionsPath && !!optionsId) return true
+  const id = typeof route.id === 'string' && route.id ? route.id : optionsId
+  if (typeof id !== 'string' || !id) return false
+  const last = lastIdSegment(id)
+  if (!last || last === '__root__') return false
+  const prefix = last.charCodeAt(0)
+  if (prefix !== 95 && prefix !== 64) return false
+  const publicPath = route.fullPath || route.path || optionsPath || ''
+  return !publicPathHasSegment(publicPath, last)
 }
 
 function isIndex(route: AnyRouteLike): boolean {
-  return route.options?.path === '/' || route.path === '/'
+  if (route.isRoot) return false
+  if (route.options?.path === '/' || route.path === '/') return true
+  const fullPath = route.fullPath
+  return (
+    typeof fullPath === 'string' &&
+    fullPath.length > 1 &&
+    fullPath.charCodeAt(fullPath.length - 1) === 47
+  )
+}
+
+function pathlessAttachPath(route: AnyRouteLike): string {
+  const fullPath = route.fullPath
+  if (typeof fullPath === 'string' && fullPath && fullPath !== '/') return fullPath
+  return findNearestAncestorPath(route.parentRoute)
 }
 
 function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route?: AnyRouteLike) {
@@ -417,15 +461,28 @@ function findNearestAncestorPath(route: AnyRouteLike | undefined): string {
 }
 
 function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: boolean) {
-  if (isPathless(route) || (isIndex(route) && !route.isRoot)) {
-    const parentPath = findNearestAncestorPath(route.parentRoute)
-    const parentNode = parentPath ? walkPath(node, parentPath, caseSensitive) : node
-    if (isPathless(route)) {
-      if (!parentNode.pathless) parentNode.pathless = []
-      parentNode.pathless.push(route)
-      return
-    }
+  // Indexes first: a file index under a `_layout` still has that layout's
+  // underscore in its id (`/$user/_layout/`), which isPathless would also see.
+  if (isIndex(route)) {
+    const fullPath = typeof route.fullPath === 'string' ? route.fullPath : ''
+    const flattened =
+      fullPath.length > 1 &&
+      fullPath.charCodeAt(fullPath.length - 1) === 47 &&
+      route.options?.path !== '/' &&
+      route.path !== '/'
+    const attachPath = flattened
+      ? fullPath.slice(0, -1)
+      : findNearestAncestorPath(route.parentRoute)
+    const parentNode = attachPath ? walkPath(node, attachPath, caseSensitive, route) : node
     parentNode.indexRoute = route
+    return
+  }
+
+  if (isPathless(route)) {
+    const attachPath = pathlessAttachPath(route)
+    const parentNode = attachPath ? walkPath(node, attachPath, caseSensitive, route) : node
+    if (!parentNode.pathless) parentNode.pathless = []
+    parentNode.pathless.push(route)
     return
   }
 
