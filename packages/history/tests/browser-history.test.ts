@@ -53,6 +53,22 @@ function createBrowserHistoryHarness() {
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('normal back navigation does not suppress beforeunload blockers', () => {
+    const { history, listeners } = createBrowserHistoryHarness()
+    history.block({ blockerFn: () => false })
+    const event = {
+      preventDefault: vi.fn(),
+      returnValue: undefined,
+    }
+
+    history.back()
+    listeners.beforeunload?.(event)
+
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(event.returnValue).toBe('')
+    history.destroy()
+  })
+
   test('rolls back when a popstate blocker rejects', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }

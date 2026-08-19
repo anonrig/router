@@ -178,12 +178,12 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     replaceState: (href, state) => queueHistoryAction(false, href, state),
     back: (ignoreBlocker) => {
       if (ignoreBlocker) skipBlockerNextPop = true
-      ignoreNextBeforeUnload = true
+      ignoreNextBeforeUnload = ignoreBlocker
       return win.history.back()
     },
     forward: (ignoreBlocker) => {
       if (ignoreBlocker) skipBlockerNextPop = true
-      ignoreNextBeforeUnload = true
+      ignoreNextBeforeUnload = ignoreBlocker
       win.history.forward()
     },
     go: (n) => {
