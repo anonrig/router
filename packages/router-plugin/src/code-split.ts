@@ -101,12 +101,20 @@ function importLocalNames(declaration: EstreeNode): Array<string> {
   return names
 }
 
+/** `namespace UI.Forms` parses to a `TSQualifiedName`, but only `UI` is bound. */
+function moduleDeclarationName(id: EstreeNode | undefined): string | undefined {
+  let node = id
+  while (node?.type === 'TSQualifiedName') node = node.left
+  return node?.type === 'Identifier' && typeof node.name === 'string' ? node.name : undefined
+}
+
 function declaredNames(statement: EstreeNode): Array<string> {
   if (statement.type === 'FunctionDeclaration' || statement.type === 'ClassDeclaration') {
     return statement.id?.name ? [statement.id.name] : []
   }
   if (statement.type === 'TSModuleDeclaration') {
-    return statement.id?.type === 'Identifier' ? [statement.id.name] : []
+    const name = moduleDeclarationName(statement.id)
+    return name ? [name] : []
   }
   if (statement.type === 'VariableDeclaration') {
     const names: Array<string> = []
