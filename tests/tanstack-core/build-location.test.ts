@@ -1003,6 +1003,85 @@ describe('buildLocation - hash', () => {
     expect(location.hash).toBe('')
     expect(location.href).not.toContain('#')
   })
+
+  test('empty string hash without to parameter should clear the hash', async () => {
+    const rootRoute = new BaseRootRoute({})
+    const postsRoute = new BaseRoute({
+      getParentRoute: () => rootRoute,
+      path: '/posts',
+    })
+
+    const routeTree = rootRoute.addChildren([postsRoute])
+
+    const router = createTestRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/posts#existing'] }),
+    })
+
+    await router.load()
+
+    const location = router.buildLocation({
+      hash: '',
+    })
+
+    expect(location.hash).toBe('')
+    expect(location.href).toBe('/posts')
+  })
+
+  test('empty string hash with search update and omitted to should clear the hash', async () => {
+    const rootRoute = new BaseRootRoute({})
+    const postsRoute = new BaseRoute({
+      getParentRoute: () => rootRoute,
+      path: '/posts',
+    })
+
+    const routeTree = rootRoute.addChildren([postsRoute])
+
+    const router = createTestRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/posts?page=1#existing'] }),
+    })
+
+    await router.load()
+
+    const location = router.buildLocation({
+      search: { page: 2 },
+      hash: '',
+    })
+
+    expect(location.hash).toBe('')
+    expect(location.search).toEqual({ page: 2 })
+    expect(location.href).toBe('/posts?page=2')
+  })
+
+  test('non-string or updater with leading hash should strip leading hash properly', async () => {
+    const rootRoute = new BaseRootRoute({})
+    const postsRoute = new BaseRoute({
+      getParentRoute: () => rootRoute,
+      path: '/posts',
+    })
+
+    const routeTree = rootRoute.addChildren([postsRoute])
+
+    const router = createTestRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/posts'] }),
+    })
+
+    await router.load()
+
+    const loc1 = router.buildLocation({
+      hash: { toString: () => '#custom-section' } as any,
+    })
+    expect(loc1.hash).toBe('custom-section')
+    expect(loc1.href).toBe('/posts#custom-section')
+
+    const loc2 = router.buildLocation({
+      hash: () => ({ toString: () => '#updater-section' }) as any,
+    })
+    expect(loc2.hash).toBe('updater-section')
+    expect(loc2.href).toBe('/posts#updater-section')
+  })
 })
 
 describe('buildLocation - state', () => {
