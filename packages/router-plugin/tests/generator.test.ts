@@ -14,6 +14,18 @@ function write(dir: string, file: string, body = 'export const Route = {}\n') {
 }
 
 describe('scanRoutes', () => {
+  it('preserves directory segments named route', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'speedy-router-route-directory-'))
+    write(dir, '__root.tsx')
+    write(dir, 'contact.tsx')
+    write(dir, 'route/contact.tsx')
+
+    const keys = scanRoutes({ routesDirectory: dir }).map((route) => route.key)
+
+    expect(keys).toContain('/contact')
+    expect(keys).toContain('/route/contact')
+  })
+
   it('maps TanStack file names to compact parent/id/path records', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-'))
     write(dir, '__root.tsx')
