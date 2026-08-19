@@ -8,7 +8,7 @@ const packages = [
   'packages/history',
   'packages/router-core',
   'packages/react-router',
-  'packages/router-generator',
+  'packages/router-plugin',
 ] as const
 
 describe('published package shape', () => {

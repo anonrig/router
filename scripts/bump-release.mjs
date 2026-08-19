@@ -15,7 +15,7 @@ const files = [
   'packages/history/package.json',
   'packages/react-router/package.json',
   'packages/router-core/package.json',
-  'packages/router-generator/package.json',
+  'packages/router-plugin/package.json',
 ]
 
 const semver = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/

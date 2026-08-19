@@ -68,7 +68,7 @@ export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedR
   })
   const ensuredDirs = new Set<string>()
   writeIfChanged(runtimePath, generated, ensuredDirs)
-  // Older speedy-router-generator versions wrote a sibling types file.
+  // Older versions of this package wrote a sibling types file.
   removeIfExists(staleTypesPathFor(runtimePath))
   return {
     routesDirectory,
