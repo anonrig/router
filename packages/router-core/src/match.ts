@@ -101,12 +101,7 @@ function createNode(): SegmentNode {
   }
 }
 
-function findWildcard(
-  node: SegmentNode,
-  prefix: string,
-  suffix: string,
-  caseSensitive?: boolean,
-) {
+function findWildcard(node: SegmentNode, prefix: string, suffix: string, caseSensitive?: boolean) {
   const children = node.wildcardChildren
   if (children) {
     let prefixMatch: SegmentNode | undefined
