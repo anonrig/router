@@ -1,85 +1,21 @@
-import { encodeURIComponentWellFormed } from './utils'
-
 /**
  * Fast query-string encode/decode.
  *
  * Avoids URLSearchParams (constructor + iterator + toString are slow on
  * the navigation hot path). Parses with a single scan and writes with
- * a pre-sized string join.
+ * encodeURIComponent.
  */
 
-function replaceCode(str: string, from: number, to: string): string {
-  const len = str.length
-  let out = ''
-  let last = 0
-  for (let i = 0; i < len; i++) {
-    if (str.charCodeAt(i) !== from) continue
-    out += str.slice(last, i) + to
-    last = i + 1
-  }
-  return last === 0 ? str : out + str.slice(last)
-}
-
-function replaceNeedle(str: string, needle: string, to: string): string {
-  let idx = str.indexOf(needle)
-  if (idx === -1) return str
-  let out = ''
-  let last = 0
-  const nlen = needle.length
-  while (idx !== -1) {
-    out += str.slice(last, idx) + to
-    last = idx + nlen
-    idx = str.indexOf(needle, last)
-  }
-  return out + str.slice(last)
-}
-
 function encodeString(str: string): string {
-  const len = str.length
-  let space = false
-  for (let i = 0; i < len; i++) {
-    const c = str.charCodeAt(i)
-    if (
-      (c >= 48 && c <= 57) ||
-      (c >= 65 && c <= 90) ||
-      (c >= 97 && c <= 122) ||
-      c === 45 ||
-      c === 46 ||
-      c === 95 ||
-      c === 126
-    ) {
-      continue
-    }
-    if (c === 32) {
-      space = true
-      continue
-    }
-    const encoded = encodeURIComponentWellFormed(str)
-    const hasSpace = encoded.indexOf('%20') !== -1
-    const hasOpen = encoded.indexOf('(') !== -1
-    const hasClose = encoded.indexOf(')') !== -1
-    if (!hasSpace && !hasOpen && !hasClose) return encoded
-    let out = encoded
-    if (hasSpace) out = replaceNeedle(out, '%20', '+')
-    if (hasOpen) out = replaceCode(out, 40, '%28')
-    if (hasClose) out = replaceCode(out, 41, '%29')
-    return out
-  }
-  if (!space) return str
-  return replaceCode(str, 32, '+')
-}
-
-function encodeComponent(str: string): string {
-  if (typeof str !== 'string') str = String(str)
-  return encodeString(str)
+  const encoded = encodeURIComponent(str.toWellFormed())
+  return encoded.indexOf('%20') === -1 ? encoded : encoded.replaceAll('%20', '+')
 }
 
 function decodeComponent(str: string): string {
   const plus = str.indexOf('+')
   const pct = str.indexOf('%')
   if (plus === -1 && pct === -1) return str
-  if (pct === -1) return replaceCode(str, 43, ' ')
-  const input = (plus === -1 ? str : replaceCode(str, 43, ' ')).toWellFormed()
+  const input = (plus === -1 ? str : str.replaceAll('+', ' ')).toWellFormed()
   try {
     return decodeURIComponent(input)
   } catch {
@@ -121,7 +57,7 @@ export function encode(
       else if (val === false) out += 'false'
       else out += encodeString(String(val))
     } else {
-      out += encodeComponent(stringify(val))
+      out += encodeString(stringify(val))
     }
   }
   return out

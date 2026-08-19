@@ -581,13 +581,12 @@ describe('matcher', () => {
     expect(findRouteMatch(processed, '/en/home')?.at(-1)?.route.id).toBe('/{-$lang}/home')
   })
 
-  it('matches a static-only tree without entering the dynamic walker', () => {
+  it('matches a static-only tree', () => {
     const root = createRootRoute()
     const about = createRoute({ getParentRoute: () => root, path: '/about' })
     const docs = createRoute({ getParentRoute: () => about, path: '/docs' })
     root.addChildren([about.addChildren([docs])])
     const processed = processRouteTree(root as any)
-    expect(processed.hasDynamic).toBe(false)
     expect(findRouteMatch(processed, '/about/docs')?.map((m) => m.route.id)).toEqual([
       '__root__',
       '/about',

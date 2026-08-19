@@ -429,107 +429,6 @@ export function matchParentContext(matches: any[], index: number, match: any) {
   return slotRuntime?.p?.(matches, index, match) ?? matches[index - 1]?.context
 }
 
-let lastSimpleParamPath = ''
-let lastSimpleParamKeys: string[] | null = null
-
-function collectSimpleParamKeys(path: string): string[] | null {
-  if (path === lastSimpleParamPath) return lastSimpleParamKeys
-  const keys: string[] = []
-  for (let i = 0; i < path.length; i++) {
-    if (path.charCodeAt(i) !== 36) continue
-    let j = i + 1
-    if (j >= path.length || path.charCodeAt(j) === 47) return null
-    while (j < path.length && path.charCodeAt(j) !== 47) j++
-    const key = path.slice(i + 1, j)
-    if (key === '*' || key === '_splat') return null
-    keys.push(key)
-    i = j - 1
-  }
-  lastSimpleParamPath = path
-  lastSimpleParamKeys = keys
-  return keys
-}
-
-function isSimpleParamValue(value: unknown) {
-  if (typeof value === 'number') return Number.isFinite(value)
-  if (typeof value !== 'string' || value.length === 0) return false
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i)
-    if (
-      !(
-        (c >= 48 && c <= 57) ||
-        (c >= 65 && c <= 90) ||
-        (c >= 97 && c <= 122) ||
-        c === 45 ||
-        c === 46 ||
-        c === 95 ||
-        c === 126
-      )
-    ) {
-      return false
-    }
-  }
-  return true
-}
-
-type SimpleToApply = (params: Record<string, any>) => string
-
-const simpleToApplyByPath = new Map<string, SimpleToApply>()
-
-function compileSimpleTo(path: string, keys: string[]): SimpleToApply {
-  if (keys.length === 1) {
-    const key = keys[0]!
-    const idx = path.indexOf('$' + key)
-    const pre = path.slice(0, idx)
-    const post = path.slice(idx + key.length + 1)
-    return (params) => pre + params[key] + post
-  }
-  const parts: Array<string | { k: string }> = []
-  let last = 0
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i]!
-    const idx = path.indexOf('$' + key, last)
-    if (idx > last) parts.push(path.slice(last, idx))
-    parts.push({ k: key })
-    last = idx + key.length + 1
-  }
-  if (last < path.length) parts.push(path.slice(last))
-  return (params) => {
-    let out = ''
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]!
-      out += typeof part === 'string' ? part : params[part.k]
-    }
-    return out
-  }
-}
-
-function interpolateSimpleTo(path: string, params: Record<string, any>, keys: string[]): string {
-  let apply = simpleToApplyByPath.get(path)
-  if (apply === undefined) {
-    apply = compileSimpleTo(path, keys)
-    simpleToApplyByPath.set(path, apply)
-  }
-  return apply(params)
-}
-
-function routeAllowsSimpleNav(route: AnyRoute | undefined): boolean {
-  if (!route) return true
-  const cached = (route as { _simpleNav?: 0 | 1 })._simpleNav
-  if (cached === 1) return true
-  if (cached === 0) return false
-  let current: AnyRoute | undefined = route
-  while (current) {
-    if (current.options?.params?.stringify || current.options?.stringifyParams) {
-      ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 0
-      return false
-    }
-    current = current.parentRoute as AnyRoute | undefined
-  }
-  ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 1
-  return true
-}
-
 const runNow = (fn: () => void) => fn()
 
 const DEFAULT_STORE_CONFIG = {
@@ -947,9 +846,6 @@ export class RouterCore<
 
   private loadId = 0
   private unsubHistory?: () => void
-  // Depth, not a flag: blockers can leave several commits in flight, and an earlier
-  // one finishing must not expose a later commit as an external history update.
-  private _committing = 0
 
   /** @internal */
   _attachHistory() {
@@ -1138,7 +1034,6 @@ export class RouterCore<
       }
       if (!this.unsubHistory) {
         this.unsubHistory = this.history.subscribe(({ location, action }) => {
-          if (this._committing > 0) return
           this.latestLocation = this.parseLocation(location, this.latestLocation)
           void this.load({ action })
         })
@@ -1217,7 +1112,7 @@ export class RouterCore<
     if (dest.href) {
       // Search-only ("?q=1") and hash-only ("#x") hrefs carry no pathname.
       // Resolve them against the current location so the route is kept and
-      // only the specified part changes (mirrors navigateHrefFast).
+      // only the specified part changes.
       let href = dest.href as string
       const href0 = href.charCodeAt(0)
       if (current && (href0 === 63 || href0 === 35)) {
@@ -1402,7 +1297,7 @@ export class RouterCore<
     return this._commitPromise
   }
 
-  private executeNavigate({
+  private async executeNavigate({
     to,
     reloadDocument,
     href,
@@ -1416,72 +1311,7 @@ export class RouterCore<
         hrefIsUrl = URL.canParse(`${href}`)
       }
     }
-    if (
-      href &&
-      to === undefined &&
-      !reloadDocument &&
-      !hrefIsUrl &&
-      !publicHref &&
-      !this.rewrite &&
-      !this._hasSearchMiddleware &&
-      !this.options.routeMasks?.length &&
-      rest.search == null &&
-      rest.params == null &&
-      rest.hash == null &&
-      rest.mask == null &&
-      rest.from == null &&
-      !slotRuntime?.o.has(this) &&
-      !rest._isRedirect
-    ) {
-      const href0 = href.charCodeAt(0)
-      // Path-relative hrefs (`./x`, `../y`, `z`) must go through resolvePath.
-      if (href0 === 47 || href0 === 63 || href0 === 35) {
-        return this.navigateHrefFast(href, rest)
-      }
-    }
-    if (
-      typeof to === 'string' &&
-      to.charCodeAt(0) === 47 &&
-      !href &&
-      !reloadDocument &&
-      !publicHref &&
-      !this.rewrite &&
-      !this._hasSearchMiddleware &&
-      !this.options.routeMasks?.length &&
-      rest.search == null &&
-      rest.hash == null &&
-      rest.mask == null &&
-      rest.from == null &&
-      !rest._isRedirect &&
-      rest._fromLocation == null &&
-      rest.unsafeRelative == null &&
-      rest.state == null &&
-      rest.params !== true &&
-      rest.params !== false &&
-      typeof rest.params !== 'function' &&
-      !slotRuntime?.o.has(this)
-    ) {
-      const fast = this.tryNavigateToFast(to, rest)
-      if (fast) return fast
-    }
-    return this.executeNavigateSlow({
-      to,
-      reloadDocument: hrefIsUrl ? true : reloadDocument,
-      href,
-      publicHref,
-      hrefIsUrl,
-      ...rest,
-    })
-  }
-
-  private async executeNavigateSlow({
-    to,
-    reloadDocument,
-    href,
-    publicHref,
-    hrefIsUrl,
-    ...rest
-  }: any = {}): Promise<void> {
+    if (hrefIsUrl) reloadDocument = true
     if (reloadDocument) {
       if (to !== undefined || !href) {
         const location = this.buildLocation({ to, ...rest } as any)
@@ -1690,192 +1520,6 @@ export class RouterCore<
       if (shouldReload === true || typeof shouldReload === 'function') return false
     }
     return true
-  }
-
-  private tryNavigateToFast(to: string, rest: any): Promise<void> | undefined {
-    if (this.history.hasBlockers !== undefined && this.history.hasBlockers()) return
-    if ((this.history.location.state as any)?.__tempLocation) return
-    if (to.indexOf('?') !== -1 || to.indexOf('#') !== -1 || to.indexOf('{') !== -1) return
-    let resolved = to
-    if (to.indexOf('$') !== -1) {
-      const params = rest.params
-      if (params == null || typeof params !== 'object' || Array.isArray(params)) return
-      const keys = collectSimpleParamKeys(to)
-      if (!keys) return
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i]!
-        if (!Object.hasOwn(params, key)) return
-        if (!isSimpleParamValue(params[key])) return
-      }
-      const byPath = this.routesByPath
-      if (
-        !routeAllowsSimpleNav(
-          (byPath?.[to] ??
-            (to.charCodeAt(to.length - 1) === 47 ? byPath?.[trimPathRight(to)] : undefined)) as
-            | AnyRoute
-            | undefined,
-        )
-      ) {
-        return
-      }
-      resolved = this.pathParamsDecoder
-        ? interpolatePath({
-            path: to,
-            params,
-            decoder: this.pathParamsDecoder,
-          }).interpolatedPath
-        : interpolateSimpleTo(to, params, keys)
-    } else if (rest.params != null) {
-      return
-    }
-    const trailing = rest.trailingSlash ?? this.options.trailingSlash
-    if (trailing) {
-      resolved = resolvePath({
-        base: '/',
-        to: resolved || '/',
-        trailingSlash: trailing,
-        cache: this.resolvePathCache,
-      })
-    }
-    this.shouldViewTransition = rest.viewTransition
-    this._scroll.next = rest.resetScroll ?? true
-    return this.navigateHrefFast(resolved, rest)
-  }
-
-  private navigateHrefFast(href: string, rest: any): Promise<void> {
-    let pathname: string
-    let searchStr: string
-    let hash: string
-    if (isSimpleHref(href)) {
-      pathname = decodePath(href).path
-      searchStr = ''
-      hash = ''
-    } else {
-      const currentIndex = this.history.location.state?.__TSR_index
-      const parsed = parseHref(href, {
-        __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
-      })
-      searchStr = parsed.search
-      hash = decodePath(stripLeadingHash(parsed.hash)).path
-      pathname = decodePath(parsed.pathname).path
-      const href0 = href.charCodeAt(0)
-      if (!parsed.pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
-        pathname = this.latestLocation.pathname
-        if (href0 === 35) searchStr = this.latestLocation.searchStr
-        else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
-      }
-    }
-    const trailing = rest.trailingSlash ?? this.options.trailingSlash
-    if (trailing) {
-      pathname = resolvePath({
-        base: '/',
-        to: pathname || '/',
-        trailingSlash: trailing,
-        cache: this.resolvePathCache,
-      })
-    }
-    const hrefFull = encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
-    const state = resolveBuildState(rest, this.latestLocation)
-    const location: ParsedLocation = {
-      href: hrefFull,
-      publicHref: hrefFull,
-      pathname,
-      search: searchStr ? (this.options.parseSearch ?? defaultParseSearch)(searchStr) : EMPTY_OBJ,
-      searchStr,
-      hash,
-      state,
-      external: false,
-    }
-    if (rest._redirects) {
-      ;(location as ParsedLocation & { _redirects?: number })._redirects = rest._redirects
-    }
-
-    const prev = this.latestLocation
-    const same =
-      prev &&
-      prev.pathname === pathname &&
-      prev.searchStr === searchStr &&
-      prev.hash === hash &&
-      deepEqual(_getUserHistoryState(location.state), _getUserHistoryState(prev.state))
-
-    if (same) {
-      // Keep history bookkeeping (__TSR_index / keys); do not publish EMPTY_OBJ.
-      location.state = this.history.location.state
-      this.latestLocation = location
-      this._pendingLocation = location
-      const id = ++this.loadId
-      const loaded = this.runLoad(location, id)
-      if (loaded instanceof Promise) {
-        return loaded.then(
-          () => this.finishHrefNav(location),
-          (err) => {
-            this.finishHrefNav(location)
-            throw err
-          },
-        )
-      }
-      this.finishHrefNav(location)
-      return RESOLVED
-    }
-
-    const history = this.history
-    const historyOpts = {
-      ignoreBlocker: rest.ignoreBlocker,
-      simple: searchStr === '' && hash === '' && pathname === hrefFull,
-    }
-    this._committing++
-    let pushed: void | Promise<void>
-    try {
-      pushed = rest.replace
-        ? history.replace(hrefFull, state, historyOpts)
-        : history.push(hrefFull, state, historyOpts)
-    } catch (err) {
-      this._committing--
-      throw err
-    }
-
-    const afterCommit = (): Promise<void> => {
-      history.flush()
-      this._committing--
-      // Blockers may deny the commit; never publish a destination we did not land on.
-      const landed =
-        decodePath(history.location.pathname).path === pathname &&
-        (history.location.search || '') === (searchStr || '') &&
-        decodePath(stripLeadingHash(history.location.hash)).path === hash
-      if (!landed) return RESOLVED
-
-      location.state = history.location.state
-      this.latestLocation = location
-      this._pendingLocation = location
-
-      const id = ++this.loadId
-      const loaded = this.runLoad(location, id)
-      if (loaded instanceof Promise) {
-        return loaded.then(
-          () => this.finishHrefNav(location),
-          (err) => {
-            this.finishHrefNav(location)
-            throw err
-          },
-        )
-      }
-      this.finishHrefNav(location)
-      return RESOLVED
-    }
-
-    if (pushed != null && typeof (pushed as Promise<void>).then === 'function') {
-      return (pushed as Promise<void>).then(afterCommit, (err) => {
-        this._committing--
-        throw err
-      })
-    }
-    return afterCommit()
-  }
-
-  private finishHrefNav(location: ParsedLocation) {
-    if (this._pendingLocation === location) this._pendingLocation = undefined
-    this._commitPromise?.resolve()
-    this._commitPromise = undefined
   }
 
   private runLoad(location: ParsedLocation, id: number): void | Promise<void> {
@@ -2507,6 +2151,7 @@ function resolveBuildState(dest: any, current: ParsedLocation | undefined) {
 }
 
 function warnBuildLocationMismatch(router: any, resolved: string, destRouteHint: AnyRoute) {
+  if (process.env.NODE_ENV === 'production') return
   try {
     const foundRoute = router.getMatchedRoutes(resolved)[2]
     if (foundRoute && foundRoute.id !== destRouteHint.id) {
@@ -2603,18 +2248,6 @@ function isPlainAsciiPath(path: string) {
 
 function stripLeadingHash(hash: string) {
   return !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
-}
-
-function isSimpleHref(href: string) {
-  const len = href.length
-  if (len === 0 || href.charCodeAt(0) !== 47 || (len > 1 && href.charCodeAt(1) === 47)) {
-    return false
-  }
-  for (let i = 1; i < len; i++) {
-    const c = href.charCodeAt(i)
-    if (c <= 0x1f || c === 0x7f || c === 63 || c === 35) return false
-  }
-  return true
 }
 
 function parseHistoryLocation(
