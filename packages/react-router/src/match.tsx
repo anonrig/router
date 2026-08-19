@@ -17,7 +17,6 @@ import {
 import { CatchNotFound } from './not-found'
 import { renderRouteNotFound } from './render-route-not-found'
 import { SafeFragment } from './safe-fragment'
-import { ScrollRestoration } from './scroll-restoration'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 
@@ -130,11 +129,6 @@ function MatchView({
           </ResolvedCatchBoundary>
         </ResolvedSuspenseBoundary>
       </matchContext.Provider>
-      {(isServer ?? router.isServer) &&
-      route.parentRoute?.id === rootRouteId &&
-      router.options.scrollRestoration ? (
-        <ScrollRestoration />
-      ) : null}
     </ShellComponent>
   )
 }
