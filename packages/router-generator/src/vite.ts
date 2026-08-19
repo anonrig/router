@@ -30,6 +30,7 @@ function isRootRouteFile(fileName: string) {
  * and `declare module '@tanstack/react-router'`.
  * When `autoCodeSplitting` is on, `ssr: false` route UI properties become
  * `lazyRouteComponent` imports so those components stay out of the SSR graph.
+ * The virtual `?tsr-split=` module is stubbed during `ssr` transforms.
  * SSR pages keep eager components so `Route.useLoaderData()` and body markup
  * still render on the server.
  */
@@ -126,12 +127,17 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
         routesDirectory = resolve(config.root, options.routesDirectory ?? 'src/routes')
       }
     },
-    async transform(code, id) {
+    async transform(code, id, options) {
       if (!isSplitableRoute(id)) return null
       const fileName = fileNameFromModuleId(id)
       const splitTarget = splitTargetFromModuleId(id)
       const { compileReferenceRoute, compileVirtualRoute } = await import('./code-split')
       if (splitTarget) {
+        // Keep chat / other `ssr: false` UI out of the SSR Rollup graph so
+        // Vite does not share those chunks with tweet pages.
+        if (options?.ssr) {
+          return `export const ${splitTarget} = () => null\n`
+        }
         return compileVirtualRoute(code, fileName, splitTarget)
       }
       if (isRootRouteFile(fileName)) return null
