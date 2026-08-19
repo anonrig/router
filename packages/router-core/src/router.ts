@@ -1984,6 +1984,25 @@ export class RouterCore<
     }
     const results: Array<WarmResult | undefined> = []
     const pending: Promise<void>[] = []
+    const matchPromises: Array<Promise<RouteMatch>> = []
+    let canceled = false
+    const settleSuccess = (result: WarmResult, updatedAt: number) => {
+      if (
+        canceled ||
+        id !== this.loadId ||
+        !result.ok ||
+        isRedirect(result.value) ||
+        isNotFound(result.value)
+      ) {
+        return
+      }
+      result.match.loaderData = result.value
+      result.match.status = 'success'
+      result.match.isFetching = false
+      result.match.updatedAt = updatedAt
+      result.match.context = result.context
+      this._cache[result.match.id] = result.match
+    }
     for (let i = start; i < matches.length; i++) {
       if (id !== this.loadId) return
       const match = matches[i]!
@@ -2008,13 +2027,23 @@ export class RouterCore<
             } as any) || {}
           context = { ...context, ...routeContext }
         } catch (cause) {
+          canceled = true
+          for (let j = 0; j < matches.length; j++) {
+            const candidate = matches[j]!
+            if (candidate.isFetching) {
+              candidate.abortController.abort()
+              candidate.isFetching = false
+            }
+          }
           return this.settleWarmFailure(location, id, matches, match, route, cause)
         }
       } else {
         context = { ...context }
       }
       match.context = context
+      const matchContext = context
       if (!warmMatchNeedsLoader(match, route, this, this._committed, now)) {
+        matchPromises[i] = Promise.resolve(match)
         continue
       }
       const routeLoader = opts.loader
@@ -2022,6 +2051,7 @@ export class RouterCore<
       if (!loader) {
         match.status = 'success'
         match.isFetching = false
+        matchPromises[i] = Promise.resolve(match)
         continue
       }
 
@@ -2031,30 +2061,32 @@ export class RouterCore<
           match,
           location,
           this.navigate,
-          context,
+          matchContext,
           route,
           matches,
-          i > 0 ? matches[i - 1] : undefined,
+          i > 0 ? matchPromises[i - 1] : undefined,
           this.options.additionalContext,
         ),
       )
       if (data.ok && data.value instanceof Promise) {
         const resultIndex = results.length
         results.push(undefined)
-        pending.push(
-          Promise.resolve(data.value).then(
-            (value) => {
-              results[resultIndex] = { match, route, context, ok: true, value }
-              return undefined
-            },
-            (value) => {
-              results[resultIndex] = { match, route, context, ok: false, value }
-              return undefined
-            },
-          ),
+        const resultPromise = Promise.resolve(data.value).then(
+          (value): WarmResult => ({ match, route, context: matchContext, ok: true, value }),
+          (value): WarmResult => ({ match, route, context: matchContext, ok: false, value }),
         )
+        const matchPromise = resultPromise.then((result) => {
+          results[resultIndex] = result
+          settleSuccess(result, Date.now())
+          return match
+        })
+        matchPromises[i] = matchPromise
+        pending.push(matchPromise.then(() => undefined))
       } else {
-        results.push({ match, route, context, ok: data.ok, value: data.value })
+        const result = { match, route, context: matchContext, ok: data.ok, value: data.value }
+        results.push(result)
+        settleSuccess(result, now)
+        matchPromises[i] = Promise.resolve(match)
       }
     }
 
@@ -2075,12 +2107,6 @@ export class RouterCore<
         if (isRedirect(result.value) || isNotFound(result.value)) {
           return importLoadClient(this)
         }
-        result.match.loaderData = result.value
-        result.match.status = 'success'
-        result.match.isFetching = false
-        result.match.updatedAt = pending.length ? Date.now() : now
-        result.match.context = result.context
-        this._cache[result.match.id] = result.match
       }
       this.leaveWarmMatches(matches)
       this.completeWarmLoad(location, matches)
@@ -3003,7 +3029,7 @@ function fillWarmLoaderContext(
   context: Record<string, any>,
   route: AnyRoute,
   matches: RouteMatch[],
-  parentMatch: RouteMatch | undefined,
+  parentMatchPromise: Promise<RouteMatch> | undefined,
   additionalContext: Record<string, any> | undefined,
 ) {
   return {
@@ -3019,7 +3045,7 @@ function fillWarmLoaderContext(
     route,
     matches,
     deps: match.loaderDeps,
-    parentMatchPromise: parentMatch ? Promise.resolve(parentMatch) : undefined,
+    parentMatchPromise,
     ...additionalContext,
   }
 }

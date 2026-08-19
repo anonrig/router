@@ -112,6 +112,110 @@ describe('warm-path TanStack behavior parity', () => {
     expect(refs[0]!.ctx.fromRoot).toBe(true)
   })
 
+  test('async loaders retain the context for their own route when children settle first', async () => {
+    let resolveRoot!: () => void
+    let resolvePosts!: () => void
+    const router = createApp({
+      root: {
+        context: () => ({ scope: 'root' }),
+        loader: () =>
+          new Promise<void>((resolve) => {
+            resolveRoot = resolve
+          }),
+      },
+      posts: {
+        context: ({ context }: { context: { scope: string } }) => ({
+          scope: `${context.scope}:posts`,
+        }),
+        loader: () =>
+          new Promise<void>((resolve) => {
+            resolvePosts = resolve
+          }),
+      },
+    })
+
+    const navigation = router.navigate({ href: '/posts' } as any)
+    resolvePosts()
+    await Promise.resolve()
+    resolveRoot()
+    await navigation
+
+    const [root, posts] = router.state.matches
+    expect(root?.context.scope).toBe('root')
+    expect(posts?.context.scope).toBe('root:posts')
+    expect(root?.context).not.toBe(posts?.context)
+  })
+
+  test('parentMatchPromise resolves after parent loader data is written', async () => {
+    const started: string[] = []
+    let resolveRoot!: (value: string) => void
+    let parentData: unknown
+    const router = createApp({
+      root: {
+        loader: () => {
+          started.push('root')
+          return new Promise<string>((resolve) => {
+            resolveRoot = resolve
+          })
+        },
+      },
+      posts: {
+        loader: async (ctx: { parentMatchPromise?: Promise<any> }) => {
+          started.push('posts')
+          const parent = await ctx.parentMatchPromise
+          parentData = parent?.loaderData
+          return 'posts'
+        },
+      },
+    })
+
+    const navigation = router.navigate({ href: '/posts' } as any)
+    expect(started).toEqual(['root', 'posts'])
+
+    resolveRoot('root-data')
+    await navigation
+
+    expect(parentData).toBe('root-data')
+    expect(router.state.matches.at(-1)?.loaderData).toBe('posts')
+  })
+
+  test('a child context throw cancels earlier in-flight warm loaders', async () => {
+    const boom = new Error('context-boom')
+    let resolveRoot!: (value: string) => void
+    let rootSignal!: AbortSignal
+    const router = createApp({
+      root: {
+        loader: ({ abortController }: { abortController: AbortController }) => {
+          rootSignal = abortController.signal
+          return new Promise<string>((resolve) => {
+            resolveRoot = resolve
+          })
+        },
+      },
+      posts: {
+        context: () => {
+          throw boom
+        },
+        loader: () => 'posts',
+      },
+    })
+
+    await expect(router.navigate({ href: '/posts' } as any)).resolves.toBeUndefined()
+
+    const [root, posts] = router.state.matches
+    expect(rootSignal.aborted).toBe(true)
+    expect(root?.isFetching).toBe(false)
+    expect(posts?.isFetching).toBe(false)
+    expect(posts?.status).toBe('error')
+    expect(posts?.error).toBe(boom)
+
+    resolveRoot('late-root-data')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(root?.loaderData).toBeUndefined()
+    expect(root?.isFetching).toBe(false)
+  })
+
   test('a synchronous loader throw runs once, calls onError, and commits an error match', async () => {
     let calls = 0
     const onError = { n: 0, err: null as unknown }
