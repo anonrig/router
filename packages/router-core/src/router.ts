@@ -1019,7 +1019,11 @@ export class RouterCore<
 
   update(newOptions: RouterOptions) {
     const prevTree = this.routeTree
+    const prevContext = this.options?.context
     this.options = { ...this.options, ...newOptions } as any
+    if (prevTree && this.options.context !== prevContext) {
+      this.clearCache()
+    }
     this.isServer = this.options.isServer ?? typeof document === 'undefined'
     if (
       this.options.protocolAllowlist &&
