@@ -72,6 +72,7 @@ export type SegmentNode = {
   optionalChildren: SegmentNode[] | null
   optionalName: string
   wildcardChild: SegmentNode | null
+  wildcardChildren: SegmentNode[] | null
   pathless: AnyRouteLike[] | null
   route: AnyRouteLike | null
   indexRoute: AnyRouteLike | null
@@ -93,10 +94,37 @@ function createNode(): SegmentNode {
     optionalChildren: null,
     optionalName: '',
     wildcardChild: null,
+    wildcardChildren: null,
     pathless: null,
     route: null,
     indexRoute: null,
   }
+}
+
+function getOrCreateWildcard(
+  node: SegmentNode,
+  prefix: string,
+  suffix: string,
+  caseSensitive: boolean | undefined,
+) {
+  const children = node.wildcardChildren ?? (node.wildcardChildren = [])
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i]!
+    if (
+      child.prefix === prefix &&
+      child.suffix === suffix &&
+      child.affixCaseSensitive === caseSensitive
+    ) {
+      return child
+    }
+  }
+  const child = createNode()
+  child.prefix = prefix
+  child.suffix = suffix
+  child.affixCaseSensitive = caseSensitive
+  children.push(child)
+  node.wildcardChild ??= child
+  return child
 }
 
 // Set while a tree is being built so the finished tree knows whether every
@@ -243,7 +271,13 @@ function finalizeParamChildren(node: SegmentNode): void {
   } else if (node.optionalChild) {
     finalizeParamChildren(node.optionalChild)
   }
-  if (node.wildcardChild) finalizeParamChildren(node.wildcardChild)
+  if (node.wildcardChildren) {
+    for (let i = 0; i < node.wildcardChildren.length; i++) {
+      finalizeParamChildren(node.wildcardChildren[i]!)
+    }
+  } else if (node.wildcardChild) {
+    finalizeParamChildren(node.wildcardChild)
+  }
 }
 
 function matchNeedsParse(matches: RouteMatchResult[]): boolean {
@@ -536,10 +570,12 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
         affixCaseSensitive,
       )
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
-      if (!current.wildcardChild) current.wildcardChild = createNode()
-      current.wildcardChild.prefix = trimmed.substring(start, segment[1])
-      current.wildcardChild.suffix = trimmed.substring(segment[4], end)
-      current = current.wildcardChild
+      current = getOrCreateWildcard(
+        current,
+        trimmed.substring(start, segment[1]),
+        trimmed.substring(segment[4], end),
+        affixCaseSensitive,
+      )
     }
   }
   return current
@@ -1176,9 +1212,15 @@ function findRouteMatchDynamic(
     const raw = segments[index]!
     const value = decoded[index]!
 
-    if (node.wildcardChild) {
-      const prefix = node.wildcardChild.prefix || ''
-      const suffix = node.wildcardChild.suffix || ''
+    const wildcards = node.wildcardChildren?.length
+      ? node.wildcardChildren
+      : node.wildcardChild
+        ? [node.wildcardChild]
+        : []
+    for (let w = 0; w < wildcards.length; w++) {
+      const wildcard = wildcards[w]!
+      const prefix = wildcard.prefix || ''
+      const suffix = wildcard.suffix || ''
       const first = decoded[index]!
       const lastSeg = decoded[decoded.length - 1]!
       const prefixOk =
@@ -1205,10 +1247,10 @@ function findRouteMatchDynamic(
         params._splat = splat
         params['*'] = splat
         const chain = frame.chain.slice()
-        if (node.wildcardChild.route) chain.push(node.wildcardChild.route)
+        if (wildcard.route) chain.push(wildcard.route)
         stack.push(
           withPathless({
-            node: node.wildcardChild,
+            node: wildcard,
             index: segments.length,
             params,
             chain,
