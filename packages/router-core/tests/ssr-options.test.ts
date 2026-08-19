@@ -73,6 +73,23 @@ async function loadTree(options: {
 }
 
 describe('SSR loader registration', () => {
+  it('provides parentMatchPromise in the fast server lane', async () => {
+    let observed: Promise<any> | undefined
+    const { response, rootRoute } = await loadTree({
+      path: '/child',
+      child: {
+        loader: async ({ parentMatchPromise }: any) => {
+          observed = parentMatchPromise
+          return (await parentMatchPromise).routeId
+        },
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(observed).toBeInstanceOf(Promise)
+    await expect(observed).resolves.toMatchObject({ routeId: rootRoute.id })
+  })
+
   async function withStaleClientHook<T>(run: () => Promise<T>): Promise<T> {
     setLoadServerRoute(() => {
       throw new Error('client loader ran')
