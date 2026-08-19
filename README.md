@@ -176,7 +176,7 @@ Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip
 
 | Package              | speedy-router |        gzip | TanStack |    gzip |
 | -------------------- | ------------: | ----------: | -------: | ------: |
-| `speedy-router`      |   **96.6 kB** | **28.0 kB** | 104.5 kB | 29.5 kB |
+| `speedy-router`      |   **96.6 kB** | **27.9 kB** | 104.5 kB | 29.5 kB |
 | `speedy-router-core` |   **75.0 kB** | **21.6 kB** |  75.1 kB | 21.6 kB |
 
 speedy-router is now smaller on both initial client graphs (0.95× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. The initial graph no longer includes TanStack's segment-tree matcher, hydrate, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
