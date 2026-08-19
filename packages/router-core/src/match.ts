@@ -387,7 +387,14 @@ function isPathless(route: AnyRouteLike): boolean {
   const last = lastIdSegment(id)
   if (!last || last === '__root__') return false
   const prefix = last.charCodeAt(0)
-  if (prefix !== 95 && prefix !== 64) return false
+  // `_` layouts, `@` slots, and parenthesized `(group)` folders.
+  if (
+    prefix !== 95 &&
+    prefix !== 64 &&
+    !(prefix === 40 && last.charCodeAt(last.length - 1) === 41)
+  ) {
+    return false
+  }
   const publicPath = route.fullPath || route.path || optionsPath || ''
   return !publicPathHasSegment(publicPath, last)
 }

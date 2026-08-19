@@ -50,6 +50,33 @@ describe('matcher', () => {
     expect(matches?.at(-1)?.params).toEqual({ username: 'anonrig' })
   })
 
+  it('matches parenthesized route groups without consuming URL segments', () => {
+    const root = createRootRoute()
+    function fileRoute(id: string, path: string | undefined, parent: () => any) {
+      const route = createRoute({ getParentRoute: parent })
+      route.update(
+        (path === undefined
+          ? { id, getParentRoute: parent }
+          : { id, path, getParentRoute: parent }) as any,
+      )
+      return route
+    }
+    const auth = fileRoute('/(auth)', undefined, () => root)
+    const login = fileRoute('/login', '/login', () => auth)
+    const settings = fileRoute('/(app)/(dashboard)/settings', '/settings', () => root)
+    root.addChildren([auth.addChildren([login]), settings])
+    const processed = processRouteTree(root as any)
+    expect(findRouteMatch(processed, '/login')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/(auth)',
+      '/(auth)/login',
+    ])
+    expect(findRouteMatch(processed, '/settings')?.map((match) => match.route.id)).toEqual([
+      '__root__',
+      '/(app)/(dashboard)/settings',
+    ])
+  })
+
   it('returns null for unknown paths', () => {
     const processed = tree()
     expect(findRouteMatch(processed, '/missing')).toBeNull()
