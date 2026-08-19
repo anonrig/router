@@ -7,6 +7,7 @@ import { createRouter, SearchParamError, setLoadServerRoute } from '../src/route
 import { createRequestHandler } from '../src/ssr/create-request-handler'
 import { attachRouterServerSsrUtils } from '../src/ssr/ssr-server'
 import { registerLoadServerRoute } from '../src/ssr/register-load-server'
+import { loadServerRoute } from '../src/load-server'
 import type { AnyRouter, SSROption } from '../src/router'
 
 type SsrValue = SSROption | undefined
@@ -176,6 +177,37 @@ describe('fast server loader failures', () => {
     expect(response.status).toBe(200)
     expect(matchOf(router, rootRoute.id)?.status).toBe('success')
     expect(matchOf(router, rootRoute.id)?.loaderData).toBe(value)
+  })
+})
+
+describe('fast server request cancellation', () => {
+  it('aborts route loaders and rejects without waiting for them', async () => {
+    let started!: () => void
+    const didStart = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    let routeSignal!: AbortSignal
+    const root = createRootRoute({
+      loader: ({ abortController }) => {
+        routeSignal = abortController.signal
+        started()
+        return new Promise<void>(() => {})
+      },
+    })
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+    const request = new AbortController()
+    const reason = new Error('request canceled')
+
+    const loading = Promise.resolve(loadServerRoute(router, { _signal: request.signal }))
+    await didStart
+    request.abort(reason)
+
+    expect(routeSignal.aborted).toBe(true)
+    await expect(loading).rejects.toBe(reason)
   })
 })
 
