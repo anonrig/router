@@ -200,6 +200,14 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('preserves import attributes', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'\nimport data from './data.json' with { type: 'json' }\nfunction Page() { return <main>{data.title} plus enough component content to split</main> }\nexport const Route = createFileRoute('/data')({ component: Page })\n`
+
+    const result = compileVirtualRoute(source, '/app/src/routes/data.tsx', 'component')
+
+    expect(result).toContain("import data from './data.json' with { type: 'json' }")
+  })
+
   it('emits only the component graph', () => {
     const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()
