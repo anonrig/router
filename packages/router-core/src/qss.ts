@@ -83,7 +83,8 @@ function decodeComponent(str: string): string {
   try {
     return decodeURIComponent(input)
   } catch {
-    return input
+    // One bad escape must not keep the rest of the value encoded.
+    return new URLSearchParams(`q=${input.replaceAll('+', '%2B')}`).get('q') ?? input
   }
 }
 
