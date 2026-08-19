@@ -1289,14 +1289,37 @@ export class RouterCore<
 
       this.shouldViewTransition = viewTransition
       const historyAction = next.replace ? 'REPLACE' : 'PUSH'
-      this.history[historyAction === 'REPLACE' ? 'replace' : 'push'](
-        nextHistory.publicHref || nextHistory.href,
+      const intendedHref = nextHistory.publicHref || nextHistory.href
+      const commitResult = this.history[historyAction === 'REPLACE' ? 'replace' : 'push'](
+        intendedHref,
         nextHistory.state,
         { ignoreBlocker },
       )
-      if (!this.history.subscribers?.size) {
-        this.load({ action: { type: historyAction } })
+
+      const afterHistoryCommit = () => {
+        // A blocker can deny the commit without notifying subscribers. Settle the
+        // commit promise so await navigate() cannot hang forever.
+        const landed =
+          trimPathRight(this.history.location.href) === trimPathRight(intendedHref) ||
+          trimPathRight(this.history.location.pathname + this.history.location.search) ===
+            trimPathRight(intendedHref)
+        if (!landed) {
+          commitPromise.resolve()
+          if (this._commitPromise === commitPromise) this._commitPromise = undefined
+          return
+        }
+        if (!this.history.subscribers?.size) {
+          this.load({ action: { type: historyAction } })
+        }
       }
+
+      if (commitResult != null && typeof (commitResult as Promise<void>).then === 'function') {
+        return (commitResult as Promise<void>).then(() => {
+          afterHistoryCommit()
+          return this._commitPromise
+        })
+      }
+      afterHistoryCommit()
     }
 
     this._scroll.next = resetScroll ?? true
