@@ -56,16 +56,9 @@ export function stringifySearchWith(
     return val
   }
 
-  let lastSearch: Record<string, any> | undefined
-  let lastSearchStr = ''
-
   return (search: Record<string, any>) => {
-    if (search === lastSearch) return lastSearchStr
     const searchStr = encode(search, stringifyValue)
-    const out = searchStr ? `?${searchStr}` : ''
-    lastSearch = search
-    lastSearchStr = out
-    return out
+    return searchStr ? `?${searchStr}` : ''
   }
 }
 
