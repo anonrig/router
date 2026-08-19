@@ -2716,20 +2716,18 @@ function resolveBuildSearch(
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {
   const currentHash = stripLeadingHash(current?.hash ?? '')
-  let hash =
-    dest.hash === true
-      ? currentHash
-      : dest.hash
-        ? typeof dest.hash === 'function'
-          ? dest.hash(currentHash)
-          : typeof dest.hash === 'string'
-            ? stripLeadingHash(dest.hash)
-            : String(dest.hash)
-        : dest.to
-          ? ''
-          : currentHash
-  if (typeof hash !== 'string') hash = String(hash ?? '')
-  return hash
+  if (dest.hash === true) return currentHash
+  if (typeof dest.hash === 'function') {
+    const result = dest.hash(currentHash)
+    return typeof result === 'string' ? stripLeadingHash(result) : String(result ?? '')
+  }
+  if (typeof dest.hash === 'string') {
+    return stripLeadingHash(dest.hash)
+  }
+  if (dest.hash !== undefined) {
+    return String(dest.hash)
+  }
+  return dest.to ? '' : currentHash
 }
 
 function resolveBuildState(dest: any, current: ParsedLocation | undefined) {

@@ -1003,6 +1003,56 @@ describe('buildLocation - hash', () => {
     expect(location.hash).toBe('')
     expect(location.href).not.toContain('#')
   })
+
+  test('empty string hash without to parameter should clear the hash', async () => {
+    const rootRoute = new BaseRootRoute({})
+    const postsRoute = new BaseRoute({
+      getParentRoute: () => rootRoute,
+      path: '/posts',
+    })
+
+    const routeTree = rootRoute.addChildren([postsRoute])
+
+    const router = createTestRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/posts#existing'] }),
+    })
+
+    await router.load()
+
+    const location = router.buildLocation({
+      hash: '',
+    })
+
+    expect(location.hash).toBe('')
+    expect(location.href).toBe('/posts')
+  })
+
+  test('empty string hash with search update and omitted to should clear the hash', async () => {
+    const rootRoute = new BaseRootRoute({})
+    const postsRoute = new BaseRoute({
+      getParentRoute: () => rootRoute,
+      path: '/posts',
+    })
+
+    const routeTree = rootRoute.addChildren([postsRoute])
+
+    const router = createTestRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/posts?page=1#existing'] }),
+    })
+
+    await router.load()
+
+    const location = router.buildLocation({
+      search: { page: 2 },
+      hash: '',
+    })
+
+    expect(location.hash).toBe('')
+    expect(location.search).toEqual({ page: 2 })
+    expect(location.href).toBe('/posts?page=2')
+  })
 })
 
 describe('buildLocation - state', () => {
