@@ -79,6 +79,30 @@ describe('matcher', () => {
     expect(findRouteMatch(tree, '/preXSuf')).toBeNull()
   })
 
+  it('keeps wildcard affixes and case sensitivity when descendants reuse the segment', () => {
+    const probe = (descendants: (wildcard: any) => Array<any>) => {
+      const root = createRootRoute()
+      const wildcard = createRoute({
+        getParentRoute: () => root,
+        path: '/Pre{$}Suf',
+        caseSensitive: true,
+      })
+      root.addChildren([wildcard.addChildren(descendants(wildcard))])
+      const tree = processRouteTree(root as any)
+      return {
+        splat: findRouteMatch(tree, '/PreXSuf')?.at(-1)?.params._splat,
+        wrongCase: findRouteMatch(tree, '/preXSuf'),
+      }
+    }
+
+    const expected = { splat: 'X', wrongCase: null }
+    expect({
+      child: probe((wildcard) => [createRoute({ getParentRoute: () => wildcard, path: 'child' })]),
+      index: probe((wildcard) => [createRoute({ getParentRoute: () => wildcard, path: '/' })]),
+      pathless: probe((wildcard) => [fileRoute('_layout', undefined, () => wildcard)]),
+    }).toEqual({ child: expected, index: expected, pathless: expected })
+  })
+
   it('rejects malformed percent encoding in dynamic segments', () => {
     const root = createRootRoute()
     const dynamic = createRoute({
