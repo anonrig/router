@@ -244,7 +244,7 @@ export function useLinkProps(
   forwardedRef?: { current: any } | ((instance: any) => void) | null,
 ): ComponentPropsWithRef<'a'> {
   const router = useRouter()
-  const innerRef = useForwardedRef(forwardedRef as any)
+  const innerRef = useForwardedRef<Element>(forwardedRef)
 
   const {
     activeProps,

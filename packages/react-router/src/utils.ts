@@ -12,7 +12,7 @@ export const useLayoutEffect = typeof document !== 'undefined' ? useLayoutEffect
 
 export const reactUse = reactUseImpl
 
-export function useForwardedRef<T>(ref?: Ref<T> | null) {
+export function useForwardedRef<T = Element>(ref?: Ref<T> | null) {
   const innerRef = useRef<T | null>(null)
   useImperativeHandle(ref, () => innerRef.current as T)
   return innerRef
