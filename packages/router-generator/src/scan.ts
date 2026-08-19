@@ -208,7 +208,18 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
     })
   }
 
-  const keys = new Set(pending.filter((route) => !route.isRoot).map((route) => route.key))
+  const keys = new Set<string>()
+  for (const route of pending) {
+    if (route.isRoot) continue
+    if (keys.has(route.key)) {
+      const prior = pending.find((candidate) => !candidate.isRoot && candidate.key === route.key)!
+      throw new Error(
+        `Duplicate route key "${route.key}" from "${prior.fileId}" and "${route.fileId}"`,
+      )
+    }
+    keys.add(route.key)
+  }
+
   const routes: Array<ScannedRoute> = []
 
   for (const route of pending) {
