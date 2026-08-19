@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { routePathToVariable } from '../src/emit'
 import { generateRouteTree } from '../src/generate'
-import { scanRoutes } from '../src/scan'
+import { matchesRouteFileIgnorePattern, scanRoutes } from '../src/scan'
 
 function write(dir: string, file: string, body = 'export const Route = {}\n') {
   const full = join(dir, file)
@@ -14,6 +14,14 @@ function write(dir: string, file: string, body = 'export const Route = {}\n') {
 }
 
 describe('scanRoutes', () => {
+  it('applies global ignore patterns consistently', () => {
+    const pattern = /\.test\./g
+
+    expect(matchesRouteFileIgnorePattern('first.test.tsx', pattern)).toBe(true)
+    expect(matchesRouteFileIgnorePattern('second.test.tsx', pattern)).toBe(true)
+    expect(matchesRouteFileIgnorePattern('third.test.tsx', pattern)).toBe(true)
+  })
+
   it('maps TanStack file names to compact parent/id/path records', () => {
     const dir = mkdtempSync(join(tmpdir(), 'speedy-router-routes-'))
     write(dir, '__root.tsx')

@@ -57,7 +57,14 @@ export function matchesRouteFileIgnorePattern(
   pattern?: RouteFileIgnorePattern,
 ) {
   const ignore = compileRouteFileIgnorePattern(pattern)
-  return ignore ? ignore.test(relativePath) : false
+  return ignore ? testPattern(ignore, relativePath) : false
+}
+
+function testPattern(pattern: RegExp, value: string) {
+  pattern.lastIndex = 0
+  const matches = pattern.test(value)
+  pattern.lastIndex = 0
+  return matches
 }
 
 function listRouteFiles(rootDir: string, ignore?: RegExp) {
@@ -82,7 +89,7 @@ function listRouteFiles(rootDir: string, ignore?: RegExp) {
       if (name === 'node_modules' || name.charCodeAt(0) === 46 /* . */) continue
       const fullPath = join(dir, name)
       const relativePath = toPosix(relative(rootDir, fullPath))
-      if (ignore && (ignore.test(name) || ignore.test(relativePath))) continue
+      if (ignore && (testPattern(ignore, name) || testPattern(ignore, relativePath))) continue
       if (entry.isDirectory()) {
         stack.push(fullPath)
         continue
