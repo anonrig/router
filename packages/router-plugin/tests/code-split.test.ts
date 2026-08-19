@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { compileReferenceRoute, compileVirtualRoute } from '../src/code-split'
+import { compileReferenceRoute, compileVirtualRoute, routeHasDisabledSsr } from '../src/code-split'
 
 const inboxRoute = `import { Outlet, createFileRoute, useParams } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
@@ -71,6 +71,7 @@ describe('compileReferenceRoute', () => {
     expect(result).not.toContain("from 'react'")
     expect(result).not.toContain('@app/spinner')
     expect(result).not.toContain('@app/params')
+    expect(routeHasDisabledSsr(inboxRoute, '/app/src/routes/inbox.tsx')).toBe(true)
   })
 
   it('keeps exported helpers that are not the split UI', () => {
@@ -132,7 +133,7 @@ export const Route = createFileRoute('/login')({
     expect(compileReferenceRoute(source, '/app/src/routes/login.tsx')).toBeNull()
   })
 
-  it('leaves SSR routes eager so Route.useLoaderData still renders on the server', () => {
+  it('splits SSR routes and keeps loaders in the reference module', () => {
     const source = `import { createFileRoute } from '@tanstack/react-router'
 import { StoriesFeed } from '@/components/stories-feed'
 
@@ -146,7 +147,15 @@ function StoriesHomePage() {
   return <StoriesFeed stories={stories} />
 }
 `
-    expect(compileReferenceRoute(source, '/app/src/routes/stories/home.tsx')).toBeNull()
+    const result = compileReferenceRoute(source, '/app/src/routes/stories/home.tsx')
+    expect(result).toBeTruthy()
+    expect(result).toContain('loader: async () => ({ stories: [] })')
+    expect(result).toContain(
+      "lazyRouteComponent(() => import('./home.tsx?tsr-split=component'), 'component')",
+    )
+    expect(result).not.toContain('function StoriesHomePage')
+    expect(result).not.toContain('StoriesFeed')
+    expect(routeHasDisabledSsr(source, '/app/src/routes/stories/home.tsx')).toBe(false)
   })
 
   it('still splits ssr:false routes that call Route.useSearch', () => {
@@ -221,5 +230,29 @@ function EmailRedirect() {
     expect(result).toContain("void navigate({ to: url ?? '/', replace: true })")
     expect(result).not.toContain('createFileRoute')
     expect(result).not.toContain('ssr: false')
+  })
+
+  it('re-imports Route when the split SSR component calls useLoaderData', () => {
+    const source = `import { createFileRoute } from '@tanstack/react-router'
+import { StoriesFeed } from '@/components/stories-feed'
+
+export const Route = createFileRoute('/stories/home')({
+  loader: async () => ({ stories: [] }),
+  component: StoriesHomePage,
+})
+
+function StoriesHomePage() {
+  const { stories } = Route.useLoaderData()
+  return <StoriesFeed stories={stories} />
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/stories/home.tsx', 'component')
+    expect(result).toBeTruthy()
+    expect(result).toContain("import { Route } from './home.tsx'")
+    expect(result).toContain('export const component = StoriesHomePage')
+    expect(result).toContain('Route.useLoaderData')
+    expect(result).toContain('StoriesFeed')
+    expect(result).not.toContain('createFileRoute')
+    expect(result).not.toContain('loader: async')
   })
 })
