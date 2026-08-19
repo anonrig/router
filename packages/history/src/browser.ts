@@ -33,16 +33,22 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
         win.history.state,
       ))
 
-  if (!win.history.state?.__TSR_key && !win.history.state?.key) {
-    const addedKey = createRandomKey()
-    win.history.replaceState(
-      {
-        [STATE_INDEX]: 0,
-        key: addedKey,
-        __TSR_key: addedKey,
-      },
-      '',
-    )
+  {
+    const existing = win.history.state
+    const hasIndex = existing != null && Number.isFinite(existing[STATE_INDEX])
+    const hasKey = !!(existing?.__TSR_key || existing?.key)
+    if (!hasIndex || !hasKey) {
+      const addedKey = existing?.__TSR_key ?? existing?.key ?? createRandomKey()
+      win.history.replaceState(
+        {
+          ...(existing && typeof existing === 'object' ? existing : null),
+          [STATE_INDEX]: hasIndex ? existing[STATE_INDEX] : 0,
+          key: addedKey,
+          __TSR_key: addedKey,
+        },
+        '',
+      )
+    }
   }
 
   let currentLocation = parseLocation()
