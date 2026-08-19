@@ -1,9 +1,10 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import codspeedPlugin from '@codspeed/vitest-plugin'
 import { tanstackAliases, tanstackSubpathPlugin } from './vitest.aliases.ts'
 
 export default defineConfig({
-  plugins: [tanstackSubpathPlugin(), react()],
+  plugins: [tanstackSubpathPlugin(), react(), codspeedPlugin()],
   resolve: {
     alias: tanstackAliases,
   },

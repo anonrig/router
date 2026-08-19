@@ -1,0 +1,53 @@
+name: CodSpeed
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  # Lets CodSpeed backfill historical data from the dashboard.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: codspeed-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  benchmarks:
+    name: Run ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: core
+            files: >-
+              benches/hotpath.bench.ts
+              benches/history.bench.ts
+              benches/navigation.bench.ts
+              benches/ssr-rps.bench.ts
+              benches/tanstack/search-params.bench.ts
+              benches/tanstack/ssr-match-id.bench.ts
+          - name: link
+            files: benches/tanstack/link.bench.tsx
+          - name: closing-tag
+            files: benches/tanstack/closing-tag-detection.bench.ts
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v5
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        with:
+          mode: simulation
+          run: pnpm exec vitest bench --run ${{ matrix.files }}
