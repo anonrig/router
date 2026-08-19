@@ -152,6 +152,8 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     }
   }
 
+  let alive = true
+
   const history = createHistory({
     getLocation,
     getLength: () => win.history.length,
@@ -174,8 +176,15 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     createHref: (href) => createHref(href),
     flush,
     destroy: () => {
-      win.history.pushState = originalPushState
-      win.history.replaceState = originalReplaceState
+      alive = false
+      // Only unwrap if this instance still owns the hooks. A newer history on the
+      // same window may have wrapped us; restoring would disconnect that instance.
+      if (win.history.pushState === pushStateWrapper) {
+        win.history.pushState = originalPushState
+      }
+      if (win.history.replaceState === replaceStateWrapper) {
+        win.history.replaceState = originalReplaceState
+      }
       win.removeEventListener(BEFORE_UNLOAD, onBeforeUnload, { capture: true })
       win.removeEventListener(POP_STATE, onPushPopEvent)
     },
@@ -192,17 +201,20 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   win.addEventListener(BEFORE_UNLOAD, onBeforeUnload, { capture: true })
   win.addEventListener(POP_STATE, onPushPopEvent)
 
-  win.history.pushState = function (...args: Array<any>) {
+  function pushStateWrapper(...args: Array<any>) {
     const res = originalPushState.apply(win.history, args as any)
-    if (!history._ignoreSubscribers) onPushPop('PUSH')
+    if (alive && !history._ignoreSubscribers) onPushPop('PUSH')
     return res
   }
 
-  win.history.replaceState = function (...args: Array<any>) {
+  function replaceStateWrapper(...args: Array<any>) {
     const res = originalReplaceState.apply(win.history, args as any)
-    if (!history._ignoreSubscribers) onPushPop('REPLACE')
+    if (alive && !history._ignoreSubscribers) onPushPop('REPLACE')
     return res
   }
+
+  win.history.pushState = pushStateWrapper
+  win.history.replaceState = replaceStateWrapper
 
   return history
 }
