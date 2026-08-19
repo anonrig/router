@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { parseSync } from 'oxc-parser'
 import { describe, expect, it } from 'vitest'
 import { compileReferenceRoute, compileVirtualRoute, routeHasDisabledSsr } from '../src/code-split'
 
@@ -200,6 +201,19 @@ function EmailRedirect() {
 })
 
 describe('compileVirtualRoute', () => {
+  it('preserves valid quoting for module names containing apostrophes', () => {
+    const source = `import { createFileRoute } from "@tanstack/react-router"
+import { Widget } from "./person's-widget"
+export const Route = createFileRoute("/quoted")({ component: Page })
+function Page() {
+  return <Widget label="long enough to force route splitting" />
+}
+`
+    const result = compileVirtualRoute(source, '/app/src/routes/quoted.tsx', 'component')
+
+    expect(parseSync('quoted.tsx', result!).errors).toEqual([])
+  })
+
   it('emits only the component graph', () => {
     const result = compileVirtualRoute(inboxRoute, '/app/src/routes/inbox.tsx', 'component')
     expect(result).toBeTruthy()

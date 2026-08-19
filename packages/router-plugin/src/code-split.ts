@@ -321,8 +321,9 @@ function printNamedImport(
 ): string | undefined {
   const moduleName = declaration.source?.value
   if (typeof moduleName !== 'string') return code.slice(declaration.start, declaration.end)
+  const moduleSource = slice(code, declaration.source)
   const specifiers: Array<EstreeNode> = declaration.specifiers ?? []
-  if (specifiers.length === 0) return `import '${moduleName}'`
+  if (specifiers.length === 0) return `import ${moduleSource}`
 
   const defaultSpecifier = specifiers.find(
     (specifier) => specifier.type === 'ImportDefaultSpecifier',
@@ -352,7 +353,7 @@ function printNamedImport(
   if (namedParts.length) parts.push(`{ ${namedParts.join(', ')} }`)
   if (parts.length === 0) return undefined
   const typeOnly = declaration.importKind === 'type' ? 'type ' : ''
-  return `import ${typeOnly}${parts.join(', ')} from '${moduleName}'`
+  return `import ${typeOnly}${parts.join(', ')} from ${moduleSource}`
 }
 
 function identifiersIn(statements: Iterable<EstreeNode>): Set<string> {
