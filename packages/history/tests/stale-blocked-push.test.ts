@@ -24,10 +24,13 @@ function blockPushUntilReleased(history: RouterHistory, popResult: boolean | 'ne
 function createBrowserHistoryHarness() {
   const location = { pathname: '/', search: '', hash: '' }
   const listeners: Record<string, (e?: any) => any> = {}
-  const nativeHistory = {
+  const nativeHistory: any = {
     state: { __TSR_index: 0, __TSR_key: '0' },
     length: 1,
-    pushState: vi.fn(),
+    pushState: vi.fn((state: any, _title: string, href?: string) => {
+      nativeHistory.state = state
+      if (href) location.pathname = new URL(href, 'http://localhost').pathname
+    }),
     replaceState: vi.fn(),
     back: vi.fn(),
     forward: vi.fn(),
@@ -123,6 +126,20 @@ describe('memory history pops only retire a pending blocked push when they commi
 })
 
 describe('browser history pops only retire a pending blocked push when they commit', () => {
+  test('a native push drops an older blocked router push', async () => {
+    const { history, nativeHistory } = createBrowserHistoryHarness()
+    const blocker = blockPushUntilReleased(history)
+    const stale = Promise.resolve(history.push('/router-pending'))
+
+    nativeHistory.pushState({}, '', '/external')
+    blocker.release(false)
+    await stale
+
+    expect(history.location.pathname).toBe('/external')
+    expect(nativeHistory.state.__TSR_index).toBe(1)
+    history.destroy()
+  })
+
   test('a pop rejected by a blocker keeps a push released after it', async () => {
     const harness = createBrowserHistoryHarness()
     const { history } = harness

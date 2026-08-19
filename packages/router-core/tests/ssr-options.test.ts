@@ -73,6 +73,89 @@ async function loadTree(options: {
 }
 
 describe('SSR loader registration', () => {
+  it('keeps fast loader contexts isolated between routers', async () => {
+    let firstContext: any
+    let secondContext: any
+    await loadTree({
+      path: '/child/grand?request=one',
+      root: {
+        loader: (context: any) => {
+          firstContext = context
+          return context.location.search
+        },
+      },
+    })
+    await loadTree({
+      path: '/child/grand?request=two',
+      root: {
+        loader: (context: any) => {
+          secondContext = context
+          return context.location.search
+        },
+      },
+    })
+
+    expect(firstContext).not.toBe(secondContext)
+    expect(firstContext.location.search).toEqual({ request: 'one' })
+    expect(secondContext.location.search).toEqual({ request: 'two' })
+  })
+
+  it('provides parentMatchPromise in the fast server lane', async () => {
+    let observed: Promise<any> | undefined
+    const { response, rootRoute } = await loadTree({
+      path: '/child',
+      child: {
+        loader: async ({ parentMatchPromise }: any) => {
+          observed = parentMatchPromise
+          return (await parentMatchPromise).routeId
+        },
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(observed).toBeInstanceOf(Promise)
+    await expect(observed).resolves.toMatchObject({ routeId: rootRoute.id })
+  })
+
+  it('prevents an older server load from overwriting a newer load', async () => {
+    let release!: (value: string) => void
+    let started!: () => void
+    const didStart = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    const root = createRootRoute()
+    const a = createRoute({
+      getParentRoute: () => root,
+      path: '/a',
+      loader: () => {
+        started()
+        return new Promise<string>((resolve) => {
+          release = resolve
+        })
+      },
+    })
+    const b = createRoute({
+      getParentRoute: () => root,
+      path: '/b',
+      loader: () => 'B',
+    })
+    root.addChildren([a, b])
+    const history = createMemoryHistory({ initialEntries: ['/a'] })
+    const router = createRouter({ routeTree: root, history, isServer: true })
+
+    const first = Promise.resolve(loadServerRoute(router))
+    await didStart
+    history.push('/b')
+    await Promise.resolve(loadServerRoute(router))
+    expect(router.state.location.pathname).toBe('/b')
+
+    release('A')
+    await first
+
+    expect(router.state.location.pathname).toBe('/b')
+    expect(matchOf(router, b.id)?.loaderData).toBe('B')
+  })
+
   async function withStaleClientHook<T>(run: () => Promise<T>): Promise<T> {
     setLoadServerRoute(() => {
       throw new Error('client loader ran')
@@ -198,6 +281,34 @@ describe('fast server loader failures', () => {
 })
 
 describe('fast server request cancellation', () => {
+  it('propagates an abort raised synchronously inside the loader', async () => {
+    const request = new AbortController()
+    const reason = new Error('synchronous cancellation')
+    let routeSignal!: AbortSignal
+    const root = createRootRoute({
+      loader: ({ abortController }) => {
+        routeSignal = abortController.signal
+        request.abort(reason)
+        return new Promise<void>(() => {})
+      },
+    })
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      isServer: true,
+    })
+
+    const loading = Promise.resolve(loadServerRoute(router, { _signal: request.signal }))
+    let caught: unknown
+    const rejected = loading.catch((error) => {
+      caught = error
+    })
+
+    expect(routeSignal.aborted).toBe(true)
+    await rejected
+    expect(caught).toBe(reason)
+  })
+
   it('aborts route loaders and rejects without waiting for them', async () => {
     let started!: () => void
     const didStart = new Promise<void>((resolve) => {

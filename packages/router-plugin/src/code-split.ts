@@ -178,7 +178,9 @@ function isTopLevelEffect(statement: EstreeNode): boolean {
 function propertyNameOf(property: EstreeNode): string | undefined {
   if (property.type !== 'Property' && property.type !== 'MethodDefinition') return undefined
   const key = property.key
-  if (key?.type === 'Identifier') return key.name
+  // `[component]` reads a variable, so a computed key only names a property
+  // when it is a static string.
+  if (key?.type === 'Identifier' && property.computed !== true) return key.name
   if (key?.type === 'Literal' && typeof key.value === 'string') return key.value
   return undefined
 }
@@ -230,13 +232,28 @@ function isAlreadyLazy(node: EstreeNode): boolean {
 }
 
 function splitPropertiesOf(options: EstreeNode) {
-  const properties: Array<{ key: SplitProperty; value: EstreeNode; shorthand: boolean }> = []
+  const properties: Array<{
+    key: SplitProperty
+    value: EstreeNode
+    shorthand: boolean
+    method: boolean
+    property: EstreeNode
+  }> = []
   for (const property of options.properties ?? []) {
+    // An accessor body computes the option value instead of being it, so its
+    // span cannot be moved into the virtual module. Leave it in place.
+    if (property.kind === 'get' || property.kind === 'set') continue
     const key = propertyNameOf(property)
     if (!key || !SPLIT_PROPERTY_SET.has(key)) continue
     const value = propertyValue(property)
     if (!value || isAlreadyLazy(value) || isTrivialSplitValue(value)) continue
-    properties.push({ key: key as SplitProperty, value, shorthand: property.shorthand === true })
+    properties.push({
+      key: key as SplitProperty,
+      value,
+      shorthand: property.shorthand === true,
+      method: property.method === true,
+      property,
+    })
   }
   return properties
 }
@@ -419,7 +436,8 @@ function printNamedImport(
     const local = specifier.local?.name
     if (!local || !used.has(local)) continue
     const imported = specifier.imported?.name ?? specifier.imported?.value ?? local
-    namedParts.push(imported === local ? local : `${imported} as ${local}`)
+    const typeOnly = specifier.importKind === 'type' ? 'type ' : ''
+    namedParts.push(`${typeOnly}${imported === local ? local : `${imported} as ${local}`}`)
   }
   for (const extra of extraNamed) {
     if (!namedParts.includes(extra)) namedParts.push(extra)
@@ -453,6 +471,19 @@ function slice(code: string, node: EstreeNode) {
 }
 
 /**
+ * Print a split option value as a standalone expression. A method shorthand
+ * value span starts at its parameter list, so it needs its own `function`
+ * keyword plus the `async` and generator markers that sit before the key.
+ */
+function printSplitValue(code: string, property: { value: EstreeNode; method: boolean }) {
+  const text = slice(code, property.value)
+  if (!property.method) return text
+  const asyncPrefix = property.value.async === true ? 'async ' : ''
+  const generatorMark = property.value.generator === true ? '*' : ''
+  return `${asyncPrefix}function${generatorMark} ${text}`
+}
+
+/**
  * Rewrite a route file so split UI properties load through `lazyRouteComponent`.
  * Loaders, `beforeLoad`, `head`, `ssr`, and `staticData` stay in this module.
  * SSR still renders the UI via the virtual `?tsr-split=` module; only literal
@@ -480,12 +511,13 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
     while (bindings.has(helperName)) helperName = `_${helperName}`
   }
   // A shorthand property shares its span with the key, so the key must be reprinted.
-  const replacements = properties.map(({ key, value, shorthand }) => ({
-    start: value.start,
-    end: value.end,
-    text: shorthand
-      ? `${key}: ${lazyWrapper(fileName, key, helperName)}`
-      : lazyWrapper(fileName, key, helperName),
+  const replacements = properties.map(({ key, value, shorthand, method, property }) => ({
+    start: method ? property.start : value.start,
+    end: method ? property.end : value.end,
+    text:
+      shorthand || method
+        ? `${key}: ${lazyWrapper(fileName, key, helperName)}`
+        : lazyWrapper(fileName, key, helperName),
   }))
   const rewritten = applyReplacements(code, replacements)
   const nextProgram = parseProgram(fileName, rewritten)
@@ -598,10 +630,10 @@ export function compileVirtualRoute(
     parts.push(`export { ${splitTarget} }`)
   } else if (nameTaken) {
     const local = uniqueName(`$$${splitTarget}`, live)
-    parts.push(`const ${local} = ${slice(code, match.value)}`)
+    parts.push(`const ${local} = ${printSplitValue(code, match)}`)
     parts.push(`export { ${local} as ${splitTarget} }`)
   } else if (!alreadyExported) {
-    parts.push(`export const ${splitTarget} = ${slice(code, match.value)}`)
+    parts.push(`export const ${splitTarget} = ${printSplitValue(code, match)}`)
   }
   return `${[...prologue, ...parts].join('\n\n')}\n`
 }

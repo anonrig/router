@@ -225,9 +225,9 @@ async function contextualize(
   for (let index = 0; index < end; index++) {
     const match = lane.matches[index]!
     const route = getRoute(router, match)
-    const pendingOptions = ensureRouteOptions(route, signal)
-    if (pendingOptions) await pendingOptions
     try {
+      const pendingOptions = ensureRouteOptions(route, signal)
+      if (pendingOptions) await pendingOptions
       match.ssr = await resolveSsr(router, lane, index)
     } catch (cause) {
       signal?.throwIfAborted()
@@ -787,7 +787,7 @@ type ServerLoadOptions = NonNullable<Parameters<AnyRouter['load']>[0]> & {
   _signal?: AbortSignal
 }
 
-let fastServerLoaderCtx: Record<string, any> | undefined
+const serverLoadOwners = new WeakMap<AnyRouter, number>()
 
 function fillFastServerLoaderContext(
   ctx: Record<string, any>,
@@ -796,11 +796,12 @@ function fillFastServerLoaderContext(
   navigate: AnyRouter['navigate'],
   context: Record<string, any>,
   route: AnyRoute,
+  parentMatchPromise: LoaderFnContext['parentMatchPromise'] | undefined,
 ) {
   ctx.params = match.params
   ctx.deps = match.loaderDeps
   ctx.preload = false
-  ctx.parentMatchPromise = undefined
+  ctx.parentMatchPromise = parentMatchPromise
   ctx.abortController = match.abortController
   ctx.context = context
   ctx.location = location
@@ -879,12 +880,16 @@ function executeFastServerLane(
     if (loaderFn) {
       try {
         const extra = router.options.additionalContext
+        const parentMatchPromise =
+          i > 0
+            ? (Promise.resolve(matches[i - 1]!) as LoaderFnContext['parentMatchPromise'])
+            : undefined
         const loaderContext = extra
           ? {
               params: match.params,
               deps: match.loaderDeps,
               preload: false,
-              parentMatchPromise: undefined,
+              parentMatchPromise,
               abortController: match.abortController,
               context: loaderParentContext,
               location,
@@ -894,16 +899,16 @@ function executeFastServerLane(
               ...extra,
             }
           : fillFastServerLoaderContext(
-              fastServerLoaderCtx ?? (fastServerLoaderCtx = {}),
+              {},
               match,
               location,
               router.navigate,
               loaderParentContext,
               route,
+              parentMatchPromise,
             )
         const data = loaderFn(loaderContext)
         if (data != null && typeof (data as { then?: unknown }).then === 'function') {
-          if (!extra) fastServerLoaderCtx = undefined
           // Redirects stay thrown so loadServerRoute can resolve them, but every
           // other failure has to produce a render result or the load never commits.
           const settleFailure = (cause: unknown): ServerLoadResult => {
@@ -992,6 +997,9 @@ function commitServerLoad(
 }
 
 export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): void | Promise<void> {
+  const owner = (serverLoadOwners.get(router) ?? 0) + 1
+  serverLoadOwners.set(router, owner)
+  const ownsPublication = () => serverLoadOwners.get(router) === owner
   router.updateLatestLocation()
   const next = router.latestLocation
   const previous = router._committed
@@ -1031,34 +1039,41 @@ export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): vo
           }
         }
         signal?.addEventListener('abort', abortMatches, { once: true })
+        if (signal?.aborted) abortMatches()
         return waitFor(result as Promise<ServerLoadResult>, signal)
           .then(
             (resolved) => {
               signal?.throwIfAborted()
+              if (!ownsPublication()) return
               commitServerLoad(router, next, previous, resolved)
               return
             },
             (cause) => {
               signal?.throwIfAborted()
               if (!isRedirect(cause)) throw cause
+              if (!ownsPublication()) return
               commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
               return
             },
           )
           .finally(() => signal?.removeEventListener('abort', abortMatches))
       }
-      commitServerLoad(router, next, previous, result as ServerLoadResult)
+      if (ownsPublication()) {
+        commitServerLoad(router, next, previous, result as ServerLoadResult)
+      }
       return
     }
     return waitFor(executeServerLane(router, next, matches, opts?._signal), opts?._signal).then(
       (result) => {
         opts?._signal?.throwIfAborted()
+        if (!ownsPublication()) return
         commitServerLoad(router, next, previous, result)
         return
       },
       (cause) => {
         opts?._signal?.throwIfAborted()
         if (!isRedirect(cause)) throw cause
+        if (!ownsPublication()) return
         commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
         return
       },
@@ -1068,6 +1083,7 @@ export function loadServerRoute(router: AnyRouter, opts?: ServerLoadOptions): vo
     if (!isRedirect(cause)) {
       throw cause
     }
+    if (!ownsPublication()) return
     commitServerLoad(router, next, previous, resolveServerRedirect(router, next, cause))
   }
 }

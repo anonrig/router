@@ -29,6 +29,140 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('requires affixed parameters to consume a value', () => {
+    const root = createRootRoute()
+    const normal = createRoute({
+      getParentRoute: () => root,
+      path: '/pre{$id}suf',
+    })
+    const overlapping = createRoute({
+      getParentRoute: () => root,
+      path: '/ab{$id}bc',
+    })
+    root.addChildren([normal, overlapping])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/presuf')).toBeNull()
+    expect(findRouteMatch(tree, '/abc')).toBeNull()
+    expect(findRouteMatch(tree, '/preXsuf')?.at(-1)?.params.id).toBe('X')
+    expect(findRouteMatch(tree, '/abXbc')?.at(-1)?.params.id).toBe('X')
+  })
+
+  it('prefers earlier static segments between optional routes', () => {
+    const root = createRootRoute()
+    const lateStatic = createRoute({
+      getParentRoute: () => root,
+      path: '/{-$a}/b',
+    })
+    const earlyStatic = createRoute({
+      getParentRoute: () => root,
+      path: '/a/{-$b}',
+    })
+    root.addChildren([lateStatic, earlyStatic])
+
+    const match = findRouteMatch(processRouteTree(root as any), '/a/b')
+
+    expect(match?.at(-1)?.route.id).toBe('/a/{-$b}')
+  })
+
+  it('honors route-level case sensitivity for wildcard affixes', () => {
+    const root = createRootRoute()
+    const wildcard = createRoute({
+      getParentRoute: () => root,
+      path: '/Pre{$}Suf',
+      caseSensitive: true,
+    })
+    root.addChildren([wildcard])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/PreXSuf')?.at(-1)?.route.id).toBe('/Pre{$}Suf')
+    expect(findRouteMatch(tree, '/preXSuf')).toBeNull()
+  })
+
+  it('keeps wildcard affixes and case sensitivity when descendants reuse the segment', () => {
+    const probe = (descendants: (wildcard: any) => Array<any>) => {
+      const root = createRootRoute()
+      const wildcard = createRoute({
+        getParentRoute: () => root,
+        path: '/Pre{$}Suf',
+        caseSensitive: true,
+      })
+      root.addChildren([wildcard.addChildren(descendants(wildcard))])
+      const tree = processRouteTree(root as any)
+      return {
+        splat: findRouteMatch(tree, '/PreXSuf')?.at(-1)?.params._splat,
+        wrongCase: findRouteMatch(tree, '/preXSuf'),
+      }
+    }
+
+    const expected = { splat: 'X', wrongCase: null }
+    expect({
+      child: probe((wildcard) => [createRoute({ getParentRoute: () => wildcard, path: 'child' })]),
+      index: probe((wildcard) => [createRoute({ getParentRoute: () => wildcard, path: '/' })]),
+      pathless: probe((wildcard) => [fileRoute('_layout', undefined, () => wildcard)]),
+    }).toEqual({ child: expected, index: expected, pathless: expected })
+  })
+
+  it('keeps sibling wildcard affix patterns distinct', () => {
+    const root = createRootRoute()
+    const foo = createRoute({
+      getParentRoute: () => root,
+      path: '/a/foo{$}bar',
+    })
+    const baz = createRoute({
+      getParentRoute: () => root,
+      path: '/a/baz{$}qux',
+    })
+    root.addChildren([foo, baz])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/a/fooxbar')?.at(-1)?.route.id).toBe('/a/foo{$}bar')
+    expect(findRouteMatch(tree, '/a/bazxqux')?.at(-1)?.route.id).toBe('/a/baz{$}qux')
+  })
+
+  it('matches an empty splat on a catch-all registered after an affixed wildcard', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/a' })
+    const affixed = createRoute({ getParentRoute: () => parent, path: 'foo{$}bar' })
+    const catchAll = createRoute({ getParentRoute: () => parent, path: '{$}' })
+    root.addChildren([parent.addChildren([affixed, catchAll])])
+    const tree = processRouteTree(root as any)
+
+    const empty = findRouteMatch(tree, '/a')
+    expect(empty?.at(-1)?.route.id).toBe('/a/{$}')
+    expect(empty?.at(-1)?.params).toMatchObject({ _splat: '', '*': '' })
+    expect(findRouteMatch(tree, '/a/fooxbar')?.at(-1)?.route.id).toBe('/a/foo{$}bar')
+    expect(findRouteMatch(tree, '/a/other')?.at(-1)?.route.id).toBe('/a/{$}')
+  })
+
+  it('matches an empty splat on a bare $ registered after an affixed wildcard', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/files' })
+    const affixed = createRoute({ getParentRoute: () => parent, path: 'raw-{$}' })
+    const catchAll = createRoute({ getParentRoute: () => parent, path: '$' })
+    root.addChildren([parent.addChildren([affixed, catchAll])])
+    const tree = processRouteTree(root as any)
+
+    const empty = findRouteMatch(tree, '/files')
+    expect(empty?.at(-1)?.route.id).toBe('/files/$')
+    expect(empty?.at(-1)?.params).toMatchObject({ _splat: '', '*': '' })
+    expect(findRouteMatch(tree, '/files/raw-a/b')?.at(-1)?.route.id).toBe('/files/raw-{$}')
+  })
+
+  it('prefers an index route over an empty splat from a later catch-all sibling', () => {
+    const root = createRootRoute()
+    const parent = createRoute({ getParentRoute: () => root, path: '/docs' })
+    const affixed = createRoute({ getParentRoute: () => parent, path: 'v{$}x' })
+    const index = createRoute({ getParentRoute: () => parent, path: '/' })
+    const catchAll = createRoute({ getParentRoute: () => parent, path: '{$}' })
+    root.addChildren([parent.addChildren([affixed, index, catchAll])])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/docs')?.at(-1)?.route.id).toBe('/docs/')
+    expect(findRouteMatch(tree, '/docs/vax')?.at(-1)?.route.id).toBe('/docs/v{$}x')
+    expect(findRouteMatch(tree, '/docs/deep/path')?.at(-1)?.route.id).toBe('/docs/{$}')
+  })
+
   it('rejects malformed percent encoding in dynamic segments', () => {
     const root = createRootRoute()
     const dynamic = createRoute({
