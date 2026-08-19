@@ -3,10 +3,14 @@ import { Await } from '../awaited'
 import { RouterProvider } from '../router-provider'
 import type { AnyRouter } from 'speedy-router-core'
 
-let hydrationPromise: Promise<void> | undefined
+const hydrationPromises = new WeakMap<AnyRouter, Promise<void>>()
 
 export function RouterClient(props: { router: AnyRouter }) {
-  hydrationPromise ??= hydrate(props.router).finally(() => window.$_TSR!.h())
+  let hydrationPromise = hydrationPromises.get(props.router)
+  if (!hydrationPromise) {
+    hydrationPromise = hydrate(props.router).finally(() => window.$_TSR!.h())
+    hydrationPromises.set(props.router, hydrationPromise)
+  }
 
   return (
     <Await promise={hydrationPromise} children={() => <RouterProvider router={props.router} />} />
