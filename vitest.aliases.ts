@@ -108,12 +108,12 @@ export function ssrFlagForNodeTestsPlugin(): Plugin {
     name: 'ssr-flag-for-node-tests',
     enforce: 'pre',
     transform(code, id) {
-      const file = id.split('?')[0]!.replaceAll('\\', '/')
-      if (!file.endsWith('/packages/router-core/src/router.ts')) {
-        return
-      }
-      if (!code.includes('import.meta.env.SSR')) {
-        return
+      const file = stripQuery(id).bare.replaceAll('\\', '/')
+      if (
+        !file.endsWith('/packages/router-core/src/router.ts') ||
+        !code.includes('import.meta.env.SSR')
+      ) {
+        return undefined
       }
       return {
         code: code.replaceAll(
