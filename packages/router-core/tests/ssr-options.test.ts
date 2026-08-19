@@ -70,11 +70,32 @@ async function loadTree(options: {
 }
 
 describe('SSR loader registration', () => {
-  it('attachRouterServerSsrUtils reinstalls the server loader', async () => {
+  async function withStaleClientHook<T>(run: () => Promise<T>): Promise<T> {
     setLoadServerRoute(() => {
       throw new Error('client loader ran')
     })
     try {
+      return await run()
+    } finally {
+      registerLoadServerRoute()
+    }
+  }
+
+  it('SSR entry registration lets router.load set _serverResult', async () => {
+    await withStaleClientHook(async () => {
+      registerLoadServerRoute()
+      const router = createRouter({
+        routeTree: createRootRoute(),
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+        isServer: true,
+      })
+      await router.load()
+      expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
+    })
+  })
+
+  it('attachRouterServerSsrUtils reinstalls the server loader', async () => {
+    await withStaleClientHook(async () => {
       const router = createRouter({
         routeTree: createRootRoute(),
         history: createMemoryHistory({ initialEntries: ['/'] }),
@@ -83,9 +104,15 @@ describe('SSR loader registration', () => {
       attachRouterServerSsrUtils({ router, manifest: undefined })
       await router.load()
       expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
-    } finally {
-      registerLoadServerRoute()
-    }
+    })
+  })
+
+  it('createRequestHandler reinstalls the server loader', async () => {
+    await withStaleClientHook(async () => {
+      const { router, response } = await loadTree({ path: '/child' })
+      expect(response.status).toBe(200)
+      expect(router._serverResult).toMatchObject({ type: 'render', status: 200 })
+    })
   })
 })
 
