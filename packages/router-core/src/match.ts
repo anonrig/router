@@ -704,6 +704,15 @@ function decodeSegment(raw: string) {
   }
 }
 
+function decodeParamSegment(raw: string): string | undefined {
+  if (raw.indexOf('%') === -1) return raw
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return undefined
+  }
+}
+
 function lastNonPathless(chain: AnyRouteLike[]): AnyRouteLike | undefined {
   for (let i = chain.length - 1; i >= 0; i--) {
     const route = chain[i]!
@@ -1129,7 +1138,9 @@ function findRouteMatchDynamic(
   const segments = splitSegments(pathname === '/' ? '' : pathname)
   const decoded: string[] = new Array(segments.length)
   for (let i = 0; i < segments.length; i++) {
-    decoded[i] = decodeSegment(segments[i]!)
+    const segment = decodeParamSegment(segments[i]!)
+    if (segment === undefined) return null
+    decoded[i] = segment
   }
 
   activeOptionalNames = tree.optionalNames

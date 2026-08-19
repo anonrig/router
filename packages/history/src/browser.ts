@@ -134,6 +134,11 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
             if (Number.isFinite(delta) && delta !== 0) {
               ignoreNextPop = true
               win.history.go(-delta)
+            } else {
+              // Same-index / missing-index pops cannot be rolled back with go().
+              // Keep the applied location so later deltas stay correct, but do
+              // not notify — the blocker denied this navigation.
+              currentLocation = nextLocation
             }
             return
           }

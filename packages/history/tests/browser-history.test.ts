@@ -273,14 +273,18 @@ describe('createBrowserHistory popstate blocker rollback', () => {
     history.block({
       blockerFn: () => true,
     })
+    const subscriber = vi.fn()
+    history.subscribe(subscriber)
 
     // Simulate same index popstate (delta = 0)
     nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
     location.hash = '#hash'
     await listeners.popstate?.()
 
-    // Must not call go(0)
+    // Must not call go(0) or publish the blocked same-index location
     expect(go).not.toHaveBeenCalled()
+    expect(subscriber).not.toHaveBeenCalled()
+    expect(history.location.hash).toBe('')
 
     // Unblock and verify next popstate is not swallowed
     history.destroy()

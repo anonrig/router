@@ -29,6 +29,31 @@ function tree() {
 }
 
 describe('matcher', () => {
+  it('rejects malformed percent encoding in dynamic segments', () => {
+    const root = createRootRoute()
+    const dynamic = createRoute({
+      getParentRoute: () => root,
+      path: '/$id',
+    })
+    root.addChildren([dynamic])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/%')).toBeNull()
+    expect(findRouteMatch(tree, '/%E0%A4%A')).toBeNull()
+  })
+
+  it('still matches a static path that contains a literal percent', () => {
+    const root = createRootRoute()
+    const sale = createRoute({
+      getParentRoute: () => root,
+      path: '/100%off',
+    })
+    root.addChildren([sale])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/100%off')?.at(-1)?.route.id).toBe('/100%off')
+  })
+
   it('prefers required parameters over optional affixed parameters', () => {
     const root = createRootRoute()
     const required = createRoute({

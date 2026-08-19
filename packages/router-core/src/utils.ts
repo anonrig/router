@@ -741,6 +741,17 @@ export function decodePath(path: string) {
   // paths like "/%0d/evil.com" can no longer become "//evil.com". But we keep
   // this check to guard against other edge cases.
   let handledProtocolRelativeURL = false
+  // decodeURI leaves %2F encoded, so /%2Fevil.com would otherwise stay raw.
+  while (
+    result.length >= 4 &&
+    result.charCodeAt(0) === 47 &&
+    result.charCodeAt(1) === 37 &&
+    (result.charCodeAt(2) | 32) === 50 &&
+    (result.charCodeAt(3) | 32) === 102
+  ) {
+    handledProtocolRelativeURL = true
+    result = '/' + result.slice(4)
+  }
   if (result.charCodeAt(0) === 47 && result.charCodeAt(1) === 47) {
     handledProtocolRelativeURL = true
     let i = 0

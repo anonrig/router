@@ -568,6 +568,13 @@ describe('decodePath', () => {
       expect(result.handledProtocolRelativeURL).toBe(false)
     })
 
+    it('should collapse a leading encoded slash to prevent protocol-relative URLs', () => {
+      const result = decodePath('/%2Fevil.com')
+      expect(result.path).toBe('/evil.com')
+      expect(result.path).not.toMatch(/^\/\//)
+      expect(result.handledProtocolRelativeURL).toBe(true)
+    })
+
     it('should collapse leading double slashes to prevent protocol-relative URLs', () => {
       // Direct // input should still be collapsed as defense-in-depth
       const result = decodePath('//evil.com/path')

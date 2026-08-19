@@ -931,7 +931,9 @@ export class RouterCore<
 
   private loadId = 0
   private unsubHistory?: () => void
-  private _committing = false
+  // Depth, not a flag: blockers can leave several commits in flight, and an earlier
+  // one finishing must not expose a later commit as an external history update.
+  private _committing = 0
 
   /** @internal */
   _attachHistory() {
@@ -1120,7 +1122,7 @@ export class RouterCore<
       }
       if (!this.unsubHistory) {
         this.unsubHistory = this.history.subscribe(({ location, action }) => {
-          if (this._committing) return
+          if (this._committing > 0) return
           this.latestLocation = this.parseLocation(location, this.latestLocation)
           void this.load({ action })
         })
@@ -1730,27 +1732,24 @@ export class RouterCore<
     let pathname: string
     let searchStr: string
     let hash: string
-    let hrefFull: string
     if (isSimpleHref(href)) {
-      pathname = href
+      pathname = decodePath(href).path
       searchStr = ''
       hash = ''
-      hrefFull = href
     } else {
       const currentIndex = this.history.location.state?.__TSR_index
       const parsed = parseHref(href, {
         __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
       })
       searchStr = parsed.search
-      hash = stripLeadingHash(parsed.hash)
-      pathname = parsed.pathname
+      hash = decodePath(stripLeadingHash(parsed.hash)).path
+      pathname = decodePath(parsed.pathname).path
       const href0 = href.charCodeAt(0)
-      if (!pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
+      if (!parsed.pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
         pathname = this.latestLocation.pathname
         if (href0 === 35) searchStr = this.latestLocation.searchStr
         else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
       }
-      hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
     const trailing = rest.trailingSlash ?? this.options.trailingSlash
     if (trailing) {
@@ -1760,8 +1759,8 @@ export class RouterCore<
         trailingSlash: trailing,
         cache: this.resolvePathCache,
       })
-      hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
+    const hrefFull = encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
     const state = resolveBuildState(rest, this.latestLocation)
     const location: ParsedLocation = {
       href: hrefFull,
@@ -1810,19 +1809,25 @@ export class RouterCore<
       ignoreBlocker: rest.ignoreBlocker,
       simple: searchStr === '' && hash === '' && pathname === hrefFull,
     }
-    this._committing = true
-    const pushed = rest.replace
-      ? history.replace(hrefFull, state, historyOpts)
-      : history.push(hrefFull, state, historyOpts)
+    this._committing++
+    let pushed: void | Promise<void>
+    try {
+      pushed = rest.replace
+        ? history.replace(hrefFull, state, historyOpts)
+        : history.push(hrefFull, state, historyOpts)
+    } catch (err) {
+      this._committing--
+      throw err
+    }
 
     const afterCommit = (): Promise<void> => {
       history.flush()
-      this._committing = false
+      this._committing--
       // Blockers may deny the commit; never publish a destination we did not land on.
       const landed =
-        history.location.pathname === pathname &&
+        decodePath(history.location.pathname).path === pathname &&
         (history.location.search || '') === (searchStr || '') &&
-        stripLeadingHash(history.location.hash) === hash
+        decodePath(stripLeadingHash(history.location.hash)).path === hash
       if (!landed) return RESOLVED
 
       location.state = history.location.state
@@ -1845,7 +1850,10 @@ export class RouterCore<
     }
 
     if (pushed != null && typeof (pushed as Promise<void>).then === 'function') {
-      return (pushed as Promise<void>).then(afterCommit)
+      return (pushed as Promise<void>).then(afterCommit, (err) => {
+        this._committing--
+        throw err
+      })
     }
     return afterCommit()
   }
@@ -2006,6 +2014,56 @@ export class RouterCore<
         ? this.options.context
         : (matches[start - 1]?.context ?? this.options.context)) ?? {}),
     }
+    type WarmResult = {
+      match: RouteMatch
+      route: AnyRoute
+      context: Record<string, any>
+      ok: boolean
+      value: any
+    }
+    const results: Array<WarmResult | undefined> = []
+    const pending: Promise<void>[] = []
+    const matchPromises: Array<Promise<RouteMatch>> = []
+    let canceled = false
+    const settled: RouteMatch[] = []
+    const settleSuccess = (result: WarmResult, updatedAt: number) => {
+      if (
+        canceled ||
+        id !== this.loadId ||
+        !result.ok ||
+        isRedirect(result.value) ||
+        isNotFound(result.value)
+      ) {
+        return
+      }
+      result.match.loaderData = result.value
+      result.match.status = 'success'
+      result.match.isFetching = false
+      result.match.updatedAt = updatedAt
+      result.match.context = result.context
+      settled.push(result.match)
+    }
+    const discardSettledBelow = (failed: RouteMatch) => {
+      const failedIndex = matches.indexOf(failed)
+      for (let i = 0; i < settled.length; i++) {
+        const match = settled[i]!
+        if (matches.indexOf(match) <= failedIndex) continue
+        match.loaderData = undefined
+        match.status = 'pending'
+        match.isFetching = false
+        match.updatedAt = 0
+      }
+    }
+    const abortFetching = () => {
+      canceled = true
+      for (let j = 0; j < matches.length; j++) {
+        const candidate = matches[j]!
+        if (candidate.isFetching) {
+          candidate.abortController.abort()
+          candidate.isFetching = false
+        }
+      }
+    }
     for (let i = start; i < matches.length; i++) {
       if (id !== this.loadId) return
       const match = matches[i]!
@@ -2030,13 +2088,17 @@ export class RouterCore<
             } as any) || {}
           context = { ...context, ...routeContext }
         } catch (cause) {
+          abortFetching()
+          discardSettledBelow(match)
           return this.settleWarmFailure(location, id, matches, match, route, cause)
         }
       } else {
         context = { ...context }
       }
       match.context = context
+      const matchContext = context
       if (!warmMatchNeedsLoader(match, route, this, this._committed, now)) {
+        matchPromises[i] = Promise.resolve(match)
         continue
       }
       const routeLoader = opts.loader
@@ -2044,6 +2106,7 @@ export class RouterCore<
       if (!loader) {
         match.status = 'success'
         match.isFetching = false
+        matchPromises[i] = Promise.resolve(match)
         continue
       }
 
@@ -2053,50 +2116,72 @@ export class RouterCore<
           match,
           location,
           this.navigate,
-          context,
+          matchContext,
           route,
           matches,
-          i > 0 ? matches[i - 1] : undefined,
+          i > 0 ? matchPromises[i - 1] : undefined,
           this.options.additionalContext,
         ),
       )
-      if (!data.ok) {
-        return this.settleWarmFailure(location, id, matches, match, route, data.value)
-      }
-      if (data.value instanceof Promise) {
-        return Promise.resolve(data.value).then(
-          (value) => {
-            if (isRedirect(value)) {
-              return this.followWarmRedirect(location, id, matches, match, value)
-            }
-            if (isNotFound(value)) return importLoadClient(this)
-            match.loaderData = value
-            match.status = 'success'
-            match.isFetching = false
-            match.updatedAt = Date.now()
-            match.context = context
-            this._cache[match.id] = match
-            return this.finishWarmMatches(location, id, matches, cacheKey, i + 1)
-          },
-          (cause) => this.settleWarmFailure(location, id, matches, match, route, cause),
+      if (
+        data.ok &&
+        data.value != null &&
+        typeof (data.value as { then?: unknown }).then === 'function'
+      ) {
+        const resultIndex = results.length
+        results.push(undefined)
+        const resultPromise = Promise.resolve(data.value).then(
+          (value): WarmResult => ({ match, route, context: matchContext, ok: true, value }),
+          (value): WarmResult => ({ match, route, context: matchContext, ok: false, value }),
         )
+        const matchPromise = resultPromise.then((result) => {
+          results[resultIndex] = result
+          settleSuccess(result, Date.now())
+          return match
+        })
+        matchPromises[i] = matchPromise
+        pending.push(matchPromise.then(() => undefined))
+      } else {
+        const result = { match, route, context: matchContext, ok: data.ok, value: data.value }
+        results.push(result)
+        settleSuccess(result, now)
+        matchPromises[i] = Promise.resolve(match)
       }
-      if (isRedirect(data.value)) {
-        return this.followWarmRedirect(location, id, matches, match, data.value)
-      }
-      if (isNotFound(data.value)) return importLoadClient(this)
-      match.loaderData = data.value
-      match.status = 'success'
-      match.isFetching = false
-      match.updatedAt = now
-      match.context = context
-      this._cache[match.id] = match
     }
 
-    if (id !== this.loadId) return
-    this.leaveWarmMatches(matches)
-    this.completeWarmLoad(location, matches)
-    rememberWarmMatches(this, cacheKey, matches)
+    const settle = () => {
+      if (id !== this.loadId) return
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]!
+        if (!result.ok) {
+          abortFetching()
+          discardSettledBelow(result.match)
+          return this.settleWarmFailure(
+            location,
+            id,
+            matches,
+            result.match,
+            result.route,
+            result.value,
+          )
+        }
+        if (isRedirect(result.value)) {
+          abortFetching()
+          discardSettledBelow(result.match)
+          return this.followWarmRedirect(location, id, matches, result.match, result.value)
+        }
+        if (isNotFound(result.value)) {
+          abortFetching()
+          discardSettledBelow(result.match)
+          return importLoadClient(this)
+        }
+      }
+      this.leaveWarmMatches(matches)
+      this.completeWarmLoad(location, matches)
+      rememberWarmMatches(this, cacheKey, matches)
+    }
+
+    return pending.length ? Promise.all(pending).then(settle) : settle()
   }
 
   private settleWarmFailure(
@@ -3049,7 +3134,7 @@ function fillWarmLoaderContext(
   context: Record<string, any>,
   route: AnyRoute,
   matches: RouteMatch[],
-  parentMatch: RouteMatch | undefined,
+  parentMatchPromise: Promise<RouteMatch> | undefined,
   additionalContext: Record<string, any> | undefined,
 ) {
   return {
@@ -3065,7 +3150,7 @@ function fillWarmLoaderContext(
     route,
     matches,
     deps: match.loaderDeps,
-    parentMatchPromise: parentMatch ? Promise.resolve(parentMatch) : undefined,
+    parentMatchPromise,
     ...additionalContext,
   }
 }
