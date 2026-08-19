@@ -53,6 +53,23 @@ function createBrowserHistoryHarness() {
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('does not leak blocker bypass from a no-op ignored traversal', async () => {
+    const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
+    const blockerFn = vi.fn(() => true)
+    history.block({ blockerFn })
+
+    history.back({ ignoreBlocker: true })
+    history.forward()
+    nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
+    location.pathname = '/forward'
+    await listeners.popstate?.()
+
+    expect(blockerFn).toHaveBeenCalledOnce()
+    expect(go).toHaveBeenCalledWith(-1)
+    expect(history.location.pathname).toBe('/')
+    history.destroy()
+  })
+
   test('rolls back when a popstate blocker rejects', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
