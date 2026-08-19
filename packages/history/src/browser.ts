@@ -179,15 +179,18 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     back: (ignoreBlocker) => {
       if (ignoreBlocker) skipBlockerNextPop = true
       ignoreNextBeforeUnload = true
+      flush()
       return win.history.back()
     },
     forward: (ignoreBlocker) => {
       if (ignoreBlocker) skipBlockerNextPop = true
       ignoreNextBeforeUnload = true
+      flush()
       win.history.forward()
     },
     go: (n) => {
       nextPopIsGo = true
+      flush()
       win.history.go(n)
     },
     createHref: (href) => createHref(href),

@@ -48,11 +48,25 @@ function createBrowserHistoryHarness() {
     nativeHistory,
     location,
     go,
+    pushState,
     listeners,
   }
 }
 
 describe('createBrowserHistory popstate blocker rollback', () => {
+  test('flushes a queued push before traversing back', () => {
+    const { history, nativeHistory, pushState } = createBrowserHistoryHarness()
+
+    history.push('/queued')
+    history.back()
+
+    expect(pushState).toHaveBeenCalledOnce()
+    expect(pushState.mock.invocationCallOrder[0]).toBeLessThan(
+      nativeHistory.back.mock.invocationCallOrder[0]!,
+    )
+    history.destroy()
+  })
+
   test('rolls back when a popstate blocker rejects', async () => {
     const { history, nativeHistory, location, go, listeners } = createBrowserHistoryHarness()
     nativeHistory.state = { __TSR_index: 1, __TSR_key: '1' }
