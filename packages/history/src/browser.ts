@@ -113,7 +113,6 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
               ignoreNextPop = true
               win.history.go(-delta)
             }
-            history.notify(notify)
             return
           }
         }
