@@ -7,6 +7,7 @@
       "speedy-router-history": ["./packages/history/src/index.ts"],
       "speedy-router-core": ["./packages/router-core/src/index.ts"],
       "speedy-router-core/is-server": ["./packages/router-core/src/is-server.ts"],
+      "speedy-router-core/warm": ["./packages/router-core/src/warm.ts"],
       "speedy-router-core/utils": ["./packages/router-core/src/utils.ts"],
       "speedy-router-core/ssr/serializer/transformer": [
         "./packages/router-core/src/ssr/serializer/transformer-types.ts"

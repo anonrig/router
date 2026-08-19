@@ -3,6 +3,7 @@ import { createMemoryHistory } from 'speedy-router-history'
 import { redirect } from '../src/redirect'
 import { createRootRoute, createRoute } from '../src/route'
 import { createRouter } from '../src/router'
+import '../src/warm'
 
 function deferred<T>() {
   let fulfill!: (value: T) => void

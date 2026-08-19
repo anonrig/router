@@ -29,6 +29,7 @@
       "entry": [
         "src/index.ts",
         "src/is-server.ts",
+        "src/warm.ts",
         "src/new-process-route-tree.ts",
         "src/utils.ts",
         "src/ssr/server.ts",
@@ -46,6 +47,7 @@
       "entry": [
         "src/index.ts",
         "src/index.rsc.ts",
+        "src/warm.ts",
         "src/client-only.tsx",
         "src/scripts.tsx",
         "src/ssr/server.ts",

@@ -262,6 +262,7 @@ export {
   getLocationChangeInfo,
   runRouteLifecycle,
   setLoadServerRoute,
+  setWarmLoad,
   SearchParamError as RouterSearchParamError,
   PathParamError as RouterPathParamError,
 } from './router'
