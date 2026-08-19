@@ -65,6 +65,20 @@ describe('matcher', () => {
     expect(match?.at(-1)?.route.id).toBe('/a/{-$b}')
   })
 
+  it('honors route-level case sensitivity for wildcard affixes', () => {
+    const root = createRootRoute()
+    const wildcard = createRoute({
+      getParentRoute: () => root,
+      path: '/Pre{$}Suf',
+      caseSensitive: true,
+    })
+    root.addChildren([wildcard])
+    const tree = processRouteTree(root as any)
+
+    expect(findRouteMatch(tree, '/PreXSuf')?.at(-1)?.route.id).toBe('/Pre{$}Suf')
+    expect(findRouteMatch(tree, '/preXSuf')).toBeNull()
+  })
+
   it('rejects malformed percent encoding in dynamic segments', () => {
     const root = createRootRoute()
     const dynamic = createRoute({

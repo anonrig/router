@@ -539,6 +539,7 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
       if (!current.wildcardChild) current.wildcardChild = createNode()
       current.wildcardChild.prefix = trimmed.substring(start, segment[1])
       current.wildcardChild.suffix = trimmed.substring(segment[4], end)
+      current.wildcardChild.affixCaseSensitive = affixCaseSensitive
       current = current.wildcardChild
     }
   }
@@ -1193,16 +1194,17 @@ function findRouteMatchDynamic(
     if (node.wildcardChild) {
       const prefix = node.wildcardChild.prefix || ''
       const suffix = node.wildcardChild.suffix || ''
+      const wildcardCaseSensitive = node.wildcardChild.affixCaseSensitive ?? caseSensitive
       const first = decoded[index]!
       const lastSeg = decoded[decoded.length - 1]!
       const prefixOk =
         !prefix ||
-        (caseSensitive
+        (wildcardCaseSensitive
           ? first.startsWith(prefix)
           : first.toLowerCase().startsWith(prefix.toLowerCase()))
       const suffixOk =
         !suffix ||
-        (caseSensitive
+        (wildcardCaseSensitive
           ? lastSeg.endsWith(suffix)
           : lastSeg.toLowerCase().endsWith(suffix.toLowerCase()))
       if (prefixOk && suffixOk) {
