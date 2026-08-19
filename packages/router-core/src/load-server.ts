@@ -4,7 +4,6 @@ import { isNotFound } from './not-found'
 import { isRedirect, redirect } from './redirect'
 import { rootRouteId } from './root'
 import { loadRouteChunk } from './load-chunk'
-import { ensureRouteOptions } from './load-client'
 import { waitForReason } from './await-signal'
 import { getLocationChangeInfo, runRouteLifecycle } from './router'
 import type { ParsedLocation } from './location'
@@ -68,6 +67,13 @@ export type ServerLoadResult =
 
 function getRoute(router: AnyRouter, match: AnyRouteMatch): AnyRoute {
   return router.routesById[match.routeId]!
+}
+
+function ensureRouteOptions(route: AnyRoute, signal?: AbortSignal): void | Promise<void> {
+  if (!route._lazyOptions || !route.lazyFn || route._lazy === true) return
+  const loading = loadRouteChunk(route, false)
+  if (!loading) return
+  return signal ? waitForReason(loading, signal) : loading
 }
 
 function normalize(value: unknown, rejected: boolean): LoaderOutcome {

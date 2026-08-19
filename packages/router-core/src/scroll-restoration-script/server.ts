@@ -1,5 +1,5 @@
 import minifiedScrollRestorationScript from '../scroll-restoration-inline?script-string'
-import { defaultGetScrollRestorationKey, storageKey } from '../scroll-restoration'
+import { defaultGetScrollRestorationKey, storageKey } from '../scroll-restoration-cache'
 import { escapeHtml } from '../utils'
 import type { AnyRouter } from '../router'
 

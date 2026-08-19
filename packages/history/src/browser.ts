@@ -63,7 +63,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   let next: undefined | [href: string, state: any, isPush: boolean]
 
   const flush = () => {
-    if (!next) return
+    if (!alive || !next) return
     history._ignoreSubscribers = true
     ;(next[2] ? win.history.pushState : win.history.replaceState)(next[1], '', next[0])
     history._ignoreSubscribers = false
@@ -109,11 +109,23 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
       const currentBlockers = _getBlockers()
       if (typeof document !== 'undefined' && currentBlockers.length) {
         for (const blocker of currentBlockers) {
-          const isBlocked = await blocker.blockerFn({
-            currentLocation,
-            nextLocation,
-            action,
-          })
+          let isBlocked
+          try {
+            isBlocked = await blocker.blockerFn({
+              currentLocation,
+              nextLocation,
+              action,
+            })
+          } catch (error) {
+            if (Number.isFinite(delta) && delta !== 0) {
+              ignoreNextPop = true
+              win.history.go(-delta)
+            } else {
+              currentLocation = nextLocation
+              history.notify(notify)
+            }
+            throw error
+          }
           if (isBlocked) {
             if (Number.isFinite(delta) && delta !== 0) {
               ignoreNextPop = true
@@ -182,6 +194,9 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     flush,
     destroy: () => {
       alive = false
+      if (rollbackLocation) currentLocation = rollbackLocation
+      next = undefined
+      rollbackLocation = undefined
       // Only unwrap if this instance still owns the hooks. A newer history on the
       // same window may have wrapped us; restoring would disconnect that instance.
       if (win.history.pushState === pushStateWrapper) {
@@ -207,12 +222,14 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   win.addEventListener(POP_STATE, onPushPopEvent)
 
   function pushStateWrapper(...args: Array<any>) {
+    if (next && !history._ignoreSubscribers) flush()
     const res = originalPushState.apply(win.history, args as any)
     if (alive && !history._ignoreSubscribers) onPushPop('PUSH')
     return res
   }
 
   function replaceStateWrapper(...args: Array<any>) {
+    if (next && !history._ignoreSubscribers) flush()
     const res = originalReplaceState.apply(win.history, args as any)
     if (alive && !history._ignoreSubscribers) onPushPop('REPLACE')
     return res

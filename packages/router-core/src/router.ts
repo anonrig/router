@@ -355,22 +355,27 @@ export type ListenerFn = RouterListener
 
 const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 export const RESOLVED: Promise<void> = Promise.resolve()
-let loadServerRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
-let loadClientRouteCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
-let preloadClientRouteCached: ((router: any, opts?: any) => Promise<any>) | undefined
+let serverLoadCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let clientLoadCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
+let clientPreloadCached: ((router: any, opts?: any) => Promise<any>) | undefined
+
+/** SSR handlers and tests install the server loader so client Vite builds can DCE `load-server`. */
+export function setLoadServerRoute(load: (router: any, opts?: any) => void | Promise<void>) {
+  serverLoadCached = load
+}
 
 function importLoadClient(router: any, opts?: any) {
-  if (loadClientRouteCached) return loadClientRouteCached(router, opts)
+  if (clientLoadCached) return clientLoadCached(router, opts)
   return import('./load-client').then(({ loadClientRoute }) => {
-    loadClientRouteCached = loadClientRoute
+    clientLoadCached = loadClientRoute
     return loadClientRoute(router, opts)
   })
 }
 
 function importPreloadClient(router: any, opts?: any) {
-  if (preloadClientRouteCached) return preloadClientRouteCached(router, opts)
+  if (clientPreloadCached) return clientPreloadCached(router, opts)
   return import('./load-client').then(({ preloadClientRoute }) => {
-    preloadClientRouteCached = preloadClientRoute
+    clientPreloadCached = preloadClientRoute
     return preloadClientRoute(router, opts)
   })
 }
@@ -1021,15 +1026,24 @@ export class RouterCore<
       this.options.protocolAllowlist !== DEFAULT_PROTOCOL_ALLOWLIST
     ) {
       this.protocolAllowlist = new Set(this.options.protocolAllowlist)
+    } else {
+      this.protocolAllowlist = DEFAULT_PROTOCOL_SET
     }
 
     if (this.options.pathParamsAllowedCharacters) {
       this.pathParamsDecoder = compileDecodeCharMap(this.options.pathParamsAllowedCharacters)
+    } else {
+      this.pathParamsDecoder = undefined
     }
 
+    const prevHistory = this.history
     if (!this.history || (this.options.history && this.options.history !== this.history)) {
       if (this.options.history) this.history = this.options.history as TRouterHistory
       else if (!this.isServer) this.history = createBrowserHistory() as TRouterHistory
+    }
+    if (this.history !== prevHistory) {
+      this.unsubHistory?.()
+      this.unsubHistory = undefined
     }
 
     this.origin =
@@ -1186,9 +1200,25 @@ export class RouterCore<
         }
       }
       const parsed = parseHref(href, {} as any)
+      // Keep relative pathnames (`./x`, `../y`, `z`) as `to` values so
+      // resolvePath can join them to the current location. Wrapping them in
+      // `new URL(pathname, origin)` would pin them at the origin root.
+      let to = parsed.pathname
+      if (this.rewrite) {
+        const rewritePath =
+          to && to.charCodeAt(0) !== 47 && current
+            ? resolvePath({
+                base: current.pathname || '/',
+                to,
+                trailingSlash: (this.options.trailingSlash as any) ?? 'never',
+                cache: this.resolvePathCache,
+              })
+            : to || '/'
+        to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
+      }
       dest = {
         ...dest,
-        to: executeRewriteInput(this.rewrite, new URL(parsed.pathname, this.origin)).pathname,
+        to,
         search: (this.options.parseSearch ?? defaultParseSearch)(parsed.search),
         hash: stripLeadingHash(parsed.hash || ''),
       }
@@ -1374,7 +1404,11 @@ export class RouterCore<
       !slotRuntime?.o.has(this) &&
       !rest._isRedirect
     ) {
-      return this.navigateHrefFast(href, rest)
+      const href0 = href.charCodeAt(0)
+      // Path-relative hrefs (`./x`, `../y`, `z`) must go through resolvePath.
+      if (href0 === 47 || href0 === 63 || href0 === 35) {
+        return this.navigateHrefFast(href, rest)
+      }
     }
     if (
       typeof to === 'string' &&
@@ -1571,11 +1605,16 @@ export class RouterCore<
   }
 
   private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
-    if (loadServerRouteCached) return loadServerRouteCached(this, opts)
-    return import('./load-server').then(({ loadServerRoute }) => {
-      loadServerRouteCached = loadServerRoute
-      return loadServerRoute(this, opts)
-    })
+    if (serverLoadCached) return serverLoadCached(this, opts)
+    // `import.meta.env.SSR` is a Vite compile-time constant. A runtime
+    // `this.isServer` check leaves `import('./load-server')` in the client graph.
+    if (import.meta.env.SSR) {
+      return import('./load-server').then(({ loadServerRoute }) => {
+        serverLoadCached = loadServerRoute
+        return loadServerRoute(this, opts)
+      })
+    }
+    return importLoadClient(this, opts)
   }
 
   private isolateServerRequest() {
@@ -1646,8 +1685,8 @@ export class RouterCore<
     } else if (rest.params != null) {
       return
     }
-    const trailing = this.options.trailingSlash
-    if (trailing && trailing !== 'never') {
+    const trailing = rest.trailingSlash ?? this.options.trailingSlash
+    if (trailing) {
       resolved = resolvePath({
         base: '/',
         to: resolved || '/',
@@ -1684,6 +1723,16 @@ export class RouterCore<
         if (href0 === 35) searchStr = this.latestLocation.searchStr
         else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
       }
+      hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
+    }
+    const trailing = rest.trailingSlash ?? this.options.trailingSlash
+    if (trailing) {
+      pathname = resolvePath({
+        base: '/',
+        to: pathname || '/',
+        trailingSlash: trailing,
+        cache: this.resolvePathCache,
+      })
       hrefFull = `${pathname}${searchStr}${hash ? `#${hash}` : ''}`
     }
     const location: ParsedLocation = {
@@ -2503,9 +2552,17 @@ export class RouterCore<
         __TSR_index: replace ? currentIndex : (currentIndex ?? 0) + 1,
       })
       if (this.rewrite) {
-        const hrefUrl = new URL(parsed.pathname, this.origin)
-        const rewrittenUrl = executeRewriteInput(this.rewrite, hrefUrl)
-        rest.to = rewrittenUrl.pathname
+        const path = parsed.pathname
+        const rewritePath =
+          path && path.charCodeAt(0) !== 47
+            ? resolvePath({
+                base: this.latestLocation?.pathname || '/',
+                to: path,
+                trailingSlash: (this.options.trailingSlash as any) ?? 'never',
+                cache: this.resolvePathCache,
+              })
+            : path || '/'
+        rest.to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
       } else {
         rest.to = parsed.pathname
       }

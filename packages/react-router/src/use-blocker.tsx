@@ -164,7 +164,12 @@ export function useBlocker(opts?: any): any {
         }
         return should
       },
-      enableBeforeUnload: typeof opts === 'function' ? true : (opts?.enableBeforeUnload ?? true),
+      enableBeforeUnload: () => {
+        const current = optsRef.current
+        if (typeof current === 'function') return true
+        const option = current?.enableBeforeUnload
+        return typeof option === 'function' ? option() : (option ?? true)
+      },
     })
     return () => {
       unblock()

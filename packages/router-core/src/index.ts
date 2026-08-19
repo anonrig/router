@@ -261,6 +261,7 @@ export {
   getInitialRouterState,
   getLocationChangeInfo,
   runRouteLifecycle,
+  setLoadServerRoute,
   SearchParamError as RouterSearchParamError,
   PathParamError as RouterPathParamError,
 } from './router'
@@ -447,10 +448,10 @@ export {
   defaultGetScrollRestorationKey,
   getElementScrollRestorationEntry,
   storageKey,
-  setupScrollRestoration,
-} from './scroll-restoration'
+} from './scroll-restoration-cache'
+export { setupScrollRestoration } from './scroll-restoration'
 
-export type { ScrollRestorationOptions, ScrollRestorationEntry } from './scroll-restoration'
+export type { ScrollRestorationOptions, ScrollRestorationEntry } from './scroll-restoration-cache'
 
 export type {
   ValidateFromPath,

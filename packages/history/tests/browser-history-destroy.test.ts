@@ -32,6 +32,18 @@ function makeWindow() {
 }
 
 describe('browser history destroy', () => {
+  test('cancels a queued navigation', async () => {
+    const { win } = makeWindow()
+    const originalPushState = vi.spyOn(win.history, 'pushState')
+    const history = createBrowserHistory({ window: win })
+
+    history.push('/queued')
+    history.destroy()
+    await Promise.resolve()
+
+    expect(originalPushState).not.toHaveBeenCalled()
+  })
+
   test('destroying one instance does not disconnect another on the same window', () => {
     const { win } = makeWindow()
     const first = createBrowserHistory({ window: win })

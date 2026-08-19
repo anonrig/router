@@ -14,6 +14,7 @@ import { GLOBAL_TSR, TSR_SCRIPT_BARRIER_ID } from './constants'
 import { dehydrateSsrMatchId } from './ssr-match-id'
 import { defaultSerovalPlugins } from './serializer/seroval-plugins'
 import { makeSsrSerovalPlugin } from './serializer/transformer'
+import { registerLoadServerRoute } from './register-load-server'
 import type { LRUCache } from '../lru-cache'
 import type { DehydratedMatch, DehydratedRouter } from './types'
 import type { AnySerializationAdapter } from './serializer/transformer'
@@ -387,6 +388,7 @@ export function attachRouterServerSsrUtils({
   manifest: ServerManifest | undefined
   getRequestAssets?: () => ManifestRouteAssets | undefined
 }) {
+  registerLoadServerRoute()
   router.ssr =
     manifest || getRequestAssets
       ? {

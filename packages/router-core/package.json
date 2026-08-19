@@ -1,6 +1,6 @@
 {
   "name": "speedy-router-core",
-  "version": "0.1.16",
+  "version": "0.1.18",
   "description": "Matcher, navigation, loaders, and search params for speedy-router.",
   "homepage": "https://github.com/anonrig/router#readme",
   "bugs": {
@@ -19,7 +19,10 @@
     "README.md"
   ],
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/ssr/register-load-server.js",
+    "./dist/ssr/server.js"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
