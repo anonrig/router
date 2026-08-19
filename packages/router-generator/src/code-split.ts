@@ -26,14 +26,15 @@ function parseProgram(fileName: string, code: string): EstreeNode {
   return parseSync(fileName, code).program as EstreeNode
 }
 
-function walk(node: unknown, visit: (value: EstreeNode) => void) {
+function walk(node: unknown, visit: (value: EstreeNode) => void, skip?: Set<EstreeNode>) {
   if (!node || typeof node !== 'object') return
   if (Array.isArray(node)) {
-    for (const item of node) walk(item, visit)
+    for (const item of node) walk(item, visit, skip)
     return
   }
   const value = node as EstreeNode
   if (typeof value.type !== 'string') return
+  if (skip?.has(value)) return
   visit(value)
   for (const key of Object.keys(value)) {
     if (
@@ -46,15 +47,19 @@ function walk(node: unknown, visit: (value: EstreeNode) => void) {
     ) {
       continue
     }
-    walk(value[key], visit)
+    walk(value[key], visit, skip)
   }
 }
 
-function collectIdentifiers(node: EstreeNode, into: Set<string>) {
-  walk(node, (value) => {
-    if (value.type === 'Identifier' && typeof value.name === 'string') into.add(value.name)
-    if (value.type === 'JSXIdentifier' && typeof value.name === 'string') into.add(value.name)
-  })
+function collectIdentifiers(node: EstreeNode, into: Set<string>, skip?: Set<EstreeNode>) {
+  walk(
+    node,
+    (value) => {
+      if (value.type === 'Identifier' && typeof value.name === 'string') into.add(value.name)
+      if (value.type === 'JSXIdentifier' && typeof value.name === 'string') into.add(value.name)
+    },
+    skip,
+  )
 }
 
 function collectBindingNames(name: EstreeNode | undefined, into: Array<string>) {
@@ -198,27 +203,43 @@ function createFileRouteImportSource(program: EstreeNode): string | undefined {
   return undefined
 }
 
+function indexDeclarations(statements: Array<EstreeNode>) {
+  const byName = new Map<string, Array<EstreeNode>>()
+  for (const statement of statements) {
+    for (const name of declaredNames(statement)) {
+      const list = byName.get(name)
+      if (list) list.push(statement)
+      else byName.set(name, [statement])
+    }
+  }
+  return byName
+}
+
 function neededStatements(
   program: EstreeNode,
   seeds: Array<EstreeNode>,
   skip?: (statement: EstreeNode) => boolean,
+  skipNodes?: Set<EstreeNode>,
 ): Set<EstreeNode> {
   const statements: Array<EstreeNode> = program.body ?? []
+  const byName = indexDeclarations(statements)
   const needed = new Set<EstreeNode>(seeds)
+  const pending = seeds.slice()
   const used = new Set<string>()
-  for (const statement of needed) collectIdentifiers(statement, used)
 
-  let grew = true
-  while (grew) {
-    grew = false
-    for (const statement of statements) {
-      if (needed.has(statement)) continue
-      if (skip?.(statement)) continue
-      const names = declaredNames(statement)
-      if (!names.some((name) => used.has(name))) continue
-      needed.add(statement)
-      collectIdentifiers(statement, used)
-      grew = true
+  for (let i = 0; i < pending.length; i++) {
+    const fresh = new Set<string>()
+    collectIdentifiers(pending[i]!, fresh, skipNodes)
+    for (const name of fresh) {
+      if (used.has(name)) continue
+      used.add(name)
+      const declarations = byName.get(name)
+      if (!declarations) continue
+      for (const statement of declarations) {
+        if (needed.has(statement) || skip?.(statement)) continue
+        needed.add(statement)
+        pending.push(statement)
+      }
     }
   }
   return needed
@@ -275,9 +296,9 @@ function printNamedImport(
   return `import ${typeOnly}${parts.join(', ')} from '${moduleName}'`
 }
 
-function identifiersIn(statements: Iterable<EstreeNode>): Set<string> {
+function identifiersIn(statements: Iterable<EstreeNode>, skip?: Set<EstreeNode>): Set<string> {
   const used = new Set<string>()
-  for (const statement of statements) collectIdentifiers(statement, used)
+  for (const statement of statements) collectIdentifiers(statement, used, skip)
   return used
 }
 
@@ -297,6 +318,24 @@ function slice(code: string, node: EstreeNode) {
   return code.slice(node.start, node.end)
 }
 
+function sliceReplaced(
+  code: string,
+  node: EstreeNode,
+  replacements: Array<{ start: number; end: number; text: string }>,
+) {
+  const local: Array<{ start: number; end: number; text: string }> = []
+  for (const replacement of replacements) {
+    if (replacement.start < node.start || replacement.end > node.end) continue
+    local.push({
+      start: replacement.start - node.start,
+      end: replacement.end - node.start,
+      text: replacement.text,
+    })
+  }
+  const piece = code.slice(node.start, node.end)
+  return local.length ? applyReplacements(piece, local) : piece
+}
+
 /**
  * Rewrite a route file so split UI properties load through `lazyRouteComponent`.
  * Only `ssr: false` routes are split, so SSR pages keep their components eager.
@@ -309,32 +348,31 @@ export function compileReferenceRoute(code: string, fileName: string): string | 
   const properties = splitPropertiesOf(options)
   if (properties.length === 0) return null
 
+  const skipValues = new Set(properties.map((property) => property.value))
   const replacements = properties.map(({ key, value }) => ({
     start: value.start,
     end: value.end,
     text: lazyWrapper(fileName, key),
   }))
-  const rewritten = applyReplacements(code, replacements)
-  const nextProgram = parseProgram(fileName, rewritten)
-  const seeds = (nextProgram.body ?? []).filter(
+  const seeds = (program.body ?? []).filter(
     (statement: EstreeNode) => isExportedStatement(statement) || isSideEffectImport(statement),
   )
-  if (seeds.length === 0) return rewritten
-  const needed = neededStatements(nextProgram, seeds)
-  const used = identifiersIn(needed)
+  if (seeds.length === 0) return applyReplacements(code, replacements)
+  const needed = neededStatements(program, seeds, undefined, skipValues)
+  const used = identifiersIn(needed, skipValues)
   used.add('lazyRouteComponent')
 
-  const runtimeImport = createFileRouteImportSource(nextProgram) ?? '@tanstack/react-router'
+  const runtimeImport = createFileRouteImportSource(program) ?? '@tanstack/react-router'
   const parts: Array<string> = []
-  for (const statement of nextProgram.body ?? []) {
+  for (const statement of program.body ?? []) {
     if (!needed.has(statement)) continue
     if (statement.type === 'ImportDeclaration') {
       const extra = statement.source?.value === runtimeImport ? ['lazyRouteComponent'] : []
-      const printed = printNamedImport(statement, used, extra, rewritten)
+      const printed = printNamedImport(statement, used, extra, code)
       if (printed) parts.push(printed)
       continue
     }
-    parts.push(slice(rewritten, statement))
+    parts.push(sliceReplaced(code, statement, replacements))
   }
   if (!parts.some((part) => part.includes('lazyRouteComponent'))) {
     parts.unshift(`import { lazyRouteComponent } from '${runtimeImport}'`)

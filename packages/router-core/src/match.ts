@@ -713,6 +713,61 @@ export function findRouteMatchFromTree(
   return findRouteMatchOrdered(tree, pathname, caseSensitive, fuzzy)
 }
 
+export function matchHasFuzzyLeftover(match: RouteMatchResult[] | null | undefined): boolean {
+  const last = match?.[match.length - 1]
+  return !!last && Object.prototype.hasOwnProperty.call(last.rawParams, '**')
+}
+
+/**
+ * Exact match via the usual static/cache hits. On miss, one fuzzy-capable
+ * dynamic walk instead of an exact walk plus a second fuzzy walk.
+ */
+export function findRouteMatchFromTreeOrFuzzy(
+  tree: ProcessedTree,
+  pathname: string,
+  caseSensitive = false,
+): RouteMatchResult[] | null {
+  if (pathname === hotPath && tree === hotTree && hotMatch?.length) return hotMatch
+  if (!caseSensitive && tree.lastPath === pathname && tree.lastMatch?.length) {
+    return rememberHot(tree, pathname, tree.lastMatch)
+  }
+
+  if (pathname.indexOf('%') === -1) {
+    const exact = lookupStaticExact(tree, pathname, caseSensitive)
+    if (exact !== undefined) return rememberMatch(tree, pathname, exact, caseSensitive, false)
+  }
+
+  const exactKey = caseSensitive ? `1:0:${pathname}` : pathname
+  const cachedExact = tree.matchCache.get(exactKey)
+  if (cachedExact?.length) {
+    return rememberMatch(tree, pathname, cachedExact, caseSensitive, false)
+  }
+
+  if (cachedExact === undefined) {
+    const staticHit = findStaticMatch(tree, pathname, caseSensitive)
+    if (staticHit !== undefined) {
+      tree.matchCache.set(exactKey, staticHit)
+      if (staticHit?.length) {
+        return rememberMatch(tree, pathname, staticHit, caseSensitive, false)
+      }
+    }
+  }
+
+  const fuzzyKey = `${caseSensitive ? '1' : '0'}:1:${pathname}`
+  const cachedFuzzy = tree.matchCache.get(fuzzyKey)
+  if (cachedFuzzy !== undefined) return cachedFuzzy
+
+  const result = findRouteMatchDynamic(tree, pathname, caseSensitive, true)
+  if (result?.length && !matchHasFuzzyLeftover(result)) {
+    tree.matchCache.set(exactKey, result)
+    tree.matchCache.set(fuzzyKey, result)
+    return rememberMatch(tree, pathname, result, caseSensitive, false)
+  }
+  if (cachedExact === undefined) tree.matchCache.set(exactKey, null)
+  tree.matchCache.set(fuzzyKey, result)
+  return result
+}
+
 setFindRouteMatchLookup((treeOrPathname, pathnameOrTree, caseSensitiveOrFuzzy) => {
   if (typeof pathnameOrTree === 'string') {
     return findRouteMatchFromTree(

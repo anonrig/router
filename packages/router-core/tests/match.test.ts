@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { findRouteMatch, processRouteTree } from '../src/match'
+import {
+  findRouteMatch,
+  findRouteMatchFromTree,
+  findRouteMatchFromTreeOrFuzzy,
+  matchHasFuzzyLeftover,
+  processRouteTree,
+} from '../src/match'
 import { createRootRoute, createRoute } from '../src/route'
 
 function tree() {
@@ -102,5 +108,37 @@ describe('matcher', () => {
       '/about/docs',
     ])
     expect(findRouteMatch(processed, '/missing')).toBeNull()
+  })
+})
+
+describe('findRouteMatchFromTreeOrFuzzy', () => {
+  function idsOf(match: ReturnType<typeof findRouteMatchFromTreeOrFuzzy>) {
+    return match?.map((item) => item.route.id)
+  }
+
+  function exactThenFuzzy(processed: ReturnType<typeof processRouteTree>, pathname: string) {
+    return (
+      findRouteMatchFromTree(processed, pathname) ??
+      findRouteMatchFromTree(processed, pathname, false, true)
+    )
+  }
+
+  it('matches exact paths the same as findRouteMatchFromTree', () => {
+    const processed = tree()
+    for (const pathname of ['/', '/posts', '/posts/tkdodo', '/u/anonrig']) {
+      expect(idsOf(findRouteMatchFromTreeOrFuzzy(processed, pathname))).toEqual(
+        idsOf(findRouteMatchFromTree(processed, pathname)),
+      )
+    }
+  })
+
+  it('uses one walk for fuzzy misses and matches the two-call result', () => {
+    for (const pathname of ['/missing', '/posts/tkdodo/extra', '/u/anonrig/settings']) {
+      const combined = findRouteMatchFromTreeOrFuzzy(tree(), pathname)
+      const legacy = exactThenFuzzy(tree(), pathname)
+      expect(idsOf(combined)).toEqual(idsOf(legacy))
+      expect(combined?.at(-1)?.rawParams).toEqual(legacy?.at(-1)?.rawParams)
+      expect(matchHasFuzzyLeftover(combined)).toBe(matchHasFuzzyLeftover(legacy))
+    }
   })
 })

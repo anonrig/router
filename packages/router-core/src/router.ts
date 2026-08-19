@@ -8,8 +8,9 @@ import {
   buildRouteBranch,
   findFlatMatch,
   findRouteMatch,
-  findRouteMatchFromTree,
+  findRouteMatchFromTreeOrFuzzy,
   findSingleMatch,
+  matchHasFuzzyLeftover,
   processRouteMasks,
   processRouteTree,
   type ProcessedTree,
@@ -2059,37 +2060,22 @@ export class RouterCore<
     const cached = cache?.[path]
     if (cached) return cached as unknown as ReturnType<GetMatchRoutesFn>
 
-    const exact = findRouteMatchFromTree(
+    const match = findRouteMatchFromTreeOrFuzzy(
       this.processedTree,
       path,
       this.options.caseSensitive ?? false,
     )
     let result: ReturnType<GetMatchRoutesFn>
-    if (exact?.length) {
-      const last = exact[exact.length - 1]!
+    if (match?.length) {
+      const last = match[match.length - 1]!
       const branch = buildRouteBranch(last.route as AnyRoute)
-      result = [
-        branch.length ? branch : exact.map((item) => item.route),
-        last.rawParams,
-        last.route,
-      ] as unknown as ReturnType<GetMatchRoutesFn>
+      result = (
+        matchHasFuzzyLeftover(match)
+          ? [branch, last.rawParams, last.route]
+          : [branch.length ? branch : match.map((item) => item.route), last.rawParams, last.route]
+      ) as unknown as ReturnType<GetMatchRoutesFn>
     } else {
-      const match = findRouteMatchFromTree(
-        this.processedTree,
-        path,
-        this.options.caseSensitive ?? false,
-        true,
-      )
-      if (match?.length) {
-        const last = match[match.length - 1]!
-        result = [
-          buildRouteBranch(last.route as AnyRoute),
-          last.rawParams,
-          last.route,
-        ] as unknown as ReturnType<GetMatchRoutesFn>
-      } else {
-        result = [[this.routesById[rootRouteId]!], Object.create(null), undefined]
-      }
+      result = [[this.routesById[rootRouteId]!], Object.create(null), undefined]
     }
     if (cache) cache[path] = result as unknown as (typeof cache)[string]
     return result
