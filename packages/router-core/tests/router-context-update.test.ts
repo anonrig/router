@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
 import { createRootRoute, createRoute } from '../src/route'
 import { createRouter } from '../src/router'
+import '../src/warm'
 
 test('cached warm matches use updated router context', async () => {
   const root = createRootRoute()
