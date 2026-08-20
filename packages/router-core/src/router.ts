@@ -1732,10 +1732,12 @@ export class RouterCore<
     let pathname: string
     let searchStr: string
     let hash: string
+    let hrefFull: string | undefined
     if (isSimpleHref(href)) {
-      pathname = decodePath(href).path
+      pathname = href
       searchStr = ''
       hash = ''
+      hrefFull = href
     } else {
       const currentIndex = this.history.location.state?.__TSR_index
       const parsed = parseHref(href, {
@@ -1759,8 +1761,9 @@ export class RouterCore<
         trailingSlash: trailing,
         cache: this.resolvePathCache,
       })
+      if (pathname !== href) hrefFull = undefined
     }
-    const hrefFull = encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
+    hrefFull ??= encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
     const state = resolveBuildState(rest, this.latestLocation)
     const location: ParsedLocation = {
       href: hrefFull,
@@ -1824,13 +1827,15 @@ export class RouterCore<
       history.flush()
       this._committing--
       // Blockers may deny the commit; never publish a destination we did not land on.
+      const historyLocation = history.location
       const landed =
-        decodePath(history.location.pathname).path === pathname &&
-        (history.location.search || '') === (searchStr || '') &&
-        decodePath(stripLeadingHash(history.location.hash)).path === hash
+        historyLocation.href === hrefFull ||
+        (decodePath(historyLocation.pathname).path === pathname &&
+          (historyLocation.search || '') === (searchStr || '') &&
+          decodePath(stripLeadingHash(historyLocation.hash)).path === hash)
       if (!landed) return RESOLVED
 
-      location.state = history.location.state
+      location.state = historyLocation.state
       this.latestLocation = location
       this._pendingLocation = location
 
@@ -3039,7 +3044,9 @@ function isSimpleHref(href: string) {
   }
   for (let i = 1; i < len; i++) {
     const c = href.charCodeAt(i)
-    if (c <= 0x1f || c === 0x7f || c === 63 || c === 35) return false
+    if (c <= 0x20 || c >= 0x7f || c === 37 || c === 92 || c === 63 || c === 35) {
+      return false
+    }
   }
   return true
 }
