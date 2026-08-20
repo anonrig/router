@@ -5,6 +5,10 @@ export interface ErrorNode extends PluginInfo {
   message: SerovalNode
 }
 
+const parseMessage = (value: Error, ctx: { parse: (value: unknown) => SerovalNode }) => ({
+  message: ctx.parse(value.message),
+})
+
 /**
  * this plugin serializes only the `message` part of an Error
  * this helps with serializing e.g. a ZodError which has functions attached that cannot be serialized
@@ -15,21 +19,13 @@ export const ShallowErrorPlugin = /* @__PURE__ */ createPlugin<Error, ErrorNode>
     return Error.isError(value)
   },
   parse: {
-    sync(value, ctx) {
-      return {
-        message: ctx.parse(value.message),
-      }
-    },
+    sync: parseMessage,
     async async(value, ctx) {
       return {
         message: await ctx.parse(value.message),
       }
     },
-    stream(value, ctx) {
-      return {
-        message: ctx.parse(value.message),
-      }
-    },
+    stream: parseMessage,
   },
   serialize(node, ctx) {
     return 'new Error(' + ctx.serialize(node.message) + ')'
