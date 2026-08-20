@@ -197,10 +197,7 @@ function getInlineCssForPreparedRoutes(
   return css
 }
 
-function getPreparedMatchedManifestRoutes(
-  manifest: ServerManifest,
-  matches: Array<AnyRouteMatch>,
-) {
+function getPreparedMatchedManifestRoutes(manifest: ServerManifest, matches: Array<AnyRouteMatch>) {
   let cacheKey = ''
   for (let i = 0; i < matches.length; i++) {
     cacheKey += (i === 0 ? '' : '\0') + matches[i]!.routeId

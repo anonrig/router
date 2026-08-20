@@ -209,7 +209,8 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   for (let index = 0; index < contextEnd; index++) {
     const match = candidates[index]!
     const route = getRoute(router, match)
-    const parentContext = matchParentContext(candidates, index, match) ?? router.options.context ?? {}
+    const parentContext =
+      matchParentContext(candidates, index, match) ?? router.options.context ?? {}
     let routeContext
     if (route.options.context) {
       try {

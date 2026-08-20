@@ -4,7 +4,6 @@ import {
   processRouteTree as processRouteTreeCore,
   type AnyRouteLike,
   type ProcessedTree,
-  type RouteMatchResult,
 } from './match'
 import {
   buildMasksTree,
