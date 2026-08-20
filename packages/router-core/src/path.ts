@@ -5,14 +5,68 @@ import {
   SEGMENT_TYPE_WILDCARD,
   parseSegment,
 } from './parse-segment'
-import { encodeURIComponentWellFormed } from './utils'
+import { encodeURIComponentWellFormed, evictOldest } from './utils'
 
 export function joinPaths(paths: Array<string | undefined>) {
-  return cleanPath(paths.filter(Boolean).join('/'))
+  let out = ''
+  for (let i = 0; i < paths.length; i++) {
+    const val = paths[i]
+    if (!val) continue
+    if (out.length && out.charCodeAt(out.length - 1) !== 47 && val.charCodeAt(0) !== 47) {
+      out += '/'
+    } else if (out.length && out.charCodeAt(out.length - 1) === 47 && val.charCodeAt(0) === 47) {
+      out += val.slice(1)
+      continue
+    }
+    out += val
+  }
+  return cleanPath(out)
+}
+
+const cleanCache: Record<string, string> = Object.create(null)
+const CLEAN_CACHE_MAX = 32
+const cleanCacheSize = { n: 0 }
+
+function setBounded<V>(
+  cache: Record<string, V>,
+  size: { n: number },
+  key: string,
+  value: V,
+  max: number,
+) {
+  if (!(key in cache)) {
+    if (size.n >= max) evictOldest(cache)
+    else size.n++
+  }
+  cache[key] = value
 }
 
 export function cleanPath(path: string) {
-  return path.indexOf('//') === -1 ? path : path.replace(/\/{2,}/g, '/')
+  const cached = cleanCache[path]
+  if (cached !== undefined) return cached
+  const first = path.indexOf('//')
+  const result = first === -1 ? path : collapseSlashes(path, first)
+  setBounded(cleanCache, cleanCacheSize, path, result, CLEAN_CACHE_MAX)
+  return result
+}
+
+function collapseSlashes(path: string, first: number) {
+  let out = path.slice(0, first + 1)
+  let i = first + 2
+  const len = path.length
+  while (i < len && path.charCodeAt(i) === 47) i++
+  let last = i
+  while (i < len) {
+    if (path.charCodeAt(i) === 47 && i + 1 < len && path.charCodeAt(i + 1) === 47) {
+      out += path.slice(last, i + 1)
+      i += 2
+      while (i < len && path.charCodeAt(i) === 47) i++
+      last = i
+      continue
+    }
+    i++
+  }
+  return out + path.slice(last)
 }
 
 export function trimPathLeft(path: string) {
@@ -55,23 +109,75 @@ interface ResolvePathOptions {
   base: string
   to: string
   trailingSlash?: 'always' | 'never' | 'preserve'
+  cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
-export function resolvePath({ base, to, trailingSlash = 'never' }: ResolvePathOptions) {
+const defaultResolveCache: Record<string, string> = Object.create(null)
+const RESOLVE_CACHE_MAX = 64
+const defaultResolveCacheSize = { n: 0 }
+
+function rememberResolved(
+  cache: ResolvePathOptions['cache'] | undefined,
+  key: string | undefined,
+  result: string,
+) {
+  if (!key) return result
+  if (!cache) {
+    setBounded(defaultResolveCache, defaultResolveCacheSize, key, result, RESOLVE_CACHE_MAX)
+    return result
+  }
+  cache.set(key, result)
+  return result
+}
+
+let lastResolveBase = ''
+let lastResolveTo = ''
+let lastResolveSlash: ResolvePathOptions['trailingSlash'] = 'never'
+let lastResolveResult = ''
+
+export function resolvePath({ base, to, trailingSlash = 'never', cache }: ResolvePathOptions) {
+  if (
+    !cache &&
+    base === lastResolveBase &&
+    to === lastResolveTo &&
+    trailingSlash === lastResolveSlash
+  ) {
+    return lastResolveResult
+  }
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
+
+  let key: string | undefined
+  key = isAbsolute ? to : isBase ? base : base + '\0' + to
+  if (trailingSlash !== 'never') key += '\0' + trailingSlash
+  const cached = cache ? cache.get(key) : defaultResolveCache[key]
+  if (cached) {
+    if (!cache) {
+      lastResolveBase = base
+      lastResolveTo = to
+      lastResolveSlash = trailingSlash
+      lastResolveResult = cached
+    }
+    return cached
+  }
 
   if (isAbsolute && !hasDotSegment(to)) {
     const result = cleanPath(to) || '/'
     const hasSlash = result.length > 1 && result.charCodeAt(result.length - 1) === 47
-    if (trailingSlash === 'never' && hasSlash) return result.slice(0, -1)
-    if (trailingSlash === 'always' && !hasSlash && result !== '/') return result + '/'
-    if (trailingSlash === 'preserve') {
+    let finalPath = result
+    if (trailingSlash === 'never' && hasSlash) {
+      finalPath = result.slice(0, -1)
+    } else if (trailingSlash === 'always' && !hasSlash && result !== '/') {
+      finalPath = result + '/'
+    } else if (trailingSlash === 'preserve') {
       const toEndedWithSlash = to.length > 1 && to.charCodeAt(to.length - 1) === 47
-      if (toEndedWithSlash && !hasSlash && result !== '/') return result + '/'
-      if (!toEndedWithSlash && hasSlash) return result.slice(0, -1)
+      if (toEndedWithSlash && !hasSlash && result !== '/') {
+        finalPath = result + '/'
+      } else if (!toEndedWithSlash && hasSlash) {
+        finalPath = result.slice(0, -1)
+      }
     }
-    return result
+    return finishResolve(cache, key, finalPath, base, to, trailingSlash, !cache)
   }
 
   let baseSegments: Array<string>
@@ -108,7 +214,27 @@ export function resolvePath({ base, to, trailingSlash = 'never' }: ResolvePathOp
     }
   }
 
-  return cleanPath(baseSegments.join('/')) || '/'
+  const result = cleanPath(baseSegments.join('/')) || '/'
+  return finishResolve(cache, key, result, base, to, trailingSlash, !cache)
+}
+
+function finishResolve(
+  cache: ResolvePathOptions['cache'] | undefined,
+  key: string | undefined,
+  result: string,
+  base: string,
+  to: string,
+  trailingSlash: ResolvePathOptions['trailingSlash'],
+  rememberLast: boolean,
+) {
+  const stored = rememberResolved(cache, key, result)
+  if (rememberLast) {
+    lastResolveBase = base
+    lastResolveTo = to
+    lastResolveSlash = trailingSlash
+    lastResolveResult = stored
+  }
+  return stored
 }
 
 function hasDotSegment(path: string) {
@@ -162,14 +288,110 @@ export type InterPolatePathResult = {
   isMissingParams: boolean
 }
 
-const UNRESERVED = /^[A-Za-z0-9\-._~]*$/
-const SPLAT_SAFE = /^[A-Za-z0-9\-._~!/]*$/
+function isUnreservedPathValue(value: string) {
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i)
+    if (
+      (c >= 48 && c <= 57) ||
+      (c >= 65 && c <= 90) ||
+      (c >= 97 && c <= 122) ||
+      c === 45 ||
+      c === 46 ||
+      c === 95 ||
+      c === 126
+    ) {
+      continue
+    }
+    return false
+  }
+  return true
+}
 
 function encodePathParam(value: string, decoder?: InterpolatePathOptions['decoder']) {
-  if (!decoder && UNRESERVED.test(value)) return value
+  if (!decoder && isUnreservedPathValue(value)) return value
   const encoded = encodeURIComponentWellFormed(value)
   const decoded = decoder?.(encoded) ?? encoded
-  return decoded.includes('%2') ? decoded.replace(/%21/gi, '!') : decoded
+  // Browsers leave these in pathnames; encodeURIComponent is stricter.
+  return unescapeEncodedExclamation(decoded)
+}
+
+function unescapeEncodedExclamation(decoded: string): string {
+  if (decoded.indexOf('%2') === -1) return decoded
+  let out = ''
+  let last = 0
+  const len = decoded.length
+  for (let i = 0; i < len - 2; i++) {
+    if (decoded.charCodeAt(i) !== 37) continue
+    if ((decoded.charCodeAt(i + 1) | 32) !== 50) continue
+    if ((decoded.charCodeAt(i + 2) | 32) !== 49) continue
+    out += decoded.slice(last, i) + '!'
+    last = i + 3
+    i += 2
+  }
+  return last === 0 ? decoded : out + decoded.slice(last)
+}
+
+type SimplePart = { t: 0; s: string } | { t: 1; k: string }
+const simpleInterpolateCache: Record<string, SimplePart[] | null> = Object.create(null)
+const SIMPLE_INTERPOLATE_CACHE_MAX = 256
+const simpleInterpolateCacheSize = { n: 0 }
+
+function rememberSimpleParts(path: string, parts: SimplePart[] | null) {
+  setBounded(
+    simpleInterpolateCache,
+    simpleInterpolateCacheSize,
+    path,
+    parts,
+    SIMPLE_INTERPOLATE_CACHE_MAX,
+  )
+  return parts
+}
+
+function compileSimpleParams(path: string): SimplePart[] | null {
+  const cached = simpleInterpolateCache[path]
+  if (cached !== undefined) return cached
+  const parts: SimplePart[] = []
+  let i = 0
+  const len = path.length
+  let litStart = 0
+  while (i < len) {
+    if (path.charCodeAt(i) !== 36) {
+      i++
+      continue
+    }
+    let j = i + 1
+    while (j < len && path.charCodeAt(j) !== 47) j++
+    if (j === i + 1) return rememberSimpleParts(path, null)
+    if (i > litStart) parts.push({ t: 0, s: path.slice(litStart, i) })
+    parts.push({ t: 1, k: path.slice(i + 1, j) })
+    i = j
+    litStart = j
+  }
+  if (litStart < len) parts.push({ t: 0, s: path.slice(litStart) })
+  return rememberSimpleParts(path, parts)
+}
+
+function interpolateSimpleParams(
+  path: string,
+  params: InterpolatePathOptions['params'],
+  decoder: InterpolatePathOptions['decoder'],
+): InterPolatePathResult | null {
+  const parts = compileSimpleParams(path)
+  if (!parts) return null
+  const usedParams: Record<string, unknown> = Object.create(null)
+  let isMissingParams = false
+  let out = ''
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]!
+    if (part.t === 0) {
+      out += part.s
+      continue
+    }
+    if (!isMissingParams && !(part.k in params)) isMissingParams = true
+    usedParams[part.k] = params[part.k]
+    out += encodeParam(part.k, params, decoder) ?? 'undefined'
+  }
+  return { interpolatedPath: out || '/', usedParams, isMissingParams }
 }
 
 function encodeParam(
@@ -180,11 +402,32 @@ function encodeParam(
   const value = key === '_splat' ? (params._splat ?? params['*']) : params[key]
   if (typeof value !== 'string') return value
   if (key === '_splat') {
-    if (SPLAT_SAFE.test(value)) return value
-    return value
-      .split('/')
-      .map((part) => encodePathParam(part, decoder))
-      .join('/')
+    let safe = true
+    for (let i = 0; i < value.length; i++) {
+      const c = value.charCodeAt(i)
+      if (
+        !(
+          (c >= 48 && c <= 57) ||
+          (c >= 65 && c <= 90) ||
+          (c >= 97 && c <= 122) ||
+          c === 45 ||
+          c === 46 ||
+          c === 95 ||
+          c === 126 ||
+          c === 33 ||
+          c === 47
+        )
+      ) {
+        safe = false
+        break
+      }
+    }
+    if (safe) return value
+    const parts = value.split('/')
+    for (let i = 0; i < parts.length; i++) {
+      parts[i] = encodePathParam(parts[i]!, decoder)
+    }
+    return parts.join('/')
   }
   return encodePathParam(value, decoder)
 }
@@ -194,11 +437,23 @@ export function interpolatePath({
   params,
   decoder,
 }: InterpolatePathOptions): InterPolatePathResult {
+  return interpolatePathResolved(path, params, decoder)
+}
+
+function interpolatePathResolved(
+  path: InterpolatePathOptions['path'],
+  params: InterpolatePathOptions['params'],
+  decoder: InterpolatePathOptions['decoder'],
+): InterPolatePathResult {
   if (!path || path === '/') {
     return { interpolatedPath: '/', usedParams: Object.create(null), isMissingParams: false }
   }
   if (path.indexOf('$') === -1) {
     return { interpolatedPath: path, usedParams: Object.create(null), isMissingParams: false }
+  }
+  if (path.indexOf('{') === -1) {
+    const simple = interpolateSimpleParams(path, params, decoder)
+    if (simple) return simple
   }
   return interpolateBracedParams(path, params, decoder)
 }
@@ -218,14 +473,11 @@ function interpolateBracedParams(
   while (cursor < length) {
     const start = cursor
     segment = parseSegment(path, start, segment)
-    const parsed = segment
-    const end = parsed[5]
+    const end = segment[5]
     cursor = end + 1
     if (start === end) continue
 
-    const kind = parsed[0]
-    const affix = (value: string) =>
-      '/' + path.substring(start, parsed[1]) + value + path.substring(parsed[4], end)
+    const kind = segment[0]
 
     if (kind === SEGMENT_TYPE_PATHNAME) {
       joined += '/' + path.substring(start, end)
@@ -236,29 +488,37 @@ function interpolateBracedParams(
       const splat = params._splat ?? params['*']
       usedParams._splat = splat
       usedParams['*'] = splat
+      const prefix = path.substring(start, segment[1])
+      const suffix = path.substring(segment[4], end)
       if (!splat) {
         isMissingParams = true
-        if (parsed[1] !== start || parsed[4] !== end) joined += affix('')
+        if (prefix || suffix) joined += '/' + prefix + suffix
         continue
       }
-      joined += affix(encodeParam('_splat', params, decoder))
+      joined += '/' + prefix + encodeParam('_splat', params, decoder) + suffix
       continue
     }
 
     if (kind === SEGMENT_TYPE_PARAM) {
-      const key = path.substring(parsed[2], parsed[3])
+      const key = path.substring(segment[2], segment[3])
       if (!isMissingParams && !(key in params)) isMissingParams = true
       usedParams[key] = params[key]
-      joined += affix(encodeParam(key, params, decoder) ?? 'undefined')
+      const prefix = path.substring(start, segment[1])
+      const suffix = path.substring(segment[4], end)
+      const value = encodeParam(key, params, decoder) ?? 'undefined'
+      joined += '/' + prefix + value + suffix
       continue
     }
 
     if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      const key = path.substring(parsed[2], parsed[3])
+      const key = path.substring(segment[2], segment[3])
       const valueRaw = params[key]
       if (valueRaw == null) continue
       usedParams[key] = valueRaw
-      joined += affix(encodeParam(key, params, decoder) ?? '')
+      const prefix = path.substring(start, segment[1])
+      const suffix = path.substring(segment[4], end)
+      const value = encodeParam(key, params, decoder) ?? ''
+      joined += '/' + prefix + value + suffix
     }
   }
 
