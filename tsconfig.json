@@ -18,7 +18,6 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
     "noEmit": true,
     "paths": {
       "speedy-router-history": ["./packages/history/src/index.ts"],
@@ -58,6 +57,5 @@
       "@tanstack/react-router/Scripts": ["./packages/react-router/src/scripts.tsx"]
     }
   },
-  "include": ["packages/*/src"],
-  "exclude": ["packages/*/dist"]
+  "include": ["packages/*/src"]
 }
