@@ -23,6 +23,7 @@ const packages = [
     entries: [
       'index.ts',
       'is-server.ts',
+      'warm.ts',
       'new-process-route-tree.ts',
       'utils.ts',
       'ssr/server.ts',
@@ -40,6 +41,7 @@ const packages = [
     entries: [
       'index.ts',
       'index.rsc.ts',
+      'warm.ts',
       'client-only.tsx',
       'scripts.tsx',
       'ssr/server.ts',

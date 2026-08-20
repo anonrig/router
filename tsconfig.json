@@ -31,6 +31,8 @@
       "@tanstack/router-core": ["./packages/router-core/src/index.ts"],
       "@tanstack/react-router": ["./packages/react-router/src/index.ts"],
       "speedy-router-core/is-server": ["./packages/router-core/src/is-server.ts"],
+      "speedy-router-core/warm": ["./packages/router-core/src/warm.ts"],
+      "speedy-router/warm": ["./packages/react-router/src/warm.ts"],
       "speedy-router-core/utils": ["./packages/router-core/src/utils.ts"],
       "speedy-router-core/ssr/server": ["./packages/router-core/src/ssr/server.ts"],
       "speedy-router-core/ssr/client": ["./packages/router-core/src/ssr/client.ts"],

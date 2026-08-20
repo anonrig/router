@@ -236,6 +236,14 @@ export const tanstackAliases = [
     replacement: resolve(root, 'packages/router-core/src/is-server.ts'),
   },
   {
+    find: 'speedy-router-core/warm',
+    replacement: resolve(root, 'packages/router-core/src/warm.ts'),
+  },
+  {
+    find: 'speedy-router/warm',
+    replacement: resolve(root, 'packages/react-router/src/warm.ts'),
+  },
+  {
     find: 'speedy-router-core/path',
     replacement: resolve(root, 'packages/router-core/src/path.ts'),
   },

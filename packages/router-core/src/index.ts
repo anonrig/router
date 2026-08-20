@@ -262,6 +262,7 @@ export {
   getLocationChangeInfo,
   runRouteLifecycle,
   setLoadServerRoute,
+  setWarmLoad,
 } from './router'
 export type {
   ViewTransitionOptions,
