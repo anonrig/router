@@ -1,5 +1,5 @@
 import { BACK_ACTION, FORWARD_ACTION, PUSH_ACTION, REPLACE_ACTION, STATE_INDEX } from './constants'
-import { assignKeyAndIndex, isSimplePathname, parseHref } from './parse'
+import { assignKeyAndIndex, parseHref } from './parse'
 import { runBlockerChain } from './create'
 
 const MEMORY_HISTORY_COMPACT_AT = 2048
@@ -9,8 +9,22 @@ function simpleLocation(path: string, state: ParsedHistoryState): HistoryLocatio
   return { href: path, pathname: path, search: '', hash: '', state }
 }
 
+// Hot path for memory push/replace/back/forward: keep the simple-path scan
+// inlined (same predicate as parse.ts `isSimplePathname`).
 function locationFromPath(path: string, state: ParsedHistoryState | undefined): HistoryLocation {
-  if (state != null && isSimplePathname(path)) return simpleLocation(path, state)
+  if (state == null) return parseHref(path, state)
+  const len = path.length
+  if (len !== 0 && path.charCodeAt(0) === 47 && (len === 1 || path.charCodeAt(1) !== 47)) {
+    let simple = true
+    for (let i = 1; i < len; i++) {
+      const code = path.charCodeAt(i)
+      if (code <= 0x1f || code === 0x7f || code === 63 || code === 35) {
+        simple = false
+        break
+      }
+    }
+    if (simple) return simpleLocation(path, state)
+  }
   return parseHref(path, state)
 }
 import type {
