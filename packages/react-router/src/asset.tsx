@@ -1,9 +1,11 @@
 'use client'
 
 import * as React from 'react'
+import { deepEqual } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
 import { useHydrated } from './client-only'
+import { useStore } from './react-store'
 import type { AnyRouteMatch, RouterManagedTag } from 'speedy-router-core'
 
 const INLINE_CSS_HYDRATION_ATTR = 'data-tsr-inline-css'
@@ -33,6 +35,21 @@ export function collectMatchAssets(
     }
   }
   return tags
+}
+
+export function useMatchDerived<T>(
+  router: ReturnType<typeof useRouter>,
+  select: (matches: Array<AnyRouteMatch>) => T,
+): T {
+  if (isServer ?? router.isServer) return select(router.stores.matches.get())
+
+  // `stores.matches` is non-reactive; compatibility state publishes match updates.
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- server/client is static
+  return useStore(
+    router.stores.state,
+    (state: { matches: Array<AnyRouteMatch> }) => select(state.matches),
+    deepEqual,
+  )
 }
 
 function setScriptAttrs(script: HTMLScriptElement, attrs: ScriptAttrs | undefined) {

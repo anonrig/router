@@ -1,17 +1,13 @@
-import * as React from 'react'
-import { useStore } from './react-store'
 import {
   _getAssetMatches,
   appendUniqueUserTags,
-  deepEqual,
   escapeHtml,
   getAssetCrossOrigin,
   getScriptPreloadAttrs,
   resolveManifestCssLink,
 } from 'speedy-router-core'
-import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
-import { collectMatchAssets } from './asset'
+import { collectMatchAssets, useMatchDerived } from './asset'
 import type { AnyRouteMatch, AssetCrossOriginConfig, RouterManagedTag } from 'speedy-router-core'
 
 function buildTagsFromMatches(
@@ -155,22 +151,7 @@ export const useTags = (assetCrossOrigin?: AssetCrossOriginConfig) => {
   const router = useRouter()
   const nonce = router.options.ssr?.nonce
 
-  if (isServer ?? router.isServer) {
-    return buildTagsFromMatches(router, nonce, router.stores.matches.get(), assetCrossOrigin)
-  }
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static
-  const selectTags = React.useCallback(
-    (matches: Array<AnyRouteMatch>) =>
-      buildTagsFromMatches(router, nonce, matches, assetCrossOrigin),
-    [assetCrossOrigin, nonce, router],
-  )
-  // `stores.matches` is a non-reactive derived view. Subscribe to the
-  // compatibility state store, which notifies after `setMatches`.
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static
-  return useStore(
-    router.stores.state,
-    (state: { matches: Array<AnyRouteMatch> }) => selectTags(state.matches),
-    deepEqual,
+  return useMatchDerived(router, (matches) =>
+    buildTagsFromMatches(router, nonce, matches, assetCrossOrigin),
   )
 }
