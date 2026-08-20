@@ -18,7 +18,14 @@ import { isNotFound } from './not-found'
 import { isServer } from './is-server'
 import { loadRouteChunk, replaceRouteChunk } from './load-chunk'
 import { PathParamError, SearchParamError } from './misc'
-import { compileDecodeCharMap, interpolatePath, resolvePath, trimPath, trimPathRight } from './path'
+import {
+  compileDecodeCharMap,
+  interpolatePath,
+  isUnreservedPathValue,
+  resolvePath,
+  trimPath,
+  trimPathRight,
+} from './path'
 import { isRedirect, type AnyRedirect } from './redirect'
 import {
   composeRewrites,
@@ -40,6 +47,7 @@ import {
   validateSearch,
 } from './router-search'
 import { defaultParseSearch, defaultStringifySearch } from './search-params'
+import { resolveRouteLoader } from './load-shared'
 import { createStore } from './store'
 import {
   createNonReactiveMutableStore,
@@ -54,11 +62,13 @@ import {
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
   DEFAULT_PROTOCOL_SET,
+  EMPTY_OBJ,
   encodePathLikeUrl,
   functionalUpdate,
   hasOwn,
   isDangerousProtocol,
   isPlainObject,
+  noopAbortController,
   nullReplaceEqualDeep,
   replaceEqualDeep,
   type PickAsRequired,
@@ -355,7 +365,6 @@ export type RouterEvents = Record<string, RouterEvent>
 export type RouterListener = (event: RouterEvent) => void
 export type ListenerFn = RouterListener
 
-const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
 export const RESOLVED: Promise<void> = Promise.resolve()
 let serverLoadCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
 let clientLoadCached: ((router: any, opts?: any) => void | Promise<void>) | undefined
@@ -436,24 +445,7 @@ function collectSimpleParamKeys(path: string): string[] | null {
 
 function isSimpleParamValue(value: unknown) {
   if (typeof value === 'number') return Number.isFinite(value)
-  if (typeof value !== 'string' || value.length === 0) return false
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i)
-    if (
-      !(
-        (c >= 48 && c <= 57) ||
-        (c >= 65 && c <= 90) ||
-        (c >= 97 && c <= 122) ||
-        c === 45 ||
-        c === 46 ||
-        c === 95 ||
-        c === 126
-      )
-    ) {
-      return false
-    }
-  }
-  return true
+  return typeof value === 'string' && value.length !== 0 && isUnreservedPathValue(value)
 }
 
 type SimpleToApply = (params: Record<string, any>) => string
@@ -534,34 +526,6 @@ const OPTION_DEFAULTS = {
   protocolAllowlist: DEFAULT_PROTOCOL_ALLOWLIST,
 }
 
-function defaultGetStoreConfig() {
-  return DEFAULT_STORE_CONFIG
-}
-
-function createBatchedStore<T>(
-  initial: T,
-  schedule: (notify: () => void) => void,
-): ReturnType<typeof createStore<T>> {
-  let value = initial
-  let listeners: Set<(next: T) => void> | undefined
-  return {
-    get: () => value,
-    set: (next) => {
-      const resolved = typeof next === 'function' ? (next as (prev: T) => T)(value) : next
-      if (resolved === value) return
-      value = resolved
-      schedule(() => listeners?.forEach((listener) => listener(value)))
-    },
-    subscribe: (listener) => {
-      listeners ??= new Set()
-      listeners.add(listener)
-      return () => {
-        listeners!.delete(listener)
-      }
-    },
-  }
-}
-
 /** Run route lifecycle callbacks in leave/enter/stay phases. */
 export function runRouteLifecycle(
   router: AnyRouter,
@@ -598,21 +562,6 @@ export function getLocationChangeInfo(location: ParsedLocation, resolvedLocation
 export { SearchParamError, PathParamError }
 
 let tempLocationKeySeq = 0
-
-const noopAbortController = {
-  signal: {
-    aborted: false,
-    reason: undefined,
-    onabort: null,
-    throwIfAborted() {},
-    addEventListener() {},
-    removeEventListener() {},
-    dispatchEvent() {
-      return false
-    },
-  },
-  abort() {},
-} as unknown as AbortController
 
 export class RouterCore<
   TRouteTree extends AnyRoute = AnyRoute,
@@ -692,7 +641,7 @@ export class RouterCore<
   _hasSearchMiddleware = false
 
   private createStores(location: ParsedLocation) {
-    const config = defaultGetStoreConfig()
+    const config = DEFAULT_STORE_CONFIG
     const stores = createRouterStores(location, config)
     const setMatches = stores.setMatches.bind(stores)
     if (isServer ?? this.isServer) {
@@ -789,7 +738,7 @@ export class RouterCore<
         }
       }
     }
-    const state = createBatchedStore<RouterState>(
+    const state = createStore<RouterState>(
       {
         status: 'pending',
         isLoading: true,
@@ -2058,8 +2007,7 @@ export class RouterCore<
         parentMatchPromise = undefined
         continue
       }
-      const routeLoader = opts.loader
-      const loader = typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
+      const loader = resolveRouteLoader(opts.loader)
       if (!loader) {
         match.status = 'success'
         match.isFetching = false
@@ -2910,20 +2858,11 @@ function resolveBuildSearch(
 
 function resolveBuildHash(dest: any, current: ParsedLocation | undefined) {
   const currentHash = stripLeadingHash(current?.hash ?? '')
-  if (dest.hash === true) return currentHash
-  if (typeof dest.hash === 'function') {
-    const result = dest.hash(currentHash)
-    return typeof result === 'string'
-      ? stripLeadingHash(result)
-      : stripLeadingHash(String(result ?? ''))
-  }
-  if (typeof dest.hash === 'string') {
-    return stripLeadingHash(dest.hash)
-  }
-  if (dest.hash !== undefined) {
-    return stripLeadingHash(String(dest.hash))
-  }
-  return dest.to ? '' : currentHash
+  const hash = dest.hash
+  if (hash === true) return currentHash
+  if (hash === undefined) return dest.to ? '' : currentHash
+  const result = typeof hash === 'function' ? (hash(currentHash) ?? '') : hash
+  return stripLeadingHash(typeof result === 'string' ? result : String(result))
 }
 
 function resolveBuildState(dest: any, current: ParsedLocation | undefined) {

@@ -5,6 +5,7 @@ import {
   SEGMENT_TYPE_PATHNAME,
   SEGMENT_TYPE_WILDCARD,
 } from './parse-segment'
+import { last, routeChildren } from './utils'
 import type { LRUCache } from './utils'
 
 const SEGMENT_TYPE_INDEX = 4
@@ -48,16 +49,6 @@ export type SegmentMatch = {
   branch?: SegmentTreeRoute[]
 }
 
-function last<T>(arr: readonly T[]) {
-  return arr[arr.length - 1]
-}
-
-function routeChildren(route: SegmentTreeRoute): SegmentTreeRoute[] {
-  const kids = route.children
-  if (!kids) return []
-  return Array.isArray(kids) ? kids : Object.values(kids)
-}
-
 function createStaticNode(fullPath: string): SegmentTreeNode {
   return {
     kind: SEGMENT_TYPE_PATHNAME,
@@ -84,25 +75,12 @@ function createDynamicNode(
   prefix?: string,
   suffix?: string,
 ): SegmentTreeNode {
-  return {
-    kind,
-    depth: 0,
-    pathless: null,
-    index: null,
-    static: null,
-    staticInsensitive: null,
-    dynamic: null,
-    optional: null,
-    wildcard: null,
-    route: null,
-    fullPath,
-    parent: null,
-    parse: null,
-    priority: 0,
-    caseSensitive,
-    prefix,
-    suffix,
-  }
+  const node = createStaticNode(fullPath)
+  node.kind = kind
+  node.caseSensitive = caseSensitive
+  node.prefix = prefix
+  node.suffix = suffix
+  return node
 }
 
 function sortDynamic(a: SegmentTreeNode, b: SegmentTreeNode) {
