@@ -22,7 +22,7 @@ import {
   removeTrailingSlash,
 } from 'speedy-router-core'
 import { useHydrated } from './client-only'
-import { useIntersectionObserver, useForwardedRef } from './utils'
+import { useIntersectionObserver, useProximityPreload, useForwardedRef } from './utils'
 import { useRouter } from './use-router'
 import { useStore } from './use-store'
 import type { ActiveOptions, AnyRouter, NavigateOptions, ParsedLocation } from 'speedy-router-core'
@@ -249,7 +249,7 @@ function useLinkPropsImpl(
     to,
     preload: userPreload,
     preloadDelay: userPreloadDelay,
-    preloadIntentProximity: _preloadIntentProximity,
+    preloadIntentProximity: userPreloadIntentProximity,
     hashScrollIntoView,
     replace,
     startTransition,
@@ -280,19 +280,6 @@ function useLinkPropsImpl(
     _asChild,
     ...rest
   } = options
-
-  void _preloadIntentProximity
-  void _params
-  void _search
-  void _hash
-  void _state
-  void _mask
-  void _reloadDocument
-  void _unsafeRelative
-  void _from
-  void _fromLocation
-  void _href
-  void _asChild
 
   const propsSafeToSpread = omitInternalKeys(rest as Record<string, unknown>)
 
@@ -398,6 +385,10 @@ function useLinkPropsImpl(
       ? false
       : (userPreload ?? router.options.defaultPreload)
   const preloadDelay = userPreloadDelay ?? router.options.defaultPreloadDelay ?? 0
+  const preloadProximity =
+    preload === 'intent'
+      ? (userPreloadIntentProximity ?? router.options.defaultPreloadIntentProximity ?? 0)
+      : 0
 
   const doPreload = useCallback(() => {
     router.preloadRoute(_options as NavigateOptions).catch((err) => {
@@ -439,6 +430,7 @@ function useLinkPropsImpl(
   )
 
   useIntersectionObserver(innerRef, enqueuePreload, preload !== 'viewport')
+  useProximityPreload(innerRef, enqueuePreload, preloadProximity)
 
   useEffect(() => {
     if (hasRenderFetched.current) return
@@ -501,7 +493,9 @@ function useLinkPropsImpl(
   }
 
   const handleLeave = () => {
-    if (preload === 'intent') {
+    // With a proximity radius, cancellation belongs to the radius exit:
+    // leaving the element while still within range must keep the preload.
+    if (preload === 'intent' && !preloadProximity) {
       cancelPreload(innerRef)
     }
   }
@@ -532,7 +526,6 @@ export const useLinkProps = useLinkPropsImpl as typeof import('./link-types').us
 export const Link = forwardRef<Element, any>(function LinkImpl(props, ref) {
   const { _asChild, ...rest } = props
   const { type: _type, ...linkProps } = useLinkPropsImpl(rest as LinkProps, ref as any)
-  void _type
 
   const children =
     typeof rest.children === 'function'
