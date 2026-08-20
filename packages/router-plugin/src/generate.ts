@@ -8,7 +8,6 @@ export type GenerateRouteTreeOptions = {
   generatedRouteTree?: string
   runtimeImport?: string
   rootImport?: string
-  slotImport?: string
   routeFileIgnorePattern?: string | RegExp
   quoteStyle?: 'single' | 'double'
   semicolons?: boolean
@@ -62,7 +61,6 @@ export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedR
     routesDirectory,
     runtimeImport: options.runtimeImport,
     rootImport: options.rootImport,
-    slotImport: options.slotImport,
     quoteStyle: options.quoteStyle,
     semicolons: options.semicolons,
   })

@@ -1,5 +1,5 @@
-import { dirname, relative, sep } from 'node:path'
-import { urlPathFromId, type ScannedRoute } from './scan'
+import { dirname, relative } from 'node:path'
+import { toPosix, urlPathFromId, type ScannedRoute } from './scan'
 
 export type EmitRouteTreeOptions = {
   routes: Array<ScannedRoute>
@@ -7,7 +7,6 @@ export type EmitRouteTreeOptions = {
   routesDirectory: string
   runtimeImport?: string
   rootImport?: string
-  slotImport?: string
   quoteStyle?: 'single' | 'double'
   semicolons?: boolean
 }
@@ -89,10 +88,6 @@ function variableNameFor(route: ScannedRoute) {
 function typePath(path: string | undefined) {
   if (!path) return ''
   return path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path
-}
-
-function toPosix(value: string) {
-  return value.split(sep).join('/')
 }
 
 function importSpecifier(fromFile: string, toFile: string) {

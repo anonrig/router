@@ -1,7 +1,7 @@
 import { basename, relative, resolve, sep } from 'node:path'
 import { generateRouteTree, type GenerateRouteTreeOptions } from './generate'
 import { fileNameFromModuleId, splitTargetFromModuleId } from './module-id'
-import { isRouteFile, matchesRouteFileIgnorePattern } from './scan'
+import { isRouteFile, matchesRouteFileIgnorePattern, toPosix } from './scan'
 import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
 
 export type TanStackRouterPluginOptions = GenerateRouteTreeOptions & {
@@ -9,10 +9,6 @@ export type TanStackRouterPluginOptions = GenerateRouteTreeOptions & {
   target?: string
   autoCodeSplitting?: boolean
   enableRouteGeneration?: boolean
-}
-
-function toPosix(value: string) {
-  return value.split(sep).join('/')
 }
 
 function isInsideDirectory(file: string, directory: string) {
@@ -51,19 +47,17 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
       ),
       runtimeImport: options.runtimeImport,
       rootImport: options.rootImport,
-      slotImport: options.slotImport,
       routeFileIgnorePattern: options.routeFileIgnorePattern,
       quoteStyle: options.quoteStyle,
       semicolons: options.semicolons,
     }
   }
 
-  function isSplitableRoute(id: string) {
-    const fileName = fileNameFromModuleId(id)
-    if (!routesDirectory || !isInsideDirectory(fileName, routesDirectory)) return false
-    if (!isRouteFile(basename(fileName))) return false
+  function isWatchedRouteFile(file: string) {
+    if (!routesDirectory || !isInsideDirectory(file, routesDirectory)) return false
+    if (!isRouteFile(basename(file))) return false
     return !matchesRouteFileIgnorePattern(
-      toPosix(relative(routesDirectory, fileName)),
+      toPosix(relative(routesDirectory, file)),
       options.routeFileIgnorePattern,
     )
   }
@@ -75,18 +69,9 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
     return result
   }
 
+  // Generated output is derived from route file names, not contents.
   const onRouteTreeEvent = (file: string) => {
-    if (!isInsideDirectory(file, routesDirectory)) return
-    // Generated output is derived from route file names, not contents.
-    if (!isRouteFile(basename(file))) return
-    if (
-      matchesRouteFileIgnorePattern(
-        toPosix(relative(routesDirectory, file)),
-        options.routeFileIgnorePattern,
-      )
-    ) {
-      return
-    }
+    if (!isWatchedRouteFile(file)) return
     run()
     return true
   }
@@ -127,7 +112,7 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
       }
     },
     async transform(code, id, options) {
-      if (!isSplitableRoute(id)) return null
+      if (!isWatchedRouteFile(fileNameFromModuleId(id))) return null
       const fileName = fileNameFromModuleId(id)
       const splitTarget = splitTargetFromModuleId(id)
       const { compileReferenceRoute, compileVirtualRoute, routeHasDisabledSsr } =
