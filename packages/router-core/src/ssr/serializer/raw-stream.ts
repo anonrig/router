@@ -275,7 +275,7 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<RawStream, RawStr
         stream: await ctx.parse(encodedStreamFor(value)),
       }
     },
-    stream: parseRawStream,
+    stream: (value, ctx) => parseRawStream(value, ctx),
   },
 
   serialize(node: RawStreamSSRNode, ctx, _data) {
