@@ -1,5 +1,6 @@
 import { BACK_ACTION, FORWARD_ACTION, PUSH_ACTION, REPLACE_ACTION, STATE_INDEX } from './constants'
-import { assignKeyAndIndex, parseHref } from './parse'
+import { assignKeyAndIndex, isSimplePathname, parseHref } from './parse'
+import { runBlockerChain } from './create'
 
 const MEMORY_HISTORY_COMPACT_AT = 2048
 const MEMORY_HISTORY_KEEP = 1024
@@ -9,19 +10,7 @@ function simpleLocation(path: string, state: ParsedHistoryState): HistoryLocatio
 }
 
 function locationFromPath(path: string, state: ParsedHistoryState | undefined): HistoryLocation {
-  if (state == null) return parseHref(path, state)
-  const len = path.length
-  if (len !== 0 && path.charCodeAt(0) === 47 && (len === 1 || path.charCodeAt(1) !== 47)) {
-    let simple = true
-    for (let i = 1; i < len; i++) {
-      const code = path.charCodeAt(i)
-      if (code <= 0x1f || code === 0x7f || code === 63 || code === 35) {
-        simple = false
-        break
-      }
-    }
-    if (simple) return simpleLocation(path, state)
-  }
+  if (state != null && isSimplePathname(path)) return simpleLocation(path, state)
   return parseHref(path, state)
 }
 import type {
@@ -137,28 +126,18 @@ class MemoryHistory implements RouterHistory {
     task: () => void,
     navigationId: number,
   ) {
-    const list = this.blockers!
-    const nextLocation = locationFromPath(path, state)
     const blockerArgs: BlockerFnArgs = {
       currentLocation: this.location,
-      nextLocation,
+      nextLocation: locationFromPath(path, state),
       action: type,
     }
-    const step = (start: number): void | Promise<void> => {
-      if (navigationId < this.committedNavigationId) return
-      for (let i = start; i < list.length; i++) {
-        const result = list[i]!.blockerFn(blockerArgs)
-        if (result != null && typeof (result as Promise<unknown>).then === 'function') {
-          return (result as Promise<unknown>).then((isBlocked) => {
-            if (isBlocked) return
-            return step(i + 1)
-          })
-        }
-        if (result) return
-      }
-      task()
-    }
-    return step(0)
+    return runBlockerChain(
+      this.blockers!,
+      blockerArgs,
+      () => navigationId < this.committedNavigationId,
+      undefined,
+      task,
+    )
   }
 
   push(path: string, state?: any, navigateOpts?: NavigateOptions) {

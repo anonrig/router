@@ -10,6 +10,41 @@ import type {
   SubscriberHistoryAction,
 } from './types'
 
+/**
+ * Run PUSH/REPLACE blockers serially (supporting async blockers), then commit
+ * via `task`. `isStale` re-checks navigation ownership before every step so an
+ * outdated navigation never commits over a newer one.
+ */
+export function runBlockerChain(
+  blockers: Array<NavigationBlocker>,
+  blockerArgs: BlockerFnArgs,
+  isStale: () => boolean,
+  onBlocked: (() => void) | undefined,
+  task: () => void,
+): void | Promise<void> {
+  const step = (start: number): void | Promise<void> => {
+    if (isStale()) return
+    for (let i = start; i < blockers.length; i++) {
+      const result = blockers[i]!.blockerFn(blockerArgs)
+      if (result != null && typeof (result as Promise<unknown>).then === 'function') {
+        return (result as Promise<unknown>).then((isBlocked) => {
+          if (isBlocked) {
+            onBlocked?.()
+            return
+          }
+          return step(i + 1)
+        })
+      }
+      if (result) {
+        onBlocked?.()
+        return
+      }
+    }
+    task()
+  }
+  return step(0)
+}
+
 export const createHistory = /*#__PURE__*/ function createHistory(opts: {
   getLocation: () => HistoryLocation
   getLength: () => number
@@ -58,42 +93,40 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
     return blockers != null && blockers.length > 0
   }
 
-  const runPushBlockers = (
+  // Push/replace share everything except the action, the index delta, and the
+  // state application. The next state index is re-read at commit time so
+  // overlapping async blockers cannot reuse the same __TSR_index.
+  const navigate = (
     type: 'PUSH' | 'REPLACE',
     path: string,
     state: any,
-    task: () => void,
-    owner: number,
-  ) => {
-    const blockers = opts.getBlockers!()
-    const nextLocation = parseHref(path, state)
-    const blockerArgs: BlockerFnArgs = {
-      currentLocation: location,
-      nextLocation,
-      action: type,
+    navigateOpts?: NavigateOptions,
+  ): void | Promise<void> => {
+    const owner = ++navigationId
+    const delta = type === 'PUSH' ? 1 : 0
+    const commit = () => {
+      committedNavigationId = owner
+      const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + delta, state)
+      ;(type === 'PUSH' ? opts.pushState : opts.replaceState)(path, nextState)
+      notify(type === 'PUSH' ? PUSH_ACTION : REPLACE_ACTION)
     }
-
-    const step = (start: number): void | Promise<void> => {
-      if (owner < committedNavigationId) return
-      for (let i = start; i < blockers.length; i++) {
-        const result = blockers[i]!.blockerFn(blockerArgs)
-        if (result != null && typeof (result as Promise<unknown>).then === 'function') {
-          return (result as Promise<unknown>).then((isBlocked) => {
-            if (isBlocked) {
-              opts.onBlocked?.()
-              return
-            }
-            return step(i + 1)
-          })
-        }
-        if (result) {
-          opts.onBlocked?.()
-          return
-        }
-      }
-      task()
+    if (shouldRunBlockers(navigateOpts)) {
+      return runBlockerChain(
+        opts.getBlockers!(),
+        {
+          currentLocation: location,
+          nextLocation: parseHref(
+            path,
+            assignKeyAndIndex(location.state[STATE_INDEX] + delta, state),
+          ),
+          action: type,
+        },
+        () => owner < committedNavigationId,
+        opts.onBlocked,
+        commit,
+      )
     }
-    return step(0)
+    commit()
   }
 
   return {
@@ -110,48 +143,8 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
         subscribers.delete(cb)
       }
     },
-    push: (path, state, navigateOpts) => {
-      const owner = ++navigationId
-      if (shouldRunBlockers(navigateOpts)) {
-        return runPushBlockers(
-          'PUSH',
-          path,
-          assignKeyAndIndex(location.state[STATE_INDEX] + 1, state),
-          () => {
-            committedNavigationId = owner
-            const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
-            opts.pushState(path, nextState)
-            notify(PUSH_ACTION)
-          },
-          owner,
-        )
-      }
-      committedNavigationId = owner
-      const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
-      opts.pushState(path, nextState)
-      notify(PUSH_ACTION)
-    },
-    replace: (path, state, navigateOpts) => {
-      const owner = ++navigationId
-      if (shouldRunBlockers(navigateOpts)) {
-        return runPushBlockers(
-          'REPLACE',
-          path,
-          assignKeyAndIndex(location.state[STATE_INDEX], state),
-          () => {
-            committedNavigationId = owner
-            const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
-            opts.replaceState(path, nextState)
-            notify(REPLACE_ACTION)
-          },
-          owner,
-        )
-      }
-      committedNavigationId = owner
-      const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
-      opts.replaceState(path, nextState)
-      notify(REPLACE_ACTION)
-    },
+    push: (path, state, navigateOpts) => navigate('PUSH', path, state, navigateOpts),
+    replace: (path, state, navigateOpts) => navigate('REPLACE', path, state, navigateOpts),
     go: (index, navigateOpts) => {
       opts.go(index, navigateOpts?.ignoreBlocker === true)
       handleIndexChange({ type: 'GO', index })
