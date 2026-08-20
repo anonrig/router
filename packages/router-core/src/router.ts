@@ -1122,7 +1122,7 @@ export class RouterCore<
       // Keep relative pathnames (`./x`, `../y`, `z`) as `to` values so
       // resolvePath can join them to the current location. Wrapping them in
       // `new URL(pathname, origin)` would pin them at the origin root.
-      let to = parsed.pathname
+      let to = decodePath(parsed.pathname).path
       if (this.rewrite) {
         const rewritePath =
           to && to.charCodeAt(0) !== 47 && current
@@ -1279,7 +1279,7 @@ export class RouterCore<
       if (commitResult != null && typeof (commitResult as Promise<void>).then === 'function') {
         return (commitResult as Promise<void>).then(() => {
           afterHistoryCommit()
-          return this._commitPromise
+          return commitPromise
         })
       }
       afterHistoryCommit()
@@ -1521,8 +1521,7 @@ export class RouterCore<
   private runLoad(location: ParsedLocation): void | Promise<void> {
     const warm = warmLoadCached
     if (!warm) return
-    ;(location as ParsedLocation & { _commit?: typeof this._commitPromise })._commit =
-      this._commitPromise
+    ;(location as ParsedLocation & { _commit?: Promise<void> })._commit = this._commitPromise
     const next = warm(this, location, (this.loadId = (this.loadId | 0) + 1))
     if (next === true) return RESOLVED
     if (next) return next
@@ -1860,32 +1859,8 @@ export class RouterCore<
     viewTransition,
     ignoreBlocker,
     _redirects,
-    href,
     ...rest
   }: NavigateOptions & CommitLocationOptions & { _redirects?: number; href?: string } = {}) {
-    if (href) {
-      const currentIndex = this.history.location.state?.__TSR_index
-      const parsed = parseHref(href, {
-        __TSR_index: replace ? currentIndex : (currentIndex ?? 0) + 1,
-      })
-      if (this.rewrite) {
-        const path = parsed.pathname
-        const rewritePath =
-          path && path.charCodeAt(0) !== 47
-            ? resolvePath({
-                base: this.latestLocation?.pathname || '/',
-                to: path,
-                trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-              })
-            : path || '/'
-        rest.to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
-      } else {
-        rest.to = parsed.pathname
-      }
-      rest.search = (this.options.parseSearch ?? defaultParseSearch)(parsed.search)
-      rest.hash = stripLeadingHash(parsed.hash || '')
-    }
-
     const location = this.buildLocation({
       ...(rest as any),
       _includeValidateSearch: this._hasSearchWork || !!rest._includeValidateSearch,

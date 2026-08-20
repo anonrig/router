@@ -1105,7 +1105,7 @@ export function findFlatMatch(
     const tree = fromOrTree as ProcessedTree | undefined
     if (!tree) return undefined
     const masks = tree.masks
-    const matches = findRouteMatchFromTree(tree, treeOrPath)
+    const matches = findRouteMatch(tree, treeOrPath)
     if (!matches?.length) return null
     const last = matches[matches.length - 1]!
     if (masks?.length) {

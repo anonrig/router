@@ -218,13 +218,14 @@ function interpolateBracedParams(
   while (cursor < length) {
     const start = cursor
     segment = parseSegment(path, start, segment)
-    const end = segment[5]
+    const parsed = segment
+    const end = parsed[5]
     cursor = end + 1
     if (start === end) continue
 
-    const kind = segment[0]
+    const kind = parsed[0]
     const affix = (value: string) =>
-      '/' + path.substring(start, segment[1]) + value + path.substring(segment[4], end)
+      '/' + path.substring(start, parsed[1]) + value + path.substring(parsed[4], end)
 
     if (kind === SEGMENT_TYPE_PATHNAME) {
       joined += '/' + path.substring(start, end)
@@ -237,7 +238,7 @@ function interpolateBracedParams(
       usedParams['*'] = splat
       if (!splat) {
         isMissingParams = true
-        if (segment[1] !== start || segment[4] !== end) joined += affix('')
+        if (parsed[1] !== start || parsed[4] !== end) joined += affix('')
         continue
       }
       joined += affix(encodeParam('_splat', params, decoder))
@@ -245,7 +246,7 @@ function interpolateBracedParams(
     }
 
     if (kind === SEGMENT_TYPE_PARAM) {
-      const key = path.substring(segment[2], segment[3])
+      const key = path.substring(parsed[2], parsed[3])
       if (!isMissingParams && !(key in params)) isMissingParams = true
       usedParams[key] = params[key]
       joined += affix(encodeParam(key, params, decoder) ?? 'undefined')
@@ -253,7 +254,7 @@ function interpolateBracedParams(
     }
 
     if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      const key = path.substring(segment[2], segment[3])
+      const key = path.substring(parsed[2], parsed[3])
       const valueRaw = params[key]
       if (valueRaw == null) continue
       usedParams[key] = valueRaw

@@ -40,6 +40,11 @@ describe('qss', () => {
     expect(encode(search)).toBe('q=two')
   })
 
+  it('does not treat a number and the same digits as interchangeable', () => {
+    expect(encode({ n: 1 }, JSON.stringify)).toBe('n=1')
+    expect(encode({ n: '1' }, JSON.stringify)).toBe('n=%221%22')
+  })
+
   it('returns a fresh object so callers can mutate the result', () => {
     const first = decode('foo=bar')
     first.foo = 'mutated'

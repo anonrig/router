@@ -83,8 +83,8 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
 
   function preparePop(ignoreBlocker: boolean | undefined, isGo: boolean) {
     nextPopIsGo = isGo
-    skipBlockerNextPop = ignoreBlocker
-    ignoreNextBeforeUnload = ignoreBlocker
+    skipBlockerNextPop = !!ignoreBlocker
+    ignoreNextBeforeUnload = !!ignoreBlocker
     flush()
   }
 

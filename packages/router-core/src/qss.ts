@@ -6,17 +6,27 @@ export function encode(
   obj: Record<string, any>,
   stringify: (value: any) => string = String,
 ): string {
-  const sig = JSON.stringify(obj)
-  if (stringify === lastEncodeStringify && sig === lastEncodeSig) return lastEncodeResult!
+  let sig: string | undefined
+  try {
+    sig = JSON.stringify(obj)
+  } catch {
+    // Circular or non-JSON values skip last-value.
+  }
+  if (sig !== undefined && stringify === lastEncodeStringify && sig === lastEncodeSig) {
+    return lastEncodeResult!
+  }
   const params = new URLSearchParams()
   for (const key in obj) {
     const val = obj[key]
     if (val !== undefined) params.set(key, stringify(val))
   }
-  lastEncodeStringify = stringify
-  lastEncodeSig = sig
-  lastEncodeResult = params.toString()
-  return lastEncodeResult
+  const result = params.toString()
+  if (sig !== undefined) {
+    lastEncodeStringify = stringify
+    lastEncodeSig = sig
+    lastEncodeResult = result
+  }
+  return result
 }
 
 function toValue(str: string) {
