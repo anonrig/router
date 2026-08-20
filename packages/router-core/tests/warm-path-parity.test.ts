@@ -503,6 +503,30 @@ describe('warm-path TanStack behavior parity', () => {
     expect(root?._strictSearch).not.toBe(posts?._strictSearch)
   })
 
+  test('a reused server router isolates leftover matches before warm load', async () => {
+    const router = createApp({
+      posts: {
+        loader: () => 'posts-secret',
+      },
+    })
+
+    await router.navigate({ href: '/posts' } as any)
+    expect(router.state.matches.at(-1)?.loaderData).toBe('posts-secret')
+
+    const leftover = router.state.matches.map((match) => ({
+      ...match,
+      loaderData: 'leaked',
+    }))
+    router._matchesByPath?.set('/about', leftover)
+    router._cache['leaked'] = leftover[0]
+
+    await router.navigate({ href: '/about' } as any)
+
+    expect(router.state.location.pathname).toBe('/about')
+    expect(router.state.matches.some((match) => match.loaderData === 'leaked')).toBe(false)
+    expect(router.state.matches.some((match) => match.routeId === '/posts')).toBe(false)
+  })
+
   test('a parent loader throw does not leave child matches fetching', async () => {
     const boom = new Error('root-boom')
     let postsCalls = 0

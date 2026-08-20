@@ -1,3 +1,4 @@
+let lastEncodeObj: Record<string, any> | undefined
 let lastEncodeStringify: ((value: any) => string) | undefined
 let lastEncodeSig: string | undefined
 let lastEncodeResult: string | undefined
@@ -12,7 +13,12 @@ export function encode(
   } catch {
     // Circular or non-JSON values skip last-value.
   }
-  if (sig !== undefined && stringify === lastEncodeStringify && sig === lastEncodeSig) {
+  if (
+    sig !== undefined &&
+    obj === lastEncodeObj &&
+    stringify === lastEncodeStringify &&
+    sig === lastEncodeSig
+  ) {
     return lastEncodeResult!
   }
   const params = new URLSearchParams()
@@ -22,6 +28,7 @@ export function encode(
   }
   const result = params.toString()
   if (sig !== undefined) {
+    lastEncodeObj = obj
     lastEncodeStringify = stringify
     lastEncodeSig = sig
     lastEncodeResult = result

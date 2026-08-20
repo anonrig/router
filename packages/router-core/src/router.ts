@@ -1454,9 +1454,9 @@ export class RouterCore<
       // A reused server router must never skip or replay another request's
       // loader payloads. Client `load()` may still skip a settled session.
       try {
+        this.isolateServerRequest()
         const warm = this.runLoad(this.latestLocation)
         if (warm) return Promise.resolve(warm)
-        this.isolateServerRequest()
         const next = this.importLoadServer(opts)
         return next == null ? RESOLVED : Promise.resolve(next)
       } catch (err) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findRouteMatch, processRouteTree } from '../src/match'
+import { findFlatMatch, findRouteMatch, processRouteMasks, processRouteTree } from '../src/match'
 import { createRootRoute, createRoute } from '../src/route'
 
 function fileRoute(id: string, path: string | undefined, parent: () => any) {
@@ -630,6 +630,31 @@ describe('matcher', () => {
       '/$username/_followers',
       '/$username/_followers/followers',
     ])
+  })
+
+  it('matches route masks as path patterns against the pathname', () => {
+    const root = createRootRoute()
+    const tree = processRouteTree(root as any)
+    processRouteMasks([{ from: '/a/$param/d', to: '/x' }], tree)
+
+    const match = findFlatMatch('/a/123/d', tree)
+
+    expect(match?.route.from).toBe('/a/$param/d')
+    expect(match?.rawParams.param).toBe('123')
+  })
+
+  it('uses the first matching mask when several patterns fit', () => {
+    const root = createRootRoute()
+    const tree = processRouteTree(root as any)
+    processRouteMasks(
+      [
+        { from: '/photos/$photoId/modal', to: '/photos/$photoId' },
+        { from: '/photos/$photoId/modal', to: '/posts' },
+      ],
+      tree,
+    )
+
+    expect(findFlatMatch('/photos/123/modal', tree)?.route.to).toBe('/photos/$photoId')
   })
 
   it('does not treat a real underscore URL segment as a pathless layout', () => {

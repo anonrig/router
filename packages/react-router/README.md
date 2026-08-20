@@ -113,11 +113,11 @@ On a 4-core Intel Xeon, Linux, Node 24, in memory, no HTTP server:
 
 <div align="center">
 
-|                                 | speedy-router | TanStack |            |
-| ------------------------------- | ------------: | -------: | ---------: |
-| Warm `navigate({ to, params })` |   **147,180** |   79,603 |  **1.85×** |
-| Warm `navigate` changing params |   **108,795** |   65,560 |  **1.66×** |
-| SSR cold `router.load`          |   **122,574** |   84,683 |  **1.45×** |
+|                                 | speedy-router | TanStack |           |
+| ------------------------------- | ------------: | -------: | --------: |
+| Warm `navigate({ to, params })` |   **147,180** |   79,603 | **1.85×** |
+| Warm `navigate` changing params |   **108,795** |   65,560 | **1.66×** |
+| SSR cold `router.load`          |   **122,574** |   84,683 | **1.45×** |
 
 </div>
 
@@ -135,36 +135,36 @@ pnpm bench:compare
 
 ### Equal-work headlines
 
-| Operation                       | speedy-router | TanStack |            |
-| ------------------------------- | ------------: | -------: | ---------: |
-| Warm `navigate({ to, params })` |   **147,180** |   79,603 |  **1.85×** |
-| Warm `navigate` changing params |   **108,795** |   65,560 |  **1.66×** |
-| Invalidate + reload             |   **356,681** |  104,084 |  **3.43×** |
-| SSR cold `router.load` req/s    |   **122,574** |   84,683 |  **1.45×** |
-| `createRequestHandler` req/s    |    **48,927** |   21,137 |  **2.31×** |
+| Operation                       | speedy-router | TanStack |           |
+| ------------------------------- | ------------: | -------: | --------: |
+| Warm `navigate({ to, params })` |   **147,180** |   79,603 | **1.85×** |
+| Warm `navigate` changing params |   **108,795** |   65,560 | **1.66×** |
+| Invalidate + reload             |   **356,681** |  104,084 | **3.43×** |
+| SSR cold `router.load` req/s    |   **122,574** |   84,683 | **1.45×** |
+| `createRequestHandler` req/s    |    **48,927** |   21,137 | **2.31×** |
 
 ### Same staleTime, no `to`/`params` interpolation
 
-| Operation                 | speedy-router | TanStack |            |
-| ------------------------- | ------------: | -------: | ---------: |
-| Warm `navigate({ href })` |   **158,271** |   56,313 |  **2.81×** |
+| Operation                 | speedy-router | TanStack |           |
+| ------------------------- | ------------: | -------: | --------: |
+| Warm `navigate({ href })` |   **158,271** |   56,313 | **2.81×** |
 
 ### Utilities
 
 Rotating unique inputs, so a last-value intern cache does not decide the row.
 
-| Operation                        |  speedy-router |  TanStack | vs TanStack |
-| -------------------------------- | -------------: | --------: | ----------: |
-| Query-string encode              |    1,583,774 | **2,558,800** |        0.62× |
-| Query-string decode              |  **1,432,825** | 1,376,350 |   **1.04×** |
-| `defaultStringifySearch`         |    1,789,262 | **2,797,703** |        0.64× |
-| `parseHref`                      |  **6,097,046** | 3,640,039 |   **1.67×** |
-| `cleanPath`                      |    8,478,462 | **9,275,415** |        0.91× |
-| `resolvePath`                    |  **4,684,331** | 4,638,343 |   **1.01×** |
-| `interpolatePath`                |    1,969,720 | **2,380,747** |        0.83× |
-| Route match (large tree)         |    1,402,831 | **5,573,359** |        0.25× |
-| Encode 100 typical SSR match IDs |  **1,952,209** |    29,563 |  **66.04×** |
-| History `push`                   |  **3,897,777** | 1,400,327 |   **2.78×** |
+| Operation                        | speedy-router |      TanStack | vs TanStack |
+| -------------------------------- | ------------: | ------------: | ----------: |
+| Query-string encode              |     1,583,774 | **2,558,800** |       0.62× |
+| Query-string decode              | **1,432,825** |     1,376,350 |   **1.04×** |
+| `defaultStringifySearch`         |     1,789,262 | **2,797,703** |       0.64× |
+| `parseHref`                      | **6,097,046** |     3,640,039 |   **1.67×** |
+| `cleanPath`                      |     8,478,462 | **9,275,415** |       0.91× |
+| `resolvePath`                    | **4,684,331** |     4,638,343 |   **1.01×** |
+| `interpolatePath`                |     1,969,720 | **2,380,747** |       0.83× |
+| Route match (large tree)         |     1,402,831 | **5,573,359** |       0.25× |
+| Encode 100 typical SSR match IDs | **1,952,209** |        29,563 |  **66.04×** |
+| History `push`                   | **3,897,777** |     1,400,327 |   **2.78×** |
 
 Typed `navigate({ to, params })` is the Link-shaped path: an absolute `to` with fully specified simple params interpolates, then commits through the same `buildLocation` path as `href`. The optional sync loader lives in `speedy-router-core/warm` and is not part of the default client graph. Search middlewares, blockers, preloads, masks, and route lifecycle hooks still take the full load coordinator. Default `staleTime` is 0, so changing params and re-entering a loaded route rerun the post loader on both sides. Set `staleTime: Infinity` (or `defaultStaleTime`) to keep successful data. Invalidate + reload marks matches invalid and reruns loaders on both sides. `navigate({ href })` uses the same staleTime policy and skips `to`/`params` interpolation. A settled `router.load()` on an already-valid router is not published: this implementation can skip that call. Utility rows rotate unique inputs, so encode's last-value intern and the one-entry match memo miss. On this machine unique encode, stringify, path helpers, and large-tree match trail published TanStack; decode, `parseHref`, history `push`, and SSR match IDs still win. Memory history keeps the full stack by default, the same as TanStack. Pass `createMemoryHistory({ compact: true })` to drop the oldest half at 2048 entries. Cold `createRouter().load()` reuses processed trees and a prototype `createMemoryHistory`. `createRequestHandler` dehydrates without an extra `await` when load, dehydrate, and the render callback are sync.
 

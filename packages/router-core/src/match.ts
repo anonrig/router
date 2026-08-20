@@ -1104,21 +1104,19 @@ export function findFlatMatch(
   if (typeof treeOrPath === 'string') {
     const tree = fromOrTree as ProcessedTree | undefined
     if (!tree) return undefined
+    const pathname = treeOrPath
     const masks = tree.masks
-    const matches = findRouteMatch(tree, treeOrPath)
-    if (!matches?.length) return null
-    const last = matches[matches.length - 1]!
     if (masks?.length) {
-      const full = last.route.fullPath
-      const id = last.route.id
       for (let i = 0; i < masks.length; i++) {
         const mask = masks[i]!
-        if (mask.from === full || mask.from === id) {
-          return { route: mask, rawParams: last.rawParams }
-        }
+        const matched = findSingleMatch(mask.from || '/', false, false, pathname, tree)
+        if (matched) return { route: mask, rawParams: matched.rawParams }
       }
       return null
     }
+    const matches = findRouteMatch(tree, pathname)
+    if (!matches?.length) return null
+    const last = matches[matches.length - 1]!
     return { route: last.route, rawParams: last.rawParams }
   }
   const from = fromOrTree as string
