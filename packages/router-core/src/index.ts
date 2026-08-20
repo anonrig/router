@@ -477,6 +477,7 @@ export type {
 
 export { composeRewrites } from './rewrite'
 export type { LocationRewrite, LocationRewriteFunction } from './router'
+export { tryWarmLoad } from './warm'
 export type {
   AnySerializationAdapter,
   SerializationAdapter,

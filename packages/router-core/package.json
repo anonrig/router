@@ -20,6 +20,7 @@
   ],
   "type": "module",
   "sideEffects": [
+    "./dist/index.js",
     "./dist/ssr/register-load-server.js",
     "./dist/ssr/server.js",
     "./dist/warm.js"

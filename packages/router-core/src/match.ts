@@ -209,6 +209,9 @@ export type ProcessedTree = {
   pathname?: string
   /** Last default exact findRouteMatch result. */
   matches?: RouteMatchResult[] | null
+  /** Recent exact pathnames for rotating dests. */
+  matchByPath?: Record<string, RouteMatchResult[] | null>
+  matchKeys?: string[]
 }
 
 function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
@@ -616,11 +619,26 @@ export function findRouteMatch(
   caseSensitive = false,
   fuzzy = false,
 ): RouteMatchResult[] | null {
-  if (!fuzzy && !caseSensitive && tree.pathname === pathname) return tree.matches!
+  if (!fuzzy && !caseSensitive) {
+    if (tree.pathname === pathname) return tree.matches!
+    const interned = tree.matchByPath?.[pathname]
+    if (interned !== undefined) {
+      tree.pathname = pathname
+      tree.matches = interned
+      return interned
+    }
+  }
   const result = findRouteMatchDynamic(tree, pathname, caseSensitive, fuzzy)
   if (!fuzzy && !caseSensitive) {
     tree.pathname = pathname
     tree.matches = result
+    const byPath = (tree.matchByPath ??= Object.create(null))
+    if (byPath[pathname] === undefined) {
+      const keys = (tree.matchKeys ??= [])
+      keys.push(pathname)
+      if (keys.length > 16) delete byPath[keys.shift()!]
+    }
+    byPath[pathname] = result
   }
   return result
 }

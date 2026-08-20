@@ -522,37 +522,28 @@ export function tryWarmLoad(
   }
   if (isWarmLoadBlocked(router)) return false
 
+  const cacheKey = location.searchStr
+    ? `${location.pathname}\0${location.searchStr}`
+    : location.pathname
+  const cached = router._matchesByPath?.get(cacheKey)
+  if (cached?.length && cached[cached.length - 1]!.pathname === location.pathname) {
+    const prepared = prepareCachedWarmMatches(router, cached, location)
+    if (prepared) {
+      if (!prepared.needsLoader) {
+        completeWarmLoad(router, location, cached)
+        return true
+      }
+      const next = finishWarmMatches(router, location, id, cached, cacheKey, 0)
+      return next ?? true
+    }
+  }
+
   const found = findRouteMatch(
     router.processedTree,
     location.pathname,
     router.options.caseSensitive ?? false,
   )
   if (!found) return false
-
-  const cacheKey = location.searchStr
-    ? `${location.pathname}\0${location.searchStr}`
-    : location.pathname
-  const cached = router._matchesByPath?.get(cacheKey)
-  if (cached && cached.length === found.length) {
-    let sameRoutes = true
-    for (let i = 0; i < found.length; i++) {
-      if (cached[i]!.routeId !== (found[i]!.route as AnyRoute).id) {
-        sameRoutes = false
-        break
-      }
-    }
-    if (sameRoutes) {
-      const prepared = prepareCachedWarmMatches(router, cached, location)
-      if (prepared) {
-        if (!prepared.needsLoader) {
-          completeWarmLoad(router, location, cached)
-          return true
-        }
-        const next = finishWarmMatches(router, location, id, cached, cacheKey, 0)
-        return next ?? true
-      }
-    }
-  }
 
   for (let i = 0; i < found.length; i++) {
     if (!routeCanWarmLoad(found[i]!.route as AnyRoute)) return false
