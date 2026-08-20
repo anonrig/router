@@ -42,10 +42,6 @@ function createMatchCache<V>(max = 1000) {
       }
       store[key] = value
     },
-    clear() {
-      for (const key in store) delete store[key]
-      size = 0
-    },
   }
 }
 
@@ -1610,9 +1606,4 @@ function segmentStartsWith(
 
 function unwrapAffix(segment: string, prefix: string, suffix: string) {
   return segment.slice(prefix.length, suffix ? segment.length - suffix.length : segment.length)
-}
-
-export function trimPathRight(path: string) {
-  const len = path.length
-  return len > 1 && path.charCodeAt(len - 1) === 47 ? path.slice(0, -1) : path
 }

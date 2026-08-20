@@ -17,18 +17,10 @@ export function useElementScrollRestoration(
     select: (state) => state.location.state.__TSR_key ?? state.location.href,
   })
 
-  if (opts?.id) {
-    return getElementScrollRestorationEntry(router, {
-      id: opts.id,
-      getElement: opts.getElement,
-      getKey: opts.getKey,
-    })
-  }
-  if (opts?.getElement) {
-    return getElementScrollRestorationEntry(router, {
-      getElement: opts.getElement,
-      getKey: opts.getKey,
-    })
-  }
-  return undefined
+  if (!opts?.id && !opts?.getElement) return undefined
+  return getElementScrollRestorationEntry(router, {
+    id: opts.id,
+    getElement: opts.getElement,
+    getKey: opts.getKey,
+  } as Parameters<typeof getElementScrollRestorationEntry>[1])
 }

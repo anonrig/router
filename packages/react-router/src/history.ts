@@ -5,7 +5,6 @@ export {
   createBrowserHistory,
   createHashHistory,
   createMemoryHistory,
-  parseHref,
 } from 'speedy-router-history'
 
 export type {

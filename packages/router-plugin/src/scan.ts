@@ -214,9 +214,8 @@ function parentKeyOf(key: string, keys: Set<string>) {
 
 function relativeId(key: string, parentId: string) {
   if (parentId === '__root__') return key
-  if (key === parentId) return key
   const parent = parentId.endsWith('/') && parentId !== '/' ? parentId.slice(0, -1) : parentId
-  if (key.startsWith(`${parent}/`) || key === `${parent}/`) {
+  if (key.startsWith(`${parent}/`)) {
     const rel = key.slice(parent.length)
     return rel.startsWith('/') ? rel : `/${rel}`
   }

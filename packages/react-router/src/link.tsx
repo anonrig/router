@@ -145,30 +145,26 @@ function compareLinkState(a: LinkState, b: LinkState) {
   return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
 }
 
+function blockDangerousLink(href: string, protocolAllowlist: AnyRouter['protocolAllowlist']) {
+  if (!isDangerousProtocol(href, protocolAllowlist)) return false
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(`Blocked Link with dangerous protocol: ${href}`)
+  }
+  return true
+}
+
 function resolveExternalLink(
   hrefOption: { href: string; external?: boolean } | undefined,
   to: unknown,
   protocolAllowlist: AnyRouter['protocolAllowlist'],
 ): string | undefined {
   if (hrefOption?.external) {
-    if (isDangerousProtocol(hrefOption.href, protocolAllowlist)) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(`Blocked Link with dangerous protocol: ${hrefOption.href}`)
-      }
-      return undefined
-    }
-    return hrefOption.href
+    return blockDangerousLink(hrefOption.href, protocolAllowlist) ? undefined : hrefOption.href
   }
   if (isSafeInternal(to) || typeof to !== 'string' || to.indexOf(':') === -1) {
     return undefined
   }
-  if (!URL.canParse(to)) return undefined
-  if (isDangerousProtocol(to, protocolAllowlist)) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(`Blocked Link with dangerous protocol: ${to}`)
-    }
-    return undefined
-  }
+  if (!URL.canParse(to) || blockDangerousLink(to, protocolAllowlist)) return undefined
   return to
 }
 
@@ -286,7 +282,6 @@ function useLinkPropsImpl(
   } = options
 
   void _preloadIntentProximity
-  void children
   void _params
   void _search
   void _hash

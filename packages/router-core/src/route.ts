@@ -2036,8 +2036,7 @@ export const createRootRouteWithContext = /*#__PURE__*/ <TContext = any>() => {
   return (options: any = {}) => new BaseRootRoute(options as any)
 }
 
-export const rootRouteWithContext = /*#__PURE__*/ <TContext = any>() =>
-  createRootRouteWithContext<TContext>()
+export const rootRouteWithContext = createRootRouteWithContext
 
 export const createRouteMask = /*#__PURE__*/ (opts: any) => opts
 

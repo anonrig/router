@@ -31,8 +31,6 @@ export interface ParsePathParamsResult<in out TRequired, in out TOptional, in ou
   rest: TRest
 }
 
-export type AnyParsePathParamsResult = ParsePathParamsResult<string, string, string>
-
 export type ParsePathParamsBoundaryStart<T extends string> =
   T extends `${infer TLeft}{-${infer TRight}`
     ? ParsePathParamsResult<
