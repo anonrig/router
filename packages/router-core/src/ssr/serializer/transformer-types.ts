@@ -34,6 +34,10 @@ export type UnionizeSerializationAdaptersInput<
   TAdapters extends ReadonlyArray<AnySerializationAdapter>,
 > = TAdapters[number]['~types']['input']
 
+/**
+ * Create a strongly-typed serialization adapter for SSR hydration.
+ * Use to register custom types with the router serializer.
+ */
 export function createSerializationAdapter<
   TInput = unknown,
   TOutput = unknown,

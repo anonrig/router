@@ -41,21 +41,11 @@ export function dehydrateMatch(match: AnyRouteMatch): DehydratedMatch {
     s: match.status,
   }
 
-  const properties = [
-    ['__beforeLoadContext', 'b'],
-    ['loaderData', 'l'],
-    ['error', 'e'],
-    ['ssr', 'ssr'],
-  ] as const
-
-  for (const [key, shorthand] of properties) {
-    if (match[key] !== undefined) {
-      dehydratedMatch[shorthand] = match[key]
-    }
-  }
-  if (match._notFound) {
-    dehydratedMatch.g = true
-  }
+  if (match.__beforeLoadContext !== undefined) dehydratedMatch.b = match.__beforeLoadContext
+  if (match.loaderData !== undefined) dehydratedMatch.l = match.loaderData
+  if (match.error !== undefined) dehydratedMatch.e = match.error
+  if (match.ssr !== undefined) dehydratedMatch.ssr = match.ssr
+  if (match._notFound) dehydratedMatch.g = true
   return dehydratedMatch
 }
 
@@ -308,9 +298,7 @@ function stripInlinedStylesheetAssetsFromRoute(
   }
 
   if (css.length === 0) {
-    const nextRoute = { ...route }
-    delete nextRoute.css
-    return nextRoute
+    return withoutCss(route)
   }
 
   let cssLinks: typeof css | undefined
@@ -342,6 +330,10 @@ function stripInlinedStylesheetAssetsFromRoute(
     return { ...route, css: cssLinks }
   }
 
+  return withoutCss(route)
+}
+
+function withoutCss(route: ManifestRoute): ManifestRoute {
   const nextRoute = { ...route }
   delete nextRoute.css
   return nextRoute
@@ -355,25 +347,40 @@ function hasRequestAssets(assets: ManifestRouteAssets | undefined) {
   return !!assets && (!!assets.preloads?.length || hasRouteAssets(assets))
 }
 
+function concatAssets<T>(
+  requestList: Array<T> | undefined,
+  rootList: Array<T> | undefined,
+): Array<T> | undefined {
+  return requestList?.length ? [...requestList, ...(rootList ?? [])] : rootList
+}
+
 function mergeRequestAssetsIntoRootRoute(
   rootRoute: ManifestRoute | undefined,
   requestAssets: ManifestRouteAssets | undefined,
 ): ManifestRoute {
-  const preloads = requestAssets?.preloads?.length
-    ? [...requestAssets.preloads, ...(rootRoute?.preloads ?? [])]
-    : rootRoute?.preloads
-  const scripts = requestAssets?.scripts?.length
-    ? [...requestAssets.scripts, ...(rootRoute?.scripts ?? [])]
-    : rootRoute?.scripts
-  const cssLinks = requestAssets?.css?.length
-    ? [...requestAssets.css, ...(rootRoute?.css ?? [])]
-    : rootRoute?.css
+  const preloads = concatAssets(requestAssets?.preloads, rootRoute?.preloads)
+  const scripts = concatAssets(requestAssets?.scripts, rootRoute?.scripts)
+  const cssLinks = concatAssets(requestAssets?.css, rootRoute?.css)
 
   return {
     ...(rootRoute ?? {}),
     ...(preloads?.length ? { preloads } : {}),
     ...(scripts?.length ? { scripts } : {}),
     ...(cssLinks?.length ? { css: cssLinks } : {}),
+  }
+}
+
+// Preserves the historical key order (scriptFormat, inlineStyle, routes) so
+// serialized output stays byte-identical.
+function buildManifestView(
+  manifest: ServerManifest,
+  routes: FilteredRoutes,
+  inlineStyle: Manifest['inlineStyle'] | undefined,
+): Manifest {
+  return {
+    ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
+    ...(inlineStyle ? { inlineStyle } : {}),
+    routes,
   }
 }
 
@@ -415,24 +422,18 @@ export function attachRouterServerSsrUtils({
             }
 
             if (!hasAssets) {
-              return {
-                ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
-                ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
-                routes,
-              }
+              return buildManifestView(manifest, routes, inlineCssAsset)
             }
-
-            const rootRoute = routes[rootRouteId]
 
             // Merge request-scoped assets into root route without mutating cached manifest
-            return {
-              ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
-              ...(inlineCssAsset ? { inlineStyle: inlineCssAsset } : {}),
-              routes: {
+            return buildManifestView(
+              manifest,
+              {
                 ...routes,
-                [rootRouteId]: mergeRequestAssetsIntoRootRoute(rootRoute, requestAssets),
+                [rootRouteId]: mergeRequestAssetsIntoRootRoute(routes[rootRouteId], requestAssets),
               },
-            }
+              inlineCssAsset,
+            )
           },
         }
       : EMPTY_SSR
@@ -447,9 +448,7 @@ export function attachRouterServerSsrUtils({
   let injectedHtmlBuffer = ''
   let scriptBuffer: ScriptBuffer | undefined
 
-  const callListeners = (listeners: Array<() => void> | undefined, errorPrefix: string) => {
-    if (!listeners?.length) return
-    const snapshot = listeners.slice()
+  const invokeAll = (snapshot: Array<() => void>, errorPrefix: string) => {
     for (const l of snapshot) {
       try {
         l()
@@ -457,6 +456,20 @@ export function attachRouterServerSsrUtils({
         console.error(`${errorPrefix}:`, err)
       }
     }
+  }
+
+  // Invokes a snapshot of the listeners without clearing them (re-entrancy safe).
+  const callListeners = (listeners: Array<() => void> | undefined, errorPrefix: string) => {
+    if (listeners?.length) invokeAll(listeners.slice(), errorPrefix)
+  }
+
+  // One-shot variant: snapshot + clear before invoking so each listener runs
+  // exactly once even if a listener re-enters.
+  const drainListeners = (listeners: Array<() => void> | undefined, errorPrefix: string) => {
+    if (!listeners?.length) return
+    const snapshot = listeners.slice()
+    listeners.length = 0
+    invokeAll(snapshot, errorPrefix)
   }
 
   const removeListener = (listeners: Array<() => void> | undefined, listener: () => void) => {
@@ -515,13 +528,11 @@ export function attachRouterServerSsrUtils({
           cacheKey,
         )
 
-        manifestToDehydrate = {
-          ...(manifest.scriptFormat ? { scriptFormat: manifest.scriptFormat } : {}),
-          ...(preparedManifest.inlineCssHrefs
-            ? { inlineStyle: createInlineCssPlaceholderAsset() }
-            : {}),
-          routes: preparedManifest.routes,
-        }
+        manifestToDehydrate = buildManifestView(
+          manifest,
+          preparedManifest.routes,
+          preparedManifest.inlineCssHrefs ? createInlineCssPlaceholderAsset() : undefined,
+        )
 
         // Merge request-scoped assets into root route (without mutating cached manifest)
         const requestAssets = opts?.requestAssets
@@ -565,17 +576,7 @@ export function attachRouterServerSsrUtils({
 
           const listeners = serializationFinishedListeners
           serializationFinishedListeners = undefined
-          if (!listeners?.length) return
-          const snapshot = listeners.slice()
-          listeners.length = 0
-
-          for (const l of snapshot) {
-            try {
-              l()
-            } catch (err) {
-              console.error('Serialization listener error:', err)
-            }
-          }
+          drainListeners(listeners, 'Serialization listener error')
         }
 
         const finishScriptSerialization = () => {
@@ -668,20 +669,8 @@ export function attachRouterServerSsrUtils({
       if (cleanupStarted) return
       getScriptBuffer().liftBarrier()
       const listeners = renderFinishedListeners
-      if (!listeners?.length) {
-        if (_serializationFinished) getScriptBuffer().flush()
-        return
-      }
       renderFinishedListeners = undefined
-      const snapshot = listeners.slice()
-      listeners.length = 0
-      for (const l of snapshot) {
-        try {
-          l()
-        } catch (err) {
-          console.error('Error in render finished listener:', err)
-        }
-      }
+      drainListeners(listeners, 'Error in render finished listener')
       if (_serializationFinished) {
         getScriptBuffer().flush()
       }
@@ -719,17 +708,7 @@ export function attachRouterServerSsrUtils({
       cleanupStarted = true
       const listeners = cleanupListeners
       cleanupListeners = undefined
-      if (listeners?.length) {
-        const snapshot = listeners.slice()
-        listeners.length = 0
-        for (const l of snapshot) {
-          try {
-            l()
-          } catch (err) {
-            console.error('Error in SSR cleanup listener:', err)
-          }
-        }
-      }
+      drainListeners(listeners, 'Error in SSR cleanup listener')
       renderFinishedListeners = undefined
       injectedHtmlListeners = undefined
       serializationFinishedListeners = undefined

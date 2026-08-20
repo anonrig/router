@@ -91,66 +91,46 @@ function base64ToUint8Array(base64: string): Uint8Array {
 const RAW_STREAM_FACTORY_BINARY: Record<string, never> = Object.create(null)
 const RAW_STREAM_FACTORY_TEXT: Record<string, never> = Object.create(null)
 
-// Factory constructor for binary mode - converts seroval stream to ReadableStream<Uint8Array>
-// All chunks are base64 encoded strings
-const RAW_STREAM_FACTORY_CONSTRUCTOR_BINARY = (stream: ReturnType<typeof createStream>) =>
-  new ReadableStream<Uint8Array>({
-    start(controller) {
-      stream.on({
-        next(base64: string) {
-          try {
-            controller.enqueue(base64ToUint8Array(base64))
-          } catch {
-            // Stream may be closed
-          }
-        },
-        throw(error: unknown) {
-          controller.error(error)
-        },
-        return() {
-          try {
-            controller.close()
-          } catch {
-            // Stream may already be closed
-          }
-        },
-      })
-    },
-  })
+// Factory constructors convert a seroval stream into ReadableStream<Uint8Array>;
+// only the per-chunk decode differs between binary and text mode.
+const makeFactoryConstructor =
+  (decodeChunk: (value: any) => Uint8Array) => (stream: ReturnType<typeof createStream>) =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        stream.on({
+          next(value: any) {
+            try {
+              controller.enqueue(decodeChunk(value))
+            } catch {
+              // Stream may be closed
+            }
+          },
+          throw(error: unknown) {
+            controller.error(error)
+          },
+          return() {
+            try {
+              controller.close()
+            } catch {
+              // Stream may already be closed
+            }
+          },
+        })
+      },
+    })
 
-// Factory constructor for text mode - converts seroval stream to ReadableStream<Uint8Array>
-// Chunks are either strings (UTF-8) or { $b64: string } (base64 fallback)
+// Binary mode: all chunks are base64 encoded strings
+const RAW_STREAM_FACTORY_CONSTRUCTOR_BINARY = makeFactoryConstructor(base64ToUint8Array)
+
+// Text mode: chunks are either strings (UTF-8) or { $b64: string } (base64 fallback)
 // Use module-level TextEncoder to avoid per-factory allocation
 const textEncoderForFactory = new TextEncoder()
-const RAW_STREAM_FACTORY_CONSTRUCTOR_TEXT = (stream: ReturnType<typeof createStream>) => {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      stream.on({
-        next(value: string | { $b64: string }) {
-          try {
-            if (typeof value === 'string') {
-              controller.enqueue(textEncoderForFactory.encode(value))
-            } else {
-              controller.enqueue(base64ToUint8Array(value.$b64))
-            }
-          } catch {
-            // Stream may be closed
-          }
-        },
-        throw(error: unknown) {
-          controller.error(error)
-        },
-        return() {
-          try {
-            controller.close()
-          } catch {
-            // Stream may already be closed
-          }
-        },
-      })
-    },
-  })
-}
+const RAW_STREAM_FACTORY_CONSTRUCTOR_TEXT = makeFactoryConstructor(
+  (value: string | { $b64: string }) =>
+    typeof value === 'string'
+      ? textEncoderForFactory.encode(value)
+      : base64ToUint8Array(value.$b64),
+)
 
 // Minified factory function for binary mode - all chunks are base64 strings
 // This must be self-contained since it's injected into the HTML
@@ -232,58 +212,48 @@ function toTextStream(readable: ReadableStream<Uint8Array>) {
   return stream
 }
 
-// Factory plugin for binary mode
-const RawStreamFactoryBinaryPlugin = /* @__PURE__ */ createPlugin<
-  Record<string, never>,
-  PluginInfo
->({
-  tag: 'tss/RawStreamFactory',
-  test(value) {
-    return value === RAW_STREAM_FACTORY_BINARY
-  },
-  parse: {
-    sync(_value, _ctx, _data) {
-      return {}
-    },
-    async async(_value, _ctx, _data) {
-      return {}
-    },
-    stream(_value, _ctx, _data) {
-      return {}
-    },
-  },
-  serialize(_node, _ctx, _data) {
-    return FACTORY_BINARY
-  },
-  deserialize(_node, _ctx, _data) {
-    return RAW_STREAM_FACTORY_BINARY
-  },
-})
+function factoryFor(value: RawStream) {
+  return value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
+}
 
-// Factory plugin for text mode
-const RawStreamFactoryTextPlugin = /* @__PURE__ */ createPlugin<Record<string, never>, PluginInfo>({
-  tag: 'tss/RawStreamFactoryText',
-  test(value) {
-    return value === RAW_STREAM_FACTORY_TEXT
-  },
-  parse: {
-    sync(_value, _ctx, _data) {
-      return {}
+function encodedStreamFor(value: RawStream) {
+  return value.hint === 'text' ? toTextStream(value.stream) : toBinaryStream(value.stream)
+}
+
+// Factory plugins serialize a sentinel into the matching minified factory source.
+/* @__NO_SIDE_EFFECTS__ */
+function createRawStreamFactoryPlugin(
+  tag: string,
+  sentinel: Record<string, never>,
+  factoryCode: string,
+) {
+  const empty = () => ({})
+  return /* @__PURE__ */ createPlugin<Record<string, never>, PluginInfo>({
+    tag,
+    test(value) {
+      return value === sentinel
     },
-    async async(_value, _ctx, _data) {
-      return {}
+    parse: { sync: empty, async: async () => ({}), stream: empty },
+    serialize() {
+      return factoryCode
     },
-    stream(_value, _ctx, _data) {
-      return {}
+    deserialize() {
+      return sentinel
     },
-  },
-  serialize(_node, _ctx, _data) {
-    return FACTORY_TEXT
-  },
-  deserialize(_node, _ctx, _data) {
-    return RAW_STREAM_FACTORY_TEXT
-  },
-})
+  })
+}
+
+const RawStreamFactoryBinaryPlugin = /* @__PURE__ */ createRawStreamFactoryPlugin(
+  'tss/RawStreamFactory',
+  RAW_STREAM_FACTORY_BINARY,
+  FACTORY_BINARY,
+)
+
+const RawStreamFactoryTextPlugin = /* @__PURE__ */ createRawStreamFactoryPlugin(
+  'tss/RawStreamFactoryText',
+  RAW_STREAM_FACTORY_TEXT,
+  FACTORY_TEXT,
+)
 
 export interface RawStreamSSRNode extends PluginInfo {
   hint: SerovalNode
@@ -314,31 +284,24 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<RawStream, RawStr
   parse: {
     sync(value: RawStream, ctx, _data) {
       // Sync parse not really supported for streams, return empty stream
-      const factory = value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
       return {
         hint: ctx.parse(value.hint),
-        factory: ctx.parse(factory),
+        factory: ctx.parse(factoryFor(value)),
         stream: ctx.parse(createStream()),
       }
     },
     async async(value: RawStream, ctx, _data) {
-      const factory = value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
-      const encodedStream =
-        value.hint === 'text' ? toTextStream(value.stream) : toBinaryStream(value.stream)
       return {
         hint: await ctx.parse(value.hint),
-        factory: await ctx.parse(factory),
-        stream: await ctx.parse(encodedStream),
+        factory: await ctx.parse(factoryFor(value)),
+        stream: await ctx.parse(encodedStreamFor(value)),
       }
     },
     stream(value: RawStream, ctx, _data) {
-      const factory = value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
-      const encodedStream =
-        value.hint === 'text' ? toTextStream(value.stream) : toBinaryStream(value.stream)
       return {
         hint: ctx.parse(value.hint),
-        factory: ctx.parse(factory),
-        stream: ctx.parse(encodedStream),
+        factory: ctx.parse(factoryFor(value)),
+        stream: ctx.parse(encodedStreamFor(value)),
       }
     },
   },
