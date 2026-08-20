@@ -12,6 +12,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
+import '@tanstack/router-core/warm'
 
 function renderProvider(router: ReturnType<typeof createRouter>) {
   render(<RouterProvider router={router} />)
