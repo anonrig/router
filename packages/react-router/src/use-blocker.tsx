@@ -207,8 +207,16 @@ export function useBlocker(opts?: any): any {
     current: state.current,
     next: state.next,
     action: state.action,
-    proceed: blocked ? () => proceedRef.current?.() : undefined,
-    reset: blocked ? () => resetRef.current?.() : undefined,
+    proceed: blocked
+      ? function proceed() {
+          proceedRef.current?.()
+        }
+      : undefined,
+    reset: blocked
+      ? function reset() {
+          resetRef.current?.()
+        }
+      : undefined,
   } as any
 }
 
