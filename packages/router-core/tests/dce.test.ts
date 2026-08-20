@@ -134,6 +134,32 @@ describe('dead code elimination', () => {
     expect(code).toMatch(/setLoadServerRoute\s*\(\s*loadServerRoute\s*\)/)
   })
 
+  it('keeps the client load coordinator out of hydrate', async () => {
+    const { entry, chunks } = await bundle(`
+      export { hydrate } from 'speedy-router-core/ssr/client'
+    `)
+    const code = allCode(chunks)
+    expect(entry).toContain('hydrate')
+    expect(code).not.toContain('runClientTransaction')
+    expect(code).not.toContain('executeClientLane')
+    expect(code).not.toContain('loadClientRoute')
+    expect(code).not.toContain('preloadClientRoute')
+    expect(serverMarkers.filter((marker) => code.includes(marker))).toEqual([])
+  })
+
+  it('does not statically bind the coordinator into RouterClient', async () => {
+    const { entry } = await bundle(
+      `
+        export { RouterClient } from 'speedy-router/ssr/client'
+      `,
+      { filename: 'entry.tsx' },
+    )
+    expect(entry).toContain('hydrate')
+    expect(entry).not.toContain('runClientTransaction')
+    expect(entry).not.toContain('loadClientRoute')
+    expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
+  })
+
   it('keeps the warm loader out of the default client graph', async () => {
     const { chunks } = await bundle(`
       import { createRootRoute, createRouter } from 'speedy-router-core'

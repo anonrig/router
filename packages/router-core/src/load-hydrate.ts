@@ -1,13 +1,7 @@
 import { hydrateSsrMatchId } from './ssr/ssr-match-id'
 import { loadRouteChunk } from './load-chunk'
-import {
-  cacheLoaderMatch,
-  getRoute,
-  navigateFrom,
-  projectLane,
-  transferMatchResources,
-  waitFor,
-} from './load-client'
+import { getRoute, navigateFrom } from './load-shared'
+import { cacheLoaderMatch, projectLane, transferMatchResources, waitFor } from './load-match'
 import { matchParentContext, type AnyRouter } from './router'
 import type { GLOBAL_SEROVAL, GLOBAL_TSR } from './ssr/constants'
 import type { AnySerializationAdapter } from './ssr/serializer/transformer-types'
@@ -106,7 +100,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
             status: 'success',
             error: undefined,
             preload: true,
-          } as any,
+          },
           router._cache[match.id],
         )
       }
