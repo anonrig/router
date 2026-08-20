@@ -4,7 +4,7 @@ import * as React from 'react'
 import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
 import { useHydrated } from './client-only'
-import type { RouterManagedTag } from 'speedy-router-core'
+import type { AnyRouteMatch, RouterManagedTag } from 'speedy-router-core'
 
 const INLINE_CSS_HYDRATION_ATTR = 'data-tsr-inline-css'
 
@@ -15,6 +15,25 @@ interface ScriptAttrs {
 }
 
 const noopScriptHandler = () => {}
+
+type MatchAssetKey = 'links' | 'styles' | 'headScripts' | 'scripts'
+
+export function collectMatchAssets(
+  matches: Array<AnyRouteMatch>,
+  key: MatchAssetKey,
+  tag: RouterManagedTag['tag'],
+  extraAttrs: Record<string, unknown>,
+): Array<RouterManagedTag> {
+  const tags: Array<RouterManagedTag> = []
+  for (const match of matches) {
+    for (const asset of match[key] ?? []) {
+      if (!asset) continue
+      const { children, ...attrs } = asset
+      tags.push({ tag, attrs: { ...attrs, ...extraAttrs }, children })
+    }
+  }
+  return tags
+}
 
 function setScriptAttrs(script: HTMLScriptElement, attrs: ScriptAttrs | undefined) {
   if (!attrs) {

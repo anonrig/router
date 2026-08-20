@@ -11,6 +11,7 @@ import {
 } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
+import { collectMatchAssets } from './asset'
 import type { AnyRouteMatch, AssetCrossOriginConfig, RouterManagedTag } from 'speedy-router-core'
 
 function buildTagsFromMatches(
@@ -87,23 +88,15 @@ function buildTagsFromMatches(
   }
   resultMeta.reverse()
 
-  const constructedLinks = matches
-    .flatMap((match) => match.links ?? [])
-    .filter((link) => link !== undefined)
-    .map((link) => ({
-      tag: 'link',
-      attrs: {
-        ...link,
-        nonce,
-      },
-    })) satisfies Array<RouterManagedTag>
+  const constructedLinks = collectMatchAssets(matches, 'links', 'link', { nonce })
 
   const manifest = router.ssr?.manifest
   const manifestCssTags: Array<RouterManagedTag> = []
+  const preloadLinks: Array<RouterManagedTag> = []
   if (manifest) {
-    matches.forEach((match) => {
-      const css = manifest.routes[match.routeId]?.css
-      css?.forEach((link: any) => {
+    for (const match of matches) {
+      const routeAssets = manifest.routes[match.routeId]
+      routeAssets?.css?.forEach((link: any) => {
         const resolvedLink = resolveManifestCssLink(link)
         manifestCssTags.push({
           tag: 'link',
@@ -117,7 +110,16 @@ function buildTagsFromMatches(
           },
         })
       })
-    })
+      routeAssets?.preloads?.forEach((preload: string) => {
+        preloadLinks.push({
+          tag: 'link',
+          attrs: {
+            ...getScriptPreloadAttrs(manifest, preload, assetCrossOrigin),
+            nonce,
+          },
+        })
+      })
+    }
 
     if (manifest.inlineStyle) {
       manifestCssTags.push({
@@ -132,44 +134,8 @@ function buildTagsFromMatches(
     }
   }
 
-  const preloadLinks: Array<RouterManagedTag> = []
-  if (manifest) {
-    matches.forEach((match) => {
-      manifest.routes[match.routeId]?.preloads?.forEach((preload: string) => {
-        preloadLinks.push({
-          tag: 'link',
-          attrs: {
-            ...getScriptPreloadAttrs(manifest, preload, assetCrossOrigin),
-            nonce,
-          },
-        })
-      })
-    })
-  }
-
-  const styles = matches
-    .flatMap((match) => match.styles ?? [])
-    .filter((style) => style !== undefined)
-    .map(({ children, ...attrs }) => ({
-      tag: 'style',
-      attrs: {
-        ...attrs,
-        nonce,
-      },
-      children: children as string | undefined,
-    })) satisfies Array<RouterManagedTag>
-
-  const headScripts = matches
-    .flatMap((match) => match.headScripts ?? [])
-    .filter((script) => script !== undefined)
-    .map(({ children, ...script }) => ({
-      tag: 'script',
-      attrs: {
-        ...script,
-        nonce,
-      },
-      children: children as string | undefined,
-    })) satisfies Array<RouterManagedTag>
+  const styles = collectMatchAssets(matches, 'styles', 'style', { nonce })
+  const headScripts = collectMatchAssets(matches, 'headScripts', 'script', { nonce })
 
   const tags: Array<RouterManagedTag> = []
   appendUniqueUserTags(tags, resultMeta)
