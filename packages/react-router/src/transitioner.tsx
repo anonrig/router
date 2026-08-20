@@ -20,20 +20,17 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
   const router = useRouter()
   const acknowledgement = (router._rendered ??= [])
   const mountedFor = useRef<AnyRouter | undefined>(undefined)
-  const originalTransition = useRef(router.startTransition)
-  const installedTransition = useRef(router.startTransition)
-
-  const transition = (fn: () => void, expected?: any) =>
-    new Promise<boolean>((resolve) => {
-      settleOwner(acknowledgement, false)
-      acknowledgement.push(expected, resolve)
-      t?.(router)
-      reactStartTransition(fn)
-    })
-  installedTransition.current = transition
-  router.startTransition = transition
 
   useLayoutEffect(() => {
+    const previousTransition = router.startTransition
+    const transition = (fn: () => void, expected?: any) =>
+      new Promise<boolean>((resolve) => {
+        settleOwner(acknowledgement, false)
+        acknowledgement.push(expected, resolve)
+        t?.(router)
+        reactStartTransition(fn)
+      })
+    router.startTransition = transition
     router._attachHistory?.()
     if (mountedFor.current !== router) {
       mountedFor.current = router
@@ -90,13 +87,13 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
         router._pending = undefined
       }
       settleOwner(acknowledgement, false)
-      if (router.startTransition === installedTransition.current) {
-        router.startTransition = originalTransition.current
+      if (router.startTransition === transition) {
+        router.startTransition = previousTransition
       }
       router._detachHistory?.()
       mountedFor.current = undefined
     }
-  }, [router])
+  }, [acknowledgement, router, t])
 
   return null
 }
