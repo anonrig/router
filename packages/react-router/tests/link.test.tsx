@@ -267,4 +267,59 @@ describe('Link', () => {
     expect(callbackNodes.some((node) => node === link)).toBe(true)
     vi.unstubAllGlobals()
   })
+
+  const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+  function renderProximityLink(preloadDelay: number) {
+    const rootRoute = createRootRoute({
+      component: () => (
+        <Link to="/about" preload="intent" preloadIntentProximity={100} preloadDelay={preloadDelay}>
+          About
+        </Link>
+      ),
+    })
+    const aboutRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/about',
+      component: () => <h1>About page</h1>,
+    })
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([aboutRoute]),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    const preloadSpy = vi.spyOn(router, 'preloadRoute').mockResolvedValue(undefined)
+    render(<RouterProvider router={router} />)
+    return preloadSpy
+  }
+
+  function mockLinkRect(link: HTMLElement) {
+    link.getBoundingClientRect = () =>
+      ({ top: 0, left: 0, right: 40, bottom: 20, width: 40, height: 20, x: 0, y: 0 }) as DOMRect
+  }
+
+  it('preloads intent links when the pointer enters the proximity radius', async () => {
+    const preloadSpy = renderProximityLink(0)
+    mockLinkRect(await screen.findByRole('link', { name: 'About' }))
+
+    fireEvent.pointerMove(document, { clientX: 500, clientY: 500 })
+    await nextFrame()
+    expect(preloadSpy).not.toHaveBeenCalled()
+
+    fireEvent.pointerMove(document, { clientX: 110, clientY: 10 })
+    await nextFrame()
+    expect(preloadSpy).toHaveBeenCalled()
+  })
+
+  it('cancels a proximity preload when the pointer leaves the radius before the delay', async () => {
+    const preloadSpy = renderProximityLink(200)
+    mockLinkRect(await screen.findByRole('link', { name: 'About' }))
+
+    fireEvent.pointerMove(document, { clientX: 110, clientY: 10 })
+    await nextFrame()
+    fireEvent.pointerMove(document, { clientX: 500, clientY: 500 })
+    await nextFrame()
+
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(preloadSpy).not.toHaveBeenCalled()
+  })
 })
