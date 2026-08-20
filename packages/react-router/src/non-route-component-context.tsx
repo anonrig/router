@@ -13,6 +13,7 @@ export function wrapInNonRouteComponentContext(
   element: React.ReactElement,
   component: NonRouteComponent,
 ): React.ReactElement {
-  const Context = nonRouteComponentContext!
+  const Context = nonRouteComponentContext
+  if (!Context) return element
   return <Context.Provider value={component}>{element}</Context.Provider>
 }

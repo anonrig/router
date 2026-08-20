@@ -24,9 +24,7 @@ export function renderPending(router: ReturnType<typeof useRouter>, route?: AnyR
   const PendingComponent = route?.options.pendingComponent ?? router.options.defaultPendingComponent
   if (!PendingComponent) return null
   const pendingElement = <PendingComponent />
-  return process.env.NODE_ENV !== 'production'
-    ? wrapInNonRouteComponentContext(pendingElement, 'pendingComponent')
-    : pendingElement
+  return wrapInNonRouteComponentContext(pendingElement, 'pendingComponent')
 }
 
 const canWrapInSuspense = (
@@ -113,9 +111,7 @@ function MatchView({
                 if (error.routeId !== match.routeId) throw error
                 const NotFound = routeNotFoundComponent
                 const notFoundElement = <NotFound {...(error as any)} />
-                return process.env.NODE_ENV !== 'production'
-                  ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
-                  : notFoundElement
+                return wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
               }}
             >
               {resolvedNoSsr ? (
@@ -184,9 +180,7 @@ export const MatchInner = memo(function MatchInnerImpl({ match }: { match: AnyRo
           info={{ componentStack: '' }}
         />
       )
-      return process.env.NODE_ENV !== 'production'
-        ? wrapInNonRouteComponentContext(errorElement, 'errorComponent')
-        : errorElement
+      return wrapInNonRouteComponentContext(errorElement, 'errorComponent')
     }
     throw match.error
   }
