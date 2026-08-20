@@ -13,9 +13,6 @@ export function wrapInNonRouteComponentContext(
   element: React.ReactElement,
   component: NonRouteComponent,
 ): React.ReactElement {
-  if (process.env.NODE_ENV === 'production') {
-    return element
-  }
   const Context = nonRouteComponentContext!
   return <Context.Provider value={component}>{element}</Context.Provider>
 }

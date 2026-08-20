@@ -1,8 +1,7 @@
-import { _getAssetMatches, deepEqual } from 'speedy-router-core'
+import { _getAssetMatches } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
-import { Asset, collectMatchAssets } from './asset'
+import { Asset, collectMatchAssets, useMatchDerived } from './asset'
 import { useRouter } from './use-router'
-import { useStore } from './react-store'
 import type { AnyRouteMatch, RouterManagedTag } from 'speedy-router-core'
 
 type ScriptRenderAsset = RouterManagedTag & {
@@ -50,20 +49,11 @@ export const Scripts = () => {
   }
 
   if (isServer ?? router.isServer) {
-    const activeMatches = router.stores.matches.get()
-    const scripts = getScripts(activeMatches)
-    return renderScripts(router, scripts)
+    return renderScripts(router, getScripts(router.stores.matches.get()))
   }
 
-  // `stores.matches` is a non-reactive derived view. Subscribe to the
-  // compatibility state store, which notifies after `setMatches`.
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static
-  const scripts = useStore(
-    router.stores.state,
-    (state: { matches: Array<AnyRouteMatch> }) => getScripts(state.matches),
-    deepEqual,
-  )
-
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- server/client is static
+  const scripts = useMatchDerived(router, getScripts)
   return renderScripts(router, scripts)
 }
 

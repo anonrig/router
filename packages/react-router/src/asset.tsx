@@ -1,9 +1,11 @@
 'use client'
 
 import * as React from 'react'
+import { deepEqual } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
 import { useHydrated } from './client-only'
+import { useStore } from './react-store'
 import type { AnyRouteMatch, RouterManagedTag } from 'speedy-router-core'
 
 const INLINE_CSS_HYDRATION_ATTR = 'data-tsr-inline-css'
@@ -15,16 +17,6 @@ interface ScriptAttrs {
 }
 
 const noopScriptHandler = () => {}
-
-function srcScript(attrs?: ScriptAttrs) {
-  return <script {...attrs} suppressHydrationWarning />
-}
-
-function inlineScript(attrs: ScriptAttrs | undefined, children: string) {
-  return (
-    <script {...attrs} dangerouslySetInnerHTML={{ __html: children }} suppressHydrationWarning />
-  )
-}
 
 type MatchAssetKey = 'links' | 'styles' | 'headScripts' | 'scripts'
 
@@ -45,6 +37,17 @@ export function collectMatchAssets(
   return tags
 }
 
+export function useMatchDerived<T>(
+  router: ReturnType<typeof useRouter>,
+  select: (matches: Array<AnyRouteMatch>) => T,
+): T {
+  return useStore(
+    router.stores.state,
+    (state: { matches: Array<AnyRouteMatch> }) => select(state.matches),
+    deepEqual,
+  )
+}
+
 function setScriptAttrs(script: HTMLScriptElement, attrs: ScriptAttrs | undefined) {
   if (!attrs) {
     return
@@ -55,6 +58,12 @@ function setScriptAttrs(script: HTMLScriptElement, attrs: ScriptAttrs | undefine
       script.setAttribute(key, typeof value === 'boolean' ? '' : String(value))
     }
   }
+}
+
+function renderInlineScript(attrs: ScriptAttrs | undefined, children: string) {
+  return (
+    <script {...attrs} dangerouslySetInnerHTML={{ __html: children }} suppressHydrationWarning />
+  )
 }
 
 export function Asset(
@@ -224,7 +233,7 @@ function Script({
   if (isServer ?? router.isServer) {
     if (attrs?.src) {
       if (!preventScriptHoist) {
-        return srcScript(attrs)
+        return <script {...attrs} suppressHydrationWarning />
       }
 
       return (
@@ -240,7 +249,7 @@ function Script({
     }
 
     if (typeof children === 'string') {
-      return inlineScript(attrs, children)
+      return renderInlineScript(attrs, children)
     }
 
     return null
@@ -251,7 +260,7 @@ function Script({
   // Data scripts (e.g. application/ld+json) are rendered in the tree;
   // the useEffect intentionally skips them.
   if (dataScript && typeof children === 'string') {
-    return inlineScript(attrs, children)
+    return renderInlineScript(attrs, children)
   }
 
   // During hydration (before useEffect has fired), render the script element
@@ -259,11 +268,11 @@ function Script({
   // After hydration, return null — the useEffect handles imperative injection.
   if (!hydrated) {
     if (attrs?.src) {
-      return srcScript(attrs)
+      return <script {...attrs} suppressHydrationWarning />
     }
 
     if (typeof children === 'string') {
-      return inlineScript(attrs, children)
+      return renderInlineScript(attrs, children)
     }
   }
 

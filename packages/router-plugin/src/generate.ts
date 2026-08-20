@@ -26,16 +26,12 @@ function staleTypesPathFor(runtimePath: string) {
     .replace(/routeTree\.ts$/, 'routeTree.types.ts')
 }
 
-function writeIfChanged(filePath: string, contents: string, ensuredDirs: Set<string>) {
+function writeIfChanged(filePath: string, contents: string) {
   try {
     if (readFileSync(filePath, 'utf8') === contents) return
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    const dir = dirname(filePath)
-    if (!ensuredDirs.has(dir)) {
-      mkdirSync(dir, { recursive: true })
-      ensuredDirs.add(dir)
-    }
+    mkdirSync(dirname(filePath), { recursive: true })
   }
   writeFileSync(filePath, contents)
 }
@@ -63,8 +59,7 @@ export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedR
     quoteStyle: options.quoteStyle,
     semicolons: options.semicolons,
   })
-  const ensuredDirs = new Set<string>()
-  writeIfChanged(runtimePath, generated, ensuredDirs)
+  writeIfChanged(runtimePath, generated)
   // Older versions of this package wrote a sibling types file.
   removeIfExists(staleTypesPathFor(runtimePath))
   return {

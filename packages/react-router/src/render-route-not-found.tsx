@@ -14,10 +14,10 @@ import type { AnyRoute, AnyRouter } from 'speedy-router-core'
 export function renderRouteNotFound(router: AnyRouter, route: AnyRoute, data: any) {
   if (!route.options.notFoundComponent) {
     if (router.options.defaultNotFoundComponent) {
-      return wrapInNonRouteComponentContext(
-        <router.options.defaultNotFoundComponent {...data} />,
-        'notFoundComponent',
-      )
+      const notFoundElement = <router.options.defaultNotFoundComponent {...data} />
+      return process.env.NODE_ENV !== 'production'
+        ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
+        : notFoundElement
     }
 
     if (process.env.NODE_ENV !== 'production') {
@@ -29,8 +29,8 @@ export function renderRouteNotFound(router: AnyRouter, route: AnyRoute, data: an
     return <DefaultGlobalNotFound />
   }
 
-  return wrapInNonRouteComponentContext(
-    <route.options.notFoundComponent {...data} />,
-    'notFoundComponent',
-  )
+  const notFoundElement = <route.options.notFoundComponent {...data} />
+  return process.env.NODE_ENV !== 'production'
+    ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
+    : notFoundElement
 }

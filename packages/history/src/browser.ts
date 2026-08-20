@@ -164,26 +164,15 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
       return
     }
 
-    let shouldBlock = false
-    const currentBlockers = blockers
-    if (typeof document !== 'undefined' && currentBlockers.length) {
-      for (const blocker of currentBlockers) {
-        const shouldHaveBeforeUnload = blocker.enableBeforeUnload ?? true
-        if (shouldHaveBeforeUnload === true) {
-          shouldBlock = true
-          break
-        }
-        if (typeof shouldHaveBeforeUnload === 'function' && shouldHaveBeforeUnload() === true) {
-          shouldBlock = true
-          break
-        }
-      }
-    }
-
-    if (shouldBlock) {
-      e.preventDefault()
-      return (e.returnValue = '')
-    }
+    const shouldBlock =
+      typeof document !== 'undefined' &&
+      blockers.some(({ enableBeforeUnload }) => {
+        const enabled = enableBeforeUnload ?? true
+        return enabled === true || (typeof enabled === 'function' && enabled() === true)
+      })
+    if (!shouldBlock) return
+    e.preventDefault()
+    return (e.returnValue = '')
   }
 
   let alive = true

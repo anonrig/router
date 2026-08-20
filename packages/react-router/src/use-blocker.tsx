@@ -201,24 +201,20 @@ export function useBlocker(opts?: any): any {
     }
   }, [router])
 
-  if (state.status === 'blocked') {
-    return {
-      status: 'blocked',
-      current: state.current,
-      next: state.next,
-      action: state.action,
-      proceed: () => proceedRef.current?.(),
-      reset: () => resetRef.current?.(),
-    } as any
+  const blocked = state.status === 'blocked'
+  let proceed: (() => void) | undefined
+  let reset: (() => void) | undefined
+  if (blocked) {
+    proceed = () => proceedRef.current?.()
+    reset = () => resetRef.current?.()
   }
-
   return {
-    status: 'idle',
-    current: undefined,
-    next: undefined,
-    action: undefined,
-    proceed: undefined,
-    reset: undefined,
+    status: state.status,
+    current: state.current,
+    next: state.next,
+    action: state.action,
+    proceed,
+    reset,
   } as any
 }
 

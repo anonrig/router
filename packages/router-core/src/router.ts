@@ -35,9 +35,11 @@ import {
 } from './rewrite'
 import { rootRouteId } from './root'
 import type { ParsedLocation } from './location'
+import type { ManifestRouteAssets, RouterManagedTag as ManifestRouterManagedTag } from './manifest'
 import type { AnyRouteMatch as PublicRouteMatch } from './matches'
 import type { AnyContext as RouteAnyContext, AnyRoute } from './route'
 import type { BuildLocationFn, NavigateFn } from './router-provider'
+import type { ValidateSerializableInput } from './ssr/serializer/transformer-types'
 import { setupDefaultScroll } from './scroll-default'
 import {
   applySearchMiddleware,
@@ -71,6 +73,7 @@ import {
   noopAbortController,
   nullReplaceEqualDeep,
   replaceEqualDeep,
+  type Awaitable,
   type PickAsRequired,
 } from './utils'
 
@@ -261,7 +264,10 @@ export interface RouterOptions<
   serializationAdapters?: any[]
   routeMasks?: any[]
   slotPrefix?: string
-  hydrate?: (data: any) => any
+  dehydrate?: () => Awaitable<
+    Constrain<TDehydrated, ValidateSerializableInput<Register, TDehydrated>>
+  >
+  hydrate?: (data: TDehydrated) => Awaitable<void>
   additionalContext?: Record<string, any>
   defaultSsr?: any
   defaultStaleReloadMode?: any
@@ -287,6 +293,28 @@ export type RouteMatch = PublicRouteMatch & {
 export type AnyRouteMatch = RouteMatch
 export type MakeRouteMatch = RouteMatch
 export type MakeRouteMatchUnion = RouteMatch
+
+export interface ServerSsr {
+  injectHtml: (html: string) => void
+  injectScript: (script: string) => void
+  isDehydrated: () => boolean
+  isSerializationFinished: () => boolean
+  reserveStreamFastPath: () => boolean
+  onInjectedHtml: (listener: () => void) => () => void
+  onRenderFinished: (listener: () => void) => void
+  onSerializationFinished: (listener: () => void) => () => void
+  onCleanup: (listener: () => void) => void
+  setRenderFinished: () => void
+  cleanup: () => void
+  dehydrate: (opts?: { requestAssets?: ManifestRouteAssets }) => void | Promise<void>
+  takeBufferedScripts: () => ManifestRouterManagedTag | undefined
+  takeBufferedHtml: () => string | undefined
+  liftScriptBarrier: () => void
+}
+
+export interface RouterSsrLifecycle {
+  onServerSsrAttach?: Array<(serverSsr: ServerSsr) => void>
+}
 
 export interface RouterState<
   in out TRouteTree extends AnyRoute = AnyRoute,
@@ -596,8 +624,8 @@ export class RouterCore<
   pathParamsDecoder?: (encoded: string) => string
   protocolAllowlist = DEFAULT_PROTOCOL_SET
   ssr: any = undefined
-  serverSsr: any = undefined
-  serverSsrLifecycle?: { onServerSsrAttach?: Array<(serverSsr: any) => void> }
+  serverSsr?: ServerSsr
+  serverSsrLifecycle?: RouterSsrLifecycle
   // Extra bag fields (`state`, client location atoms) stay open for the
   // runtime store implementations. `matches` is the public SSR/client API.
   stores!: {
@@ -3289,6 +3317,7 @@ export type LocationRewriteFunction = ({ url }: { url: URL }) => undefined | str
 export type UpdateFn = any
 export type StartTransitionFn = (fn: () => void) => any
 export type ViewTransitionOptions = any
+export type Constrain<T, C> = T extends C ? T : C
 export type RegisteredConfigType<TRegister, TKey> = TRegister extends {
   config: infer TConfig
 }
