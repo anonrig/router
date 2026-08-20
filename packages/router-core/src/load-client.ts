@@ -1029,11 +1029,13 @@ async function executeClientLane(
   if (options[2 /* isCurrent */]() && !options[4 /* preload */]) {
     const abort: Array<AbortController> = []
     const flights = router._flights
-    for (const id in flights) {
-      const flight = flights[id]!
-      if (!flight[2 /* leases */]) {
-        delete flights[id]
-        abort.push(flight[1 /* controller */])
+    if (flights) {
+      for (const id in flights) {
+        const flight = flights[id]!
+        if (!flight[2 /* leases */]) {
+          delete flights[id]
+          abort.push(flight[1 /* controller */])
+        }
       }
     }
     for (const controller of abort) {
