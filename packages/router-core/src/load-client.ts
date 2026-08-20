@@ -846,15 +846,12 @@ function getNotFoundBoundary(
     indexed,
     (loading) =>
       loading &&
-      waitFor(loading, signal).then(
-        () => {},
-        (cause) => {
-          // Chunk failures fall back to shallower boundaries; only aborts escape.
-          if (cause === signal && signal.aborted) {
-            throw cause
-          }
-        },
-      ),
+      waitFor(loading, signal).catch((cause) => {
+        // Chunk failures fall back to shallower boundaries; only aborts escape.
+        if (cause === signal && signal.aborted) {
+          throw cause
+        }
+      }),
     fallback,
   )
 }
