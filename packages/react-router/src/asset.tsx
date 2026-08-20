@@ -60,6 +60,12 @@ function setScriptAttrs(script: HTMLScriptElement, attrs: ScriptAttrs | undefine
   }
 }
 
+function renderInlineScript(attrs: ScriptAttrs | undefined, children: string) {
+  return (
+    <script {...attrs} dangerouslySetInnerHTML={{ __html: children }} suppressHydrationWarning />
+  )
+}
+
 export function Asset(
   asset: RouterManagedTag & {
     nonce?: string
@@ -243,13 +249,7 @@ function Script({
     }
 
     if (typeof children === 'string') {
-      return (
-        <script
-          {...attrs}
-          dangerouslySetInnerHTML={{ __html: children }}
-          suppressHydrationWarning
-        />
-      )
+      return renderInlineScript(attrs, children)
     }
 
     return null
@@ -260,9 +260,7 @@ function Script({
   // Data scripts (e.g. application/ld+json) are rendered in the tree;
   // the useEffect intentionally skips them.
   if (dataScript && typeof children === 'string') {
-    return (
-      <script {...attrs} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: children }} />
-    )
+    return renderInlineScript(attrs, children)
   }
 
   // During hydration (before useEffect has fired), render the script element
@@ -274,13 +272,7 @@ function Script({
     }
 
     if (typeof children === 'string') {
-      return (
-        <script
-          {...attrs}
-          dangerouslySetInnerHTML={{ __html: children }}
-          suppressHydrationWarning
-        />
-      )
+      return renderInlineScript(attrs, children)
     }
   }
 
