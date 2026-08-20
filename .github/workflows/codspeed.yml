@@ -18,26 +18,9 @@ concurrency:
 
 jobs:
   benchmarks:
-    name: Run ${{ matrix.name }}
+    name: Run benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include:
-          - name: core
-            files: >-
-              benches/hotpath.bench.ts
-              benches/history.bench.ts
-              benches/navigation.bench.ts
-              benches/ssr-rps.bench.ts
-              benches/tanstack/search-params.bench.ts
-              benches/tanstack/ssr-match-id.bench.ts
-          - name: link
-            files: benches/tanstack/link.bench.tsx
-          - name: closing-tag
-            files: benches/tanstack/closing-tag-detection.bench.ts
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v5
@@ -52,4 +35,13 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         with:
           mode: simulation
-          run: pnpm exec vitest bench --run ${{ matrix.files }}
+          run: >-
+            pnpm exec vitest bench --run
+            benches/hotpath.bench.ts
+            benches/history.bench.ts
+            benches/navigation.bench.ts
+            benches/ssr-rps.bench.ts
+            benches/tanstack/search-params.bench.ts
+            benches/tanstack/ssr-match-id.bench.ts &&
+            pnpm exec vitest bench --run benches/tanstack/link.bench.tsx &&
+            pnpm exec vitest bench --run benches/tanstack/closing-tag-detection.bench.ts
