@@ -15,6 +15,8 @@ describe('path utils', () => {
   it('cleans duplicate slashes without regex', () => {
     expect(cleanPath('/a//b///c')).toBe('/a/b/c')
     expect(cleanPath('//')).toBe('/')
+    expect(cleanPath('/a//b///c')).toBe('/a/b/c')
+    expect(cleanPath('/x//y')).toBe('/x/y')
   })
 
   it('trims slashes', () => {
