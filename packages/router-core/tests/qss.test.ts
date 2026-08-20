@@ -46,7 +46,7 @@ describe('qss', () => {
   })
 
   it('does not reuse a query string when JSON aliases distinct values', () => {
-    expect(encode({ n: NaN })).toBe('n=NaN')
+    expect(encode({ n: Number.NaN })).toBe('n=NaN')
     expect(encode({ n: null })).toBe('n=null')
     expect(encode({ n: Infinity })).toBe('n=Infinity')
   })
