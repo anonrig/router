@@ -1,6 +1,6 @@
-// Hydrate-safe copies of the coordinator helpers in `load-client.ts`. This
-// module must not import `load-client.ts` so SSR `hydrate` can settle without
-// the navigation graph (see tests/dce.test.ts). Keep both in sync.
+// Shared by hydrate and the client coordinator. This module must not import
+// `load-client.ts` so SSR `hydrate` can settle without the navigation graph
+// (see tests/dce.test.ts).
 import { getRoute } from './load-shared'
 import type { AnyRouteMatch } from './matches'
 import type { AnyRouter } from './router'
