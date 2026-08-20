@@ -35,7 +35,7 @@ import {
 } from './rewrite'
 import { rootRouteId } from './root'
 import type { ParsedLocation } from './location'
-import type { ManifestRouteAssets, RouterManagedTag } from './manifest'
+import type { ManifestRouteAssets } from './manifest'
 import type { AnyRouteMatch as PublicRouteMatch } from './matches'
 import type { AnyContext as RouteAnyContext, AnyRoute } from './route'
 import type { BuildLocationFn, NavigateFn } from './router-provider'
