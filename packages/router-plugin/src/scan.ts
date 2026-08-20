@@ -33,7 +33,7 @@ export type ScanRoutesOptions = {
   routeFileIgnorePattern?: RouteFileIgnorePattern
 }
 
-function toPosix(value: string) {
+export function toPosix(value: string) {
   return value.split(sep).join('/')
 }
 

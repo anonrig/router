@@ -36,24 +36,25 @@ function walk(node: unknown, visit: (value: EstreeNode) => void) {
   if (typeof value.type !== 'string') return
   visit(value)
   for (const key of Object.keys(value)) {
-    if (
-      key === 'type' ||
-      key === 'start' ||
-      key === 'end' ||
-      key === 'loc' ||
-      key === 'range' ||
-      key === 'span' ||
-      key === 'comments' ||
-      key === 'tokens' ||
-      key === 'leadingComments' ||
-      key === 'trailingComments' ||
-      key === 'innerComments'
-    ) {
-      continue
-    }
+    if (WALK_SKIP_KEYS.has(key)) continue
     walk(value[key], visit)
   }
 }
+
+// Metadata keys that never contain child AST nodes.
+const WALK_SKIP_KEYS = new Set([
+  'type',
+  'start',
+  'end',
+  'loc',
+  'range',
+  'span',
+  'comments',
+  'tokens',
+  'leadingComments',
+  'trailingComments',
+  'innerComments',
+])
 
 function collectIdentifiers(node: EstreeNode, into: Set<string>) {
   walk(node, (value) => {
