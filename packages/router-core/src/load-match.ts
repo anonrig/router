@@ -33,7 +33,8 @@ export function releaseOwnedFlight(
   if (!flight || --flight[2 /* leases */]) {
     return
   }
-  if (router._flights?.[match.id] === flight) {
+  const flights = router._flights
+  if (flights && flights[match.id] === flight) {
     const current = router._tx
     if (
       current &&
@@ -49,7 +50,7 @@ export function releaseOwnedFlight(
       // beforeLoad. Loader planning performs the matching zero-owner sweep.
       return
     }
-    delete router._flights[match.id]
+    delete flights[match.id]
   }
   return flight[1 /* controller */]
 }

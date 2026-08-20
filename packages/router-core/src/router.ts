@@ -1571,7 +1571,8 @@ export class RouterCore<
       const flight = match._flight
       match._flight = undefined
       if (flight && !--(flight as any)[2]) {
-        if (this._flights?.[match.id] === flight) delete this._flights[match.id]
+        const flights = this._flights
+        if (flights && flights[match.id] === flight) delete flights[match.id]
         abort.push(flight[1]!)
       }
     }
