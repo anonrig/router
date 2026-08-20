@@ -19,7 +19,10 @@ concurrency:
 jobs:
   benchmarks:
     name: Run ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    # Pinned image: `ubuntu-latest` lets BASE and HEAD land on different image
+    # builds, which CodSpeed flags as "different runtime environments" and can
+    # produce false-positive regressions.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -52,4 +55,8 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         with:
           mode: simulation
+          # Allocator cost varies with the host CPU/image (glibc feature
+          # detection), which dominates allocation-heavy React render benches.
+          # Excluding allocator frames keeps comparisons about our code.
+          exclude-allocations: true
           run: pnpm exec vitest bench --run ${{ matrix.files }}
