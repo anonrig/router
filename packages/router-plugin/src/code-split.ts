@@ -102,9 +102,12 @@ function importLocalNames(declaration: EstreeNode): Array<string> {
 }
 
 function declaredNames(statement: EstreeNode): Array<string> {
-  if (statement.type === 'FunctionDeclaration' || statement.type === 'ClassDeclaration') {
+  if (
+    statement.type === 'FunctionDeclaration' ||
+    statement.type === 'ClassDeclaration' ||
+    statement.type === 'TSEnumDeclaration'
+  )
     return statement.id?.name ? [statement.id.name] : []
-  }
   if (statement.type === 'VariableDeclaration') {
     const names: Array<string> = []
     for (const declaration of statement.declarations ?? []) {
@@ -112,14 +115,12 @@ function declaredNames(statement: EstreeNode): Array<string> {
     }
     return names
   }
-  if (statement.type === 'TSEnumDeclaration') {
-    return statement.id?.name ? [statement.id.name] : []
-  }
   if (statement.type === 'ImportDeclaration') return importLocalNames(statement)
-  if (statement.type === 'ExportNamedDeclaration' && statement.declaration) {
-    return declaredNames(statement.declaration)
-  }
-  if (statement.type === 'ExportDefaultDeclaration' && statement.declaration) {
+  if (
+    (statement.type === 'ExportNamedDeclaration' ||
+      statement.type === 'ExportDefaultDeclaration') &&
+    statement.declaration
+  ) {
     return declaredNames(statement.declaration)
   }
   if (statement.type === 'TSModuleDeclaration') {
@@ -185,10 +186,6 @@ function propertyNameOf(property: EstreeNode): string | undefined {
   return undefined
 }
 
-function propertyValue(property: EstreeNode): EstreeNode | undefined {
-  return property.value
-}
-
 function isCreateFileRouteIdentifier(node: EstreeNode | undefined): boolean {
   return node?.type === 'Identifier' && node.name === 'createFileRoute'
 }
@@ -245,7 +242,7 @@ function splitPropertiesOf(options: EstreeNode) {
     if (property.kind === 'get' || property.kind === 'set') continue
     const key = propertyNameOf(property)
     if (!key || !SPLIT_PROPERTY_SET.has(key)) continue
-    const value = propertyValue(property)
+    const value = property.value
     if (!value || isAlreadyLazy(value) || isTrivialSplitValue(value)) continue
     properties.push({
       key: key as SplitProperty,
@@ -316,7 +313,7 @@ function neededStatements(
 function hasDisabledSsr(options: EstreeNode): boolean {
   for (const property of options.properties ?? []) {
     if (propertyNameOf(property) !== 'ssr') continue
-    const value = propertyValue(property)
+    const value = property.value
     if (value?.type === 'Literal' && value.value === false) return true
   }
   return false

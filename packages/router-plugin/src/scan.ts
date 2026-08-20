@@ -102,10 +102,6 @@ function listRouteFiles(rootDir: string, ignore?: RegExp) {
   return files
 }
 
-function stripRouteToken(segments: Array<string>) {
-  return segments[segments.length - 1] === 'route' ? segments.slice(0, -1) : segments
-}
-
 const ESCAPED_DOT = '\0'
 const ESCAPED_OPEN = '\u0001'
 const ESCAPED_CLOSE = '\u0002'
@@ -124,16 +120,14 @@ function flattenRouteFileId(fileId: string) {
 
 function fileIdToKey(fileId: string) {
   if (fileId === '__root') return '__root__'
-  const raw = flattenRouteFileId(fileId).split('/').filter(Boolean)
-  const segments = stripRouteToken(raw)
+  const segments = flattenRouteFileId(fileId).split('/').filter(Boolean)
+  if (segments[segments.length - 1] === 'route') segments.pop()
   if (segments.length === 0) return '/'
-  const last = segments[segments.length - 1]!
-  if (last === 'index') {
+  if (segments[segments.length - 1] === 'index') {
     segments[segments.length - 1] = ''
   }
   const joined = segments.join('/').replaceAll(ESCAPED_OPEN, '').replaceAll(ESCAPED_CLOSE, '')
-  if (joined === '') return '/'
-  return joined.endsWith('/') ? `/${joined}` : `/${joined}`
+  return joined ? `/${joined}` : '/'
 }
 
 function hasEscapedPathlessPrefix(fileId: string) {
