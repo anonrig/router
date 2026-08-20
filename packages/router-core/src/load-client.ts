@@ -460,8 +460,9 @@ async function loadResource(
           .then((result): LoaderOutcome => {
             // The registry controls discovery; leases keep current consumers
             // sharing the same terminal outcome.
-            if (result[0 /* kind */] !== SUCCESS && router._flights?.[match.id] === flight) {
-              delete router._flights[match.id]
+            const flights = router._flights
+            if (result[0 /* kind */] !== SUCCESS && flights && flights[match.id] === flight) {
+              delete flights[match.id]
               if (!flight![2 /* leases */]) {
                 controller.abort()
               }
