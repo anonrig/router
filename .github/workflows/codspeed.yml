@@ -35,4 +35,9 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         with:
           mode: simulation
-          run: pnpm bench
+          run: >-
+            pnpm exec vitest bench --run
+            --exclude benches/tanstack/link.bench.tsx
+            --exclude benches/tanstack/closing-tag-detection.bench.ts &&
+            pnpm exec vitest bench --run benches/tanstack/link.bench.tsx &&
+            pnpm exec vitest bench --run benches/tanstack/closing-tag-detection.bench.ts
