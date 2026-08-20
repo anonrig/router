@@ -1,7 +1,7 @@
 // Keep this filename free of a secondary extension so declaration generation
 // can rewrite relative imports for both ESM and CJS.
 import { isNotFound } from './not-found'
-import { createStringMap, objectValues } from './utils'
+import { objectValues } from './utils'
 import { isRedirect } from './redirect'
 import { _getRenderedMatches, loadRouteChunk } from './load-chunk'
 import { getLocationChangeInfo, matchParentContext, runRouteLifecycle } from './router'
@@ -460,8 +460,8 @@ async function loadResource(
           .then((result): LoaderOutcome => {
             // The registry controls discovery; leases keep current consumers
             // sharing the same terminal outcome.
-            if (result[0 /* kind */] !== SUCCESS && router._flights?.get(match.id) === flight) {
-              router._flights!.delete(match.id)
+            if (result[0 /* kind */] !== SUCCESS && router._flights?.[match.id] === flight) {
+              delete router._flights[match.id]
               if (!flight![2 /* leases */]) {
                 controller.abort()
               }
@@ -473,7 +473,7 @@ async function loadResource(
         controller,
         1,
       ]
-      ;(router._flights ??= createStringMap()).set(match.id, flight)
+      ;(router._flights ??= Object.create(null))[match.id] = flight
     }
     match._flight = flight
     match.abortController = flight[1 /* controller */]
@@ -597,7 +597,7 @@ function createLoaderTask(
     (!preload || route.options.preload !== false) &&
     routeLoader &&
     !(process.env.NODE_ENV !== 'production' && router._tx?.[6 /* refresh */])
-      ? router._flights?.get(match.id)
+      ? router._flights?.[match.id]
       : undefined
   if (donor === match._flight || reloadFailure) {
     donor = undefined
@@ -1027,9 +1027,11 @@ async function executeClientLane(
   }
   if (options[2 /* isCurrent */]() && !options[4 /* preload */]) {
     const abort: Array<AbortController> = []
-    for (const [id, flight] of router._flights ?? []) {
+    const flights = router._flights
+    for (const id in flights) {
+      const flight = flights[id]!
       if (!flight[2 /* leases */]) {
-        router._flights!.delete(id)
+        delete flights[id]
         abort.push(flight[1 /* controller */])
       }
     }
