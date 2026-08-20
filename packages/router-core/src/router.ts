@@ -2100,14 +2100,15 @@ export class RouterCore<
         parallel.results.push(result)
         settleWarmSuccess(parallel, result, now, id === this.loadId)
         parentMatchPromise = undefined
+      } else if (!data.ok || isRedirect(data.value) || isNotFound(data.value)) {
+        parallel = {
+          results: [{ match, route, context: matchContext, ok: data.ok, value: data.value }],
+          pending: [],
+          settled: [],
+          canceled: false,
+        }
+        parentMatchPromise = undefined
       } else {
-        if (!data.ok) {
-          return this.settleWarmFailure(location, id, matches, match, route, data.value)
-        }
-        if (isRedirect(data.value)) {
-          return this.followWarmRedirect(location, id, matches, match, data.value)
-        }
-        if (isNotFound(data.value)) return importLoadClient(this)
         match.loaderData = data.value
         match.status = 'success'
         match.isFetching = false
@@ -2157,7 +2158,7 @@ export class RouterCore<
       rememberWarmMatches(this, cacheKey, matches)
     }
 
-    return Promise.all(state.pending).then(settle)
+    return state.pending.length ? Promise.all(state.pending).then(settle) : settle()
   }
 
   private settleWarmFailure(
