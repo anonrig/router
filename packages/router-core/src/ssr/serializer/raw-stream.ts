@@ -140,10 +140,12 @@ const FACTORY_BINARY = `(s=>new ReadableStream({start(c){s.on({next(b){try{const
 // Uses cached TextEncoder for performance
 const FACTORY_TEXT = `(s=>{const e=new TextEncoder();return new ReadableStream({start(c){s.on({next(v){try{if(typeof v==='string'){c.enqueue(e.encode(v))}else{const d=atob(v.$b64),a=new Uint8Array(d.length);for(let i=0;i<d.length;i++)a[i]=d.charCodeAt(i);c.enqueue(a)}}catch(_){}},throw(x){c.error(x)},return(){try{c.close()}catch(_){}}})}})})`
 
-// Convert ReadableStream<Uint8Array> to seroval stream with base64-encoded chunks (binary mode)
-function toBinaryStream(readable: ReadableStream<Uint8Array>) {
+// Convert a raw stream to seroval chunks using either base64 or UTF-8 with a
+// base64 fallback.
+function encodedStreamFor(value: RawStream) {
   const stream = createStream()
-  const reader = readable.getReader()
+  const reader = value.stream.getReader()
+  const decoder = value.hint === 'text' ? new TextDecoder('utf-8', { fatal: true }) : undefined
 
   // Use iterative loop instead of recursive async to avoid stack accumulation
   ;(async () => {
@@ -151,55 +153,29 @@ function toBinaryStream(readable: ReadableStream<Uint8Array>) {
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
-          stream.return(undefined)
-          break
-        }
-        stream.next(uint8ArrayToBase64(value))
-      }
-    } catch (error) {
-      stream.throw(error)
-    } finally {
-      reader.releaseLock()
-    }
-  })()
-
-  return stream
-}
-
-// Convert ReadableStream<Uint8Array> to seroval stream with UTF-8 first, base64 fallback (text mode)
-function toTextStream(readable: ReadableStream<Uint8Array>) {
-  const stream = createStream()
-  const reader = readable.getReader()
-  const decoder = new TextDecoder('utf-8', { fatal: true })
-
-  // Use iterative loop instead of recursive async to avoid stack accumulation
-  ;(async () => {
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          // Flush any remaining bytes in the decoder
-          try {
-            const remaining = decoder.decode()
-            if (remaining.length > 0) {
-              stream.next(remaining)
+          if (decoder) {
+            try {
+              const remaining = decoder.decode()
+              if (remaining) stream.next(remaining)
+            } catch {
+              // Ignore decode errors on flush
             }
-          } catch {
-            // Ignore decode errors on flush
           }
           stream.return(undefined)
           break
         }
 
-        try {
-          // Try UTF-8 decode first
-          const text = decoder.decode(value, { stream: true })
-          if (text.length > 0) {
-            stream.next(text)
+        if (decoder) {
+          // Text mode prefers UTF-8 and falls back to base64 for invalid chunks.
+          try {
+            const text = decoder.decode(value, { stream: true })
+            if (text) stream.next(text)
+          } catch {
+            stream.next({ $b64: uint8ArrayToBase64(value) })
           }
-        } catch {
-          // UTF-8 decode failed, fallback to base64
-          stream.next({ $b64: uint8ArrayToBase64(value) })
+        } else {
+          // Binary mode always uses base64.
+          stream.next(uint8ArrayToBase64(value))
         }
       }
     } catch (error) {
@@ -214,10 +190,6 @@ function toTextStream(readable: ReadableStream<Uint8Array>) {
 
 function factoryFor(value: RawStream) {
   return value.hint === 'text' ? RAW_STREAM_FACTORY_TEXT : RAW_STREAM_FACTORY_BINARY
-}
-
-function encodedStreamFor(value: RawStream) {
-  return value.hint === 'text' ? toTextStream(value.stream) : toBinaryStream(value.stream)
 }
 
 // Factory plugins serialize a sentinel into the matching minified factory source.
