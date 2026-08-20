@@ -23,9 +23,16 @@ export function joinPaths(paths: Array<string | undefined>) {
   return cleanPath(out)
 }
 
+let lastCleanPath = ''
+let lastCleanResult = ''
+
 export function cleanPath(path: string) {
+  if (path === lastCleanPath) return lastCleanResult
   const first = path.indexOf('//')
-  return first === -1 ? path : collapseSlashes(path, first)
+  const result = first === -1 ? path : collapseSlashes(path, first)
+  lastCleanPath = path
+  lastCleanResult = result
+  return result
 }
 
 function collapseSlashes(path: string, first: number) {
