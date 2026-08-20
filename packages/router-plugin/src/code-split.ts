@@ -2,16 +2,14 @@ import { basename } from 'node:path'
 import { parseSync } from 'oxc-parser'
 import { TSR_SPLIT_QUERY } from './module-id'
 
-export { fileNameFromModuleId, splitTargetFromModuleId, TSR_SPLIT_QUERY } from './module-id'
-
-export const SPLIT_PROPERTIES = [
+const SPLIT_PROPERTIES = [
   'component',
   'errorComponent',
   'pendingComponent',
   'notFoundComponent',
 ] as const
 
-export type SplitProperty = (typeof SPLIT_PROPERTIES)[number]
+type SplitProperty = (typeof SPLIT_PROPERTIES)[number]
 
 const SPLIT_PROPERTY_SET = new Set<string>(SPLIT_PROPERTIES)
 
