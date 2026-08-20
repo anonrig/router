@@ -102,6 +102,9 @@ function toValue(str: string) {
 
 let lastEncodeObj: Record<string, any> | undefined
 let lastEncodeFn: ((value: any) => string) | undefined
+let lastEncodeKeys: string[] = []
+let lastEncodeVals: any[] = []
+let lastEncodeDeep = false
 let lastEncodeSig: string | undefined
 let lastEncodeOut = ''
 
@@ -113,22 +116,46 @@ function searchSig(obj: Record<string, any>): string | undefined {
   }
 }
 
+function rememberEncode(obj: Record<string, any>) {
+  const keys: string[] = []
+  const vals: any[] = []
+  let deep = false
+  for (const key in obj) {
+    const val = obj[key]
+    if (val === undefined) continue
+    keys.push(key)
+    vals.push(val)
+    if (val !== null && typeof val === 'object') deep = true
+  }
+  lastEncodeKeys = keys
+  lastEncodeVals = vals
+  lastEncodeDeep = deep
+  lastEncodeSig = deep ? searchSig(obj) : undefined
+}
+
+function encodeUnchanged(obj: Record<string, any>): boolean {
+  if (!lastEncodeDeep) {
+    let i = 0
+    const keys = lastEncodeKeys
+    const vals = lastEncodeVals
+    for (const key in obj) {
+      const val = obj[key]
+      if (val === undefined) continue
+      if (keys[i] !== key || !Object.is(val, vals[i])) return false
+      i++
+    }
+    return i === keys.length
+  }
+  const sig = searchSig(obj)
+  return sig !== undefined && sig === lastEncodeSig
+}
+
 export function encode(
   obj: Record<string, any>,
   stringify: (value: any) => string = String,
 ): string {
-  if (obj === lastEncodeObj && stringify === lastEncodeFn) {
-    if (lastEncodeSig !== undefined) {
-      const sig = searchSig(obj)
-      if (sig !== undefined && sig === lastEncodeSig) return lastEncodeOut
-      lastEncodeSig = sig
-    } else {
-      // First repeat: record a snapshot but re-encode so a mutation
-      // between the first write and this call cannot reuse stale output.
-      lastEncodeSig = searchSig(obj)
-    }
-  } else {
-    lastEncodeSig = undefined
+  if (obj === lastEncodeObj && stringify === lastEncodeFn && encodeUnchanged(obj)) {
+    return lastEncodeOut
   }
   let out = ''
   let first = true
@@ -153,6 +180,7 @@ export function encode(
   lastEncodeObj = obj
   lastEncodeFn = stringify
   lastEncodeOut = out
+  rememberEncode(obj)
   return out
 }
 
