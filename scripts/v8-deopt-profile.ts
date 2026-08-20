@@ -22,24 +22,15 @@ import {
   appPaths as paths,
   buildAppTree,
   buildWideTree,
-  describeStatus,
   encoded,
   natives,
   ordinarySearch,
   sample,
+  statusOf as fnStatus,
 } from './v8-shared.ts'
 
 const getOptimizationStatus = natives('%GetOptimizationStatus(fn)')
-
-function statusOf(fn: unknown) {
-  if (typeof fn !== 'function') return 'missing'
-  try {
-    const status = getOptimizationStatus(fn)
-    return `${status}\t${describeStatus(status)}`
-  } catch (err) {
-    return `crash\t${(err as Error).message}`
-  }
-}
+const statusOf = (fn: unknown) => fnStatus(getOptimizationStatus, fn)
 
 const largeTree = processRouteTree(buildWideTree() as any)
 const needles = [

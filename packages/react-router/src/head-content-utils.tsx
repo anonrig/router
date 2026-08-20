@@ -8,7 +8,7 @@ import {
 } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
-import { collectMatchAssets, useMatchDerived } from './asset'
+import { collectMatchAssets, forEachManifestRoute, useMatchDerived } from './asset'
 import type { AnyRouteMatch, AssetCrossOriginConfig, RouterManagedTag } from 'speedy-router-core'
 
 function buildTagsFromMatches(
@@ -90,45 +90,42 @@ function buildTagsFromMatches(
   const manifest = router.ssr?.manifest
   const manifestCssTags: Array<RouterManagedTag> = []
   const preloadLinks: Array<RouterManagedTag> = []
-  if (manifest) {
-    for (const match of matches) {
-      const routeAssets = manifest.routes[match.routeId]
-      routeAssets?.css?.forEach((link: any) => {
-        const resolvedLink = resolveManifestCssLink(link)
-        manifestCssTags.push({
-          tag: 'link',
-          attrs: {
-            rel: 'stylesheet',
-            ...resolvedLink,
-            crossOrigin:
-              getAssetCrossOrigin(assetCrossOrigin, 'stylesheet') ?? resolvedLink.crossOrigin,
-            suppressHydrationWarning: true,
-            nonce,
-          },
-        })
-      })
-      routeAssets?.preloads?.forEach((preload: string) => {
-        preloadLinks.push({
-          tag: 'link',
-          attrs: {
-            ...getScriptPreloadAttrs(manifest, preload, assetCrossOrigin),
-            nonce,
-          },
-        })
-      })
-    }
-
-    if (manifest.inlineStyle) {
+  forEachManifestRoute(manifest, matches, (routeAssets) => {
+    routeAssets.css?.forEach((link: any) => {
+      const resolvedLink = resolveManifestCssLink(link)
       manifestCssTags.push({
-        tag: 'style',
+        tag: 'link',
         attrs: {
-          ...manifest.inlineStyle.attrs,
+          rel: 'stylesheet',
+          ...resolvedLink,
+          crossOrigin:
+            getAssetCrossOrigin(assetCrossOrigin, 'stylesheet') ?? resolvedLink.crossOrigin,
+          suppressHydrationWarning: true,
           nonce,
         },
-        children: manifest.inlineStyle.children,
-        inlineCss: true,
       })
-    }
+    })
+    routeAssets.preloads?.forEach((preload) => {
+      preloadLinks.push({
+        tag: 'link',
+        attrs: {
+          ...getScriptPreloadAttrs(manifest, preload, assetCrossOrigin),
+          nonce,
+        },
+      })
+    })
+  })
+
+  if (manifest?.inlineStyle) {
+    manifestCssTags.push({
+      tag: 'style',
+      attrs: {
+        ...manifest.inlineStyle.attrs,
+        nonce,
+      },
+      children: manifest.inlineStyle.children,
+      inlineCss: true,
+    })
   }
 
   const styles = collectMatchAssets(matches, 'styles', 'style', { nonce })

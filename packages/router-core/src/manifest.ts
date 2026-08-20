@@ -172,22 +172,15 @@ export function getStylesheetHref(asset: ManifestCssLink) {
 }
 
 export function resolveManifestCssLink(link: ManifestCssLink) {
-  return typeof link === 'string' ? { href: link, crossOrigin: undefined } : link
+  return resolveManifestAssetLink(link)
 }
 
+const INLINE_CSS_ATTRS = { suppressHydrationWarning: true }
+
 export function createInlineCssStyleAsset(css: string): ManifestInlineCss {
-  return {
-    attrs: {
-      suppressHydrationWarning: true,
-    },
-    children: css,
-  }
+  return { attrs: INLINE_CSS_ATTRS, children: css }
 }
 
 export function createInlineCssPlaceholderAsset(): ManifestInlineCss {
-  return {
-    attrs: {
-      suppressHydrationWarning: true,
-    },
-  }
+  return { attrs: INLINE_CSS_ATTRS }
 }

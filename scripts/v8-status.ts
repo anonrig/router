@@ -28,11 +28,11 @@ import {
   appPaths as paths,
   buildAppTree,
   buildWideTree,
-  describeStatus,
   encoded,
   natives,
   ordinarySearch,
   sample,
+  statusOf,
 } from './v8-shared.ts'
 
 const getOptimizationStatusUnsafe = natives('%GetOptimizationStatus(fn)')
@@ -70,14 +70,8 @@ function isBound(fn: Function): boolean {
 }
 
 function safeStatus(fn: unknown): string {
-  if (typeof fn !== 'function') return 'missing'
-  if (isBound(fn)) return 'bound\tskipped'
-  try {
-    const status = getOptimizationStatus(fn)
-    return `${status}\t${describeStatus(status)}`
-  } catch (err) {
-    return `crash\t${(err as Error).message}`
-  }
+  if (typeof fn === 'function' && isBound(fn)) return 'bound\tskipped'
+  return statusOf(getOptimizationStatus, fn)
 }
 
 const processed = processRouteTree(buildWideTree() as any)
