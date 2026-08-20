@@ -1,5 +1,5 @@
 import { crossSerializeStream, getCrossReferenceHeader } from 'seroval'
-import { createLRUCache, decodePath, invariant, isPromise, type LRUCache } from '../utils'
+import { createLRUCache, decodePath, invariant, type LRUCache } from '../utils'
 import {
   createInlineCssPlaceholderAsset,
   createInlineCssStyleAsset,
@@ -576,8 +576,8 @@ export function attachRouterServerSsrUtils({
       }
 
       const extra = router.options.dehydrate?.()
-      if (isPromise(extra)) {
-        return extra.then(finish)
+      if (extra != null && typeof (extra as Promise<unknown>).then === 'function') {
+        return (extra as Promise<unknown>).then(finish)
       }
       finish(extra)
     },
