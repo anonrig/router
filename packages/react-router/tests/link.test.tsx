@@ -327,4 +327,33 @@ describe('Link', () => {
     })
     expect(preloadSpy).not.toHaveBeenCalled()
   })
+
+  it('cancels a focus-scheduled preload on blur even with a proximity radius', async () => {
+    const preloadSpy = renderProximityLink(200)
+    const link = await screen.findByRole('link', { name: 'About' })
+    mockLinkRect(link)
+
+    fireEvent.focus(link)
+    fireEvent.blur(link)
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 300)
+    })
+    expect(preloadSpy).not.toHaveBeenCalled()
+  })
+
+  it('keeps a proximity preload when the pointer leaves the element but stays in range', async () => {
+    const preloadSpy = renderProximityLink(100)
+    const link = await screen.findByRole('link', { name: 'About' })
+    mockLinkRect(link)
+
+    fireEvent.pointerMove(document, { clientX: 110, clientY: 10 })
+    await nextFrame()
+    fireEvent.mouseLeave(link)
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 200)
+    })
+    expect(preloadSpy).toHaveBeenCalled()
+  })
 })
