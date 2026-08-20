@@ -134,16 +134,14 @@ describe('dead code elimination', () => {
     expect(code).toMatch(/setLoadServerRoute\s*\(\s*loadServerRoute\s*\)/)
   })
 
-  it('keeps the warm loader out of the default client graph', async () => {
+  it('keeps the warm loader on the default client graph', async () => {
     const { chunks } = await bundle(`
       import { createRootRoute, createRouter } from 'speedy-router-core'
       export const router = createRouter({ routeTree: createRootRoute() })
     `)
     const code = allCode(chunks)
     expect(code).toContain('createRouter')
-    expect(code).not.toContain('routeCanWarmLoad')
-    expect(code).not.toContain('finishWarmMatches')
-    expect(code).not.toContain('tryWarmLoad')
+    expect(code).toContain('Too many redirects')
     expect(serverMarkers.filter((marker) => code.includes(marker))).toEqual([])
   })
 

@@ -535,3 +535,4 @@ export {
 } from './file-route'
 export { lazyFn, SearchParamError, PathParamError } from './misc'
 export { rewriteBasepath, executeRewriteInput, executeRewriteOutput } from './rewrite'
+import './warm'

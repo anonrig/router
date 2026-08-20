@@ -201,6 +201,8 @@ export type ProcessedTree = {
   masksTree?: any
   /** True if any route has validateSearch or search middlewares. */
   hasSearchWork?: boolean
+  /** True if any route has search middlewares that skip the href fast path. */
+  hasSearchMiddleware?: boolean
   /** Optional param names in insert order, used to prefer left-filled matches. */
   optionalNames?: string[]
   /** Last default exact findRouteMatch pathname. */
@@ -213,6 +215,13 @@ function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
   const kids = route.children
   if (!kids) return []
   return Array.isArray(kids) ? kids : Object.values(kids)
+}
+
+function countRoutes(route: AnyRouteLike): number {
+  let total = 1
+  const kids = childrenOf(route)
+  for (let i = 0; i < kids.length; i++) total += countRoutes(kids[i]!)
+  return total
 }
 
 function lastIdSegment(id: string): string {
@@ -412,10 +421,31 @@ function insertRoute(node: SegmentNode, route: AnyRouteLike, caseSensitive: bool
   walkPath(node, path, caseSensitive, route).route = route
 }
 
+const processedTreeCache = new WeakMap<
+  AnyRouteLike,
+  {
+    caseSensitive: boolean
+    children: unknown
+    routeCount: number
+    tree: ProcessedTree & { processedTree: ProcessedTree }
+  }
+>()
+
 export function processRouteTree<T extends AnyRouteLike>(
   routeTree: T,
   caseSensitive = false,
 ): ProcessedTree & { processedTree: ProcessedTree } {
+  const children = routeTree.children
+  const cached = processedTreeCache.get(routeTree)
+  if (
+    cached &&
+    cached.caseSensitive === caseSensitive &&
+    cached.children === children &&
+    cached.routeCount === countRoutes(routeTree)
+  ) {
+    return cached.tree
+  }
+
   const routesById: Record<string, AnyRouteLike> = Object.create(null)
   const routesByPath: Record<string, AnyRouteLike> = Object.create(null)
   const flatRoutes: AnyRouteLike[] = []
@@ -444,12 +474,16 @@ export function processRouteTree<T extends AnyRouteLike>(
   finalizeParamChildren(root)
 
   let hasSearchWork = false
+  let hasSearchMiddleware = false
   for (const id in routesById) {
     const options = routesById[id]?.options
-    if (options?.search?.middlewares?.length || options?.validateSearch) {
+    if (options?.search?.middlewares?.length) {
+      hasSearchMiddleware = true
       hasSearchWork = true
-      break
+    } else if (options?.validateSearch) {
+      hasSearchWork = true
     }
+    if (hasSearchWork && hasSearchMiddleware) break
   }
 
   const processedTree = {
@@ -458,10 +492,18 @@ export function processRouteTree<T extends AnyRouteLike>(
     routesByPath,
     flatRoutes,
     hasSearchWork,
+    hasSearchMiddleware,
     optionalNames: optionalNamesThisTree.slice(),
   } as ProcessedTree
 
-  return { ...processedTree, processedTree }
+  const result = { ...processedTree, processedTree }
+  processedTreeCache.set(routeTree, {
+    caseSensitive,
+    children,
+    routeCount: flatRoutes.length,
+    tree: result,
+  })
+  return result
 }
 
 export type RouteMatchResult = {
