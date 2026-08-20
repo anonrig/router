@@ -6,6 +6,18 @@ import { rootRouteId } from './root'
 import { loadRouteChunk } from './load-chunk'
 import { waitForReason } from './await-signal'
 import { getLocationChangeInfo, runRouteLifecycle } from './router'
+import {
+  ERROR,
+  NOT_FOUND,
+  REDIRECTED,
+  SUCCESS,
+  findNotFoundBoundary,
+  getRoute,
+  navigateFrom,
+  normalize,
+  pendingRouteOptions,
+  resolveRouteLoader,
+} from './load-shared'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
 import type { NotFoundError } from './not-found'
@@ -38,10 +50,7 @@ type ContextualizedLane = ServerLane<'contextualized'> & {
 
 type ReducedLane = ServerLane<'reduced'>
 
-const SUCCESS = 0
-const ERROR = 1
-const NOT_FOUND = 2
-const REDIRECTED = 3
+// SUCCESS..REDIRECTED come from `load-shared`; SKIPPED is server-specific.
 const SKIPPED = 4
 
 type LoaderOutcome =
@@ -65,28 +74,9 @@ export type ServerLoadResult =
     }
   | { type: 'redirect'; redirect: AnyRedirect }
 
-function getRoute(router: AnyRouter, match: AnyRouteMatch): AnyRoute {
-  return router.routesById[match.routeId]!
-}
-
 function ensureRouteOptions(route: AnyRoute, signal?: AbortSignal): void | Promise<void> {
-  if (!route._lazyOptions || !route.lazyFn || route._lazy === true) return
-  const loading = loadRouteChunk(route, false)
-  if (!loading) return
-  return signal ? waitForReason(loading, signal) : loading
-}
-
-function normalize(value: unknown, rejected: boolean): LoaderOutcome {
-  if (isRedirect(value)) {
-    return [REDIRECTED, value]
-  }
-  if (isNotFound(value)) {
-    return [NOT_FOUND, value]
-  }
-  if (rejected && typeof (value as any)?.then === 'function') {
-    value = new Error('A Promise was thrown', { cause: value })
-  }
-  return rejected ? [ERROR, value] : [SUCCESS, value]
+  const loading = pendingRouteOptions(route)
+  return loading && waitFor(loading, signal)
 }
 
 function normalizeError(
@@ -142,14 +132,6 @@ function maybe<TValue>(
     return { status: 'error', error: cause }
   }
   return { status: 'success', value }
-}
-
-function navigateFrom(router: AnyRouter, location: ParsedLocation) {
-  return (options: any) =>
-    router.navigate({
-      ...options,
-      _fromLocation: location,
-    })
 }
 
 function waitFor<T>(value: Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -379,16 +361,15 @@ function createLoaderTask(
   if (match.ssr === false) {
     outcome = Promise.resolve<LoaderOutcome>([SKIPPED])
   } else {
-    const routeLoader = route.options.loader
-    const loader = typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
+    const loader = resolveRouteLoader(route.options.loader)
     if (!loader) {
       outcome = Promise.resolve<LoaderOutcome>([SUCCESS, undefined])
     } else {
       outcome = Promise.resolve()
         .then(() => loader(getLoaderContext(router, lane, match, route, index, tasks)))
         .then(
-          (result) => normalize(result, false),
-          (cause) => normalize(cause, true),
+          (result): LoaderOutcome => normalize(result, false),
+          (cause): LoaderOutcome => normalize(cause, true),
         )
         .then((result): LoaderOutcome => {
           if (signal?.aborted || match.abortController.signal.reason === lane) {
@@ -426,36 +407,30 @@ function createLoaderTask(
   return { index, outcome, match: parentMatch }
 }
 
-async function getNotFoundBoundary(
+function getNotFoundBoundary(
   router: AnyRouter,
   matches: Array<AnyRouteMatch>,
   indexed: IndexedOutcome | undefined,
   signal?: AbortSignal,
   fallback = 0,
 ): Promise<number> {
-  const cause = indexed?.[1][1] as NotFoundError | undefined
-  let index = cause?.routeId
-    ? matches.findIndex((match) => match.routeId === cause.routeId)
-    : (indexed?.[0] ?? matches.length - 1)
-  if (index < 0) {
-    index = 0
-  }
-  for (let candidate = index; candidate >= 0; candidate--) {
-    const route = getRoute(router, matches[candidate]!)
-    const loading = loadRouteChunk(route, false)
-    if (loading) {
-      try {
-        await loading
-      } catch {
+  return findNotFoundBoundary(
+    router,
+    matches,
+    indexed,
+    (loading) => {
+      if (!loading) {
         signal?.throwIfAborted()
+        return
       }
-    }
-    signal?.throwIfAborted()
-    if (route.options.notFoundComponent) {
-      return candidate
-    }
-  }
-  return cause?.routeId ? index : fallback
+      // Chunk failures fall back to shallower boundaries; only aborts escape.
+      return loading.then(
+        () => signal?.throwIfAborted(),
+        () => signal?.throwIfAborted(),
+      )
+    },
+    fallback,
+  )
 }
 
 function abortMatches(matches: Array<AnyRouteMatch>, start = 0, reason?: unknown): void {
@@ -873,8 +848,7 @@ function executeFastServerLane(
     match.context = loaderParentContext
     match.isFetching = false
     match.__beforeLoadContext = undefined
-    const loader = route.options?.loader
-    const loaderFn = typeof loader === 'function' ? loader : loader?.handler
+    const loaderFn = resolveRouteLoader(route.options?.loader)
     if (loaderFn) {
       try {
         const extra = router.options.additionalContext
