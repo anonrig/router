@@ -5,18 +5,7 @@ import { createStringMap, objectValues } from './utils'
 import { isRedirect } from './redirect'
 import { _getRenderedMatches, loadRouteChunk } from './load-chunk'
 import { getLocationChangeInfo, matchParentContext, runRouteLifecycle } from './router'
-import {
-  ERROR,
-  NOT_FOUND,
-  REDIRECTED,
-  SUCCESS,
-  findNotFoundBoundary,
-  getRoute,
-  navigateFrom,
-  normalize,
-  pendingRouteOptions,
-  resolveRouteLoader,
-} from './load-shared'
+import { findNotFoundBoundary, pendingRouteOptions, resolveRouteLoader } from './load-shared'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
 import type { NotFoundError } from './not-found'
@@ -36,7 +25,6 @@ export {
   loadRouteChunk,
   replaceRouteChunk,
 } from './load-chunk'
-export { getRoute, navigateFrom } from './load-shared'
 
 declare const lanePhase: unique symbol
 
@@ -63,7 +51,13 @@ type ContextualizedLane = Lane<'contextualized'>
 type ReducedLane = Lane<'reduced'>
 type ProjectedLane = Lane<'projected'>
 
-// SUCCESS..REDIRECTED come from `load-shared`; CANCELED is client-specific.
+// Local numeric literals (matching `load-shared`) so the JIT mid-tier folds
+// them as constants; imported bindings read through the module cell instead.
+const SUCCESS = 0
+const ERROR = 1
+const NOT_FOUND = 2
+// Control outcomes stay contiguous so the hot path can test them together.
+const REDIRECTED = 3
 const CANCELED = 4
 
 type RedirectOutcome = [kind: typeof REDIRECTED, redirect: AnyRedirect, location?: ParsedLocation]
@@ -175,6 +169,32 @@ export function waitFor<T>(value: T | PromiseLike<T>, signal: AbortSignal): Prom
       .finally(() => signal.removeEventListener('abort', abort))
       .catch(reject)
   })
+}
+
+export function getRoute(router: AnyRouter, match: WorkMatch): AnyRoute {
+  return (router.routesById as Record<string, AnyRoute>)[match.routeId]!
+}
+
+export function navigateFrom(router: AnyRouter, location: ParsedLocation) {
+  return (opts: any) =>
+    router.navigate({
+      ...opts,
+      _fromLocation: location,
+    })
+}
+
+function normalize(value: unknown, rejected: boolean, routeId?: string): LoaderOutcome {
+  if (isRedirect(value)) {
+    return [REDIRECTED, value]
+  }
+  if (isNotFound(value)) {
+    value.routeId ||= routeId
+    return [NOT_FOUND, value]
+  }
+  if (rejected && typeof (value as any)?.then === 'function') {
+    value = new Error('A Promise was thrown', { cause: value })
+  }
+  return rejected ? [ERROR, value] : [SUCCESS, value]
 }
 
 function normalizeError(route: AnyRoute, cause: unknown): LoaderOutcome {
