@@ -1,7 +1,6 @@
 import { createMemoryHistory } from 'speedy-router-history'
 import { _getRenderedMatches } from '../load-chunk'
 import { RESOLVED, type AnyRouter } from '../router'
-import { isPromise } from '../utils'
 import { mergeHeaders } from './headers'
 import { attachRouterServerSsrUtils, getNormalizedURL } from './ssr-server'
 import { bindSsrResponseToRequest, disposeSsrResponseDetached } from './handler-callback'
@@ -87,6 +86,10 @@ export function waitForRequest<T>(
   })
 }
 
+function isThenable<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
+  return value != null && typeof (value as PromiseLike<T>).then === 'function'
+}
+
 export function createRequestHandler<TRouter extends AnyRouter>({
   createRouter,
   request,
@@ -127,7 +130,7 @@ export function createRequestHandler<TRouter extends AnyRouter>({
         router,
         responseHeaders,
       })
-      if (isPromise(cbResult)) {
+      if (isThenable(cbResult)) {
         return waitForRequest(cbResult, request.signal, (late) => {
           disposeSsrResponseDetached(late, request.signal.reason)
         }).then(finishResponse)
@@ -158,7 +161,7 @@ export function createRequestHandler<TRouter extends AnyRouter>({
       const loaded = router.load({
         _signal: request.signal,
       })
-      if (loaded !== RESOLVED && isPromise(loaded)) {
+      if (loaded !== RESOLVED && isThenable(loaded)) {
         return loaded.then(afterLoad)
       }
       return afterLoad()
@@ -167,7 +170,7 @@ export function createRequestHandler<TRouter extends AnyRouter>({
     const run = (): Response | Promise<Response> => {
       if (!getRouterManifest) return attachAndLoad(undefined)
       const manifest = getRouterManifest()
-      if (isPromise(manifest)) {
+      if (isThenable(manifest)) {
         return waitForRequest(manifest, request.signal).then(attachAndLoad)
       }
       return attachAndLoad(manifest)
@@ -175,7 +178,7 @@ export function createRequestHandler<TRouter extends AnyRouter>({
 
     try {
       const out = run()
-      if (isPromise(out)) {
+      if (isThenable(out)) {
         return out.then(
           (response) => {
             cleanupIfNeeded()
