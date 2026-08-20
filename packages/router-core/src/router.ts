@@ -47,9 +47,6 @@ import {
   createRouterStores,
 } from './stores'
 import {
-  createLRUCache,
-  createStringMap,
-  rememberBounded,
   decodePath,
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
@@ -62,6 +59,7 @@ import {
   nullReplaceEqualDeep,
   replaceEqualDeep,
   type PickAsRequired,
+  type StringMap,
 } from './utils'
 
 /**
@@ -366,12 +364,24 @@ export function setLoadServerRoute(load: (router: any, opts?: any) => void | Pro
   serverLoadCached = load
 }
 
-function importLoadClient(router: any, opts?: any) {
+export function importLoadClient(router: any, opts?: any) {
   if (clientLoadCached) return clientLoadCached(router, opts)
   return import('./load-client').then(({ loadClientRoute }) => {
     clientLoadCached = loadClientRoute
     return loadClientRoute(router, opts)
   })
+}
+
+type WarmLoadFn = (
+  router: any,
+  location: ParsedLocation,
+  id: number,
+) => boolean | void | Promise<void>
+let warmLoadCached: WarmLoadFn | undefined
+
+/** Opt-in sync loader. Default clients DCE this; import `speedy-router-core/warm` to install it. */
+export function setWarmLoad(load: WarmLoadFn) {
+  warmLoadCached = load
 }
 
 function importPreloadClient(router: any, opts?: any) {
@@ -404,6 +414,11 @@ export function setSlotRuntime(runtime: SlotRuntime) {
   slotRuntime ??= runtime
 }
 
+/** True when subscribers, hydrate, or slot runtime make the sync loader unsafe. */
+export function isWarmLoadBlocked(router: AnyRouter): boolean {
+  return !!(router.subscribers.size || router.options.hydrate || slotRuntime?.o.has(router))
+}
+
 function lastMatch(matches: RouteMatch[] | undefined) {
   if (!matches?.length) return undefined
   return slotRuntime?.l?.(matches) ?? matches[matches.length - 1]
@@ -411,107 +426,6 @@ function lastMatch(matches: RouteMatch[] | undefined) {
 
 export function matchParentContext(matches: any[], index: number, match: any) {
   return slotRuntime?.p?.(matches, index, match) ?? matches[index - 1]?.context
-}
-
-let lastSimpleParamPath = ''
-let lastSimpleParamKeys: string[] | null = null
-
-function collectSimpleParamKeys(path: string): string[] | null {
-  if (path === lastSimpleParamPath) return lastSimpleParamKeys
-  const keys: string[] = []
-  for (let i = 0; i < path.length; i++) {
-    if (path.charCodeAt(i) !== 36) continue
-    let j = i + 1
-    if (j >= path.length || path.charCodeAt(j) === 47) return null
-    while (j < path.length && path.charCodeAt(j) !== 47) j++
-    const key = path.slice(i + 1, j)
-    if (key === '*' || key === '_splat') return null
-    keys.push(key)
-    i = j - 1
-  }
-  lastSimpleParamPath = path
-  lastSimpleParamKeys = keys
-  return keys
-}
-
-function isSimpleParamValue(value: unknown) {
-  if (typeof value === 'number') return Number.isFinite(value)
-  if (typeof value !== 'string' || value.length === 0) return false
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i)
-    if (
-      !(
-        (c >= 48 && c <= 57) ||
-        (c >= 65 && c <= 90) ||
-        (c >= 97 && c <= 122) ||
-        c === 45 ||
-        c === 46 ||
-        c === 95 ||
-        c === 126
-      )
-    ) {
-      return false
-    }
-  }
-  return true
-}
-
-type SimpleToApply = (params: Record<string, any>) => string
-
-const simpleToApplyByPath = new Map<string, SimpleToApply>()
-
-function compileSimpleTo(path: string, keys: string[]): SimpleToApply {
-  if (keys.length === 1) {
-    const key = keys[0]!
-    const idx = path.indexOf('$' + key)
-    const pre = path.slice(0, idx)
-    const post = path.slice(idx + key.length + 1)
-    return (params) => pre + params[key] + post
-  }
-  const parts: Array<string | { k: string }> = []
-  let last = 0
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i]!
-    const idx = path.indexOf('$' + key, last)
-    if (idx > last) parts.push(path.slice(last, idx))
-    parts.push({ k: key })
-    last = idx + key.length + 1
-  }
-  if (last < path.length) parts.push(path.slice(last))
-  return (params) => {
-    let out = ''
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]!
-      out += typeof part === 'string' ? part : params[part.k]
-    }
-    return out
-  }
-}
-
-function interpolateSimpleTo(path: string, params: Record<string, any>, keys: string[]): string {
-  let apply = simpleToApplyByPath.get(path)
-  if (apply === undefined) {
-    apply = compileSimpleTo(path, keys)
-    simpleToApplyByPath.set(path, apply)
-  }
-  return apply(params)
-}
-
-function routeAllowsSimpleNav(route: AnyRoute | undefined): boolean {
-  if (!route) return true
-  const cached = (route as { _simpleNav?: 0 | 1 })._simpleNav
-  if (cached === 1) return true
-  if (cached === 0) return false
-  let current: AnyRoute | undefined = route
-  while (current) {
-    if (current.options?.params?.stringify || current.options?.stringifyParams) {
-      ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 0
-      return false
-    }
-    current = current.parentRoute as AnyRoute | undefined
-  }
-  ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 1
-  return true
 }
 
 const runNow = (fn: () => void) => fn()
@@ -639,10 +553,6 @@ export class RouterCore<
   routesById!: Record<string, AnyRoute>
   routesByPath!: Record<string, AnyRoute>
   processedTree!: ProcessedTree
-  private _resolvePathCache?: ReturnType<typeof createLRUCache<string, string>>
-  get resolvePathCache() {
-    return (this._resolvePathCache ??= createLRUCache<string, string>(1000))
-  }
   isServer = typeof document === 'undefined'
   pathParamsDecoder?: (encoded: string) => string
   protocolAllowlist = DEFAULT_PROTOCOL_SET
@@ -660,10 +570,10 @@ export class RouterCore<
   batch: (fn: () => void) => void = runNow
   _rendered: any[] | undefined
   _cache: Record<string, any> = Object.create(null)
-  _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>>
+  _matchesByPath?: StringMap<RouteMatch[]>
   _committed: any[] = []
   _tx?: any
-  _flights?: ReturnType<typeof createStringMap<any>>
+  _flights?: StringMap<any>
   _preloads?: Map<AbortController, any[]>
   _refreshNextLoad?: boolean
   declare _replaceRouteChunk?: typeof replaceRouteChunk
@@ -689,7 +599,10 @@ export class RouterCore<
   _scrollReady?: Promise<void>
   rewrite?: any
   _hasSearchWork = false
-  _hasSearchMiddleware = false
+  /** Generation for in-flight warm loads. Created on first warm `runLoad`. */
+  declare loadId: number
+  /** Suppress the history subscriber while `navigateHrefFast` owns the commit. */
+  #committing = 0
 
   private createStores(location: ParsedLocation) {
     const config = defaultGetStoreConfig()
@@ -929,11 +842,7 @@ export class RouterCore<
     return fn()
   }
 
-  private loadId = 0
   private unsubHistory?: () => void
-  // Depth, not a flag: blockers can leave several commits in flight, and an earlier
-  // one finishing must not expose a later commit as an external history update.
-  private _committing = 0
 
   /** @internal */
   _attachHistory() {
@@ -1081,7 +990,6 @@ export class RouterCore<
     }
 
     this._hasSearchWork = !!this.processedTree?.hasSearchWork
-    this._hasSearchMiddleware = !!this.processedTree?.hasSearchMiddleware
 
     const nextBasepath = this.options.basepath
     if (!nextBasepath || nextBasepath === '/') {
@@ -1122,7 +1030,7 @@ export class RouterCore<
       }
       if (!this.unsubHistory) {
         this.unsubHistory = this.history.subscribe(({ location, action }) => {
-          if (this._committing > 0) return
+          if (this.#committing > 0) return
           this.latestLocation = this.parseLocation(location, this.latestLocation)
           void this.load({ action })
         })
@@ -1149,7 +1057,6 @@ export class RouterCore<
     this.routesById = this.processedTree.routesById as any
     this.routesByPath = this.processedTree.routesByPath as any
     this._hasSearchWork = !!this.processedTree.hasSearchWork
-    this._hasSearchMiddleware = !!this.processedTree.hasSearchMiddleware
     if (runtime) {
       runtime.o[
         runtime.i(
@@ -1201,7 +1108,7 @@ export class RouterCore<
     if (dest.href) {
       // Search-only ("?q=1") and hash-only ("#x") hrefs carry no pathname.
       // Resolve them against the current location so the route is kept and
-      // only the specified part changes (mirrors navigateHrefFast).
+      // only the specified part changes.
       let href = dest.href as string
       const href0 = href.charCodeAt(0)
       if (current && (href0 === 63 || href0 === 35)) {
@@ -1214,28 +1121,39 @@ export class RouterCore<
           href = `${current.pathname}${href}${inheritedHash}`
         }
       }
-      const parsed = parseHref(href, {} as any)
-      // Keep relative pathnames (`./x`, `../y`, `z`) as `to` values so
-      // resolvePath can join them to the current location. Wrapping them in
-      // `new URL(pathname, origin)` would pin them at the origin root.
-      let to = parsed.pathname
-      if (this.rewrite) {
-        const rewritePath =
-          to && to.charCodeAt(0) !== 47 && current
-            ? resolvePath({
-                base: current.pathname || '/',
-                to,
-                trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-                cache: this.resolvePathCache,
-              })
-            : to || '/'
-        to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
-      }
-      dest = {
-        ...dest,
-        to,
-        search: (this.options.parseSearch ?? defaultParseSearch)(parsed.search),
-        hash: stripLeadingHash(parsed.hash || ''),
+      if (
+        href0 === 47 &&
+        href.indexOf('?') === -1 &&
+        href.indexOf('#') === -1 &&
+        !this.rewrite &&
+        isPlainAsciiPath(href)
+      ) {
+        dest = { ...dest, to: href, search: EMPTY_OBJ, hash: '' }
+      } else {
+        const parsed = parseHref(href, {} as any)
+        // Keep relative pathnames (`./x`, `../y`, `z`) as `to` values so
+        // resolvePath can join them to the current location. Wrapping them in
+        // `new URL(pathname, origin)` would pin them at the origin root.
+        let to = decodePath(parsed.pathname).path
+        if (this.rewrite) {
+          const rewritePath =
+            to && to.charCodeAt(0) !== 47 && current
+              ? resolvePath({
+                  base: current.pathname || '/',
+                  to,
+                  trailingSlash: (this.options.trailingSlash as any) ?? 'never',
+                })
+              : to || '/'
+          to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
+        }
+        dest = {
+          ...dest,
+          to,
+          search: parsed.search
+            ? (this.options.parseSearch ?? defaultParseSearch)(parsed.search)
+            : EMPTY_OBJ,
+          hash: stripLeadingHash(parsed.hash || ''),
+        }
       }
     }
     const matches = this.stores?.matches?.get?.()?.length
@@ -1246,9 +1164,10 @@ export class RouterCore<
     const currentMatch = lastMatch(matches)
     const { resolved, destRouteHint } = resolveBuildPath(this, dest, current, currentMatch)
     const nextSearch = resolveBuildSearch(this, dest, current, resolved)
-    const searchStr = (this.options.stringifySearch ?? defaultStringifySearch)(
-      nextSearch ?? EMPTY_OBJ,
-    )
+    const searchStr =
+      !nextSearch || nextSearch === EMPTY_OBJ
+        ? ''
+        : (this.options.stringifySearch ?? defaultStringifySearch)(nextSearch)
     const hash = resolveBuildHash(dest, current)
     const hashStr = hash ? `#${hash}` : ''
     const base = trimPath(this.basepath || '/')
@@ -1376,7 +1295,7 @@ export class RouterCore<
       if (commitResult != null && typeof (commitResult as Promise<void>).then === 'function') {
         return (commitResult as Promise<void>).then(() => {
           afterHistoryCommit()
-          return this._commitPromise
+          return commitPromise
         })
       }
       afterHistoryCommit()
@@ -1385,8 +1304,6 @@ export class RouterCore<
     this._scroll.next = resetScroll ?? true
     return this._commitPromise
   }
-
-  private redirectHops = 0
 
   private executeNavigate({
     to,
@@ -1409,7 +1326,7 @@ export class RouterCore<
       !hrefIsUrl &&
       !publicHref &&
       !this.rewrite &&
-      !this._hasSearchMiddleware &&
+      !this.processedTree?.hasSearchMiddleware &&
       !this.options.routeMasks?.length &&
       rest.search == null &&
       rest.params == null &&
@@ -1421,7 +1338,11 @@ export class RouterCore<
     ) {
       const href0 = href.charCodeAt(0)
       // Path-relative hrefs (`./x`, `../y`, `z`) must go through resolvePath.
-      if (href0 === 47 || href0 === 63 || href0 === 35) {
+      // Blockers use the slow path so `#committing` does not drop pops.
+      if (
+        (href0 === 47 || href0 === 63 || href0 === 35) &&
+        (this.history.hasBlockers === undefined || !this.history.hasBlockers())
+      ) {
         return this.navigateHrefFast(href, rest)
       }
     }
@@ -1432,7 +1353,7 @@ export class RouterCore<
       !reloadDocument &&
       !publicHref &&
       !this.rewrite &&
-      !this._hasSearchMiddleware &&
+      !this.processedTree?.hasSearchMiddleware &&
       !this.options.routeMasks?.length &&
       rest.search == null &&
       rest.hash == null &&
@@ -1485,6 +1406,186 @@ export class RouterCore<
       return
     }
     return this.buildAndCommitLocation({ to, href, publicHref, ...rest })
+  }
+
+  private tryNavigateToFast(to: string, rest: any): Promise<void> | undefined {
+    if (this.history.hasBlockers !== undefined && this.history.hasBlockers()) return
+    if ((this.history.location.state as any)?.__tempLocation) return
+    if (to.indexOf('?') !== -1 || to.indexOf('#') !== -1 || to.indexOf('{') !== -1) return
+    let resolved = to
+    if (to.indexOf('$') !== -1) {
+      const params = rest.params
+      if (params == null || typeof params !== 'object' || Array.isArray(params)) return
+      const keys = collectSimpleParamKeys(to)
+      if (!keys) return
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i]!
+        if (!Object.hasOwn(params, key)) return
+        if (!isSimpleParamValue(params[key])) return
+      }
+      const byPath = this.routesByPath
+      if (
+        !routeAllowsSimpleNav(
+          (byPath?.[to] ??
+            (to.charCodeAt(to.length - 1) === 47 ? byPath?.[trimPathRight(to)] : undefined)) as
+            | AnyRoute
+            | undefined,
+        )
+      ) {
+        return
+      }
+      resolved = this.pathParamsDecoder
+        ? interpolatePath({
+            path: to,
+            params,
+            decoder: this.pathParamsDecoder,
+          }).interpolatedPath
+        : interpolateSimpleTo(to, params, keys)
+    } else if (rest.params != null) {
+      return
+    }
+    const trailing = rest.trailingSlash ?? this.options.trailingSlash
+    if (trailing) {
+      resolved = resolvePath({
+        base: '/',
+        to: resolved || '/',
+        trailingSlash: trailing,
+      })
+    }
+    this.shouldViewTransition = rest.viewTransition
+    this._scroll.next = rest.resetScroll ?? true
+    return this.navigateHrefFast(resolved, rest)
+  }
+
+  private navigateHrefFast(href: string, rest: any): Promise<void> {
+    let pathname: string
+    let searchStr: string
+    let hash: string
+    if (isSimpleHref(href)) {
+      pathname = decodePath(href).path
+      searchStr = ''
+      hash = ''
+    } else {
+      const currentIndex = this.history.location.state?.__TSR_index
+      const parsed = parseHref(href, {
+        __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
+      })
+      searchStr = parsed.search
+      hash = decodePath(stripLeadingHash(parsed.hash)).path
+      pathname = decodePath(parsed.pathname).path
+      const href0 = href.charCodeAt(0)
+      if (!parsed.pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
+        pathname = this.latestLocation.pathname
+        if (href0 === 35) searchStr = this.latestLocation.searchStr
+        else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
+      }
+    }
+    const trailing = rest.trailingSlash ?? this.options.trailingSlash
+    if (trailing) {
+      pathname = resolvePath({
+        base: '/',
+        to: pathname || '/',
+        trailingSlash: trailing,
+      })
+    }
+    const hrefFull = encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
+    const state = resolveBuildState(rest, this.latestLocation)
+    const location: ParsedLocation = {
+      href: hrefFull,
+      publicHref: hrefFull,
+      pathname,
+      search: searchStr ? (this.options.parseSearch ?? defaultParseSearch)(searchStr) : EMPTY_OBJ,
+      searchStr,
+      hash,
+      state,
+      external: false,
+    }
+    if (rest._redirects) {
+      ;(location as ParsedLocation & { _redirects?: number })._redirects = rest._redirects
+    }
+
+    const prev = this.latestLocation
+    const same =
+      prev &&
+      prev.pathname === pathname &&
+      prev.searchStr === searchStr &&
+      prev.hash === hash &&
+      deepEqual(_getUserHistoryState(location.state), _getUserHistoryState(prev.state))
+
+    if (same) {
+      location.state = this.history.location.state
+      this.latestLocation = location
+      this._pendingLocation = location
+      const loaded = this.runLoad(location) ?? importLoadClient(this)
+      if (loaded instanceof Promise) {
+        return loaded.then(
+          () => this.finishHrefNav(location),
+          (err) => {
+            this.finishHrefNav(location)
+            throw err
+          },
+        )
+      }
+      this.finishHrefNav(location)
+      return RESOLVED
+    }
+
+    const history = this.history
+    const historyOpts = {
+      ignoreBlocker: rest.ignoreBlocker,
+      simple: searchStr === '' && hash === '' && pathname === hrefFull,
+    }
+    this.#committing++
+    let pushed: void | Promise<void>
+    try {
+      pushed = rest.replace
+        ? history.replace(hrefFull, state, historyOpts)
+        : history.push(hrefFull, state, historyOpts)
+    } catch (error) {
+      this.#committing--
+      throw error
+    }
+
+    const afterCommit = (): Promise<void> => {
+      history.flush()
+      this.#committing--
+      const landed =
+        decodePath(history.location.pathname).path === pathname &&
+        (history.location.search || '') === (searchStr || '') &&
+        decodePath(stripLeadingHash(history.location.hash)).path === hash
+      if (!landed) return RESOLVED
+
+      location.state = history.location.state
+      this.latestLocation = location
+      this._pendingLocation = location
+
+      const loaded = this.runLoad(location) ?? importLoadClient(this)
+      if (loaded instanceof Promise) {
+        return loaded.then(
+          () => this.finishHrefNav(location),
+          (err) => {
+            this.finishHrefNav(location)
+            throw err
+          },
+        )
+      }
+      this.finishHrefNav(location)
+      return RESOLVED
+    }
+
+    if (pushed != null && typeof (pushed as Promise<void>).then === 'function') {
+      return (pushed as Promise<void>).then(afterCommit, (error) => {
+        this.#committing--
+        throw error
+      })
+    }
+    return afterCommit()
+  }
+
+  private finishHrefNav(location: ParsedLocation) {
+    if (this._pendingLocation === location) this._pendingLocation = undefined
+    this._commitPromise?.resolve()
+    this._commitPromise = undefined
   }
 
   back() {
@@ -1617,8 +1718,15 @@ export class RouterCore<
       }
       // A reused server router must never skip or replay another request's
       // loader payloads. Client `load()` may still skip a settled session.
+      // In-request redirect hops keep `_pendingLocation._redirects`; isolating
+      // those would reset the hop count and loop forever.
       try {
-        this.isolateServerRequest()
+        if (
+          !(this._pendingLocation as ParsedLocation & { _redirects?: number })?._redirects &&
+          !(this.latestLocation as ParsedLocation & { _redirects?: number })?._redirects
+        ) {
+          this.isolateServerRequest()
+        }
         const next = this.importLoadServer(opts)
         return next == null ? RESOLVED : Promise.resolve(next)
       } catch (err) {
@@ -1630,7 +1738,9 @@ export class RouterCore<
       this._commitPromise = undefined
       return RESOLVED
     }
-    return Promise.resolve(importLoadClient(this, opts)).then(() => undefined)
+    return Promise.resolve(this.runLoad(this.latestLocation) ?? importLoadClient(this, opts)).then(
+      () => undefined,
+    )
   }
 
   private importLoadServer(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }) {
@@ -1678,669 +1788,17 @@ export class RouterCore<
     return true
   }
 
-  private tryNavigateToFast(to: string, rest: any): Promise<void> | undefined {
-    if (this.history.hasBlockers !== undefined && this.history.hasBlockers()) return
-    if ((this.history.location.state as any)?.__tempLocation) return
-    if (to.indexOf('?') !== -1 || to.indexOf('#') !== -1 || to.indexOf('{') !== -1) return
-    let resolved = to
-    if (to.indexOf('$') !== -1) {
-      const params = rest.params
-      if (params == null || typeof params !== 'object' || Array.isArray(params)) return
-      const keys = collectSimpleParamKeys(to)
-      if (!keys) return
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i]!
-        if (!Object.hasOwn(params, key)) return
-        if (!isSimpleParamValue(params[key])) return
-      }
-      const byPath = this.routesByPath
-      if (
-        !routeAllowsSimpleNav(
-          (byPath?.[to] ??
-            (to.charCodeAt(to.length - 1) === 47 ? byPath?.[trimPathRight(to)] : undefined)) as
-            | AnyRoute
-            | undefined,
-        )
-      ) {
-        return
-      }
-      resolved = this.pathParamsDecoder
-        ? interpolatePath({
-            path: to,
-            params,
-            decoder: this.pathParamsDecoder,
-          }).interpolatedPath
-        : interpolateSimpleTo(to, params, keys)
-    } else if (rest.params != null) {
-      return
-    }
-    const trailing = rest.trailingSlash ?? this.options.trailingSlash
-    if (trailing) {
-      resolved = resolvePath({
-        base: '/',
-        to: resolved || '/',
-        trailingSlash: trailing,
-        cache: this.resolvePathCache,
-      })
-    }
-    this.shouldViewTransition = rest.viewTransition
-    this._scroll.next = rest.resetScroll ?? true
-    return this.navigateHrefFast(resolved, rest)
-  }
-
-  private navigateHrefFast(href: string, rest: any): Promise<void> {
-    let pathname: string
-    let searchStr: string
-    let hash: string
-    if (isSimpleHref(href)) {
-      pathname = decodePath(href).path
-      searchStr = ''
-      hash = ''
-    } else {
-      const currentIndex = this.history.location.state?.__TSR_index
-      const parsed = parseHref(href, {
-        __TSR_index: rest.replace ? currentIndex : (currentIndex ?? 0) + 1,
-      })
-      searchStr = parsed.search
-      hash = decodePath(stripLeadingHash(parsed.hash)).path
-      pathname = decodePath(parsed.pathname).path
-      const href0 = href.charCodeAt(0)
-      if (!parsed.pathname && this.latestLocation && (href0 === 63 || href0 === 35)) {
-        pathname = this.latestLocation.pathname
-        if (href0 === 35) searchStr = this.latestLocation.searchStr
-        else if (!hash) hash = stripLeadingHash(this.latestLocation.hash)
-      }
-    }
-    const trailing = rest.trailingSlash ?? this.options.trailingSlash
-    if (trailing) {
-      pathname = resolvePath({
-        base: '/',
-        to: pathname || '/',
-        trailingSlash: trailing,
-        cache: this.resolvePathCache,
-      })
-    }
-    const hrefFull = encodePathLikeUrl(pathname) + searchStr + (hash ? `#${hash}` : '')
-    const state = resolveBuildState(rest, this.latestLocation)
-    const location: ParsedLocation = {
-      href: hrefFull,
-      publicHref: hrefFull,
-      pathname,
-      search: searchStr ? (this.options.parseSearch ?? defaultParseSearch)(searchStr) : EMPTY_OBJ,
-      searchStr,
-      hash,
-      state,
-      external: false,
-    }
-    if (rest._redirects) {
-      ;(location as ParsedLocation & { _redirects?: number })._redirects = rest._redirects
-    }
-
-    const prev = this.latestLocation
-    const same =
-      prev &&
-      prev.pathname === pathname &&
-      prev.searchStr === searchStr &&
-      prev.hash === hash &&
-      deepEqual(_getUserHistoryState(location.state), _getUserHistoryState(prev.state))
-
-    if (same) {
-      // Keep history bookkeeping (__TSR_index / keys); do not publish EMPTY_OBJ.
-      location.state = this.history.location.state
-      this.latestLocation = location
-      this._pendingLocation = location
-      const id = ++this.loadId
-      const loaded = this.runLoad(location, id)
-      if (loaded instanceof Promise) {
-        return loaded.then(
-          () => this.finishHrefNav(location),
-          (err) => {
-            this.finishHrefNav(location)
-            throw err
-          },
-        )
-      }
-      this.finishHrefNav(location)
-      return RESOLVED
-    }
-
-    const history = this.history
-    const historyOpts = {
-      ignoreBlocker: rest.ignoreBlocker,
-      simple: searchStr === '' && hash === '' && pathname === hrefFull,
-    }
-    this._committing++
-    let pushed: void | Promise<void>
-    try {
-      pushed = rest.replace
-        ? history.replace(hrefFull, state, historyOpts)
-        : history.push(hrefFull, state, historyOpts)
-    } catch (err) {
-      this._committing--
-      throw err
-    }
-
-    const afterCommit = (): Promise<void> => {
-      history.flush()
-      this._committing--
-      // Blockers may deny the commit; never publish a destination we did not land on.
-      const landed =
-        decodePath(history.location.pathname).path === pathname &&
-        (history.location.search || '') === (searchStr || '') &&
-        decodePath(stripLeadingHash(history.location.hash)).path === hash
-      if (!landed) return RESOLVED
-
-      location.state = history.location.state
-      this.latestLocation = location
-      this._pendingLocation = location
-
-      const id = ++this.loadId
-      const loaded = this.runLoad(location, id)
-      if (loaded instanceof Promise) {
-        return loaded.then(
-          () => this.finishHrefNav(location),
-          (err) => {
-            this.finishHrefNav(location)
-            throw err
-          },
-        )
-      }
-      this.finishHrefNav(location)
-      return RESOLVED
-    }
-
-    if (pushed != null && typeof (pushed as Promise<void>).then === 'function') {
-      return (pushed as Promise<void>).then(afterCommit, (err) => {
-        this._committing--
-        throw err
-      })
-    }
-    return afterCommit()
-  }
-
-  private finishHrefNav(location: ParsedLocation) {
-    if (this._pendingLocation === location) this._pendingLocation = undefined
-    this._commitPromise?.resolve()
-    this._commitPromise = undefined
-  }
-
-  private runLoad(location: ParsedLocation, id: number): void | Promise<void> {
-    const warm = this.tryWarmLoad(location, id)
-    if (warm === true) return
-    if (warm) return warm
-    return importLoadClient(this)
-  }
-
-  private tryWarmLoad(location: ParsedLocation, id: number): boolean | Promise<void> {
-    if (this._forcePending || this._handoff || this._tx || this._refreshNextLoad) return false
-    if (this.subscribers.size || this.options.hydrate || slotRuntime?.o.has(this)) return false
-
-    const cacheKey = location.searchStr
-      ? `${location.pathname}\0${location.searchStr}`
-      : location.pathname
-    const cached = this._matchesByPath?.get(cacheKey)
-    if (cached) {
-      const prepared = this.prepareCachedWarmMatches(cached, location)
-      if (prepared) {
-        if (!prepared.needsLoader) {
-          this.completeWarmLoad(location, cached)
-          return true
-        }
-        const next = this.finishWarmMatches(location, id, cached, cacheKey, 0)
-        return next ?? true
-      }
-    }
-
-    const found = findRouteMatch(
-      this.processedTree,
-      location.pathname,
-      this.options.caseSensitive ?? false,
-    )
-    if (!found) return false
-
-    for (let i = 0; i < found.length; i++) {
-      if (!routeCanWarmLoad(found[i]!.route as AnyRoute)) return false
-    }
-    if (this._preloads !== undefined && this._preloads.size > 0) return false
-
-    const prevMatches = this._committed
-    const prevByRoute = prevMatches.length > 4 ? null : prevMatches
-    const prevMap: Record<string, RouteMatch> | null =
-      prevMatches.length > 4 ? Object.create(null) : null
-    if (prevMap) {
-      for (let i = 0; i < prevMatches.length; i++) {
-        const prev = prevMatches[i]!
-        prevMap[prev.routeId] = prev
-      }
-    }
-
-    const matches: RouteMatch[] = new Array(found.length)
-    let search = location.search
-    let strictSearch: Record<string, any> = {}
-
-    for (let i = 0; i < found.length; i++) {
-      const result = found[i]!
-      const route = result.route as AnyRoute
-      if (route.options.validateSearch) {
-        try {
-          const strict = validateSearch(route.options.validateSearch, { ...search }) ?? {}
-          search = { ...search, ...strict }
-          strictSearch = { ...strictSearch, ...strict }
-        } catch {
-          return false
-        }
-      }
-      const matchStrictSearch = { ...strictSearch }
-      const deps = warmLoaderDeps(route, search)
-      if (!deps) return false
-      let interpolatedPath = route.fullPath || location.pathname
-      if (interpolatedPath.indexOf('$') !== -1) {
-        interpolatedPath = interpolatePath({
-          path: interpolatedPath,
-          params: result.params,
-          decoder: this.pathParamsDecoder,
-        }).interpolatedPath
-      }
-      const matchId = route.id + interpolatedPath + deps.hash
-      const prev = prevMap ? prevMap[route.id] : findPrevMatch(prevByRoute!, route.id)
-      const cached = this._cache[matchId]
-      if (cached !== undefined && cached.preload) return false
-      const reusable =
-        cached &&
-        cached.routeId === route.id &&
-        cached.status === 'success' &&
-        !cached.invalid &&
-        !cached.isFetching
-          ? cached
-          : prev && prev.id === matchId && deepEqual(prev.params, result.params) && !prev.invalid
-            ? prev
-            : undefined
-      if (reusable) {
-        reusable.index = i
-        reusable.search = search
-        reusable._strictSearch = matchStrictSearch
-        reusable.loaderDeps = deps.deps
-        reusable.cause = prev ? 'stay' : 'enter'
-        reusable.publicHref = location.publicHref
-        reusable._forcePending = reusable._forcePending || this._forcePending
-        matches[i] = reusable
-        continue
-      }
-      const options = route.options
-      const needsLoad = !!options.loader
-      matches[i] = {
-        id: matchId,
-        index: i,
-        routeId: route.id,
-        route,
-        pathname: interpolatedPath,
-        params: result.params,
-        rawParams: result.rawParams,
-        _strictParams: result.params,
-        _strictSearch: matchStrictSearch,
-        status: needsLoad ? 'pending' : 'success',
-        isFetching: needsLoad ? 'loader' : false,
-        error: undefined,
-        context: {},
-        search,
-        loaderDeps: deps.deps,
-        updatedAt: 0,
-        abortController: needsLoad ? new AbortController() : noopAbortController,
-        cause: prev ? ('stay' as const) : ('enter' as const),
-        invalid: false,
-        preload: false,
-        staticData: options.staticData || {},
-        fullPath: route.fullPath,
-        ssr: (isServer ?? this.isServer) ? undefined : options.ssr,
-        _forcePending: this._forcePending || prev?._forcePending,
-        publicHref: location.publicHref,
-      } as RouteMatch
-    }
-
-    const next = this.finishWarmMatches(location, id, matches, cacheKey, 0)
-    return next ?? true
-  }
-
-  private finishWarmMatches(
-    location: ParsedLocation,
-    id: number,
-    matches: RouteMatch[],
-    cacheKey: string,
-    start: number,
-  ): void | Promise<void> {
-    const now = Date.now()
-    let context = {
-      ...((start === 0
-        ? this.options.context
-        : (matches[start - 1]?.context ?? this.options.context)) ?? {}),
-    }
-    type WarmResult = {
-      match: RouteMatch
-      route: AnyRoute
-      context: Record<string, any>
-      ok: boolean
-      value: any
-    }
-    const results: Array<WarmResult | undefined> = []
-    const pending: Promise<void>[] = []
-    const matchPromises: Array<Promise<RouteMatch>> = []
-    let canceled = false
-    const settled: RouteMatch[] = []
-    const settleSuccess = (result: WarmResult, updatedAt: number) => {
-      if (
-        canceled ||
-        id !== this.loadId ||
-        !result.ok ||
-        isRedirect(result.value) ||
-        isNotFound(result.value)
-      ) {
-        return
-      }
-      result.match.loaderData = result.value
-      result.match.status = 'success'
-      result.match.isFetching = false
-      result.match.updatedAt = updatedAt
-      result.match.context = result.context
-      settled.push(result.match)
-    }
-    const discardSettledBelow = (failed: RouteMatch) => {
-      const failedIndex = matches.indexOf(failed)
-      for (let i = 0; i < settled.length; i++) {
-        const match = settled[i]!
-        if (matches.indexOf(match) <= failedIndex) continue
-        match.loaderData = undefined
-        match.status = 'pending'
-        match.isFetching = false
-        match.updatedAt = 0
-      }
-    }
-    const abortFetching = () => {
-      canceled = true
-      for (let j = 0; j < matches.length; j++) {
-        const candidate = matches[j]!
-        if (candidate.isFetching) {
-          candidate.abortController.abort()
-          candidate.isFetching = false
-        }
-      }
-    }
-    for (let i = start; i < matches.length; i++) {
-      if (id !== this.loadId) return
-      const match = matches[i]!
-      const route = this.routesById[match.routeId]!
-      const opts = route.options
-      if (opts.context) {
-        try {
-          const routeContext =
-            opts.context({
-              params: match.params,
-              search: match.search,
-              context,
-              location,
-              navigate: this.navigate,
-              buildLocation: this.buildLocation,
-              cause: match.cause,
-              abortController: match.abortController,
-              preload: false,
-              matches,
-              routeId: route.id,
-              deps: match.loaderDeps,
-            } as any) || {}
-          context = { ...context, ...routeContext }
-        } catch (cause) {
-          abortFetching()
-          discardSettledBelow(match)
-          return this.settleWarmFailure(location, id, matches, match, route, cause)
-        }
-      } else {
-        context = { ...context }
-      }
-      match.context = context
-      const matchContext = context
-      if (!warmMatchNeedsLoader(match, route, this, this._committed, now)) {
-        matchPromises[i] = Promise.resolve(match)
-        continue
-      }
-      const routeLoader = opts.loader
-      const loader = typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
-      if (!loader) {
-        match.status = 'success'
-        match.isFetching = false
-        matchPromises[i] = Promise.resolve(match)
-        continue
-      }
-
-      const data = callWarmLoader(
-        loader,
-        fillWarmLoaderContext(
-          match,
-          location,
-          this.navigate,
-          matchContext,
-          route,
-          matches,
-          i > 0 ? matchPromises[i - 1] : undefined,
-          this.options.additionalContext,
-        ),
-      )
-      if (
-        data.ok &&
-        data.value != null &&
-        typeof (data.value as { then?: unknown }).then === 'function'
-      ) {
-        const resultIndex = results.length
-        results.push(undefined)
-        const resultPromise = Promise.resolve(data.value).then(
-          (value): WarmResult => ({ match, route, context: matchContext, ok: true, value }),
-          (value): WarmResult => ({ match, route, context: matchContext, ok: false, value }),
-        )
-        const matchPromise = resultPromise.then((result) => {
-          results[resultIndex] = result
-          settleSuccess(result, Date.now())
-          return match
-        })
-        matchPromises[i] = matchPromise
-        pending.push(matchPromise.then(() => undefined))
-      } else {
-        const result = { match, route, context: matchContext, ok: data.ok, value: data.value }
-        results.push(result)
-        settleSuccess(result, now)
-        matchPromises[i] = Promise.resolve(match)
-      }
-    }
-
-    const settle = () => {
-      if (id !== this.loadId) return
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i]!
-        if (!result.ok) {
-          abortFetching()
-          discardSettledBelow(result.match)
-          return this.settleWarmFailure(
-            location,
-            id,
-            matches,
-            result.match,
-            result.route,
-            result.value,
-          )
-        }
-        if (isRedirect(result.value)) {
-          abortFetching()
-          discardSettledBelow(result.match)
-          return this.followWarmRedirect(location, id, matches, result.match, result.value)
-        }
-        if (isNotFound(result.value)) {
-          abortFetching()
-          discardSettledBelow(result.match)
-          return importLoadClient(this)
-        }
-      }
-      this.leaveWarmMatches(matches)
-      this.completeWarmLoad(location, matches)
-      rememberWarmMatches(this, cacheKey, matches)
-    }
-
-    return pending.length ? Promise.all(pending).then(settle) : settle()
-  }
-
-  private settleWarmFailure(
-    location: ParsedLocation,
-    id: number,
-    matches: RouteMatch[],
-    match: RouteMatch,
-    route: AnyRoute,
-    cause: unknown,
-  ): void | Promise<void> {
-    if (isRedirect(cause)) {
-      return this.followWarmRedirect(location, id, matches, match, cause)
-    }
-    if (isNotFound(cause)) return importLoadClient(this)
-    let error = cause
-    try {
-      route.options.onError?.(error)
-    } catch (onErrorCause) {
-      if (isRedirect(onErrorCause)) {
-        return this.followWarmRedirect(location, id, matches, match, onErrorCause)
-      }
-      if (isNotFound(onErrorCause)) return importLoadClient(this)
-      error = onErrorCause
-    }
-    match.status = 'error'
-    match.error = error
-    match.isFetching = false
-    match.updatedAt = Date.now()
-    for (let i = matches.indexOf(match) + 1; i < matches.length; i++) {
-      const child = matches[i]!
-      child.isFetching = false
-    }
-    if (id !== this.loadId) return
-    this.leaveWarmMatches(matches)
-    this.completeWarmLoad(location, matches)
-  }
-
-  private followWarmRedirect(
-    location: ParsedLocation,
-    id: number,
-    matches: RouteMatch[],
-    match: RouteMatch,
-    redirect: AnyRedirect,
-  ): void | Promise<void> {
-    if (id !== this.loadId) return
-    const redirects = (location as ParsedLocation & { _redirects?: number })._redirects ?? 0
-    if (redirects >= 20) {
-      match.status = 'error'
-      match.error = new Error('Too many redirects')
-      match.isFetching = false
-      match.updatedAt = Date.now()
-      for (let i = matches.indexOf(match) + 1; i < matches.length; i++) {
-        matches[i]!.isFetching = false
-      }
-      this.leaveWarmMatches(matches)
-      this.completeWarmLoad(location, matches)
-      return
-    }
-    return this.navigate({
-      ...redirect.options,
-      _redirects: redirects + 1,
-      replace: true,
-      ignoreBlocker: true,
-    } as any)
-  }
-
-  private prepareCachedWarmMatches(
-    matches: RouteMatch[],
-    location: ParsedLocation,
-  ): { needsLoader: boolean } | undefined {
-    const prevMatches = this._committed
-    const now = Date.now()
-    let needsLoader = false
-    const prevLen = prevMatches.length
-    let allStay = prevLen === matches.length && prevLen > 0
-    if (allStay) {
-      for (let i = 0; i < prevLen; i++) {
-        if (prevMatches[i]!.routeId !== matches[i]!.routeId) {
-          allStay = false
-          break
-        }
-      }
-    }
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i]!
-      if (match.status !== 'success' || match.invalid || match.isFetching) return
-      const route = this.routesById[match.routeId]
-      if (route === undefined || !routeCanWarmLoad(route)) return
-      match.cause = allStay || findPrevMatch(prevMatches, match.routeId) ? 'stay' : 'enter'
-      match.publicHref = location.publicHref
-      if (warmMatchNeedsLoader(match, route, this, prevMatches, now)) needsLoader = true
-    }
-    return { needsLoader }
-  }
-
-  private leaveWarmMatches(matches: RouteMatch[]) {
-    const prevMatches = this._committed
-    const prevLen = prevMatches.length
-    if (prevLen === matches.length) {
-      let sameRoutes = true
-      for (let i = 0; i < prevLen; i++) {
-        if (prevMatches[i]!.routeId !== matches[i]!.routeId) {
-          sameRoutes = false
-          break
-        }
-      }
-      if (sameRoutes) return
-    }
-    for (let i = 0; i < prevMatches.length; i++) {
-      const left = prevMatches[i]!
-      const hook = this.routesById[left.routeId]?.options.onLeave
-      if (!hook) continue
-      let still = false
-      for (let j = 0; j < matches.length; j++) {
-        if (matches[j]!.routeId === left.routeId) {
-          still = true
-          break
-        }
-      }
-      if (still) continue
-      hook({
-        params: left.params,
-        search: left.search,
-        context: left.context,
-        cause: 'leave',
-      } as any)
-    }
-  }
-
-  private completeWarmLoad(location: ParsedLocation, matches: RouteMatch[]) {
-    const prevResolved = this.stores.resolvedLocation.get()
-    this._committed = matches
-    for (let i = 0; i < matches.length; i++) {
-      this._cache[matches[i]!.id] = matches[i]!
-    }
-    this.batch(() => {
-      this.stores.commitIdleNavigation!(location, matches)
-    })
-    this.redirectHops = 0
-    if (this.subscribers.size) {
-      const change = getLocationChangeInfo(location, prevResolved)
-      this.emit({ type: 'onLoad', ...change })
-      this.emit({ type: 'onResolved', ...change })
-      this.emit({ type: 'onRendered', ...change })
-    }
-    const rendered = this._rendered
-    if (rendered?.[1]) {
-      const settle = rendered[1]
-      rendered.length = 0
-      settle(true)
-    }
+  private runLoad(location: ParsedLocation): void | Promise<void> {
+    const warm = warmLoadCached
+    if (!warm) return
+    ;(location as ParsedLocation & { _commit?: Promise<void> })._commit = this._commitPromise
+    const next = warm(this, location, (this.loadId = (this.loadId | 0) + 1))
+    if (next === true) return RESOLVED
+    if (next) return next
   }
 
   getMatchedRoutes(pathname: string): ReturnType<GetMatchRoutesFn> {
     const path = trimPathRight(pathname || '/')
-    const cache = this.processedTree.matchedRoutesCache
-    const cached = cache?.[path]
-    if (cached) return cached as unknown as ReturnType<GetMatchRoutesFn>
-
     const exact = findRouteMatchFromTree(
       this.processedTree,
       path,
@@ -2373,7 +1831,6 @@ export class RouterCore<
         result = [[this.routesById[rootRouteId]!], Object.create(null), undefined]
       }
     }
-    if (cache) cache[path] = result as unknown as (typeof cache)[string]
     return result
   }
 
@@ -2497,19 +1954,6 @@ export class RouterCore<
   }
 
   private matchRoutesInternal(next: ParsedLocation, opts?: any): RouteMatch[] {
-    const templateCache = this.processedTree.matchedTemplateCache
-    if (
-      templateCache &&
-      !this._hasSearchWork &&
-      !next.searchStr &&
-      !opts?.throwOnError &&
-      !opts?._rematerialize &&
-      !opts?._controller
-    ) {
-      const cached = templateCache[next.pathname]
-      if (cached) return cloneCachedMatches(cached)
-    }
-
     const [initialMatchedRoutes, rawParams, foundRoute] = this.getMatchedRoutes(next.pathname)
     let matchedRoutes = initialMatchedRoutes as AnyRoute[]
     let isGlobalNotFound = false
@@ -2666,19 +2110,6 @@ export class RouterCore<
       if (opts?._controller) match.context = {}
     }
 
-    if (
-      templateCache &&
-      !this._hasSearchWork &&
-      !next.searchStr &&
-      !opts?.throwOnError &&
-      !opts?._rematerialize &&
-      !opts?._controller
-    ) {
-      const snapshot = new Array(matches.length)
-      for (let i = 0; i < matches.length; i++) snapshot[i] = omitUserMatchFields(matches[i]!)
-      templateCache[next.pathname] = snapshot
-    }
-
     return matches
   }
 
@@ -2698,33 +2129,8 @@ export class RouterCore<
     viewTransition,
     ignoreBlocker,
     _redirects,
-    href,
     ...rest
   }: NavigateOptions & CommitLocationOptions & { _redirects?: number; href?: string } = {}) {
-    if (href) {
-      const currentIndex = this.history.location.state?.__TSR_index
-      const parsed = parseHref(href, {
-        __TSR_index: replace ? currentIndex : (currentIndex ?? 0) + 1,
-      })
-      if (this.rewrite) {
-        const path = parsed.pathname
-        const rewritePath =
-          path && path.charCodeAt(0) !== 47
-            ? resolvePath({
-                base: this.latestLocation?.pathname || '/',
-                to: path,
-                trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-                cache: this.resolvePathCache,
-              })
-            : path || '/'
-        rest.to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
-      } else {
-        rest.to = parsed.pathname
-      }
-      rest.search = (this.options.parseSearch ?? defaultParseSearch)(parsed.search)
-      rest.hash = stripLeadingHash(parsed.hash || '')
-    }
-
     const location = this.buildLocation({
       ...(rest as any),
       _includeValidateSearch: this._hasSearchWork || !!rest._includeValidateSearch,
@@ -2788,6 +2194,28 @@ function resolveBuildPath(
   }
   if (typeof to !== 'string') to = current?.pathname ?? '/'
 
+  const destRouteHint =
+    typeof to === 'string' ? router.routesByPath?.[trimPathRight(to)] : undefined
+
+  // Absolute/static destinations do not inherit or stringify params.
+  // `from` is a route template (`/posts/$postId`), so relative dests like
+  // `./info` still need the current params after resolvePath.
+  if (
+    dest.params === undefined &&
+    !dest.leaveParams &&
+    to.indexOf('$') === -1 &&
+    fromPath.indexOf('$') === -1
+  ) {
+    return {
+      resolved: resolvePath({
+        base: fromPath || '/',
+        to: to || '/',
+        trailingSlash: (router.options.trailingSlash as any) ?? 'never',
+      }),
+      destRouteHint,
+    }
+  }
+
   const currentParams = Object.assign(Object.create(null), currentMatch?.params ?? EMPTY_OBJ)
   if (current?.pathname && router.processedTree) {
     const found = findRouteMatch(
@@ -2804,8 +2232,6 @@ function resolveBuildPath(
   }
   const nextParams = resolveNextParams(dest.params, currentParams)
 
-  const destRouteHint =
-    typeof to === 'string' ? router.routesByPath?.[trimPathRight(to)] : undefined
   const stringifyRoutes = destRouteHint
     ? buildRouteBranch(destRouteHint as AnyRoute)
     : currentMatch
@@ -2824,22 +2250,19 @@ function resolveBuildPath(
     }
   }
 
-  let interpolated = to
-  if (!dest.leaveParams && typeof to === 'string' && to.includes('$')) {
-    interpolated = interpolatePath({
-      path: to,
+  const interpolateDest = (path: string) =>
+    interpolatePath({
+      path,
       params: nextParams ?? EMPTY_OBJ,
       decoder: router.pathParamsDecoder,
     }).interpolatedPath
+
+  let interpolated = to
+  if (!dest.leaveParams && typeof to === 'string' && to.includes('$')) {
+    interpolated = interpolateDest(to)
   } else if (dest.params && !dest.to && !dest.leaveParams) {
     const template = currentMatch ? router.routesById[currentMatch.routeId]?.fullPath : undefined
-    if (template) {
-      interpolated = interpolatePath({
-        path: template,
-        params: nextParams ?? EMPTY_OBJ,
-        decoder: router.pathParamsDecoder,
-      }).interpolatedPath
-    }
+    if (template) interpolated = interpolateDest(template)
   }
 
   const interpolatedInput = interpolated
@@ -2847,14 +2270,9 @@ function resolveBuildPath(
     base: fromPath || '/',
     to: interpolated || '/',
     trailingSlash: (router.options.trailingSlash as any) ?? 'never',
-    cache: router.resolvePathCache,
   })
   if (resolved !== interpolatedInput && resolved.includes('$')) {
-    resolved = interpolatePath({
-      path: resolved,
-      params: nextParams ?? EMPTY_OBJ,
-      decoder: router.pathParamsDecoder,
-    }).interpolatedPath
+    resolved = interpolateDest(resolved)
   }
   return { resolved, destRouteHint }
 }
@@ -2865,6 +2283,11 @@ function resolveBuildSearch(
   current: ParsedLocation | undefined,
   resolved: string,
 ) {
+  if (!router._hasSearchWork && !slotRuntime) {
+    if (dest.search === true) return current?.search ?? EMPTY_OBJ
+    if (dest.search) return functionalUpdate(dest.search, current?.search ?? EMPTY_OBJ)
+    return dest.to ? EMPTY_OBJ : (current?.search ?? EMPTY_OBJ)
+  }
   const currentSearch = { ...(current?.search ?? EMPTY_OBJ) }
   const destRoute = router.routesByPath?.[trimPathRight(resolved)] as AnyRoute | undefined
   const destRoutes = destRoute
@@ -2957,6 +2380,7 @@ function resolveBuildState(dest: any, current: ParsedLocation | undefined) {
 }
 
 function warnBuildLocationMismatch(router: any, resolved: string, destRouteHint: AnyRoute) {
+  if (process.env.NODE_ENV === 'production') return
   try {
     const foundRoute = router.getMatchedRoutes(resolved)[2]
     if (foundRoute && foundRoute.id !== destRouteHint.id) {
@@ -3008,51 +2432,113 @@ function applyBuildRewrite(router: any, location: ParsedLocation) {
   }
 }
 
-function omitUserMatchFields(match: RouteMatch): RouteMatch {
-  return {
-    ...match,
-    loaderData: undefined,
-    error: undefined,
-    headers: undefined,
-    meta: undefined,
-    links: undefined,
-    scripts: undefined,
-    headScripts: undefined,
-    styles: undefined,
-    __beforeLoadContext: undefined,
-    context: {},
-    ssr: undefined,
-  }
-}
-
-function cloneCachedMatches(cached: RouteMatch[]): RouteMatch[] {
-  const now = Date.now()
-  const out = new Array(cached.length)
-  for (let i = 0; i < cached.length; i++) {
-    const match = omitUserMatchFields(cached[i]!)
-    out[i] = {
-      ...match,
-      updatedAt: now,
-      abortController: routeNeedsLoad(match.route as AnyRoute)
-        ? new AbortController()
-        : noopAbortController,
-      isFetching: false,
-    }
-  }
-  return out
-}
-
 function isPlainAsciiPath(path: string) {
-  for (let i = 0; i < path.length; i++) {
-    const c = path.charCodeAt(i)
-    // Reject control/space/DEL/non-ASCII, plus '%' and '\\' so we can skip decode/encode.
-    if (c <= 0x20 || c === 0x7f || c > 0x7f || c === 37 || c === 92) return false
-  }
-  return true
+  return !/[\0- %\\\x7f-\uFFFF]/.test(path)
 }
 
 function stripLeadingHash(hash: string) {
   return !hash ? '' : hash.charCodeAt(0) === 35 ? hash.slice(1) : hash
+}
+
+let lastSimpleParamPath = ''
+let lastSimpleParamKeys: string[] | null = null
+
+function collectSimpleParamKeys(path: string): string[] | null {
+  if (path === lastSimpleParamPath) return lastSimpleParamKeys
+  const keys: string[] = []
+  for (let i = 0; i < path.length; i++) {
+    if (path.charCodeAt(i) !== 36) continue
+    let j = i + 1
+    if (j >= path.length || path.charCodeAt(j) === 47) return null
+    while (j < path.length && path.charCodeAt(j) !== 47) j++
+    const key = path.slice(i + 1, j)
+    if (key === '*' || key === '_splat') return null
+    keys.push(key)
+    i = j - 1
+  }
+  lastSimpleParamPath = path
+  lastSimpleParamKeys = keys
+  return keys
+}
+
+function isSimpleParamValue(value: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value !== 'string' || value.length === 0) return false
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i)
+    if (
+      !(
+        (c >= 48 && c <= 57) ||
+        (c >= 65 && c <= 90) ||
+        (c >= 97 && c <= 122) ||
+        c === 45 ||
+        c === 46 ||
+        c === 95 ||
+        c === 126
+      )
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+type SimpleToApply = (params: Record<string, any>) => string
+
+const simpleToApplyByPath = new Map<string, SimpleToApply>()
+
+function compileSimpleTo(path: string, keys: string[]): SimpleToApply {
+  if (keys.length === 1) {
+    const key = keys[0]!
+    const idx = path.indexOf('$' + key)
+    const pre = path.slice(0, idx)
+    const post = path.slice(idx + key.length + 1)
+    return (params) => pre + params[key] + post
+  }
+  const parts: Array<string | { k: string }> = []
+  let last = 0
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]!
+    const idx = path.indexOf('$' + key, last)
+    if (idx > last) parts.push(path.slice(last, idx))
+    parts.push({ k: key })
+    last = idx + key.length + 1
+  }
+  if (last < path.length) parts.push(path.slice(last))
+  return (params) => {
+    let out = ''
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]!
+      out += typeof part === 'string' ? part : params[part.k]
+    }
+    return out
+  }
+}
+
+function interpolateSimpleTo(path: string, params: Record<string, any>, keys: string[]): string {
+  let apply = simpleToApplyByPath.get(path)
+  if (apply === undefined) {
+    apply = compileSimpleTo(path, keys)
+    simpleToApplyByPath.set(path, apply)
+  }
+  return apply(params)
+}
+
+function routeAllowsSimpleNav(route: AnyRoute | undefined): boolean {
+  if (!route) return true
+  const cached = (route as { _simpleNav?: 0 | 1 })._simpleNav
+  if (cached === 1) return true
+  if (cached === 0) return false
+  let current: AnyRoute | undefined = route
+  while (current) {
+    if (current.options?.params?.stringify || current.options?.stringifyParams) {
+      ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 0
+      return false
+    }
+    current = current.parentRoute as AnyRoute | undefined
+  }
+  ;(route as { _simpleNav?: 0 | 1 })._simpleNav = 1
+  return true
 }
 
 function isSimpleHref(href: string) {
@@ -3076,10 +2562,10 @@ function parseHistoryLocation(
 ): ParsedLocation {
   if (!router.rewrite && isPlainAsciiPath(location.pathname)) {
     const hash = location.hash
-    const hashValue = stripLeadingHash(hash)
     const pathname = location.pathname
+    const state = previous ? replaceEqualDeep(previous.state, location.state) : location.state
     if (!location.search && parseSearch === defaultParseSearch) {
-      const href = hash ? pathname + hash : pathname
+      const href = pathname + hash
       return {
         href,
         publicHref: href,
@@ -3087,21 +2573,22 @@ function parseHistoryLocation(
         external: false,
         searchStr: '',
         search: EMPTY_OBJ,
-        hash: hashValue,
-        state: previous ? replaceEqualDeep(previous.state, location.state) : location.state,
+        hash: stripLeadingHash(hash),
+        state,
       }
     }
     const parsedSearch = parseSearch(location.search)
     const searchStr = stringifySearch(parsedSearch)
+    const href = pathname + searchStr + hash
     return {
-      href: pathname + searchStr + hash,
-      publicHref: pathname + searchStr + hash,
+      href,
+      publicHref: href,
       pathname,
       external: false,
       searchStr,
       search: nullReplaceEqualDeep(previous?.search, parsedSearch),
-      hash: hashValue,
-      state: previous ? replaceEqualDeep(previous.state, location.state) : location.state,
+      hash: stripLeadingHash(hash),
+      state,
     }
   }
   const fullUrl = new URL(location.href, router.origin)
@@ -3123,110 +2610,7 @@ function parseHistoryLocation(
   }
 }
 
-const WARM_MATCH_CACHE_MAX = 64
-
 const CONTEXT_COMPARE_MAX_DEPTH = 4
-
-function fillWarmLoaderContext(
-  match: RouteMatch,
-  location: ParsedLocation,
-  navigate: NavigateFn,
-  context: Record<string, any>,
-  route: AnyRoute,
-  matches: RouteMatch[],
-  parentMatchPromise: Promise<RouteMatch> | undefined,
-  additionalContext: Record<string, any> | undefined,
-) {
-  return {
-    abortController: match.abortController,
-    preload: false,
-    params: match.params,
-    rawParams: match.rawParams,
-    cause: match.cause,
-    location,
-    navigate,
-    search: match.search,
-    context,
-    route,
-    matches,
-    deps: match.loaderDeps,
-    parentMatchPromise,
-    ...additionalContext,
-  }
-}
-
-function callWarmLoader(
-  loader: (context: any) => any,
-  context: any,
-): { ok: true; value: any } | { ok: false; value: any } {
-  try {
-    return { ok: true, value: loader(context) }
-  } catch (value) {
-    return { ok: false, value }
-  }
-}
-
-function warmLoaderDeps(route: AnyRoute, search: any): { deps: any; hash: string } | undefined {
-  const fn = route.options.loaderDeps
-  if (!fn) return { deps: '', hash: '' }
-  try {
-    const deps = fn({ search }) ?? ''
-    return { deps, hash: deps ? JSON.stringify(deps) || '' : '' }
-  } catch {
-    return
-  }
-}
-
-function routeCanWarmLoad(route: AnyRoute): boolean {
-  if (route.lazyFn && !route._lazy) return false
-  const cached = route._warmLoad
-  if (cached === 1) return true
-  if (cached === 0) return false
-  const options = route.options
-  // `staleTime` is not a warm-path opt-out. Omitted staleTime is 0, the same
-  // default as TanStack, and only controls whether a successful match reloads.
-  const ok = !(
-    options.beforeLoad ||
-    options.onEnter ||
-    options.onLeave ||
-    options.onStay ||
-    options.head ||
-    options.headers ||
-    options.scripts ||
-    options.shouldReload ||
-    (options.component as { preload?: unknown } | undefined)?.preload ||
-    (options.pendingComponent as { preload?: unknown } | undefined)?.preload
-  )
-  route._warmLoad = ok ? 1 : 0
-  return ok
-}
-
-/**
- * Same reload gate as the full client coordinator: a match reloads when it is
- * pending/invalid, or when it is stale and this navigation entered the route
- * or switched to a different match id of the same route. `staleTime` defaults
- * to `defaultStaleTime ?? 0`, so omitted staleTime is not a permanent cache.
- */
-function warmMatchNeedsLoader(
-  match: RouteMatch,
-  route: AnyRoute,
-  router: { options: { defaultStaleTime?: number } },
-  prevMatches: RouteMatch[],
-  now: number,
-): boolean {
-  if (!route.options.loader) return false
-  if (match.status !== 'success' || match.invalid) return true
-  const staleAge = route.options.staleTime ?? router.options.defaultStaleTime ?? 0
-  if (staleAge === Infinity || now - match.updatedAt < staleAge) return false
-  if (match.cause === 'enter') return true
-  const routeId = match.routeId
-  const matchId = match.id
-  for (let i = 0; i < prevMatches.length; i++) {
-    const prev = prevMatches[i]!
-    if (prev.routeId === routeId && prev.id !== matchId) return true
-  }
-  return false
-}
 
 /**
  * Compare router context by value. Router context may hold cyclic values, so
@@ -3247,23 +2631,6 @@ function sameContext(prev: any, next: any, depth = 0): boolean {
     if (hasOwn.call(prev, key)) keys--
   }
   return keys === 0
-}
-
-function findPrevMatch(matches: RouteMatch[], routeId: string) {
-  for (let i = 0; i < matches.length; i++) {
-    if (matches[i]!.routeId === routeId) return matches[i]
-  }
-  return undefined
-}
-
-function rememberWarmMatches(
-  router: { _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>> },
-  key: string,
-  matches: RouteMatch[],
-) {
-  const cache = (router._matchesByPath ??= createStringMap<RouteMatch[]>())
-  if (cache.get(key) === matches) return
-  rememberBounded(cache, key, matches, WARM_MATCH_CACHE_MAX)
 }
 
 function resolveNextParams(spec: unknown, base: Record<string, unknown>): Record<string, unknown> {

@@ -46,28 +46,21 @@ export function rewriteBasepath(opts: { basepath: string; caseSensitive?: boolea
   } satisfies LocationRewrite
 }
 
+function applyRewrite(
+  fn: ((args: { url: URL }) => undefined | string | URL) | undefined,
+  url: URL,
+): URL {
+  const res = fn?.({ url })
+  if (!res) return url
+  return typeof res === 'string' ? new URL(res, url) : res
+}
+
 /** Execute a location input rewrite if provided. */
 export function executeRewriteInput(rewrite: LocationRewrite | undefined, url: URL): URL {
-  const res = rewrite?.input?.({ url })
-  if (res) {
-    if (typeof res === 'string') {
-      return new URL(res, url)
-    } else if (res instanceof URL) {
-      return res
-    }
-  }
-  return url
+  return applyRewrite(rewrite?.input, url)
 }
 
 /** Execute a location output rewrite if provided. */
 export function executeRewriteOutput(rewrite: LocationRewrite | undefined, url: URL): URL {
-  const res = rewrite?.output?.({ url })
-  if (res) {
-    if (typeof res === 'string') {
-      return new URL(res, url)
-    } else if (res instanceof URL) {
-      return res
-    }
-  }
-  return url
+  return applyRewrite(rewrite?.output, url)
 }

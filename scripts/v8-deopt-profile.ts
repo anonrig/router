@@ -14,6 +14,7 @@ import {
   interpolatePath,
   resolvePath,
 } from 'speedy-router-core'
+import { tryWarmLoad } from 'speedy-router-core/warm'
 import { createRequestHandler } from 'speedy-router-core/ssr/server'
 import {
   findRouteMatch,
@@ -183,10 +184,7 @@ const rows: Array<[string, unknown]> = [
   ['RouterCore.executeBuildLocation', proto.executeBuildLocation],
   ['RouterCore.tryNavigateToFast', proto.tryNavigateToFast],
   ['RouterCore.navigateHrefFast', proto.navigateHrefFast],
-  ['RouterCore.tryWarmLoad', proto.tryWarmLoad],
-  ['RouterCore.finishWarmMatches', proto.finishWarmMatches],
-  ['RouterCore.completeWarmLoad', proto.completeWarmLoad],
-  ['RouterCore.canReuseWarmMatches', proto.canReuseWarmMatches],
+  ['tryWarmLoad', tryWarmLoad],
   ['RouterCore.runLoad', proto.runLoad],
   ['RouterCore.matchRoutes', proto.matchRoutes],
   ['RouterCore.matchRoutesInternal', proto.matchRoutesInternal],

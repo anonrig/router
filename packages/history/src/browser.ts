@@ -81,6 +81,13 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     if (!hasPendingAction) queueMicrotask(() => flush())
   }
 
+  function preparePop(ignoreBlocker: boolean | undefined, isGo: boolean) {
+    nextPopIsGo = isGo
+    skipBlockerNextPop = !!ignoreBlocker
+    ignoreNextBeforeUnload = !!ignoreBlocker
+    flush()
+  }
+
   const onPushPop = (type: 'PUSH' | 'REPLACE') => {
     currentLocation = parseLocation()
     history._claimNavigation?.()
@@ -188,24 +195,15 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     pushState: (href, state) => queueHistoryAction(true, href, state),
     replaceState: (href, state) => queueHistoryAction(false, href, state),
     back: (ignoreBlocker) => {
-      nextPopIsGo = false
-      skipBlockerNextPop = ignoreBlocker
-      ignoreNextBeforeUnload = ignoreBlocker
-      flush()
+      preparePop(ignoreBlocker, false)
       return win.history.back()
     },
     forward: (ignoreBlocker) => {
-      nextPopIsGo = false
-      skipBlockerNextPop = ignoreBlocker
-      ignoreNextBeforeUnload = ignoreBlocker
-      flush()
+      preparePop(ignoreBlocker, false)
       win.history.forward()
     },
     go: (n, ignoreBlocker) => {
-      skipBlockerNextPop = ignoreBlocker
-      ignoreNextBeforeUnload = ignoreBlocker
-      nextPopIsGo = true
-      flush()
+      preparePop(ignoreBlocker, true)
       win.history.go(n)
     },
     createHref: (href) => createHref(href),
@@ -239,27 +237,22 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   win.addEventListener(BEFORE_UNLOAD, onBeforeUnload, { capture: true })
   win.addEventListener(POP_STATE, onPushPopEvent)
 
-  function pushStateWrapper(...args: Array<any>) {
-    if (next && !history._ignoreSubscribers) flush()
-    if (!history._ignoreSubscribers && !Number.isFinite(args[0]?.[STATE_INDEX])) {
-      const currentIndex = currentLocation.state[STATE_INDEX]
-      args[0] = assignKeyAndIndex((Number.isFinite(currentIndex) ? currentIndex : 0) + 1, args[0])
+  function wrapHistoryState(original: (...args: Array<any>) => any, isPush: boolean) {
+    return function historyStateWrapper(...args: Array<any>) {
+      if (next && !history._ignoreSubscribers) flush()
+      if (!history._ignoreSubscribers && !Number.isFinite(args[0]?.[STATE_INDEX])) {
+        const currentIndex = currentLocation.state[STATE_INDEX]
+        const base = Number.isFinite(currentIndex) ? currentIndex : 0
+        args[0] = assignKeyAndIndex(isPush ? base + 1 : base, args[0])
+      }
+      const res = original.apply(win.history, args as any)
+      if (alive && !history._ignoreSubscribers) onPushPop(isPush ? 'PUSH' : 'REPLACE')
+      return res
     }
-    const res = originalPushState.apply(win.history, args as any)
-    if (alive && !history._ignoreSubscribers) onPushPop('PUSH')
-    return res
   }
 
-  function replaceStateWrapper(...args: Array<any>) {
-    if (next && !history._ignoreSubscribers) flush()
-    if (!history._ignoreSubscribers && !Number.isFinite(args[0]?.[STATE_INDEX])) {
-      const currentIndex = currentLocation.state[STATE_INDEX]
-      args[0] = assignKeyAndIndex(Number.isFinite(currentIndex) ? currentIndex : 0, args[0])
-    }
-    const res = originalReplaceState.apply(win.history, args as any)
-    if (alive && !history._ignoreSubscribers) onPushPop('REPLACE')
-    return res
-  }
+  const pushStateWrapper = wrapHistoryState(originalPushState, true)
+  const replaceStateWrapper = wrapHistoryState(originalReplaceState, false)
 
   win.history.pushState = pushStateWrapper
   win.history.replaceState = replaceStateWrapper

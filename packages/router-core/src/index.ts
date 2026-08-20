@@ -262,6 +262,7 @@ export {
   getLocationChangeInfo,
   runRouteLifecycle,
   setLoadServerRoute,
+  setWarmLoad,
   SearchParamError as RouterSearchParamError,
   PathParamError as RouterPathParamError,
 } from './router'
@@ -476,6 +477,7 @@ export type {
 
 export { composeRewrites } from './rewrite'
 export type { LocationRewrite, LocationRewriteFunction } from './router'
+export { tryWarmLoad } from './warm'
 export type {
   AnySerializationAdapter,
   SerializationAdapter,
@@ -534,3 +536,4 @@ export {
 } from './file-route'
 export { lazyFn, SearchParamError, PathParamError } from './misc'
 export { rewriteBasepath, executeRewriteInput, executeRewriteOutput } from './rewrite'
+import './warm'

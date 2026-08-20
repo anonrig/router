@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest'
 import { createMemoryHistory } from 'speedy-router-history'
 import { redirect } from '../src/redirect'
 import { createRootRoute, createRoute } from '../src/route'
-import { createRouter } from '../src/router'
+import { createRouter, setWarmLoad } from '../src/router'
+import { tryWarmLoad } from '../src/warm'
 
 function deferred<T>() {
   let fulfill!: (value: T) => void
@@ -33,6 +34,24 @@ function createApp(opts: {
 }
 
 describe('warm-path TanStack behavior parity', () => {
+  test('load invokes the installed warm loader and bumps loadId', async () => {
+    const generations: number[] = []
+    setWarmLoad((router, location, id) => {
+      generations.push(id)
+      return tryWarmLoad(router, location, id)
+    })
+    try {
+      const router = createApp({})
+      expect(router.loadId).toBeUndefined()
+      await router.navigate({ href: '/about' } as any)
+      expect(generations.length).toBeGreaterThan(0)
+      expect(router.loadId).toBe(generations.at(-1))
+      expect(router.state.location.pathname).toBe('/about')
+    } finally {
+      setWarmLoad(tryWarmLoad)
+    }
+  })
+
   test('does not replay a loader that returns a redirect', async () => {
     let calls = 0
     const router = createApp({
@@ -482,6 +501,30 @@ describe('warm-path TanStack behavior parity', () => {
     expect(posts?._strictSearch).toEqual({ foo: 'hello' })
     expect(posts?.search).toMatchObject({ foo: 'hello', extra: 1 })
     expect(root?._strictSearch).not.toBe(posts?._strictSearch)
+  })
+
+  test('a reused server router isolates leftover matches before warm load', async () => {
+    const router = createApp({
+      posts: {
+        loader: () => 'posts-secret',
+      },
+    })
+
+    await router.navigate({ href: '/posts' } as any)
+    expect(router.state.matches.at(-1)?.loaderData).toBe('posts-secret')
+
+    const leftover = router.state.matches.map((match) => ({
+      ...match,
+      loaderData: 'leaked',
+    }))
+    router._matchesByPath?.set('/about', leftover)
+    router._cache['leaked'] = leftover[0]
+
+    await router.navigate({ href: '/about' } as any)
+
+    expect(router.state.location.pathname).toBe('/about')
+    expect(router.state.matches.some((match) => match.loaderData === 'leaked')).toBe(false)
+    expect(router.state.matches.some((match) => match.routeId === '/posts')).toBe(false)
   })
 
   test('a parent loader throw does not leave child matches fetching', async () => {

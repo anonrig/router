@@ -20,8 +20,10 @@
   ],
   "type": "module",
   "sideEffects": [
+    "./dist/index.js",
     "./dist/ssr/register-load-server.js",
-    "./dist/ssr/server.js"
+    "./dist/ssr/server.js",
+    "./dist/warm.js"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -66,6 +68,10 @@
     "./utils": {
       "types": "./dist/utils.d.ts",
       "default": "./dist/utils.js"
+    },
+    "./warm": {
+      "types": "./dist/warm.d.ts",
+      "default": "./dist/warm.js"
     },
     "./package.json": "./package.json"
   },

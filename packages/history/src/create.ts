@@ -58,6 +58,27 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
     return blockers != null && blockers.length > 0
   }
 
+  const commitPushLike = (
+    type: 'PUSH' | 'REPLACE',
+    path: string,
+    state: any,
+    navigateOpts?: NavigateOptions,
+  ) => {
+    const owner = ++navigationId
+    const nextIndex = () => location.state[STATE_INDEX] + (type === 'PUSH' ? 1 : 0)
+    const apply = () => {
+      committedNavigationId = owner
+      const nextState = assignKeyAndIndex(nextIndex(), state)
+      if (type === 'PUSH') opts.pushState(path, nextState)
+      else opts.replaceState(path, nextState)
+      notify(type === 'PUSH' ? PUSH_ACTION : REPLACE_ACTION)
+    }
+    if (shouldRunBlockers(navigateOpts)) {
+      return runPushBlockers(type, path, assignKeyAndIndex(nextIndex(), state), apply, owner)
+    }
+    apply()
+  }
+
   const runPushBlockers = (
     type: 'PUSH' | 'REPLACE',
     path: string,
@@ -110,48 +131,8 @@ export const createHistory = /*#__PURE__*/ function createHistory(opts: {
         subscribers.delete(cb)
       }
     },
-    push: (path, state, navigateOpts) => {
-      const owner = ++navigationId
-      if (shouldRunBlockers(navigateOpts)) {
-        return runPushBlockers(
-          'PUSH',
-          path,
-          assignKeyAndIndex(location.state[STATE_INDEX] + 1, state),
-          () => {
-            committedNavigationId = owner
-            const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
-            opts.pushState(path, nextState)
-            notify(PUSH_ACTION)
-          },
-          owner,
-        )
-      }
-      committedNavigationId = owner
-      const nextState = assignKeyAndIndex(location.state[STATE_INDEX] + 1, state)
-      opts.pushState(path, nextState)
-      notify(PUSH_ACTION)
-    },
-    replace: (path, state, navigateOpts) => {
-      const owner = ++navigationId
-      if (shouldRunBlockers(navigateOpts)) {
-        return runPushBlockers(
-          'REPLACE',
-          path,
-          assignKeyAndIndex(location.state[STATE_INDEX], state),
-          () => {
-            committedNavigationId = owner
-            const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
-            opts.replaceState(path, nextState)
-            notify(REPLACE_ACTION)
-          },
-          owner,
-        )
-      }
-      committedNavigationId = owner
-      const nextState = assignKeyAndIndex(location.state[STATE_INDEX], state)
-      opts.replaceState(path, nextState)
-      notify(REPLACE_ACTION)
-    },
+    push: (path, state, navigateOpts) => commitPushLike('PUSH', path, state, navigateOpts),
+    replace: (path, state, navigateOpts) => commitPushLike('REPLACE', path, state, navigateOpts),
     go: (index, navigateOpts) => {
       opts.go(index, navigateOpts?.ignoreBlocker === true)
       handleIndexChange({ type: 'GO', index })

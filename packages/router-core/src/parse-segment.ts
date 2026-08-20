@@ -18,6 +18,24 @@ export type ParsedSegment = Uint16Array & {
   5: number
 }
 
+function write(
+  output: Uint16Array,
+  kind: SegmentKind,
+  start: number,
+  nameStart: number,
+  nameEnd: number,
+  close: number,
+  end: number,
+): ParsedSegment {
+  output[0] = kind
+  output[1] = start
+  output[2] = nameStart
+  output[3] = nameEnd
+  output[4] = close
+  output[5] = end
+  return output as ParsedSegment
+}
+
 export function parseSegment(
   path: string,
   start: number,
@@ -28,34 +46,16 @@ export function parseSegment(
   const part = path.substring(start, end)
 
   if (!part || part.indexOf('$') === -1) {
-    output[0] = SEGMENT_TYPE_PATHNAME
-    output[1] = start
-    output[2] = start
-    output[3] = end
-    output[4] = end
-    output[5] = end
-    return output as ParsedSegment
+    return write(output, SEGMENT_TYPE_PATHNAME, start, start, end, end, end)
   }
 
   if (part === '$') {
     const total = path.length
-    output[0] = SEGMENT_TYPE_WILDCARD
-    output[1] = start
-    output[2] = start
-    output[3] = total
-    output[4] = total
-    output[5] = total
-    return output as ParsedSegment
+    return write(output, SEGMENT_TYPE_WILDCARD, start, start, total, total, total)
   }
 
   if (part.charCodeAt(0) === 36) {
-    output[0] = SEGMENT_TYPE_PARAM
-    output[1] = start
-    output[2] = start + 1
-    output[3] = end
-    output[4] = end
-    output[5] = end
-    return output as ParsedSegment
+    return write(output, SEGMENT_TYPE_PARAM, start, start + 1, end, end, end)
   }
 
   const openBrace = part.indexOf('{')
@@ -71,42 +71,42 @@ export function parseSegment(
         const paramStart = openBrace + 3
         const paramEnd = closeBrace
         if (paramStart < paramEnd) {
-          output[0] = SEGMENT_TYPE_OPTIONAL_PARAM
-          output[1] = start + openBrace
-          output[2] = start + paramStart
-          output[3] = start + paramEnd
-          output[4] = start + closeBrace + 1
-          output[5] = end
-          return output as ParsedSegment
+          return write(
+            output,
+            SEGMENT_TYPE_OPTIONAL_PARAM,
+            start + openBrace,
+            start + paramStart,
+            start + paramEnd,
+            start + closeBrace + 1,
+            end,
+          )
         }
       }
     } else if (firstChar === 36) {
       const dollarPos = openBrace + 1
       const afterDollar = openBrace + 2
       if (afterDollar === closeBrace) {
-        output[0] = SEGMENT_TYPE_WILDCARD
-        output[1] = start + openBrace
-        output[2] = start + dollarPos
-        output[3] = start + afterDollar
-        output[4] = start + closeBrace + 1
-        output[5] = path.length
-        return output as ParsedSegment
+        return write(
+          output,
+          SEGMENT_TYPE_WILDCARD,
+          start + openBrace,
+          start + dollarPos,
+          start + afterDollar,
+          start + closeBrace + 1,
+          path.length,
+        )
       }
-      output[0] = SEGMENT_TYPE_PARAM
-      output[1] = start + openBrace
-      output[2] = start + afterDollar
-      output[3] = start + closeBrace
-      output[4] = start + closeBrace + 1
-      output[5] = end
-      return output as ParsedSegment
+      return write(
+        output,
+        SEGMENT_TYPE_PARAM,
+        start + openBrace,
+        start + afterDollar,
+        start + closeBrace,
+        start + closeBrace + 1,
+        end,
+      )
     }
   }
 
-  output[0] = SEGMENT_TYPE_PATHNAME
-  output[1] = start
-  output[2] = start
-  output[3] = end
-  output[4] = end
-  output[5] = end
-  return output as ParsedSegment
+  return write(output, SEGMENT_TYPE_PATHNAME, start, start, end, end, end)
 }

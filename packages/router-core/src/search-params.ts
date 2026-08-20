@@ -15,17 +15,23 @@ export const defaultParseSearch = parseSearchWith(JSON.parse)
 export const defaultStringifySearch = stringifySearchWith(JSON.stringify, JSON.parse)
 
 export function parseSearchWith(parser: (str: string) => any) {
+  const isJsonParser = parser === JSON.parse
   return (searchStr: string): Record<string, any> => {
-    if (searchStr.charCodeAt(0) === 63) searchStr = searchStr.substring(1)
+    if (!searchStr) return Object.create(null)
+    if (searchStr.charCodeAt(0) === 63) {
+      if (searchStr.length === 1) return Object.create(null)
+      searchStr = searchStr.substring(1)
+    }
     const query = decode(searchStr)
     for (const key in query) {
       const value = query[key]
-      if (typeof value === 'string') {
-        try {
-          query[key] = parser(value)
-        } catch {
-          // keep the raw string
-        }
+      if (typeof value !== 'string') continue
+      // Ordinary words cannot be JSON. Skip the throw path.
+      if (isJsonParser && !looksLikeJson(value)) continue
+      try {
+        query[key] = parser(value)
+      } catch {
+        // keep the raw string
       }
     }
     return query

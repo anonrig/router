@@ -1,7 +1,6 @@
 import { bench, describe } from 'vitest'
 import { createMemoryHistory } from '../packages/history/src/index.ts'
-import { createRootRoute, createRoute } from '../packages/router-core/src/route.ts'
-import { RouterCore } from '../packages/router-core/src/router.ts'
+import { createRootRoute, createRoute, RouterCore } from '../packages/router-core/src/index.ts'
 
 function createNavRouter() {
   const root = createRootRoute()

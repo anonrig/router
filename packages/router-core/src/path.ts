@@ -23,10 +23,6 @@ export function joinPaths(paths: Array<string | undefined>) {
   return cleanPath(out)
 }
 
-const cleanCache: Record<string, string> = Object.create(null)
-const CLEAN_CACHE_MAX = 32
-const cleanCacheSize = { n: 0 }
-
 function setBounded<V>(
   cache: Record<string, V>,
   size: { n: number },
@@ -41,12 +37,15 @@ function setBounded<V>(
   cache[key] = value
 }
 
+let lastCleanPath = ''
+let lastCleanResult = ''
+
 export function cleanPath(path: string) {
-  const cached = cleanCache[path]
-  if (cached !== undefined) return cached
+  if (path === lastCleanPath) return lastCleanResult
   const first = path.indexOf('//')
   const result = first === -1 ? path : collapseSlashes(path, first)
-  setBounded(cleanCache, cleanCacheSize, path, result, CLEAN_CACHE_MAX)
+  lastCleanPath = path
+  lastCleanResult = result
   return result
 }
 
@@ -112,24 +111,6 @@ interface ResolvePathOptions {
   cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
-const defaultResolveCache: Record<string, string> = Object.create(null)
-const RESOLVE_CACHE_MAX = 64
-const defaultResolveCacheSize = { n: 0 }
-
-function rememberResolved(
-  cache: ResolvePathOptions['cache'] | undefined,
-  key: string | undefined,
-  result: string,
-) {
-  if (!key) return result
-  if (!cache) {
-    setBounded(defaultResolveCache, defaultResolveCacheSize, key, result, RESOLVE_CACHE_MAX)
-    return result
-  }
-  cache.set(key, result)
-  return result
-}
-
 let lastResolveBase = ''
 let lastResolveTo = ''
 let lastResolveSlash: ResolvePathOptions['trailingSlash'] = 'never'
@@ -148,17 +129,21 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
   const isAbsolute = to.charCodeAt(0) === 47
 
   let key: string | undefined
-  key = isAbsolute ? to : isBase ? base : base + '\0' + to
-  if (trailingSlash !== 'never') key += '\0' + trailingSlash
-  const cached = cache ? cache.get(key) : defaultResolveCache[key]
-  if (cached) {
-    if (!cache) {
-      lastResolveBase = base
-      lastResolveTo = to
-      lastResolveSlash = trailingSlash
-      lastResolveResult = cached
-    }
-    return cached
+  if (cache) {
+    key = isAbsolute ? to : isBase ? base : base + '\0' + to
+    if (trailingSlash !== 'never') key += '\0' + trailingSlash
+    const cached = cache.get(key)
+    if (cached) return cached
+  }
+
+  if (
+    isAbsolute &&
+    trailingSlash === 'never' &&
+    to.indexOf('.') === -1 &&
+    to.indexOf('//') === -1
+  ) {
+    const result = to.length > 1 && to.charCodeAt(to.length - 1) === 47 ? to.slice(0, -1) : to
+    return finishResolve(cache, key, result || '/', base, to, trailingSlash, !cache)
   }
 
   if (isAbsolute && !hasDotSegment(to)) {
@@ -227,14 +212,14 @@ function finishResolve(
   trailingSlash: ResolvePathOptions['trailingSlash'],
   rememberLast: boolean,
 ) {
-  const stored = rememberResolved(cache, key, result)
+  if (cache && key) cache.set(key, result)
   if (rememberLast) {
     lastResolveBase = base
     lastResolveTo = to
     lastResolveSlash = trailingSlash
-    lastResolveResult = stored
+    lastResolveResult = result
   }
-  return stored
+  return result
 }
 
 function hasDotSegment(path: string) {

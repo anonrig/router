@@ -34,6 +34,9 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
   router.startTransition = transition
 
   useLayoutEffect(() => {
+    // StrictMode replays this effect: cleanup restores the default
+    // startTransition, so put the wrapper back before any load runs.
+    router.startTransition = installedTransition.current
     router._attachHistory?.()
     if (mountedFor.current !== router) {
       mountedFor.current = router

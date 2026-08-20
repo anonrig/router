@@ -51,7 +51,9 @@ async function bundle(
       'speedy-router-core/is-server': join(root, 'packages/router-core/src/is-server.ts'),
       'speedy-router-core/ssr/client': join(root, 'packages/router-core/src/ssr/client.ts'),
       'speedy-router-core/ssr/server': join(root, 'packages/router-core/src/ssr/server.ts'),
+      'speedy-router-core/warm': join(root, 'packages/router-core/src/warm.ts'),
       'speedy-router': join(root, 'packages/react-router/src/index.ts'),
+      'speedy-router/warm': join(root, 'packages/react-router/src/warm.ts'),
       'speedy-router/ssr/client': join(root, 'packages/react-router/src/ssr/client.ts'),
     },
     external: [
@@ -130,6 +132,29 @@ describe('dead code elimination', () => {
     const code = allCode(chunks)
     expect(code).toContain('loadServerRoute')
     expect(code).toMatch(/setLoadServerRoute\s*\(\s*loadServerRoute\s*\)/)
+  })
+
+  it('keeps the warm loader on the default client graph', async () => {
+    const { chunks } = await bundle(`
+      import { createRootRoute, createRouter } from 'speedy-router-core'
+      export const router = createRouter({ routeTree: createRootRoute() })
+    `)
+    const code = allCode(chunks)
+    expect(code).toContain('createRouter')
+    expect(code).toContain('Too many redirects')
+    expect(serverMarkers.filter((marker) => code.includes(marker))).toEqual([])
+  })
+
+  it('installs the warm loader when the warm entry is imported', async () => {
+    const { chunks } = await bundle(`
+      import { createRootRoute, createRouter } from 'speedy-router-core'
+      import { tryWarmLoad } from 'speedy-router-core/warm'
+      export const router = createRouter({ routeTree: createRootRoute() })
+      export { tryWarmLoad }
+    `)
+    const code = allCode(chunks)
+    expect(code).toContain('tryWarmLoad')
+    expect(code).toContain('setWarmLoad')
   })
 
   it('keeps scroll setup listeners out of useElementScrollRestoration', async () => {
