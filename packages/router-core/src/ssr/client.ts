@@ -1,5 +1,5 @@
 export { mergeHeaders } from './headers'
 export { json } from './json'
 export type { JsonResponse } from './json'
-export * from './ssr-client'
+export { hydrate } from '../load-hydrate'
 export type { TsrSsrGlobal, DehydratedMatch, DehydratedRouter } from './types'

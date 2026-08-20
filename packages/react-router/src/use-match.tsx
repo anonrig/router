@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { dummyMatchContext, matchContext } from './match-context'
+import { matchContext } from './match-context'
 import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
@@ -77,7 +77,7 @@ export function useMatch<
   >,
 ): ThrowOrOptional<UseMatchResult<TRouter, TFrom, TStrict, TSelected>, TThrow> {
   const router = useRouter<TRouter>()
-  const nearest = useContext(opts?.from ? dummyMatchContext : matchContext)
+  const nearest = useContext(matchContext)
   const from = opts?.from ?? nearest
 
   return useRouterState({

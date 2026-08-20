@@ -1,7 +1,12 @@
 import { basename, relative, resolve, sep } from 'node:path'
 import { generateRouteTree, type GenerateRouteTreeOptions } from './generate'
-import { fileNameFromModuleId, splitTargetFromModuleId } from './module-id'
-import { isRouteFile, matchesRouteFileIgnorePattern, toPosix } from './scan'
+import {
+  fileNameFromModuleId,
+  isRouteFile,
+  matchesRouteFileIgnorePattern,
+  splitTargetFromModuleId,
+  toPosix,
+} from './scan'
 import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
 
 export type TanStackRouterPluginOptions = GenerateRouteTreeOptions & {

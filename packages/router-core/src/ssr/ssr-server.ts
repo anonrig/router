@@ -1,11 +1,10 @@
 import { crossSerializeStream, getCrossReferenceHeader } from 'seroval'
-import { decodePath, invariant, isPromise } from '../utils'
+import { createLRUCache, decodePath, invariant, isPromise, type LRUCache } from '../utils'
 import {
   createInlineCssPlaceholderAsset,
   createInlineCssStyleAsset,
   getStylesheetHref,
 } from '../manifest'
-import { createLRUCache } from '../lru-cache'
 import { rootRouteId } from '../root'
 import { _getRenderedMatches } from '../load-chunk'
 import minifiedTsrBootStrapScript from './tsr-script?script-string'
@@ -14,7 +13,6 @@ import { dehydrateSsrMatchId } from './ssr-match-id'
 import { defaultSerovalPlugins } from './serializer/seroval-plugins'
 import { makeSsrSerovalPlugin } from './serializer/transformer'
 import { registerLoadServerRoute } from './register-load-server'
-import type { LRUCache } from '../lru-cache'
 import type { DehydratedMatch, DehydratedRouter } from './types'
 import type { AnySerializationAdapter } from './serializer/transformer'
 import type { AnyRouter, ServerSsr } from '../router'
@@ -199,41 +197,19 @@ function getInlineCssForPreparedRoutes(
   return css
 }
 
-function getInlineCssAssetForPreparedRoutes(
+function getPreparedMatchedManifestRoutes(
   manifest: ServerManifest,
-  preparedRoutes: PreparedMatchedManifestRoutes,
+  matches: Array<AnyRouteMatch>,
 ) {
-  const css = getInlineCssForPreparedRoutes(manifest, preparedRoutes)
-
-  return css === undefined ? undefined : createInlineCssStyleAsset(css)
-}
-
-function getMatchedRoutesCacheKey(matches: Array<AnyRouteMatch>) {
   let cacheKey = ''
   for (let i = 0; i < matches.length; i++) {
     cacheKey += (i === 0 ? '' : '\0') + matches[i]!.routeId
   }
-  return cacheKey
-}
-
-function getPreparedMatchedManifestRoutes(
-  manifest: ServerManifest,
-  matches: Array<AnyRouteMatch>,
-  cacheKey: string,
-) {
-  if (isProd) {
-    const cached = getManifestCache(manifest).get(cacheKey)
-    if (cached) {
-      return cached
-    }
-  }
-
+  const cache = isProd ? getManifestCache(manifest) : undefined
+  const cached = cache?.get(cacheKey)
+  if (cached) return cached
   const preparedRoutes = prepareMatchedManifestRoutes(manifest, matches)
-
-  if (isProd) {
-    getManifestCache(manifest).set(cacheKey, preparedRoutes)
-  }
-
+  cache?.set(cacheKey, preparedRoutes)
   return preparedRoutes
 }
 
@@ -338,12 +314,8 @@ function withoutCss(route: ManifestRoute): ManifestRoute {
   return nextRoute
 }
 
-function hasRouteAssets(route: ManifestRoute) {
-  return !!route.scripts?.length || !!route.css?.length
-}
-
 function hasRequestAssets(assets: ManifestRouteAssets | undefined) {
-  return !!assets && (!!assets.preloads?.length || hasRouteAssets(assets))
+  return !!assets && (!!assets.preloads?.length || !!assets.scripts?.length || !!assets.css?.length)
 }
 
 function concatAssets<T>(
@@ -395,22 +367,18 @@ function matchedManifestView(
   let routes = manifest.routes
   let inlineStyle: Manifest['inlineStyle'] | undefined
   if (!opts.includeUnmatchedRoutes || manifest.inlineCss) {
-    const prepared = getPreparedMatchedManifestRoutes(
-      manifest,
-      matches,
-      getMatchedRoutesCacheKey(matches),
-    )
+    const prepared = getPreparedMatchedManifestRoutes(manifest, matches)
     routes = opts.includeUnmatchedRoutes
       ? prepared.hasStrippedRoutes
         ? { ...manifest.routes, ...prepared.routes }
         : manifest.routes
       : prepared.routes
-    inlineStyle =
-      opts.inlineStyle === 'asset'
-        ? getInlineCssAssetForPreparedRoutes(manifest, prepared)
-        : prepared.inlineCssHrefs
-          ? createInlineCssPlaceholderAsset()
-          : undefined
+    if (opts.inlineStyle === 'asset') {
+      const css = getInlineCssForPreparedRoutes(manifest, prepared)
+      inlineStyle = css === undefined ? undefined : createInlineCssStyleAsset(css)
+    } else if (prepared.inlineCssHrefs) {
+      inlineStyle = createInlineCssPlaceholderAsset()
+    }
   }
   if (hasRequestAssets(opts.requestAssets)) {
     routes = {

@@ -1,6 +1,6 @@
 import type { AnyRouter } from './router'
 
-function getScrollElement(selector: string | (() => Element | null | undefined)) {
+export function queryScrollElement(selector: string | (() => Element | null | undefined)) {
   try {
     return typeof selector === 'function' ? selector() : document.querySelector(selector)
   } catch {
@@ -29,7 +29,7 @@ export function setupDefaultScroll(router: AnyRouter) {
       if (selectors) {
         for (const selector of selectors) {
           if (selector === 'window') continue
-          getScrollElement(selector)?.scrollTo(scrollOptions)
+          queryScrollElement(selector)?.scrollTo(scrollOptions)
         }
       }
     }

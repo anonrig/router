@@ -205,7 +205,7 @@ function applyRequestLocation(router: AnyRouter, request: Request) {
   // A reused router at the same URL still belongs to a new request. Fresh
   // history avoids inheriting the previous request's location state.
   if (
-    hasPriorServerRequestState(router) ||
+    router._committed.length > 0 ||
     !current ||
     currentHref !== href ||
     router.origin !== origin
@@ -252,10 +252,6 @@ function trySimpleAbsoluteHttpUrl(url: string): { origin: string; href: string }
     if (c === 37 || c === 63 || c === 35 || c === 92 || c <= 0x20) return
   }
   return { origin, href }
-}
-
-function hasPriorServerRequestState(router: AnyRouter) {
-  return router._committed.length > 0
 }
 
 function getRequestHeaders(router: AnyRouter): Headers {
