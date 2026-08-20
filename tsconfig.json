@@ -58,6 +58,6 @@
       "@tanstack/react-router/Scripts": ["./packages/react-router/src/scripts.tsx"]
     }
   },
-  "include": ["packages", "benches", "tests"],
+  "include": ["packages/*/src"],
   "exclude": ["packages/*/dist"]
 }
