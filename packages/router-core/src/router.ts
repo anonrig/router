@@ -1118,27 +1118,39 @@ export class RouterCore<
           href = `${current.pathname}${href}${inheritedHash}`
         }
       }
-      const parsed = parseHref(href, {} as any)
-      // Keep relative pathnames (`./x`, `../y`, `z`) as `to` values so
-      // resolvePath can join them to the current location. Wrapping them in
-      // `new URL(pathname, origin)` would pin them at the origin root.
-      let to = decodePath(parsed.pathname).path
-      if (this.rewrite) {
-        const rewritePath =
-          to && to.charCodeAt(0) !== 47 && current
-            ? resolvePath({
-                base: current.pathname || '/',
-                to,
-                trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-              })
-            : to || '/'
-        to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
-      }
-      dest = {
-        ...dest,
-        to,
-        search: (this.options.parseSearch ?? defaultParseSearch)(parsed.search),
-        hash: stripLeadingHash(parsed.hash || ''),
+      if (
+        href0 === 47 &&
+        href.indexOf('?') === -1 &&
+        href.indexOf('#') === -1 &&
+        !this.rewrite &&
+        isPlainAsciiPath(href)
+      ) {
+        dest = { ...dest, to: href, search: EMPTY_OBJ, hash: '' }
+      } else {
+        const parsed = parseHref(href, {} as any)
+        // Keep relative pathnames (`./x`, `../y`, `z`) as `to` values so
+        // resolvePath can join them to the current location. Wrapping them in
+        // `new URL(pathname, origin)` would pin them at the origin root.
+        let to = decodePath(parsed.pathname).path
+        if (this.rewrite) {
+          const rewritePath =
+            to && to.charCodeAt(0) !== 47 && current
+              ? resolvePath({
+                  base: current.pathname || '/',
+                  to,
+                  trailingSlash: (this.options.trailingSlash as any) ?? 'never',
+                })
+              : to || '/'
+          to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
+        }
+        dest = {
+          ...dest,
+          to,
+          search: parsed.search
+            ? (this.options.parseSearch ?? defaultParseSearch)(parsed.search)
+            : EMPTY_OBJ,
+          hash: stripLeadingHash(parsed.hash || ''),
+        }
       }
     }
     const matches = this.stores?.matches?.get?.()?.length
@@ -1149,9 +1161,10 @@ export class RouterCore<
     const currentMatch = lastMatch(matches)
     const { resolved, destRouteHint } = resolveBuildPath(this, dest, current, currentMatch)
     const nextSearch = resolveBuildSearch(this, dest, current, resolved)
-    const searchStr = (this.options.stringifySearch ?? defaultStringifySearch)(
-      nextSearch ?? EMPTY_OBJ,
-    )
+    const searchStr =
+      !nextSearch || nextSearch === EMPTY_OBJ
+        ? ''
+        : (this.options.stringifySearch ?? defaultStringifySearch)(nextSearch)
     const hash = resolveBuildHash(dest, current)
     const hashStr = hash ? `#${hash}` : ''
     const base = trimPath(this.basepath || '/')
@@ -1931,6 +1944,21 @@ function resolveBuildPath(
   }
   if (typeof to !== 'string') to = current?.pathname ?? '/'
 
+  const destRouteHint =
+    typeof to === 'string' ? router.routesByPath?.[trimPathRight(to)] : undefined
+
+  // Absolute/static destinations do not inherit or stringify params.
+  if (dest.params === undefined && !dest.leaveParams && to.indexOf('$') === -1) {
+    return {
+      resolved: resolvePath({
+        base: fromPath || '/',
+        to: to || '/',
+        trailingSlash: (router.options.trailingSlash as any) ?? 'never',
+      }),
+      destRouteHint,
+    }
+  }
+
   const currentParams = Object.assign(Object.create(null), currentMatch?.params ?? EMPTY_OBJ)
   if (current?.pathname && router.processedTree) {
     const found = findRouteMatch(
@@ -1947,8 +1975,6 @@ function resolveBuildPath(
   }
   const nextParams = resolveNextParams(dest.params, currentParams)
 
-  const destRouteHint =
-    typeof to === 'string' ? router.routesByPath?.[trimPathRight(to)] : undefined
   const stringifyRoutes = destRouteHint
     ? buildRouteBranch(destRouteHint as AnyRoute)
     : currentMatch
@@ -2000,6 +2026,11 @@ function resolveBuildSearch(
   current: ParsedLocation | undefined,
   resolved: string,
 ) {
+  if (!router._hasSearchWork && !slotRuntime) {
+    if (dest.search === true) return current?.search ?? EMPTY_OBJ
+    if (dest.search) return functionalUpdate(dest.search, current?.search ?? EMPTY_OBJ)
+    return dest.to ? EMPTY_OBJ : (current?.search ?? EMPTY_OBJ)
+  }
   const currentSearch = { ...(current?.search ?? EMPTY_OBJ) }
   const destRoute = router.routesByPath?.[trimPathRight(resolved)] as AnyRoute | undefined
   const destRoutes = destRoute

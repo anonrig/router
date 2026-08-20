@@ -136,6 +136,16 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
     if (cached) return cached
   }
 
+  if (
+    isAbsolute &&
+    trailingSlash === 'never' &&
+    to.indexOf('.') === -1 &&
+    to.indexOf('//') === -1
+  ) {
+    const result = to.length > 1 && to.charCodeAt(to.length - 1) === 47 ? to.slice(0, -1) : to
+    return finishResolve(cache, key, result || '/', base, to, trailingSlash, !cache)
+  }
+
   if (isAbsolute && !hasDotSegment(to)) {
     const result = cleanPath(to) || '/'
     const hasSlash = result.length > 1 && result.charCodeAt(result.length - 1) === 47

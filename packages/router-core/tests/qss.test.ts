@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { decode, encode } from '../src/qss'
 import { defaultParseSearch, defaultStringifySearch } from '../src/search-params'
 
@@ -55,6 +55,23 @@ describe('qss', () => {
     const first = decode('foo=bar')
     first.foo = 'mutated'
     expect(decode('foo=bar')).toEqual({ foo: 'bar' })
+  })
+})
+
+describe('search params parse skips', () => {
+  it('does not JSON.parse ordinary words', () => {
+    const parse = vi.spyOn(JSON, 'parse')
+    try {
+      expect(defaultParseSearch('?q=router&tab=specs')).toEqual({ q: 'router', tab: 'specs' })
+      expect(parse).not.toHaveBeenCalled()
+    } finally {
+      parse.mockRestore()
+    }
+  })
+
+  it('still parses JSON objects and quoted strings', () => {
+    expect(defaultParseSearch('?foo={"bar":1}')).toEqual({ foo: { bar: 1 } })
+    expect(defaultParseSearch('?foo=%22true%22')).toEqual({ foo: 'true' })
   })
 })
 
