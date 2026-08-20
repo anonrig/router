@@ -136,12 +136,14 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
     let baseSegments: Array<string>
     if (isBase) {
       baseSegments = splitPath(base)
-    } else if (isAbsolute) {
-      baseSegments = splitPath(to)
     } else {
-      baseSegments = splitPath(base)
-      while (baseSegments.length > 1 && baseSegments[baseSegments.length - 1] === '') {
-        baseSegments.pop()
+      if (isAbsolute) {
+        baseSegments = ['']
+      } else {
+        baseSegments = splitPath(base)
+        while (baseSegments.length > 1 && baseSegments[baseSegments.length - 1] === '') {
+          baseSegments.pop()
+        }
       }
 
       const toSegments = splitPath(to)
