@@ -5,6 +5,18 @@ import { createStringMap, objectValues } from './utils'
 import { isRedirect } from './redirect'
 import { _getRenderedMatches, loadRouteChunk } from './load-chunk'
 import { getLocationChangeInfo, matchParentContext, runRouteLifecycle } from './router'
+import {
+  ERROR,
+  NOT_FOUND,
+  REDIRECTED,
+  SUCCESS,
+  findNotFoundBoundary,
+  getRoute,
+  navigateFrom,
+  normalize,
+  pendingRouteOptions,
+  resolveRouteLoader,
+} from './load-shared'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
 import type { NotFoundError } from './not-found'
@@ -24,6 +36,7 @@ export {
   loadRouteChunk,
   replaceRouteChunk,
 } from './load-chunk'
+export { getRoute, navigateFrom } from './load-shared'
 
 declare const lanePhase: unique symbol
 
@@ -50,11 +63,7 @@ type ContextualizedLane = Lane<'contextualized'>
 type ReducedLane = Lane<'reduced'>
 type ProjectedLane = Lane<'projected'>
 
-const SUCCESS = 0
-const ERROR = 1
-const NOT_FOUND = 2
-// Control outcomes stay contiguous so the hot path can test them together.
-const REDIRECTED = 3
+// SUCCESS..REDIRECTED come from `load-shared`; CANCELED is client-specific.
 const CANCELED = 4
 
 type RedirectOutcome = [kind: typeof REDIRECTED, redirect: AnyRedirect, location?: ParsedLocation]
@@ -168,24 +177,6 @@ export function waitFor<T>(value: T | PromiseLike<T>, signal: AbortSignal): Prom
   })
 }
 
-export function getRoute(router: AnyRouter, match: WorkMatch): AnyRoute {
-  return (router.routesById as Record<string, AnyRoute>)[match.routeId]!
-}
-
-function normalize(value: unknown, rejected: boolean, routeId?: string): LoaderOutcome {
-  if (isRedirect(value)) {
-    return [REDIRECTED, value]
-  }
-  if (isNotFound(value)) {
-    value.routeId ||= routeId
-    return [NOT_FOUND, value]
-  }
-  if (rejected && typeof (value as any)?.then === 'function') {
-    value = new Error('A Promise was thrown', { cause: value })
-  }
-  return rejected ? [ERROR, value] : [SUCCESS, value]
-}
-
 function normalizeError(route: AnyRoute, cause: unknown): LoaderOutcome {
   let outcome = normalize(cause, true, route.id)
   if (outcome[0 /* kind */] !== ERROR) {
@@ -252,18 +243,9 @@ function materializeRedirect(
 
 /** Load deferred route options for generated stubs. Component-only `.lazy()` is unchanged. */
 export function ensureRouteOptions(route: AnyRoute, signal?: AbortSignal): void | Promise<void> {
-  if (!route._lazyOptions || !route.lazyFn || route._lazy === true) return
-  const loading = loadRouteChunk(route, false)
+  const loading = pendingRouteOptions(route)
   if (!loading) return
   return signal ? waitFor(loading, signal) : loading
-}
-
-export function navigateFrom(router: AnyRouter, location: ParsedLocation) {
-  return (opts: any) =>
-    router.navigate({
-      ...opts,
-      _fromLocation: location,
-    })
 }
 
 async function contextualize(
@@ -716,7 +698,7 @@ function createLoaderTask(
     reloadFailure = normalizeLaneError(router, lane, route, cause, options)
   }
   const routeLoader = route.options.loader
-  const loader = typeof routeLoader === 'function' ? routeLoader : routeLoader?.handler
+  const loader = resolveRouteLoader(routeLoader)
   let donor =
     (!preload || route.options.preload !== false) &&
     routeLoader &&
@@ -851,37 +833,30 @@ function createLoaderTask(
   return backgroundOutcome.then((result) => getParentSnapshot(candidate, result))
 }
 
-async function getNotFoundBoundary(
+function getNotFoundBoundary(
   router: AnyRouter,
   matches: Array<WorkMatch>,
   indexed: IndexedOutcome | undefined,
   signal: AbortSignal,
   fallback = 0,
 ): Promise<number> {
-  const cause = indexed?.[1 /* outcome */][1 /* error or redirect */] as NotFoundError | undefined
-  let index = cause?.routeId
-    ? matches.findIndex((match) => match.routeId === cause.routeId)
-    : (indexed?.[0 /* index */] ?? matches.length - 1)
-  if (index < 0) {
-    index = 0
-  }
-  for (let i = index; i >= 0; i--) {
-    const route = getRoute(router, matches[i]!)
-    const loading = loadRouteChunk(route, false)
-    if (loading) {
-      try {
-        await waitFor(loading, signal)
-      } catch (cause) {
-        if (cause === signal && signal.aborted) {
-          throw cause
-        }
-      }
-    }
-    if (route.options.notFoundComponent) {
-      return i
-    }
-  }
-  return cause?.routeId ? index : fallback
+  return findNotFoundBoundary(
+    router,
+    matches,
+    indexed,
+    (loading) =>
+      loading &&
+      waitFor(loading, signal).then(
+        () => {},
+        (cause) => {
+          // Chunk failures fall back to shallower boundaries; only aborts escape.
+          if (cause === signal && signal.aborted) {
+            throw cause
+          }
+        },
+      ),
+    fallback,
+  )
 }
 
 function discardBackground(router: AnyRouter, lane: Lane<any>): void {
@@ -1651,32 +1626,24 @@ async function runClientTransaction(
     await followRedirect(router, tx, result)
     return
   }
-  if (router._tx !== tx) {
+  const abandoned = () => {
+    if (router._tx === tx) {
+      return false
+    }
     finishPending(router, tx)
     discardLane(router, result)
-    return
+    return true
   }
+  if (abandoned()) return
   await awaitPendingMinimum(router, tx)
-  if (router._tx !== tx) {
-    finishPending(router, tx)
-    discardLane(router, result)
-    return
-  }
+  if (abandoned()) return
   const toLocation = tx[2 /* location */]
   const changeInfo = getLocationChangeInfo(toLocation, router.stores.resolvedLocation.get())
   const background = result[2 /* background */]
   await router.startViewTransition(async () => {
-    if (router._tx !== tx) {
-      finishPending(router, tx)
-      discardLane(router, result)
-      return
-    }
+    if (abandoned()) return
     await awaitPendingMinimum(router, tx)
-    if (router._tx !== tx) {
-      finishPending(router, tx)
-      discardLane(router, result)
-      return
-    }
+    if (abandoned()) return
     const commit = () => {
       finishPending(router, tx)
       commitMatches(router, tx, result[1 /* matches */], resolvedPrefix)
