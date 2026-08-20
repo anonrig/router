@@ -90,7 +90,20 @@ interface ResolvePathOptions {
   cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
+let lastResolveBase = ''
+let lastResolveTo = ''
+let lastResolveSlash: ResolvePathOptions['trailingSlash'] = 'never'
+let lastResolveResult = ''
+
 export function resolvePath({ base, to, trailingSlash = 'never', cache }: ResolvePathOptions) {
+  if (
+    !cache &&
+    base === lastResolveBase &&
+    to === lastResolveTo &&
+    trailingSlash === lastResolveSlash
+  ) {
+    return lastResolveResult
+  }
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
 
@@ -157,7 +170,14 @@ export function resolvePath({ base, to, trailingSlash = 'never', cache }: Resolv
     result = cleanPath(baseSegments.join('/')) || '/'
   }
 
-  if (cache && key !== undefined) cache.set(key, result)
+  if (cache && key !== undefined) {
+    cache.set(key, result)
+  } else if (!cache) {
+    lastResolveBase = base
+    lastResolveTo = to
+    lastResolveSlash = trailingSlash
+    lastResolveResult = result
+  }
   return result
 }
 
@@ -258,7 +278,11 @@ function unescapeEncodedExclamation(decoded: string): string {
 
 type SimplePart = { t: 0; s: string } | { t: 1; k: string }
 
+let lastSimplePath = ''
+let lastSimpleParts: SimplePart[] | null = null
+
 function compileSimpleParams(path: string): SimplePart[] | null {
+  if (path === lastSimplePath) return lastSimpleParts
   const parts: SimplePart[] = []
   let i = 0
   const len = path.length
@@ -270,13 +294,19 @@ function compileSimpleParams(path: string): SimplePart[] | null {
     }
     let j = i + 1
     while (j < len && path.charCodeAt(j) !== 47) j++
-    if (j === i + 1) return null
+    if (j === i + 1) {
+      lastSimplePath = path
+      lastSimpleParts = null
+      return null
+    }
     if (i > litStart) parts.push({ t: 0, s: path.slice(litStart, i) })
     parts.push({ t: 1, k: path.slice(i + 1, j) })
     i = j
     litStart = j
   }
   if (litStart < len) parts.push({ t: 0, s: path.slice(litStart) })
+  lastSimplePath = path
+  lastSimpleParts = parts
   return parts
 }
 
