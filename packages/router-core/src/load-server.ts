@@ -848,7 +848,9 @@ function executeFastServerLane(
     match.context = loaderParentContext
     match.isFetching = false
     match.__beforeLoadContext = undefined
-    const loaderFn = resolveRouteLoader(route.options?.loader)
+    // Hot per-request lane: keep the loader resolution inlined.
+    const loader = route.options?.loader
+    const loaderFn = typeof loader === 'function' ? loader : loader?.handler
     if (loaderFn) {
       try {
         const extra = router.options.additionalContext
