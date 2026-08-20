@@ -1,13 +1,5 @@
-import { createRoute } from './route'
+import { bindRouteHooks, createRoute } from './route'
 
-import { useMatch } from './use-match'
-import { useLoaderDeps } from './use-loader-deps'
-import { useLoaderData } from './use-loader-data'
-import { useSearch } from './use-search'
-import { useParams } from './use-params'
-import { useNavigate } from './use-navigate'
-import { useRouter } from './use-router'
-import { useRouteContext } from './use-route-context'
 import type { UseParamsRoute } from './use-params'
 import type { UseMatchRoute } from './use-match'
 import type { UseSearchRoute } from './use-search'
@@ -256,50 +248,16 @@ export class LazyRoute<TRoute extends AnyRoute> {
     } & LazyRouteOptions,
   ) {
     this.options = opts
+    bindRouteHooks(this, () => this.options.id, undefined, { lookupFullPath: true })
   }
 
-  useMatch: UseMatchRoute<TRoute['id']> = (opts) => {
-    return useMatch({
-      select: opts?.select,
-      from: this.options.id,
-      structuralSharing: opts?.structuralSharing,
-    } as any) as any
-  }
-
-  useRouteContext: UseRouteContextRoute<TRoute['id']> = (opts) => {
-    return useRouteContext({ ...(opts as any), from: this.options.id })
-  }
-
-  useSearch: UseSearchRoute<TRoute['id']> = (opts) => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    return useSearch({
-      select: opts?.select,
-      structuralSharing: opts?.structuralSharing,
-      from: this.options.id,
-    } as any) as any
-  }
-
-  useParams: UseParamsRoute<TRoute['id']> = (opts) => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    return useParams({
-      select: opts?.select,
-      structuralSharing: opts?.structuralSharing,
-      from: this.options.id,
-    } as any) as any
-  }
-
-  useLoaderDeps: UseLoaderDepsRoute<TRoute['id']> = (opts) => {
-    return useLoaderDeps({ ...opts, from: this.options.id } as any)
-  }
-
-  useLoaderData: UseLoaderDataRoute<TRoute['id']> = (opts) => {
-    return useLoaderData({ ...opts, from: this.options.id } as any)
-  }
-
-  useNavigate = (): UseNavigateResult<TRoute['fullPath']> => {
-    const router = useRouter()
-    return useNavigate({ from: router.routesById[this.options.id]?.fullPath })
-  }
+  declare useMatch: UseMatchRoute<TRoute['id']>
+  declare useRouteContext: UseRouteContextRoute<TRoute['id']>
+  declare useSearch: UseSearchRoute<TRoute['id']>
+  declare useParams: UseParamsRoute<TRoute['id']>
+  declare useLoaderDeps: UseLoaderDepsRoute<TRoute['id']>
+  declare useLoaderData: UseLoaderDataRoute<TRoute['id']>
+  declare useNavigate: () => UseNavigateResult<TRoute['fullPath']>
 }
 
 /**
