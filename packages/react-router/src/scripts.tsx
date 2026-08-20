@@ -1,9 +1,9 @@
 import { _getAssetMatches, deepEqual } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
-import { Asset } from './asset'
+import { Asset, collectMatchAssets } from './asset'
 import { useRouter } from './use-router'
 import { useStore } from './react-store'
-import type { RouterManagedTag } from 'speedy-router-core'
+import type { AnyRouteMatch, RouterManagedTag } from 'speedy-router-core'
 
 type ScriptRenderAsset = RouterManagedTag & {
   preventScriptHoist?: boolean
@@ -17,23 +17,12 @@ export const Scripts = () => {
   const router = useRouter()
   const nonce = router.options.ssr?.nonce
 
-  const getScripts = (matches: Array<any>) => {
+  const getScripts = (matches: Array<AnyRouteMatch>) => {
     matches = _getAssetMatches(matches)
-    const scripts = matches
-      .flatMap((match) => match.scripts ?? [])
-      .filter(Boolean)
-      .map(
-        ({ children, ...script }) =>
-          ({
-            tag: 'script',
-            attrs: {
-              ...script,
-              suppressHydrationWarning: true,
-              nonce,
-            },
-            children,
-          }) satisfies RouterManagedTag,
-      ) as Array<ScriptRenderAsset>
+    const scripts = collectMatchAssets(matches, 'scripts', 'script', {
+      suppressHydrationWarning: true,
+      nonce,
+    }) as Array<ScriptRenderAsset>
     const manifest = router.ssr?.manifest
 
     if (!manifest) {
@@ -71,7 +60,7 @@ export const Scripts = () => {
   // eslint-disable-next-line react-hooks/rules-of-hooks -- condition is static
   const scripts = useStore(
     router.stores.state,
-    (state: { matches: Array<any> }) => getScripts(state.matches),
+    (state: { matches: Array<AnyRouteMatch> }) => getScripts(state.matches),
     deepEqual,
   )
 
