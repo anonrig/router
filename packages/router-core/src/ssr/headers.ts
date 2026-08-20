@@ -1,40 +1,20 @@
 import { splitSetCookieString } from 'cookie-es'
 import type { OutgoingHttpHeaders } from 'node:http2'
 
-export type AnyHeaders =
-  | Headers
-  | HeadersInit
-  | Record<string, string>
-  | Array<[string, string]>
-  | OutgoingHttpHeaders
-  | undefined
+export type AnyHeaders = HeadersInit | OutgoingHttpHeaders | undefined
 
-// Helper function to convert various HeaderInit types to a Headers instance
-function toHeadersInstance(init: AnyHeaders) {
-  if (init instanceof Headers) {
-    return init
-  } else if (Array.isArray(init)) {
-    return new Headers(init)
-  } else if (typeof init === 'object') {
-    return new Headers(init as HeadersInit)
-  } else {
-    return null
-  }
-}
-
-// Function to merge headers with proper overrides
 export function mergeHeaders(...headers: Array<AnyHeaders>) {
-  return headers.reduce((acc: Headers, header) => {
-    const headersInstance = toHeadersInstance(header)
-    if (!headersInstance) return acc
-    for (const [key, value] of headersInstance.entries()) {
+  const merged = new Headers()
+  for (const header of headers) {
+    if (!header) continue
+    const entries = header instanceof Headers ? header : new Headers(header as HeadersInit)
+    for (const [key, value] of entries) {
       if (key === 'set-cookie') {
-        const splitCookies = splitSetCookieString(value)
-        splitCookies.forEach((cookie) => acc.append('set-cookie', cookie))
+        for (const cookie of splitSetCookieString(value)) merged.append(key, cookie)
       } else {
-        acc.set(key, value)
+        merged.set(key, value)
       }
     }
-    return acc
-  }, new Headers())
+  }
+  return merged
 }
