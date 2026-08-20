@@ -2027,21 +2027,6 @@ export class BaseRootRoute<
   }
 }
 
-//
-
-export interface RouteLike {
-  id: string
-  isRoot?: boolean
-  path?: string
-  fullPath: string
-  rank?: number
-  parentRoute?: RouteLike
-  children?: Array<RouteLike>
-  options?: {
-    caseSensitive?: boolean
-  }
-}
-
 export const createRoute = /*#__PURE__*/ (options: any = {}) => new BaseRoute(options as any)
 
 export const createRootRoute = /*#__PURE__*/ (options: any = {}) =>

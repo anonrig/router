@@ -132,5 +132,3 @@ export function processRouteMasks(
   }
   return routeList
 }
-
-export type { RouteMatchResult as CompatRouteMatchResult }

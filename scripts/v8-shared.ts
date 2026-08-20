@@ -8,6 +8,19 @@ export const natives = (src: string) => new Function('fn', `return ${src}`) as (
  *   1 fn  2 never-opt  8 maybe-deopted  16 optimized
  *   32 maglev  64 turbofan  128 interpreted  32768 baseline
  */
+export function formatFnStatus(status: number) {
+  return `${status}\t${describeStatus(status)}`
+}
+
+export function statusOf(getOptimizationStatus: (fn: Function) => number, fn: unknown): string {
+  if (typeof fn !== 'function') return 'missing'
+  try {
+    return formatFnStatus(getOptimizationStatus(fn))
+  } catch (err) {
+    return `crash\t${(err as Error).message}`
+  }
+}
+
 export function describeStatus(status: number): string {
   const flags: string[] = []
   if (status & 1) flags.push('fn')

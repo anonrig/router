@@ -6,7 +6,7 @@ import { isServer } from 'speedy-router-core/is-server'
 import { useRouter } from './use-router'
 import { useHydrated } from './client-only'
 import { useStore } from './react-store'
-import type { AnyRouteMatch, RouterManagedTag } from 'speedy-router-core'
+import type { AnyRouteMatch, ManifestRoute, RouterManagedTag } from 'speedy-router-core'
 
 const INLINE_CSS_HYDRATION_ATTR = 'data-tsr-inline-css'
 
@@ -19,6 +19,18 @@ interface ScriptAttrs {
 const noopScriptHandler = () => {}
 
 type MatchAssetKey = 'links' | 'styles' | 'headScripts' | 'scripts'
+
+export function forEachManifestRoute(
+  manifest: { routes: Record<string, ManifestRoute | undefined> } | undefined,
+  matches: Array<AnyRouteMatch>,
+  visit: (route: ManifestRoute) => void,
+) {
+  if (!manifest) return
+  for (const match of matches) {
+    const route = manifest.routes[match.routeId]
+    if (route) visit(route)
+  }
+}
 
 export function collectMatchAssets(
   matches: Array<AnyRouteMatch>,

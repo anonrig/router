@@ -262,8 +262,6 @@ export {
   getLocationChangeInfo,
   runRouteLifecycle,
   setLoadServerRoute,
-  SearchParamError as RouterSearchParamError,
-  PathParamError as RouterPathParamError,
 } from './router'
 export type {
   ViewTransitionOptions,
@@ -344,7 +342,6 @@ export {
   decodePath,
   createLRUCache,
   last,
-  findLast,
   arraysEqual,
   nullReplaceEqualDeep,
 } from './utils'
@@ -490,10 +487,7 @@ export type {
   SerializationError,
   DefaultSerializable,
 } from './ssr/serializer/transformer-types'
-export {
-  createSerializationAdapter,
-  createSerializationAdapter as createTypedSerializationAdapter,
-} from './ssr/serializer/transformer-types'
+export { createSerializationAdapter } from './ssr/serializer/transformer-types'
 export { makeSerovalPlugin, makeSsrSerovalPlugin } from './ssr/serializer/transformer'
 export { defaultSerovalPlugins } from './ssr/serializer/seroval-plugins'
 export {

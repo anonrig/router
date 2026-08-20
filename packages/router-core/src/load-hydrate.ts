@@ -8,11 +8,11 @@ import {
   transferMatchResources,
   waitFor,
 } from './load-client'
+import { matchParentContext, type AnyRouter } from './router'
 import type { GLOBAL_SEROVAL, GLOBAL_TSR } from './ssr/constants'
 import type { AnySerializationAdapter } from './ssr/serializer/transformer-types'
 import type { TsrSsrGlobal } from './ssr/types'
 import type { AnyRouteMatch } from './matches'
-import type { AnyRouter } from './router'
 
 declare global {
   interface Window {
@@ -209,7 +209,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   for (let index = 0; index < contextEnd; index++) {
     const match = candidates[index]!
     const route = getRoute(router, match)
-    const parentContext = candidates[index - 1]?.context ?? router.options.context ?? {}
+    const parentContext = matchParentContext(candidates, index, match) ?? router.options.context ?? {}
     let routeContext
     if (route.options.context) {
       try {

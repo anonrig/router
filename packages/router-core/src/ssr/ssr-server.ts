@@ -1,11 +1,10 @@
 import { crossSerializeStream, getCrossReferenceHeader } from 'seroval'
-import { invariant } from '../utils'
+import { decodePath, invariant, isPromise } from '../utils'
 import {
   createInlineCssPlaceholderAsset,
   createInlineCssStyleAsset,
   getStylesheetHref,
 } from '../manifest'
-import { decodePath } from '../utils'
 import { createLRUCache } from '../lru-cache'
 import { rootRouteId } from '../root'
 import { _getRenderedMatches } from '../load-chunk'
@@ -384,6 +383,44 @@ function buildManifestView(
   }
 }
 
+function matchedManifestView(
+  manifest: ServerManifest,
+  matches: Array<AnyRouteMatch>,
+  opts: {
+    inlineStyle: 'asset' | 'placeholder'
+    requestAssets?: ManifestRouteAssets
+    includeUnmatchedRoutes?: boolean
+  },
+): Manifest {
+  let routes = manifest.routes
+  let inlineStyle: Manifest['inlineStyle'] | undefined
+  if (!opts.includeUnmatchedRoutes || manifest.inlineCss) {
+    const prepared = getPreparedMatchedManifestRoutes(
+      manifest,
+      matches,
+      getMatchedRoutesCacheKey(matches),
+    )
+    routes = opts.includeUnmatchedRoutes
+      ? prepared.hasStrippedRoutes
+        ? { ...manifest.routes, ...prepared.routes }
+        : manifest.routes
+      : prepared.routes
+    inlineStyle =
+      opts.inlineStyle === 'asset'
+        ? getInlineCssAssetForPreparedRoutes(manifest, prepared)
+        : prepared.inlineCssHrefs
+          ? createInlineCssPlaceholderAsset()
+          : undefined
+  }
+  if (hasRequestAssets(opts.requestAssets)) {
+    routes = {
+      ...routes,
+      [rootRouteId]: mergeRequestAssetsIntoRootRoute(routes[rootRouteId], opts.requestAssets),
+    }
+  }
+  return buildManifestView(manifest, routes, inlineStyle)
+}
+
 const EMPTY_SSR = Object.freeze({ manifest: undefined })
 
 export function attachRouterServerSsrUtils({
@@ -403,37 +440,15 @@ export function attachRouterServerSsrUtils({
             if (!manifest) return manifest
 
             const requestAssets = getRequestAssets?.()
-            const matches = _getRenderedMatches(router.stores.matches.get())
-            const hasAssets = hasRequestAssets(requestAssets)
-
-            if (!hasAssets && !manifest.inlineCss) {
+            if (!hasRequestAssets(requestAssets) && !manifest.inlineCss) {
               return manifest
             }
 
-            let inlineCssAsset: Manifest['inlineStyle'] | undefined
-            let routes = manifest.routes
-            if (manifest.inlineCss) {
-              const cacheKey = getMatchedRoutesCacheKey(matches)
-              const preparedManifest = getPreparedMatchedManifestRoutes(manifest, matches, cacheKey)
-              inlineCssAsset = getInlineCssAssetForPreparedRoutes(manifest, preparedManifest)
-              if (preparedManifest.hasStrippedRoutes) {
-                routes = { ...manifest.routes, ...preparedManifest.routes }
-              }
-            }
-
-            if (!hasAssets) {
-              return buildManifestView(manifest, routes, inlineCssAsset)
-            }
-
-            // Merge request-scoped assets into root route without mutating cached manifest
-            return buildManifestView(
-              manifest,
-              {
-                ...routes,
-                [rootRouteId]: mergeRequestAssetsIntoRootRoute(routes[rootRouteId], requestAssets),
-              },
-              inlineCssAsset,
-            )
+            return matchedManifestView(manifest, _getRenderedMatches(router.stores.matches.get()), {
+              inlineStyle: 'asset',
+              requestAssets,
+              includeUnmatchedRoutes: true,
+            })
           },
         }
       : EMPTY_SSR
@@ -521,28 +536,10 @@ export function attachRouterServerSsrUtils({
       // Only currently matched routes are dehydrated. Other route assets are
       // loaded through dynamic imports when those routes become active.
       if (manifest) {
-        const cacheKey = getMatchedRoutesCacheKey(matchesToDehydrate)
-        const preparedManifest = getPreparedMatchedManifestRoutes(
-          manifest,
-          matchesToDehydrate,
-          cacheKey,
-        )
-
-        manifestToDehydrate = buildManifestView(
-          manifest,
-          preparedManifest.routes,
-          preparedManifest.inlineCssHrefs ? createInlineCssPlaceholderAsset() : undefined,
-        )
-
-        // Merge request-scoped assets into root route (without mutating cached manifest)
-        const requestAssets = opts?.requestAssets
-        if (hasRequestAssets(requestAssets)) {
-          const existingRoot = manifestToDehydrate.routes[rootRouteId]
-          manifestToDehydrate.routes = {
-            ...manifestToDehydrate.routes,
-            [rootRouteId]: mergeRequestAssetsIntoRootRoute(existingRoot, requestAssets),
-          }
-        }
+        manifestToDehydrate = matchedManifestView(manifest, matchesToDehydrate, {
+          inlineStyle: 'placeholder',
+          requestAssets: opts?.requestAssets,
+        })
       }
       const dehydratedRouter: DehydratedRouter = {
         manifest: manifestToDehydrate,
@@ -614,8 +611,8 @@ export function attachRouterServerSsrUtils({
       }
 
       const extra = router.options.dehydrate?.()
-      if (extra != null && typeof (extra as Promise<unknown>).then === 'function') {
-        return (extra as Promise<unknown>).then(finish)
+      if (isPromise(extra)) {
+        return extra.then(finish)
       }
       finish(extra)
     },

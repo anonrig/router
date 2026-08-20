@@ -322,12 +322,9 @@ export function emitRouteTree(options: EmitRouteTreeOptions): string {
     '',
   )
 
-  lines.push(
-    fileRoutesByPathInterface('@tanstack/react-router', children, parentName, quoted),
-    '',
-    fileRoutesByPathInterface('speedy-router', children, parentName, quoted),
-    '',
-  )
+  for (const moduleName of ['@tanstack/react-router', 'speedy-router'] as const) {
+    lines.push(fileRoutesByPathInterface(moduleName, children, parentName, quoted), '')
+  }
 
   return lines.join('\n')
 }

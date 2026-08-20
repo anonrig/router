@@ -1,6 +1,6 @@
 import { _getAssetMatches } from 'speedy-router-core'
 import { isServer } from 'speedy-router-core/is-server'
-import { Asset, collectMatchAssets, useMatchDerived } from './asset'
+import { Asset, collectMatchAssets, forEachManifestRoute, useMatchDerived } from './asset'
 import { useRouter } from './use-router'
 import type { AnyRouteMatch, RouterManagedTag } from 'speedy-router-core'
 
@@ -22,20 +22,10 @@ export const Scripts = () => {
       suppressHydrationWarning: true,
       nonce,
     }) as Array<ScriptRenderAsset>
-    const manifest = router.ssr?.manifest
 
-    if (!manifest) {
-      return scripts
-    }
-
-    for (const match of matches) {
-      const manifestScripts = manifest.routes[match.routeId]?.scripts
-
-      if (!manifestScripts) {
-        continue
-      }
-
-      for (const asset of manifestScripts) {
+    forEachManifestRoute(router.ssr?.manifest, matches, (route) => {
+      if (!route.scripts) return
+      for (const asset of route.scripts) {
         scripts.push({
           tag: 'script',
           attrs: { ...asset.attrs, nonce },
@@ -43,7 +33,7 @@ export const Scripts = () => {
           ...(typeof asset.attrs?.src === 'string' ? { preventScriptHoist: true } : {}),
         })
       }
-    }
+    })
 
     return scripts
   }
