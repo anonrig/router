@@ -5,8 +5,6 @@
 import { createMemoryHistory, parseHref } from 'speedy-router-history'
 import {
   cleanPath,
-  createRootRoute,
-  createRoute,
   createRouter,
   decode,
   defaultStringifySearch,
@@ -20,62 +18,30 @@ import {
   findRouteMatchFromTree,
   processRouteTree,
 } from '../packages/router-core/src/match.ts'
+import {
+  appPaths as paths,
+  buildAppTree,
+  buildWideTree,
+  describeStatus,
+  encoded,
+  natives,
+  ordinarySearch,
+  sample,
+} from './v8-shared.ts'
 
-const natives = (src: string) => new Function('fn', `return ${src}`) as (fn: Function) => any
 const getOptimizationStatus = natives('%GetOptimizationStatus(fn)')
-
-function describe(status: number): string {
-  const flags: string[] = []
-  if (status & 1) flags.push('fn')
-  if (status & 2) flags.push('never-opt')
-  if (status & 4) flags.push('always-opt')
-  if (status & 8) flags.push('maybe-deopted')
-  if (status & 16) flags.push('optimized')
-  if (status & 32) flags.push('maglev')
-  if (status & 64) flags.push('turbofan')
-  if (status & 128) flags.push('interpreted')
-  if (status & 256) flags.push('marked-opt')
-  if (status & 8192) flags.push('lite')
-  if (status & 16384) flags.push('marked-deopt')
-  if (status & 32768) flags.push('baseline')
-  return flags.join(',') || String(status)
-}
 
 function statusOf(fn: unknown) {
   if (typeof fn !== 'function') return 'missing'
   try {
     const status = getOptimizationStatus(fn)
-    return `${status}\t${describe(status)}`
+    return `${status}\t${describeStatus(status)}`
   } catch (err) {
     return `crash\t${(err as Error).message}`
   }
 }
 
-const sample = { token: 'foo', page: 12, q: 'hello world', flag: true }
-const encoded = encode(sample)
-const ordinarySearch = {
-  tab: 'specs',
-  filter: 'available',
-  category: 'hardware',
-  sort: 'newest',
-}
-
-const largeRoot = createRootRoute()
-const make = (parent: any, level: number, prefix: string) => {
-  if (level >= 3) return
-  const children: any[] = []
-  for (let i = 0; i < 8; i++) {
-    const route = createRoute({
-      getParentRoute: () => parent,
-      path: `/${prefix}${level}-${i}`,
-    })
-    make(route, level + 1, `${prefix}${level}-${i}-`)
-    children.push(route)
-  }
-  parent.addChildren(children)
-}
-make(largeRoot, 0, 's')
-const largeTree = processRouteTree(largeRoot as any)
+const largeTree = processRouteTree(buildWideTree() as any)
 const needles = [
   '/s0-0/s0-0-1-0/s0-0-1-0-2-0',
   '/s0-7/s0-7-1-7/s0-7-1-7-2-7',
@@ -83,19 +49,9 @@ const needles = [
   '/missing/path',
 ]
 
-const appRoot = createRootRoute()
-const index = createRoute({ getParentRoute: () => appRoot, path: '/' })
-const posts = createRoute({ getParentRoute: () => appRoot, path: '/posts' })
-const post = createRoute({
-  getParentRoute: () => appRoot,
-  path: '/posts/$id',
-  loader: () => ({ title: 'Post' }),
-})
-const about = createRoute({ getParentRoute: () => appRoot, path: '/about' })
-appRoot.addChildren([index, posts, post, about])
+const appRoot = buildAppTree()
 const appTree = processRouteTree(appRoot as any)
 
-const paths = ['/', '/posts', '/posts/1', '/posts/2', '/about']
 const typedDests = [
   { to: '/' },
   { to: '/posts' },

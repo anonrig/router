@@ -8,16 +8,10 @@
  *
  * `router.navigate` / `router.buildLocation` are bound wrappers. Status the
  * prototype implementations: `executeNavigate` and `executeBuildLocation`.
- *
- * Node 24 / V8 bits:
- *   1 fn  2 never-opt  8 maybe-deopted  16 optimized
- *   32 maglev  64 turbofan  128 interpreted  32768 baseline
  */
 import { createMemoryHistory, parseHref } from 'speedy-router-history'
 import {
   cleanPath,
-  createRootRoute,
-  createRoute,
   createRouter,
   decode,
   defaultStringifySearch,
@@ -30,8 +24,16 @@ import {
   findRouteMatchFromTree,
   processRouteTree,
 } from '../packages/router-core/src/match.ts'
-
-const natives = (src: string) => new Function('fn', `return ${src}`) as (fn: Function) => any
+import {
+  appPaths as paths,
+  buildAppTree,
+  buildWideTree,
+  describeStatus,
+  encoded,
+  natives,
+  ordinarySearch,
+  sample,
+} from './v8-shared.ts'
 
 const getOptimizationStatusUnsafe = natives('%GetOptimizationStatus(fn)')
 const prepareUnsafe = natives('%PrepareFunctionForOptimization(fn)')
@@ -61,23 +63,6 @@ function optimizeNext(fn: Function) {
   optimizeNextUnsafe(fn)
 }
 
-function describe(status: number): string {
-  const flags: string[] = []
-  if (status & 1) flags.push('fn')
-  if (status & 2) flags.push('never-opt')
-  if (status & 4) flags.push('always-opt')
-  if (status & 8) flags.push('maybe-deopted')
-  if (status & 16) flags.push('optimized')
-  if (status & 32) flags.push('maglev')
-  if (status & 64) flags.push('turbofan')
-  if (status & 128) flags.push('interpreted')
-  if (status & 256) flags.push('marked-opt')
-  if (status & 8192) flags.push('lite')
-  if (status & 16384) flags.push('marked-deopt')
-  if (status & 32768) flags.push('baseline')
-  return flags.join(',') || String(status)
-}
-
 function isBound(fn: Function): boolean {
   return (
     fn.name.startsWith('bound ') || /\[native code\]/.test(Function.prototype.toString.call(fn))
@@ -89,56 +74,22 @@ function safeStatus(fn: unknown): string {
   if (isBound(fn)) return 'bound\tskipped'
   try {
     const status = getOptimizationStatus(fn)
-    return `${status}\t${describe(status)}`
+    return `${status}\t${describeStatus(status)}`
   } catch (err) {
     return `crash\t${(err as Error).message}`
   }
 }
 
-const sample = { token: 'foo', page: 12, q: 'hello world', flag: true }
-const encoded = encode(sample)
-const ordinarySearch = {
-  tab: 'specs',
-  filter: 'available',
-  category: 'hardware',
-  sort: 'newest',
-}
-
-const root = createRootRoute()
-const make = (parent: any, level: number, prefix: string) => {
-  if (level >= 3) return
-  const children: any[] = []
-  for (let i = 0; i < 8; i++) {
-    const route = createRoute({
-      getParentRoute: () => parent,
-      path: `/${prefix}${level}-${i}`,
-    })
-    make(route, level + 1, `${prefix}${level}-${i}-`)
-    children.push(route)
-  }
-  parent.addChildren(children)
-}
-make(root, 0, 's')
-const processed = processRouteTree(root as any)
+const processed = processRouteTree(buildWideTree() as any)
 const needle = '/s0-7/s0-7-1-7/s0-7-1-7-2-7'
 const paramNeedle = '/posts/abc'
 
-const appRoot = createRootRoute()
-const index = createRoute({ getParentRoute: () => appRoot, path: '/' })
-const posts = createRoute({ getParentRoute: () => appRoot, path: '/posts' })
-const post = createRoute({
-  getParentRoute: () => appRoot,
-  path: '/posts/$id',
-  loader: () => ({ title: 'Post' }),
-})
-const about = createRoute({ getParentRoute: () => appRoot, path: '/about' })
-appRoot.addChildren([index, posts, post, about])
+const appRoot = buildAppTree()
 const appTree = processRouteTree(appRoot as any)
 const router = createRouter({
   routeTree: appRoot,
   history: createMemoryHistory({ initialEntries: ['/'] }),
 })
-const paths = ['/', '/posts', '/posts/1', '/posts/2', '/about']
 let cursor = 0
 
 function syncHot() {
