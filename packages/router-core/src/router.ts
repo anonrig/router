@@ -1453,8 +1453,15 @@ export class RouterCore<
       }
       // A reused server router must never skip or replay another request's
       // loader payloads. Client `load()` may still skip a settled session.
+      // In-request redirect hops keep `_pendingLocation._redirects`; isolating
+      // those would reset the hop count and loop forever.
       try {
-        this.isolateServerRequest()
+        if (
+          !(this._pendingLocation as ParsedLocation & { _redirects?: number })?._redirects &&
+          !(this.latestLocation as ParsedLocation & { _redirects?: number })?._redirects
+        ) {
+          this.isolateServerRequest()
+        }
         const warm = this.runLoad(this.latestLocation)
         if (warm) return Promise.resolve(warm)
         const next = this.importLoadServer(opts)
