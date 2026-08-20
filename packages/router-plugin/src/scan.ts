@@ -272,7 +272,7 @@ export function scanRoutes(options: ScanRoutesOptions): Array<ScannedRoute> {
       parentId,
       isPathless: pathless,
       slot,
-      isSlotRoot: !!slot && !route.key.endsWith('/') && lastSegment(route.key).startsWith('@'),
+      isSlotRoot: !!slot && !route.key.endsWith('/'),
     })
   }
 

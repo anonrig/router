@@ -4,7 +4,6 @@ import { toPosix, urlPathFromId, type ScannedRoute } from './scan'
 export type EmitRouteTreeOptions = {
   routes: Array<ScannedRoute>
   generatedRouteTree: string
-  routesDirectory: string
   runtimeImport?: string
   rootImport?: string
   quoteStyle?: 'single' | 'double'
@@ -130,13 +129,8 @@ function isIndexRoute(route: NamedRoute) {
   return route.key.endsWith('/') && route.key !== '/'
 }
 
-function preferFullPath(current: NamedRoute, existing: NamedRoute) {
-  if (current.isPathless !== existing.isPathless) return !current.isPathless
-  return true
-}
-
-function preferTo(current: NamedRoute, existing: NamedRoute) {
-  if (isIndexRoute(current) !== isIndexRoute(existing)) return isIndexRoute(current)
+function prefer(current: NamedRoute, existing: NamedRoute, preferIndex: boolean) {
+  if (preferIndex && isIndexRoute(current) !== isIndexRoute(existing)) return isIndexRoute(current)
   if (current.isPathless !== existing.isPathless) return !current.isPathless
   return true
 }
@@ -150,22 +144,18 @@ function union(values: Array<string>, quoted: (value: string) => string) {
 function fileRoutesByPathInterface(
   moduleName: string,
   children: Array<NamedRoute>,
-  byKey: Map<string, NamedRoute>,
+  parentName: (route: NamedRoute) => string,
   quoted: (value: string) => string,
 ) {
-  const entries = children.map((route) => {
-    const parent =
-      route.parentId === '__root__'
-        ? 'rootRouteImport'
-        : `${byKey.get(route.parentId)?.variableName ?? 'root'}Route`
-    return `    ${quoted(route.key)}: {
+  const entries = children.map(
+    (route) => `    ${quoted(route.key)}: {
           id: ${quoted(route.key)}
           path: ${quoted(typePath(route.path))}
           fullPath: ${quoted(urlPathFromId(route.key) ?? '/')}
           preLoaderRoute: typeof ${route.variableName}RouteImport
-          parentRoute: typeof ${parent}
-        }`
-  })
+          parentRoute: typeof ${parentName(route)}
+        }`,
+  )
   return `declare module ${quoted(moduleName)} {
   interface FileRoutesByPath {
 ${entries.join('\n')}
@@ -193,6 +183,10 @@ export function emitRouteTree(options: EmitRouteTreeOptions): string {
     list.push(route)
     childrenByParent.set(route.parentId, list)
   }
+  const parentName = (route: NamedRoute) =>
+    route.parentId === '__root__'
+      ? 'rootRouteImport'
+      : `${byKey.get(route.parentId)?.variableName ?? 'root'}Route`
 
   const lines: Array<string> = [
     '/* eslint-disable */',
@@ -226,13 +220,9 @@ export function emitRouteTree(options: EmitRouteTreeOptions): string {
   lines.push('')
 
   for (const route of children) {
-    const parent =
-      route.parentId === '__root__'
-        ? 'rootRouteImport'
-        : `${byKey.get(route.parentId)?.variableName ?? 'root'}Route`
     const fields = [`  id: ${quoted(route.id)}`]
     if (route.path !== undefined) fields.push(`  path: ${quoted(route.path)}`)
-    fields.push(`  getParentRoute: () => ${parent}`)
+    fields.push(`  getParentRoute: () => ${parentName(route)}`)
     lines.push(`const ${route.variableName}Route = ${route.variableName}RouteImport.update({`)
     lines.push(fields.join(',\n'))
     lines.push(`} as any)${semi}`)
@@ -243,7 +233,7 @@ export function emitRouteTree(options: EmitRouteTreeOptions): string {
   for (const route of children) {
     const fullPath = urlPathFromId(route.key) ?? '/'
     const existingFull = byFullPath.get(fullPath)
-    if (!existingFull || preferFullPath(route, existingFull)) {
+    if (!existingFull || prefer(route, existingFull, false)) {
       byFullPath.set(fullPath, route)
     }
 
@@ -251,25 +241,23 @@ export function emitRouteTree(options: EmitRouteTreeOptions): string {
       (child) => child.id === '/' || child.path === '/',
     )
     if (hasIndexChild) continue
-    const to = fullPath !== '/' && fullPath.endsWith('/') ? fullPath.slice(0, -1) : fullPath
+    const to = typePath(fullPath)
     const existingTo = byTo.get(to)
-    if (!existingTo || preferTo(route, existingTo)) {
+    if (!existingTo || prefer(route, existingTo, true)) {
       byTo.set(to, route)
     }
   }
 
   lines.push('')
-  lines.push('export interface FileRoutesByFullPath {')
-  for (const [fullPath, route] of byFullPath) {
-    lines.push(`  ${quoted(fullPath)}: ${typeofResolved(route, childrenByParent)}`)
+  const emitRouteInterface = (name: string, entries: Iterable<[string, NamedRoute]>) => {
+    lines.push(`export interface ${name} {`)
+    for (const [key, route] of entries) {
+      lines.push(`  ${quoted(key)}: ${typeofResolved(route, childrenByParent)}`)
+    }
+    lines.push('}')
   }
-  lines.push('}')
-
-  lines.push('export interface FileRoutesByTo {')
-  for (const [to, route] of byTo) {
-    lines.push(`  ${quoted(to)}: ${typeofResolved(route, childrenByParent)}`)
-  }
-  lines.push('}')
+  emitRouteInterface('FileRoutesByFullPath', byFullPath)
+  emitRouteInterface('FileRoutesByTo', byTo)
 
   lines.push('export interface FileRoutesById {')
   lines.push(`  ${quoted('__root__')}: typeof rootRouteImport`)
@@ -335,9 +323,9 @@ export function emitRouteTree(options: EmitRouteTreeOptions): string {
   )
 
   lines.push(
-    fileRoutesByPathInterface('@tanstack/react-router', children, byKey, quoted),
+    fileRoutesByPathInterface('@tanstack/react-router', children, parentName, quoted),
     '',
-    fileRoutesByPathInterface('speedy-router', children, byKey, quoted),
+    fileRoutesByPathInterface('speedy-router', children, parentName, quoted),
     '',
   )
 

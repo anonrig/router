@@ -529,7 +529,6 @@ export {
   createLazyFileRoute,
   createLazyRoute,
   FileRoute,
-  LazyRouteClass,
   FileRouteLoader,
 } from './file-route'
 export { lazyFn, SearchParamError, PathParamError } from './misc'

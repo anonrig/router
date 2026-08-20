@@ -29,7 +29,7 @@ function parsedLocation(
   }
 }
 
-export function defaultHistoryState(): ParsedHistoryState {
+function defaultHistoryState(): ParsedHistoryState {
   const key = createRandomKey()
   return { __TSR_index: 0, key, __TSR_key: key }
 }
@@ -49,7 +49,7 @@ export function assignKeyAndIndex(index: number, state: HistoryState | undefined
 }
 
 /** Plain absolute pathname: starts with a single `/`, no `?`/`#`/control chars. */
-export function isSimplePathname(path: string): boolean {
+function isSimplePathname(path: string): boolean {
   const len = path.length
   if (len === 0 || path.charCodeAt(0) !== 47 || (len > 1 && path.charCodeAt(1) === 47)) {
     return false

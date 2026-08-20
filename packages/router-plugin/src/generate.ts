@@ -54,7 +54,6 @@ export function generateRouteTree(options: GenerateRouteTreeOptions): GeneratedR
   const generated = emitRouteTree({
     routes,
     generatedRouteTree: runtimePath,
-    routesDirectory,
     runtimeImport: options.runtimeImport,
     rootImport: options.rootImport,
     quoteStyle: options.quoteStyle,

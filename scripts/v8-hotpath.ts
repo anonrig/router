@@ -5,8 +5,6 @@
 import { createMemoryHistory, parseHref } from 'speedy-router-history'
 import {
   cleanPath,
-  createRootRoute,
-  createRoute,
   createRouter,
   decode,
   defaultStringifySearch,
@@ -15,49 +13,23 @@ import {
   resolvePath,
 } from 'speedy-router-core'
 import { findRouteMatch, processRouteTree } from '../packages/router-core/src/match.ts'
+import {
+  appPaths as paths,
+  buildAppTree,
+  buildWideTree,
+  encoded,
+  ordinarySearch,
+  sample,
+} from './v8-shared.ts'
 
-const sample = { token: 'foo', page: 12, q: 'hello world', flag: true }
-const encoded = encode(sample)
-const ordinarySearch = {
-  tab: 'specs',
-  filter: 'available',
-  category: 'hardware',
-  sort: 'newest',
-}
-
-const root = createRootRoute()
-const make = (parent: any, level: number, prefix: string) => {
-  if (level >= 3) return
-  const children: any[] = []
-  for (let i = 0; i < 8; i++) {
-    const route = createRoute({
-      getParentRoute: () => parent,
-      path: `/${prefix}${level}-${i}`,
-    })
-    make(route, level + 1, `${prefix}${level}-${i}-`)
-    children.push(route)
-  }
-  parent.addChildren(children)
-}
-make(root, 0, 's')
-const processed = processRouteTree(root as any)
+const processed = processRouteTree(buildWideTree() as any)
 const needle = '/s0-7/s0-7-1-7/s0-7-1-7-2-7'
 
-const appRoot = createRootRoute()
-const index = createRoute({ getParentRoute: () => appRoot, path: '/' })
-const posts = createRoute({ getParentRoute: () => appRoot, path: '/posts' })
-const post = createRoute({
-  getParentRoute: () => appRoot,
-  path: '/posts/$id',
-  loader: () => ({ title: 'Post' }),
-})
-const about = createRoute({ getParentRoute: () => appRoot, path: '/about' })
-appRoot.addChildren([index, posts, post, about])
+const appRoot = buildAppTree()
 const router = createRouter({
   routeTree: appRoot,
   history: createMemoryHistory({ initialEntries: ['/'] }),
 })
-const paths = ['/', '/posts', '/posts/1', '/posts/2', '/about']
 let cursor = 0
 
 function syncHot() {

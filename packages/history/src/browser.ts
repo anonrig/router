@@ -19,10 +19,6 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
   const originalReplaceState = win.history.replaceState
 
   let blockers: Array<NavigationBlocker> = []
-  const _getBlockers = () => blockers
-  const _setBlockers = (next: Array<NavigationBlocker>) => {
-    blockers = next
-  }
 
   const createHref = opts?.createHref ?? ((path: string) => path)
   const parseLocation =
@@ -133,7 +129,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
     if (skipBlockerNextPop) {
       skipBlockerNextPop = false
     } else {
-      const currentBlockers = _getBlockers()
+      const currentBlockers = blockers
       if (typeof document !== 'undefined' && currentBlockers.length) {
         for (const blocker of currentBlockers) {
           let isBlocked
@@ -170,7 +166,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
 
     const shouldBlock =
       typeof document !== 'undefined' &&
-      _getBlockers().some(({ enableBeforeUnload }) => {
+      blockers.some(({ enableBeforeUnload }) => {
         const enabled = enableBeforeUnload ?? true
         return enabled === true || (typeof enabled === 'function' && enabled() === true)
       })
@@ -198,7 +194,7 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
       prepareTraversal(ignoreBlocker, true)
       win.history.go(n)
     },
-    createHref: (href) => createHref(href),
+    createHref,
     flush,
     destroy: () => {
       alive = false
@@ -221,8 +217,10 @@ export const createBrowserHistory = /*#__PURE__*/ function createBrowserHistory(
         currentLocation = rollbackLocation
       }
     },
-    getBlockers: _getBlockers,
-    setBlockers: _setBlockers,
+    getBlockers: () => blockers,
+    setBlockers: (next) => {
+      blockers = next
+    },
     notifyOnIndexChange: false,
   })
 
