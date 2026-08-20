@@ -492,13 +492,15 @@ function useLinkPropsImpl(
     doPreload()
   }
 
-  const handleLeave = () => {
-    // With a proximity radius, cancellation belongs to the radius exit:
-    // leaving the element while still within range must keep the preload.
-    if (preload === 'intent' && !preloadProximity) {
+  const cancelIntentPreload = () => {
+    if (preload === 'intent') {
       cancelPreload(innerRef)
     }
   }
+  // With a proximity radius, pointer cancellation belongs to the radius exit:
+  // leaving the element while still within range must keep the preload. Blur
+  // has no radius, so tabbing away always clears a focus-scheduled preload.
+  const handleMouseLeave = preloadProximity ? undefined : cancelIntentPreload
 
   return {
     ...propsSafeToSpread,
@@ -507,10 +509,10 @@ function useLinkPropsImpl(
     href,
     ref: innerRef,
     onClick: composeHandlers([onClick, handleClick]),
-    onBlur: composeHandlers([onBlur, handleLeave]),
+    onBlur: composeHandlers([onBlur, cancelIntentPreload]),
     onFocus: composeHandlers([onFocus, enqueuePreload]),
     onMouseEnter: composeHandlers([onMouseEnter, enqueuePreload]),
-    onMouseLeave: composeHandlers([onMouseLeave, handleLeave]),
+    onMouseLeave: composeHandlers([onMouseLeave, handleMouseLeave]),
     onTouchStart: composeHandlers([onTouchStart, handleTouchStart]),
     disabled: !!disabled,
     target,
