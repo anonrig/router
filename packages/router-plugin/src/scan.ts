@@ -37,6 +37,20 @@ export function toPosix(value: string) {
   return value.split(sep).join('/')
 }
 
+/** Same query TanStack uses for virtual split modules. */
+export const TSR_SPLIT_QUERY = 'tsr-split'
+
+export function fileNameFromModuleId(id: string) {
+  const withoutNull = id.startsWith('\0') ? id.slice(1) : id
+  return withoutNull.split('?')[0] ?? withoutNull
+}
+
+export function splitTargetFromModuleId(id: string) {
+  const queryIndex = id.indexOf('?')
+  if (queryIndex === -1) return undefined
+  return new URLSearchParams(id.slice(queryIndex + 1)).get(TSR_SPLIT_QUERY) ?? undefined
+}
+
 export function isRouteFile(name: string) {
   const dot = name.lastIndexOf('.')
   if (dot <= 0) return false

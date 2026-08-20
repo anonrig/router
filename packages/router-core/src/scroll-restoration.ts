@@ -1,4 +1,5 @@
 import { isServer } from 'speedy-router-core/is-server'
+import { queryScrollElement } from './scroll-default'
 import {
   defaultGetScrollRestorationKey,
   getScrollRestorationSelector,
@@ -11,13 +12,6 @@ import type { AnyRouter } from './router'
 
 let ignoreScroll = false
 
-function getElement(selector: string | (() => Element | null | undefined)) {
-  try {
-    return typeof selector === 'function' ? selector() : document.querySelector(selector)
-  } catch {}
-  return
-}
-
 function getScrollToTopElements(
   scrollToTopSelectors: NonNullable<AnyRouter['options']['scrollToTopSelectors']>,
 ) {
@@ -28,7 +22,7 @@ function getScrollToTopElements(
       continue
     }
 
-    const element = getElement(selector)
+    const element = queryScrollElement(selector)
     if (element) {
       elements.add(element)
     }
@@ -138,7 +132,7 @@ export function setupScrollRestoration(router: AnyRouter, force?: boolean) {
               continue
             }
           } else {
-            const element = getElement(elementSelector)
+            const element = queryScrollElement(elementSelector)
             if (!element) {
               continue
             }
@@ -192,7 +186,7 @@ export function setupScrollRestoration(router: AnyRouter, force?: boolean) {
               })
               windowRestored = true
             } else {
-              const element = getElement(elementSelector)
+              const element = queryScrollElement(elementSelector)
               if (element) {
                 element.scrollLeft = scrollX
                 element.scrollTop = scrollY

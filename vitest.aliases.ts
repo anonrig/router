@@ -165,7 +165,7 @@ export const tanstackAliases = [
   },
   {
     find: '@tanstack/router-core/lru-cache',
-    replacement: resolve(root, 'packages/router-core/src/lru-cache.ts'),
+    replacement: resolve(root, 'packages/router-core/src/utils.ts'),
   },
   {
     find: /^@tanstack\/router-core\/new-process-route-tree$/,

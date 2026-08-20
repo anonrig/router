@@ -1,6 +1,6 @@
 import { basename } from 'node:path'
 import { parseSync } from 'oxc-parser'
-import { TSR_SPLIT_QUERY } from './module-id'
+import { TSR_SPLIT_QUERY } from './scan'
 
 const SPLIT_PROPERTIES = [
   'component',
