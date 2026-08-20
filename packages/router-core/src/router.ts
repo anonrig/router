@@ -2194,7 +2194,14 @@ function resolveBuildPath(
     typeof to === 'string' ? router.routesByPath?.[trimPathRight(to)] : undefined
 
   // Absolute/static destinations do not inherit or stringify params.
-  if (dest.params === undefined && !dest.leaveParams && to.indexOf('$') === -1) {
+  // `from` is a route template (`/posts/$postId`), so relative dests like
+  // `./info` still need the current params after resolvePath.
+  if (
+    dest.params === undefined &&
+    !dest.leaveParams &&
+    to.indexOf('$') === -1 &&
+    fromPath.indexOf('$') === -1
+  ) {
     return {
       resolved: resolvePath({
         base: fromPath || '/',
