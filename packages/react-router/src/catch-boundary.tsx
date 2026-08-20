@@ -45,16 +45,14 @@ export class CatchBoundary extends Component<
   render() {
     if (this.state.error) {
       const Comp = this.props.errorComponent ?? ErrorComponent
-      const errorElement = (
+      return wrapInNonRouteComponentContext(
         <Comp
           error={this.state.error}
           info={this.state.info}
           reset={() => this.setState({ error: null })}
-        />
+        />,
+        'errorComponent',
       )
-      return process.env.NODE_ENV !== 'production'
-        ? wrapInNonRouteComponentContext(errorElement, 'errorComponent')
-        : errorElement
     }
     return this.props.children
   }

@@ -39,13 +39,6 @@ export class FileRoute {
   createRoute = (options: any = {}) => createFileRoute(this.path)(options)
 }
 
-export class LazyRouteClass {
-  options: any
-  constructor(options: any = {}) {
-    this.options = options
-  }
-}
-
 export function FileRouteLoader(_path: string) {
   return (loader: any) => loader
 }

@@ -1,7 +1,6 @@
 import {
   startTransition as reactStartTransition,
   useRef,
-  useState,
   type Dispatch,
   type SetStateAction,
 } from 'react'
@@ -96,9 +95,4 @@ export function Transitioner({ t }: { t?: Dispatch<SetStateAction<AnyRouter | un
   }, [acknowledgement, router, t])
 
   return null
-}
-
-export function useTransitioner() {
-  const [, setTick] = useState<AnyRouter | undefined>(undefined)
-  return <Transitioner t={setTick} />
 }

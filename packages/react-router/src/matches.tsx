@@ -24,7 +24,6 @@ import { useRouter } from './use-router'
 import { useRouterState } from './use-router-state'
 import { useStore } from './use-store'
 import { useMatch } from './use-match'
-import { deepEqual } from 'speedy-router-core'
 import type { StructuralSharingOption, ValidateSelected } from './structural-sharing'
 
 export function Matches() {
@@ -228,5 +227,3 @@ export function MatchRoute<
   }
   return params ? props.children : null
 }
-
-void deepEqual

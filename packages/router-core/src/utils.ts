@@ -1025,8 +1025,3 @@ export function invariant(condition?: any, message?: string): asserts condition 
     throw new Error(message ? `Invariant failed: ${message}` : 'Invariant failed')
   }
 }
-
-export function isMatch(obj: any, match: any): boolean {
-  if (match === undefined) return true
-  return deepEqual(obj, match, { partial: true })
-}

@@ -23,10 +23,7 @@ import { useRouterState } from './use-router-state'
 export function renderPending(router: ReturnType<typeof useRouter>, route?: AnyRoute) {
   const PendingComponent = route?.options.pendingComponent ?? router.options.defaultPendingComponent
   if (!PendingComponent) return null
-  const pendingElement = <PendingComponent />
-  return process.env.NODE_ENV !== 'production'
-    ? wrapInNonRouteComponentContext(pendingElement, 'pendingComponent')
-    : pendingElement
+  return wrapInNonRouteComponentContext(<PendingComponent />, 'pendingComponent')
 }
 
 const canWrapInSuspense = (
@@ -112,10 +109,10 @@ function MatchView({
                 error.routeId ??= match.routeId
                 if (error.routeId !== match.routeId) throw error
                 const NotFound = routeNotFoundComponent
-                const notFoundElement = <NotFound {...(error as any)} />
-                return process.env.NODE_ENV !== 'production'
-                  ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
-                  : notFoundElement
+                return wrapInNonRouteComponentContext(
+                  <NotFound {...(error as any)} />,
+                  'notFoundComponent',
+                )
               }}
             >
               {resolvedNoSsr ? (
@@ -177,16 +174,14 @@ export const MatchInner = memo(function MatchInnerImpl({ match }: { match: AnyRo
     if (isServer ?? router.isServer) {
       const RouteErrorComponent =
         (route.options.errorComponent ?? router.options.defaultErrorComponent) || ErrorComponent
-      const errorElement = (
+      return wrapInNonRouteComponentContext(
         <RouteErrorComponent
           error={match.error as any}
           reset={undefined as any}
           info={{ componentStack: '' }}
-        />
+        />,
+        'errorComponent',
       )
-      return process.env.NODE_ENV !== 'production'
-        ? wrapInNonRouteComponentContext(errorElement, 'errorComponent')
-        : errorElement
     }
     throw match.error
   }

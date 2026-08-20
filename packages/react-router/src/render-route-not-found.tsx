@@ -14,25 +14,23 @@ import type { AnyRoute, AnyRouter } from 'speedy-router-core'
 export function renderRouteNotFound(router: AnyRouter, route: AnyRoute, data: any) {
   if (!route.options.notFoundComponent) {
     if (router.options.defaultNotFoundComponent) {
-      const notFoundElement = <router.options.defaultNotFoundComponent {...data} />
-      return process.env.NODE_ENV !== 'production'
-        ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
-        : notFoundElement
+      return wrapInNonRouteComponentContext(
+        <router.options.defaultNotFoundComponent {...data} />,
+        'notFoundComponent',
+      )
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      if (!route.options.notFoundComponent) {
-        console.warn(
-          `Warning: A notFoundError was encountered on the route with ID "${route.id}", but a notFoundComponent option was not configured, nor was a router level defaultNotFoundComponent configured. Consider configuring at least one of these to avoid TanStack Router's overly generic defaultNotFoundComponent (<p>Not Found</p>)`,
-        )
-      }
+      console.warn(
+        `Warning: A notFoundError was encountered on the route with ID "${route.id}", but a notFoundComponent option was not configured, nor was a router level defaultNotFoundComponent configured. Consider configuring at least one of these to avoid TanStack Router's overly generic defaultNotFoundComponent (<p>Not Found</p>)`,
+      )
     }
 
     return <DefaultGlobalNotFound />
   }
 
-  const notFoundElement = <route.options.notFoundComponent {...data} />
-  return process.env.NODE_ENV !== 'production'
-    ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
-    : notFoundElement
+  return wrapInNonRouteComponentContext(
+    <route.options.notFoundComponent {...data} />,
+    'notFoundComponent',
+  )
 }
