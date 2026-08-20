@@ -55,12 +55,26 @@ describe('resolvePath', () => {
     ['/a/b/c', '../../..', '/'],
     ['/a', '/absolute', '/absolute'],
     ['/a/b/c', './d', '/a/b/c/d'],
+    ['/a', '/foo/../bar', '/bar'],
+    ['/a', '/foo/./bar', '/foo/bar'],
+    ['/a', '/foo/bar/..', '/foo'],
+    ['/a', '/../bar', '/bar'],
+    ['/a', '/foo/../../bar', '/bar'],
+    ['/a', '/.', '/'],
+    ['/', '/.well-known', '/.well-known'],
+    ['/a', '/foo/../.well-known', '/.well-known'],
   ] as const)('%s + %s = %s', (base, to, expected) => {
     expect(resolvePath({ base, to })).toBe(expected)
   })
 
   it('honors trailingSlash always', () => {
     expect(resolvePath({ base: '/a/b/c', to: 'd', trailingSlash: 'always' })).toBe('/a/b/c/d/')
+  })
+
+  it('collapses absolute dot segments under trailingSlash', () => {
+    expect(resolvePath({ base: '/a', to: '/foo/../bar/', trailingSlash: 'never' })).toBe('/bar')
+    expect(resolvePath({ base: '/a', to: '/foo/../bar', trailingSlash: 'always' })).toBe('/bar/')
+    expect(resolvePath({ base: '/a', to: '/foo/../bar/', trailingSlash: 'preserve' })).toBe('/bar/')
   })
 })
 
