@@ -237,6 +237,18 @@ export interface RawStreamRPCNode extends PluginInfo {
   streamId: SerovalNode
 }
 
+function parseRawStream(
+  value: RawStream,
+  ctx: { parse: (value: unknown) => SerovalNode },
+  stream = encodedStreamFor(value),
+) {
+  return {
+    hint: ctx.parse(value.hint),
+    factory: ctx.parse(factoryFor(value)),
+    stream: ctx.parse(stream),
+  }
+}
+
 /**
  * SSR Plugin - uses base64 or UTF-8+base64 encoding for chunks, delegates to seroval's stream mechanism.
  * Used during SSR when serializing to JavaScript code for HTML injection.
@@ -254,14 +266,8 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<RawStream, RawStr
   },
 
   parse: {
-    sync(value: RawStream, ctx, _data) {
-      // Sync parse not really supported for streams, return empty stream
-      return {
-        hint: ctx.parse(value.hint),
-        factory: ctx.parse(factoryFor(value)),
-        stream: ctx.parse(createStream()),
-      }
-    },
+    // Sync parse does not support streams, so serialize an empty one.
+    sync: (value, ctx) => parseRawStream(value, ctx, createStream()),
     async async(value: RawStream, ctx, _data) {
       return {
         hint: await ctx.parse(value.hint),
@@ -269,13 +275,7 @@ export const RawStreamSSRPlugin = /* @__PURE__ */ createPlugin<RawStream, RawStr
         stream: await ctx.parse(encodedStreamFor(value)),
       }
     },
-    stream(value: RawStream, ctx, _data) {
-      return {
-        hint: ctx.parse(value.hint),
-        factory: ctx.parse(factoryFor(value)),
-        stream: ctx.parse(encodedStreamFor(value)),
-      }
-    },
+    stream: parseRawStream,
   },
 
   serialize(node: RawStreamSSRNode, ctx, _data) {

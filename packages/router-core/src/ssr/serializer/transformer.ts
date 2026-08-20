@@ -10,22 +10,23 @@ export interface AdapterNode extends PluginInfo {
   v: SerovalNode
 }
 
+function parserFor(serializationAdapter: AnySerializationAdapter) {
+  return <T>(value: any, ctx: { parse: (value: unknown) => T }) => ({
+    v: ctx.parse(serializationAdapter.toSerializable(value)),
+  })
+}
+
 /** Create a Seroval plugin for server-side serialization only. */
 /* @__NO_SIDE_EFFECTS__ */
 export function makeSsrSerovalPlugin(
   serializationAdapter: AnySerializationAdapter,
   options: { didRun: boolean },
 ): Plugin<any, AdapterNode> {
+  const parse = parserFor(serializationAdapter)
   return /* @__PURE__ */ createPlugin<any, AdapterNode>({
     tag: '$TSR/t/' + serializationAdapter.key,
     test: serializationAdapter.test,
-    parse: {
-      stream(value, ctx, _data) {
-        return {
-          v: ctx.parse(serializationAdapter.toSerializable(value)),
-        }
-      },
-    },
+    parse: { stream: parse },
     serialize(node, ctx, _data) {
       options.didRun = true
       return (
@@ -42,25 +43,14 @@ export function makeSsrSerovalPlugin(
 export function makeSerovalPlugin(
   serializationAdapter: AnySerializationAdapter,
 ): Plugin<any, AdapterNode> {
+  const parse = parserFor(serializationAdapter)
   return /* @__PURE__ */ createPlugin<any, AdapterNode>({
     tag: '$TSR/t/' + serializationAdapter.key,
     test: serializationAdapter.test,
     parse: {
-      sync(value, ctx, _data) {
-        return {
-          v: ctx.parse(serializationAdapter.toSerializable(value)),
-        }
-      },
-      async async(value, ctx, _data) {
-        return {
-          v: await ctx.parse(serializationAdapter.toSerializable(value)),
-        }
-      },
-      stream(value, ctx, _data) {
-        return {
-          v: ctx.parse(serializationAdapter.toSerializable(value)),
-        }
-      },
+      sync: parse,
+      async: async (value, ctx) => ({ v: await parse(value, ctx).v }),
+      stream: parse,
     },
     // we don't generate JS code outside of SSR (for now)
     serialize: undefined as never,
