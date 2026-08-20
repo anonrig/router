@@ -23,13 +23,11 @@ export const createFileRoute = /*#__PURE__*/ (path: string) => {
   }
 }
 
-export const createLazyFileRoute = /*#__PURE__*/ (_path: string) => {
-  return (options: any = {}) => ({ options, isLazy: true })
-}
-
 export const createLazyRoute = /*#__PURE__*/ (_id: string) => {
   return (options: any = {}) => ({ options, isLazy: true })
 }
+
+export const createLazyFileRoute: (path: string) => (options?: any) => any = createLazyRoute
 
 export class FileRoute {
   path: string
