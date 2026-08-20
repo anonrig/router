@@ -94,31 +94,18 @@ export function bindRouteHooks(
       from: getId(),
     } as any)
 
-  if (options?.loose) {
-    target.useLoaderDeps = (opts: any) => useLoaderDeps({ ...opts, from: getId(), strict: false })
-    target.useLoaderData = (opts: any) => useLoaderData({ ...opts, from: getId(), strict: false })
-  } else {
-    target.useLoaderDeps = (opts: any) => useLoaderDeps({ ...opts, from: getId() })
-    target.useLoaderData = (opts: any) => useLoaderData({ ...opts, from: getId() })
-  }
+  const strictOpts = options?.loose ? { strict: false as const } : {}
+  target.useLoaderDeps = (opts: any) => useLoaderDeps({ ...opts, from: getId(), ...strictOpts })
+  target.useLoaderData = (opts: any) => useLoaderData({ ...opts, from: getId(), ...strictOpts })
 
-  if (options?.lookupFullPath) {
-    target.useNavigate = () => {
-      const router = useRouter()
-      return useNavigate({ from: router.routesById[getId()]?.fullPath })
-    }
-  } else {
-    target.useNavigate = () => useNavigate({ from: getFullPath!() })
-  }
+  const useFrom = options?.lookupFullPath
+    ? () => useRouter().routesById[getId()]?.fullPath
+    : () => getFullPath!()
+  target.useNavigate = () => useNavigate({ from: useFrom() })
 
-  if (options?.link && options.lookupFullPath) {
-    target.Link = React.forwardRef((props: any, ref: React.ForwardedRef<HTMLAnchorElement>) => {
-      const router = useRouter()
-      return <Link ref={ref} from={router.routesById[getId()]?.fullPath as never} {...props} />
-    })
-  } else if (options?.link) {
+  if (options?.link) {
     target.Link = React.forwardRef((props: any, ref: React.ForwardedRef<HTMLAnchorElement>) => (
-      <Link ref={ref} from={getFullPath!() as never} {...props} />
+      <Link ref={ref} from={useFrom() as never} {...props} />
     ))
   }
 }

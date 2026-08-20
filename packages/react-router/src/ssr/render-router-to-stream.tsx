@@ -58,6 +58,14 @@ export const renderRouterToStream = async ({
   isBot,
 }: RenderRouterToStreamOptions) => {
   const isBotRequest = resolveIsBot(isBot, request)
+  const streamResponse = (responseStream: unknown) =>
+    createSsrStreamResponse(
+      router,
+      new Response(responseStream as any, {
+        status: router._serverResult?.type === 'render' ? router._serverResult.status : 200,
+        headers: responseHeaders,
+      }),
+    )
   if (typeof ReactDOMServer.renderToReadableStream === 'function') {
     const stream = await ReactDOMServer.renderToReadableStream(children, {
       signal: request.signal,
@@ -82,13 +90,7 @@ export const renderRouterToStream = async ({
         onAbort: () => stream.cancel().catch(() => {}),
       },
     )
-    return createSsrStreamResponse(
-      router,
-      new Response(responseStream as any, {
-        status: router._serverResult?.type === 'render' ? router._serverResult.status : 200,
-        headers: responseHeaders,
-      }),
-    )
+    return streamResponse(responseStream)
   }
 
   if (typeof ReactDOMServer.renderToPipeableStream === 'function') {
@@ -102,10 +104,6 @@ export const renderRouterToStream = async ({
     const toError = (reason: unknown) =>
       Error.isError(reason) ? reason : new Error(String(reason ?? 'SSR aborted'))
     const destroyError = (reason: unknown) => (reason === undefined ? undefined : toError(reason))
-    const pendingDestroyError = () =>
-      pendingAbortReason === undefined
-        ? toError(pendingAbortReason)
-        : destroyError(pendingAbortReason)
     const finishPassThrough = (reason: unknown, opts?: { defaultError?: boolean }) => {
       if (reactAppPassthrough.destroyed) return
       if (responseAttached) {
@@ -177,7 +175,7 @@ export const renderRouterToStream = async ({
     responseAttached = true
 
     if (endedBeforeAttach) {
-      reactAppPassthrough.destroy(pendingDestroyError())
+      reactAppPassthrough.destroy(toError(pendingAbortReason))
     }
 
     // React's onError may have fired synchronously inside
@@ -191,13 +189,7 @@ export const renderRouterToStream = async ({
       }
     }
 
-    return createSsrStreamResponse(
-      router,
-      new Response(responseStream as any, {
-        status: router._serverResult?.type === 'render' ? router._serverResult.status : 200,
-        headers: responseHeaders,
-      }),
-    )
+    return streamResponse(responseStream)
   }
 
   throw new Error(

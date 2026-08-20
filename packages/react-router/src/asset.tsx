@@ -16,6 +16,16 @@ interface ScriptAttrs {
 
 const noopScriptHandler = () => {}
 
+function srcScript(attrs?: ScriptAttrs) {
+  return <script {...attrs} suppressHydrationWarning />
+}
+
+function inlineScript(attrs: ScriptAttrs | undefined, children: string) {
+  return (
+    <script {...attrs} dangerouslySetInnerHTML={{ __html: children }} suppressHydrationWarning />
+  )
+}
+
 type MatchAssetKey = 'links' | 'styles' | 'headScripts' | 'scripts'
 
 export function collectMatchAssets(
@@ -214,7 +224,7 @@ function Script({
   if (isServer ?? router.isServer) {
     if (attrs?.src) {
       if (!preventScriptHoist) {
-        return <script {...attrs} suppressHydrationWarning />
+        return srcScript(attrs)
       }
 
       return (
@@ -230,13 +240,7 @@ function Script({
     }
 
     if (typeof children === 'string') {
-      return (
-        <script
-          {...attrs}
-          dangerouslySetInnerHTML={{ __html: children }}
-          suppressHydrationWarning
-        />
-      )
+      return inlineScript(attrs, children)
     }
 
     return null
@@ -247,9 +251,7 @@ function Script({
   // Data scripts (e.g. application/ld+json) are rendered in the tree;
   // the useEffect intentionally skips them.
   if (dataScript && typeof children === 'string') {
-    return (
-      <script {...attrs} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: children }} />
-    )
+    return inlineScript(attrs, children)
   }
 
   // During hydration (before useEffect has fired), render the script element
@@ -257,17 +259,11 @@ function Script({
   // After hydration, return null — the useEffect handles imperative injection.
   if (!hydrated) {
     if (attrs?.src) {
-      return <script {...attrs} suppressHydrationWarning />
+      return srcScript(attrs)
     }
 
     if (typeof children === 'string') {
-      return (
-        <script
-          {...attrs}
-          dangerouslySetInnerHTML={{ __html: children }}
-          suppressHydrationWarning
-        />
-      )
+      return inlineScript(attrs, children)
     }
   }
 
