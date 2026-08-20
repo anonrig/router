@@ -1,12 +1,14 @@
 import { SearchParamError } from './misc'
 import { functionalUpdate } from './utils'
-import type { AnyRoute } from './route'
+import type { AnyRoute, SearchMiddlewareContext } from './route'
 import type { AnyValidator } from './validators'
 
 export function validateSearch(validator: AnyValidator, input: unknown): unknown {
   if (validator == null) return {}
+  if (typeof validator === 'function') return validator(input)
+  if (typeof validator !== 'object') return {}
 
-  if (typeof validator === 'object' && '~standard' in validator) {
+  if ('~standard' in validator) {
     const result = validator['~standard'].validate(input)
     if (result instanceof Promise) throw new SearchParamError('Async validation not supported')
     if (result.issues) {
@@ -15,21 +17,17 @@ export function validateSearch(validator: AnyValidator, input: unknown): unknown
     return result.value
   }
 
-  if (typeof validator === 'object' && typeof validator.parse === 'function') {
+  if (typeof validator.parse === 'function') {
     return validator.parse(input)
   }
 
   const candidate = validator as AnyValidator & {
     safeParse?: (input: unknown) => { success: boolean; data?: unknown; error?: unknown }
   }
-  if (typeof validator === 'object' && typeof candidate.safeParse === 'function') {
+  if (typeof candidate.safeParse === 'function') {
     const result = candidate.safeParse(input)
     if (result.success) return result.data
     throw result.error
-  }
-
-  if (typeof validator === 'function') {
-    return validator(input)
   }
 
   return {}
@@ -48,7 +46,7 @@ export function applySearchMiddleware(
     if (routeOptions.search?.middlewares) {
       middlewares.push(...routeOptions.search.middlewares)
     } else if (routeOptions.preSearchFilters || routeOptions.postSearchFilters) {
-      middlewares.push(({ search: current, next }: { search: any; next: (search: any) => any }) => {
+      middlewares.push(({ search: current, next }: SearchMiddlewareContext<any>) => {
         const nextSearch = routeOptions.preSearchFilters
           ? routeOptions.preSearchFilters.reduce((prev, fn) => fn(prev), current)
           : current
@@ -61,35 +59,25 @@ export function applySearchMiddleware(
 
     const routeValidateSearch = routeOptions.validateSearch
     if (routeValidateSearch) {
-      middlewares.push(
-        ({
-          search: current,
-          next,
-          meta,
-        }: {
-          search: any
-          next: (search: any) => any
-          meta?: any
-        }) => {
-          const result = next(current)
-          if (includeValidateSearch) {
-            try {
-              const validated = validateSearch(routeValidateSearch, result) as any
-              if (meta && validated) {
-                for (const key in validated) {
-                  if (!(key in result)) {
-                    ;(meta.defaulted ||= new Map()).set(key, validated[key])
-                  }
+      middlewares.push(({ search: current, next, meta }: SearchMiddlewareContext<any>) => {
+        const result = next(current)
+        if (includeValidateSearch) {
+          try {
+            const validated = validateSearch(routeValidateSearch, result) as any
+            if (meta && validated) {
+              for (const key in validated) {
+                if (!(key in result)) {
+                  ;(meta.defaulted ||= new Map()).set(key, validated[key])
                 }
               }
-              return { ...result, ...validated }
-            } catch {
-              // matchRoutes reports the error
             }
+            return { ...result, ...validated }
+          } catch {
+            // matchRoutes reports the error
           }
-          return result
-        },
-      )
+        }
+        return result
+      })
     }
   }
 
