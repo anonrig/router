@@ -268,7 +268,10 @@ describe('Link', () => {
     vi.unstubAllGlobals()
   })
 
-  const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  const nextFrame = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve())
+    })
 
   function renderProximityLink(preloadDelay: number) {
     const rootRoute = createRootRoute({
@@ -319,7 +322,9 @@ describe('Link', () => {
     fireEvent.pointerMove(document, { clientX: 500, clientY: 500 })
     await nextFrame()
 
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    await new Promise((resolve) => {
+      setTimeout(resolve, 300)
+    })
     expect(preloadSpy).not.toHaveBeenCalled()
   })
 })
