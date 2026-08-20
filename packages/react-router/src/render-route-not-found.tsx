@@ -15,7 +15,9 @@ export function renderRouteNotFound(router: AnyRouter, route: AnyRoute, data: an
   if (!route.options.notFoundComponent) {
     if (router.options.defaultNotFoundComponent) {
       const notFoundElement = <router.options.defaultNotFoundComponent {...data} />
-      return wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
+      return process.env.NODE_ENV !== 'production'
+        ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
+        : notFoundElement
     }
 
     if (process.env.NODE_ENV !== 'production') {
@@ -28,5 +30,7 @@ export function renderRouteNotFound(router: AnyRouter, route: AnyRoute, data: an
   }
 
   const notFoundElement = <route.options.notFoundComponent {...data} />
-  return wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
+  return process.env.NODE_ENV !== 'production'
+    ? wrapInNonRouteComponentContext(notFoundElement, 'notFoundComponent')
+    : notFoundElement
 }
