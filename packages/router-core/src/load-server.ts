@@ -5,6 +5,7 @@ import { isRedirect, redirect } from './redirect'
 import { rootRouteId } from './root'
 import { loadRouteChunk } from './load-chunk'
 import { waitForReason } from './await-signal'
+import { ABORT_REASON } from './abort-reason'
 import { getLocationChangeInfo, runRouteLifecycle } from './router'
 import {
   ERROR,
@@ -434,8 +435,12 @@ function getNotFoundBoundary(
 }
 
 function abortMatches(matches: Array<AnyRouteMatch>, start = 0, reason?: unknown): void {
+  // A caller's sentinel (`reason === lane` in `createLoaderTask`) and a request
+  // signal's own reason must pass through untouched. Only the no-reason case
+  // falls back, so the platform never builds a fresh `AbortError` here.
+  const settled = reason ?? ABORT_REASON
   for (let index = start; index < matches.length; index++) {
-    matches[index]!.abortController.abort(reason)
+    matches[index]!.abortController.abort(settled)
   }
 }
 
@@ -832,7 +837,7 @@ function executeFastServerLane(
 ): ServerLoadResult | Promise<ServerLoadResult> {
   const abortLane = () => {
     for (let i = 0; i < matches.length; i++) {
-      matches[i]!.abortController?.abort()
+      matches[i]!.abortController?.abort(ABORT_REASON)
     }
   }
   if (start === 0 && router.serverSsr) router.serverSsr.onCleanup(abortLane)

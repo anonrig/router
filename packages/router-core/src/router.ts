@@ -54,6 +54,7 @@ import {
   createNonReactiveReadonlyStore,
   createRouterStores,
 } from './stores'
+import { ABORT_REASON } from './abort-reason'
 import {
   type createStringMap,
   decodePath,
@@ -1520,7 +1521,7 @@ export class RouterCore<
       if (this._flights) delete this._flights[id]
     }
     for (const controller of discardedPreloads) {
-      controller.abort()
+      controller.abort(ABORT_REASON)
     }
 
     this.shouldViewTransition = false
@@ -1575,7 +1576,7 @@ export class RouterCore<
         abort.push(flight[1]!)
       }
     }
-    for (const controller of abort) controller.abort()
+    for (const controller of abort) controller.abort(ABORT_REASON)
   }
 
   load(opts?: { sync?: boolean; _signal?: AbortSignal; action?: any }): Promise<void> {
@@ -2192,7 +2193,7 @@ export class RouterCore<
 
   cancelMatch(matchId: string) {
     const match = this.state.matches.find((m) => m.id === matchId)
-    match?.abortController.abort()
+    match?.abortController.abort(ABORT_REASON)
   }
 
   isShell() {
