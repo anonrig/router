@@ -18,15 +18,7 @@ export function getAssetCrossOrigin(
   assetCrossOrigin: AssetCrossOriginConfig | undefined,
   kind: 'script' | 'stylesheet',
 ): AssetCrossOrigin | undefined {
-  if (!assetCrossOrigin) {
-    return undefined
-  }
-
-  if (typeof assetCrossOrigin === 'string') {
-    return assetCrossOrigin
-  }
-
-  return assetCrossOrigin[kind]
+  return typeof assetCrossOrigin === 'string' ? assetCrossOrigin : assetCrossOrigin?.[kind]
 }
 
 export function getManifestScriptFormat(
@@ -58,11 +50,7 @@ export function getScriptPreloadAttrs(
 }
 
 export function resolveManifestAssetLink(link: ManifestAssetLink) {
-  if (typeof link === 'string') {
-    return { href: link, crossOrigin: undefined }
-  }
-
-  return link
+  return typeof link === 'string' ? { href: link, crossOrigin: undefined } : link
 }
 
 export type Manifest = {
@@ -184,11 +172,7 @@ export function getStylesheetHref(asset: ManifestCssLink) {
 }
 
 export function resolveManifestCssLink(link: ManifestCssLink) {
-  if (typeof link === 'string') {
-    return { href: link, crossOrigin: undefined }
-  }
-
-  return link
+  return typeof link === 'string' ? { href: link, crossOrigin: undefined } : link
 }
 
 export function createInlineCssStyleAsset(css: string): ManifestInlineCss {
