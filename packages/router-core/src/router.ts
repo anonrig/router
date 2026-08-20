@@ -35,6 +35,7 @@ import {
 } from './rewrite'
 import { rootRouteId } from './root'
 import type { ParsedLocation } from './location'
+import type { ManifestRouteAssets, RouterManagedTag } from './manifest'
 import type { AnyRouteMatch as PublicRouteMatch } from './matches'
 import type { AnyContext as RouteAnyContext, AnyRoute } from './route'
 import type { BuildLocationFn, NavigateFn } from './router-provider'
@@ -261,7 +262,8 @@ export interface RouterOptions<
   serializationAdapters?: any[]
   routeMasks?: any[]
   slotPrefix?: string
-  hydrate?: (data: any) => any
+  dehydrate?: () => TDehydrated | Promise<TDehydrated>
+  hydrate?: (data: TDehydrated) => void | Promise<void>
   additionalContext?: Record<string, any>
   defaultSsr?: any
   defaultStaleReloadMode?: any
@@ -287,6 +289,28 @@ export type RouteMatch = PublicRouteMatch & {
 export type AnyRouteMatch = RouteMatch
 export type MakeRouteMatch = RouteMatch
 export type MakeRouteMatchUnion = RouteMatch
+
+export interface ServerSsr {
+  injectHtml: (html: string) => void
+  injectScript: (script: string) => void
+  isDehydrated: () => boolean
+  isSerializationFinished: () => boolean
+  reserveStreamFastPath: () => boolean
+  onInjectedHtml: (listener: () => void) => () => void
+  onRenderFinished: (listener: () => void) => void
+  onSerializationFinished: (listener: () => void) => () => void
+  onCleanup: (listener: () => void) => void
+  setRenderFinished: () => void
+  cleanup: () => void
+  dehydrate: (opts?: { requestAssets?: ManifestRouteAssets }) => void | Promise<void>
+  takeBufferedScripts: () => RouterManagedTag | undefined
+  takeBufferedHtml: () => string | undefined
+  liftScriptBarrier: () => void
+}
+
+export interface RouterSsrLifecycle {
+  onServerSsrAttach?: Array<(serverSsr: ServerSsr) => void>
+}
 
 export interface RouterState<
   in out TRouteTree extends AnyRoute = AnyRoute,
@@ -596,8 +620,8 @@ export class RouterCore<
   pathParamsDecoder?: (encoded: string) => string
   protocolAllowlist = DEFAULT_PROTOCOL_SET
   ssr: any = undefined
-  serverSsr: any = undefined
-  serverSsrLifecycle?: { onServerSsrAttach?: Array<(serverSsr: any) => void> }
+  serverSsr?: ServerSsr
+  serverSsrLifecycle?: RouterSsrLifecycle
   // Extra bag fields (`state`, client location atoms) stay open for the
   // runtime store implementations. `matches` is the public SSR/client API.
   stores!: {
