@@ -2,6 +2,7 @@
 // can rewrite relative imports for both ESM and CJS.
 import { isNotFound } from './not-found'
 import { objectValues } from './utils'
+import { ABORT_REASON } from './abort-reason'
 import { isRedirect } from './redirect'
 import { _getRenderedMatches, loadRouteChunk } from './load-chunk'
 import { getLocationChangeInfo, matchParentContext, runRouteLifecycle } from './router'
@@ -192,7 +193,7 @@ function normalizeLaneError(
   options: ExecuteLaneOptions,
 ): LoaderOutcome {
   if (options[0 /* controller */].signal.aborted || !options[2 /* isCurrent */]()) {
-    options[0 /* controller */].abort()
+    options[0 /* controller */].abort(ABORT_REASON)
     return [CANCELED]
   }
   return materializeRedirect(router, lane, route, normalizeError(route, cause), options)
@@ -300,7 +301,7 @@ async function contextualize(
       return [index, normalizeLaneError(router, lane, route, cause, options)]
     }
     if (signal.aborted || !options[2 /* isCurrent */]()) {
-      options[0 /* controller */].abort()
+      options[0 /* controller */].abort(ABORT_REASON)
       return [index, [CANCELED]]
     }
     const validationError = match.paramsError ?? match.searchError
@@ -330,7 +331,7 @@ async function contextualize(
       setFetching(router, match, 'beforeLoad', options[0 /* controller */])
       const result = await waitFor(beforeLoad(beforeLoadContext), signal)
       if (!options[2 /* isCurrent */]()) {
-        options[0 /* controller */].abort()
+        options[0 /* controller */].abort(ABORT_REASON)
         return [index, [CANCELED]]
       }
       const outcome = materializeRedirect(
@@ -464,7 +465,7 @@ async function loadResource(
             if (result[0 /* kind */] !== SUCCESS && flights && flights[match.id] === flight) {
               delete flights[match.id]
               if (!flight![2 /* leases */]) {
-                controller.abort()
+                controller.abort(ABORT_REASON)
               }
             }
             return result[0 /* kind */] === ERROR && flight![2 /* leases */]
@@ -562,7 +563,7 @@ function createLoaderTask(
         )
       }
       if (!options[2 /* isCurrent */]()) {
-        options[0 /* controller */].abort()
+        options[0 /* controller */].abort(ABORT_REASON)
         reloadFailure = [CANCELED]
       }
     }
@@ -632,7 +633,7 @@ function createLoaderTask(
   if (blocking) {
     const acceptedFlight = match._flight
     match._flight = donor
-    releaseOwnedFlight(router, match, acceptedFlight)?.abort()
+    releaseOwnedFlight(router, match, acceptedFlight)?.abort(ABORT_REASON)
     // A mounted success remains renderable while its loader revalidates. Every
     // non-retained blocking generation presents pending state.
     if (index >= retainedEnd) {
@@ -923,7 +924,7 @@ async function reduceLane(
     if (!outcome) {
       match.status = 'success'
     } else if (redirectLimitExceeded) {
-      controller.abort()
+      controller.abort(ABORT_REASON)
       await Promise.all([
         ...tasks.map((task) => task[1 /* outcome */]),
         ...tasks.map((task) => task[2 /* chunkFailure */]),
@@ -1039,7 +1040,7 @@ async function executeClientLane(
       }
     }
     for (const controller of abort) {
-      controller.abort()
+      controller.abort(ABORT_REASON)
     }
   }
   let reduced: ReducedLane | ControlOutcome
@@ -1369,7 +1370,7 @@ async function followRedirect(
 
 function restoreCommitted(router: CoordinatorRouter, tx: LoadTransaction): void {
   finishPending(router, tx)
-  tx[0 /* controller */].abort()
+  tx[0 /* controller */].abort(ABORT_REASON)
   transferMatchResources(router, tx[3 /* matches */])
   tx[3 /* matches */] = []
   if (router._tx !== tx) {
@@ -1603,7 +1604,7 @@ export async function loadClientRoute(
   if (!rematerialize && !hydrationController) {
     handoff?.[1 /* finish */]()
   }
-  previousPreflight?.abort()
+  previousPreflight?.abort(ABORT_REASON)
   // The preflight controller is not exposed to route hooks. Every replacement
   // aborts its predecessor, so a live signal is the sole authority here.
   if (preflight.signal.aborted) {
@@ -1633,7 +1634,7 @@ export async function loadClientRoute(
         : router.matchRoutes(location, { _controller: preflight })
     acquireMatchResources(matches)
   } catch (cause) {
-    preflight.abort()
+    preflight.abort(ABORT_REASON)
     if (!isRedirect(cause)) {
       if (process.env.NODE_ENV !== 'production' && rematerialize) {
         router._refreshNextLoad = undefined
@@ -1655,7 +1656,7 @@ export async function loadClientRoute(
   if (resolvedPrefix) {
     controller = hydrationController!
   } else {
-    hydrationController?.abort()
+    hydrationController?.abort(ABORT_REASON)
   }
   if (preflight.signal.aborted) {
     transferMatchResources(router, matches)
@@ -1701,7 +1702,7 @@ export async function loadClientRoute(
         setFetching(router, match, false)
       }
     }
-    previousOwner[0 /* controller */].abort()
+    previousOwner[0 /* controller */].abort(ABORT_REASON)
     transferMatchResources(router, previousOwner[3 /* matches */], tx[3 /* matches */], true)
   }
   if (router._tx !== tx) {
@@ -1748,7 +1749,7 @@ export async function preloadClientRoute(
     })
     acquireMatchResources(matches)
   } catch (cause) {
-    controller.abort()
+    controller.abort(ABORT_REASON)
     if (!isNotFound(cause)) {
       console.error(cause)
     }
@@ -1771,7 +1772,7 @@ export async function preloadClientRoute(
     } finally {
       active = router._preloads.delete(controller)
       transferMatchResources(router, matches)
-      controller.abort()
+      controller.abort(ABORT_REASON)
     }
     if (!isControl(result)) {
       return result[1 /* matches */]

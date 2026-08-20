@@ -16,6 +16,7 @@ import type { AnyRoute } from './route'
 import type { NavigateFn } from './router-provider'
 import { validateSearch } from './router-search'
 import { resolveRouteLoader } from './load-shared'
+import { ABORT_REASON } from './abort-reason'
 import { createStringMap, deepEqual, noopAbortController, rememberBounded } from './utils'
 import {
   getLocationChangeInfo,
@@ -70,7 +71,7 @@ function abortWarmFetching(matches: RouteMatch[], state?: WarmParallelState) {
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i]!
     if (match.isFetching) {
-      match.abortController.abort()
+      match.abortController.abort(ABORT_REASON)
       match.isFetching = false
     }
   }

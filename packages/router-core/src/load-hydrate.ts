@@ -1,5 +1,6 @@
 import { hydrateSsrMatchId } from './ssr/ssr-match-id'
 import { loadRouteChunk } from './load-chunk'
+import { ABORT_REASON } from './abort-reason'
 import { getRoute, navigateFrom } from './load-shared'
 import { cacheLoaderMatch, projectLane, transferMatchResources, waitFor } from './load-match'
 import { matchParentContext, type AnyRouter } from './router'
@@ -49,7 +50,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
   const controller = new AbortController()
   const previousPreflight = router._preflight
   router._preflight = controller
-  previousPreflight?.abort()
+  previousPreflight?.abort(ABORT_REASON)
   const isCurrent = () => router._preflight === controller
 
   let location!: AnyRouter['latestLocation']
@@ -290,7 +291,7 @@ export async function hydrate(router: AnyRouter): Promise<void> {
         !claim() ||
         committedMatches.some((match, index) => match.id !== matches[index]?.id)
       ) {
-        controller.abort()
+        controller.abort(ABORT_REASON)
         return
       }
       let handoffAssetEnd = dataOnlyAssetEnd

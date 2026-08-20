@@ -2,6 +2,7 @@
 // `load-client.ts` so SSR `hydrate` can settle without the navigation graph
 // (see tests/dce.test.ts).
 import { getRoute } from './load-shared'
+import { ABORT_REASON } from './abort-reason'
 import type { AnyRouteMatch } from './matches'
 import type { AnyRouter } from './router'
 
@@ -59,7 +60,7 @@ export function releaseFlight(router: AnyRouter, match: AnyRouteMatch): void {
   const work = match as WorkMatch
   const flight = work._flight
   work._flight = undefined
-  releaseOwnedFlight(router, work, flight)?.abort()
+  releaseOwnedFlight(router, work, flight)?.abort(ABORT_REASON)
 }
 
 /**
@@ -95,7 +96,7 @@ export function transferMatchResources(
     }
   }
   for (const controller of abort) {
-    controller.abort()
+    controller.abort(ABORT_REASON)
   }
 }
 
