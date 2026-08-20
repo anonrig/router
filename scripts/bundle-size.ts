@@ -23,7 +23,9 @@ const oursAlias = {
   'speedy-router-history': join(repo, 'packages/history/src/index.ts'),
   'speedy-router-core': join(repo, 'packages/router-core/src/index.ts'),
   'speedy-router-core/is-server': join(repo, 'packages/router-core/src/is-server.ts'),
+  'speedy-router-core/ssr/client': join(repo, 'packages/router-core/src/ssr/client.ts'),
   'speedy-router': join(repo, 'packages/react-router/src/index.ts'),
+  'speedy-router/ssr/client': join(repo, 'packages/react-router/src/ssr/client.ts'),
 }
 
 const cases = [
@@ -57,6 +59,16 @@ const cases = [
     tanstack: `export { BaseRootRoute, BaseRoute, RouterCore } from '@tanstack/router-core'
 `,
   },
+  {
+    name: 'speedy-router hydrate',
+    filename: 'entry.tsx',
+    ours: `export { RouterClient } from 'speedy-router/ssr/client'
+export { createRootRoute, createRouter } from 'speedy-router'
+`,
+    tanstack: `export { RouterClient } from '@tanstack/react-router/ssr/client'
+export { createRootRoute, createRouter } from '@tanstack/react-router'
+`,
+  },
 ] as const
 
 type Sizes = { min: number; gzip: number }
@@ -79,7 +91,13 @@ async function bundle(
       write: false,
       cacheDir: join(cache, 'speedy-router-vite'),
       alias,
-      external: reactExternals,
+      external: [
+        ...reactExternals,
+        'seroval',
+        'seroval-plugins',
+        'seroval-plugins/web',
+        'cookie-es',
+      ],
       minify: true,
       plugins: [scriptStringPlugin()],
     })
