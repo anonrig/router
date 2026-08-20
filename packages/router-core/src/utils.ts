@@ -166,6 +166,34 @@ export function last<T>(arr: ReadonlyArray<T>) {
   return arr[arr.length - 1]
 }
 
+/** Frozen empty null-prototype object shared as a params/search default. */
+export const EMPTY_OBJ: Record<string, any> = Object.freeze(Object.create(null))
+
+/** Inert AbortController stand-in for matches that will never load. */
+export const noopAbortController = {
+  signal: {
+    aborted: false,
+    reason: undefined,
+    onabort: null,
+    throwIfAborted() {},
+    addEventListener() {},
+    removeEventListener() {},
+    dispatchEvent() {
+      return false
+    },
+  },
+  abort() {},
+} as unknown as AbortController
+
+/** Route children can be an array or a keyed record. */
+export function routeChildren<T extends { children?: Array<T> | Record<string, T> }>(
+  route: T,
+): Array<T> {
+  const kids = route.children
+  if (!kids) return []
+  return Array.isArray(kids) ? kids : Object.values(kids)
+}
+
 /**
  * Apply a value-or-updater to a previous value.
  * Accepts either a literal value or a function of the previous value.

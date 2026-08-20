@@ -288,7 +288,8 @@ export type InterPolatePathResult = {
   isMissingParams: boolean
 }
 
-function isUnreservedPathValue(value: string) {
+/** True when every char is RFC3986 "unreserved" (alphanumeric or `-._~`). */
+export function isUnreservedPathValue(value: string) {
   for (let i = 0; i < value.length; i++) {
     const c = value.charCodeAt(i)
     if (

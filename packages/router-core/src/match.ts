@@ -13,7 +13,7 @@ import {
   SEGMENT_TYPE_PATHNAME,
   SEGMENT_TYPE_WILDCARD,
 } from './parse-segment'
-import { evictOldest } from './utils'
+import { EMPTY_OBJ, evictOldest, routeChildren } from './utils'
 import type { ParsedSegment, SegmentKind } from './parse-segment'
 
 export {
@@ -161,20 +161,23 @@ function getOrCreateStatic(node: SegmentNode, key: string, caseSensitive: boolea
   return child
 }
 
-function getOrCreateParam(
+/** Find-or-create for named (param/optional) children. Build-time only. */
+function getOrCreateNamed(
   node: SegmentNode,
+  optional: boolean,
   name: string,
   prefix: string,
   suffix: string,
-  parse: SegmentNode['parse'],
-  priority: number,
   affixCaseSensitive: boolean | undefined,
+  parse?: SegmentNode['parse'],
+  priority?: number,
 ): SegmentNode {
-  const existing = node.paramChildren
+  const nameKey = optional ? 'optionalName' : 'paramName'
+  const existing = optional ? node.optionalChildren : node.paramChildren
   if (existing) {
     for (let i = 0; i < existing.length; i++) {
       const child = existing[i]!
-      if (child.paramName === name && child.prefix === prefix && child.suffix === suffix) {
+      if (child[nameKey] === name && child.prefix === prefix && child.suffix === suffix) {
         if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
         return child
       }
@@ -183,44 +186,20 @@ function getOrCreateParam(
   const next = createNode()
   next.parse = parse
   next.priority = priority
-  next.paramName = name
+  next[nameKey] = name
   next.prefix = prefix
   next.suffix = suffix
   next.affixCaseSensitive = affixCaseSensitive
-  node.paramChildren ??= []
-  node.paramChildren.push(next)
-  if (!node.paramChild) node.paramChild = next
-  if (!node.paramName) node.paramName = name
-  return next
-}
-
-function getOrCreateOptional(
-  node: SegmentNode,
-  name: string,
-  prefix: string,
-  suffix: string,
-  affixCaseSensitive: boolean | undefined,
-) {
-  const existing = node.optionalChildren
-  if (existing) {
-    for (let i = 0; i < existing.length; i++) {
-      const child = existing[i]!
-      if (child.optionalName === name && child.prefix === prefix && child.suffix === suffix) {
-        if (affixCaseSensitive !== undefined) child.affixCaseSensitive = affixCaseSensitive
-        return child
-      }
-    }
+  if (optional) {
+    ;(node.optionalChildren ??= []).push(next)
+    if (!node.optionalChild) node.optionalChild = next
+    if (!node.optionalName) node.optionalName = name
+    optionalNamesThisTree.push(name || '')
+  } else {
+    ;(node.paramChildren ??= []).push(next)
+    if (!node.paramChild) node.paramChild = next
+    if (!node.paramName) node.paramName = name
   }
-  const next = createNode()
-  next.optionalName = name
-  next.prefix = prefix
-  next.suffix = suffix
-  next.affixCaseSensitive = affixCaseSensitive
-  node.optionalChildren ??= []
-  node.optionalChildren.push(next)
-  if (!node.optionalChild) node.optionalChild = next
-  if (!node.optionalName) node.optionalName = name
-  optionalNamesThisTree.push(name || '')
   return next
 }
 
@@ -445,12 +424,6 @@ export type ProcessedTree = {
   optionalNames?: string[]
 }
 
-function childrenOf(route: AnyRouteLike): AnyRouteLike[] {
-  const kids = route.children
-  if (!kids) return []
-  return Array.isArray(kids) ? kids : Object.values(kids)
-}
-
 function lastIdSegment(id: string): string {
   let end = id.length
   if (end > 1 && id.charCodeAt(end - 1) === 47) end--
@@ -567,23 +540,17 @@ function walkPath(node: SegmentNode, path: string, caseSensitive: boolean, route
     const owned = segmentIndex >= ownedFrom
     const affixCaseSensitive = owned ? routeCaseSensitive : undefined
 
-    if (kind === SEGMENT_TYPE_PARAM) {
-      current = getOrCreateParam(
+    if (kind === SEGMENT_TYPE_PARAM || kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
+      const optional = kind === SEGMENT_TYPE_OPTIONAL_PARAM
+      current = getOrCreateNamed(
         current,
-        trimmed.substring(segment[2], segment[3]),
-        trimmed.substring(start, segment[1]),
-        trimmed.substring(segment[4], end),
-        route?.options?.params?.parse ?? route?.options?.parseParams ?? null,
-        route?.options?.params?.priority ?? 0,
-        affixCaseSensitive,
-      )
-    } else if (kind === SEGMENT_TYPE_OPTIONAL_PARAM) {
-      current = getOrCreateOptional(
-        current,
+        optional,
         trimmed.substring(segment[2], segment[3]),
         trimmed.substring(start, segment[1]),
         trimmed.substring(segment[4], end),
         affixCaseSensitive,
+        optional ? null : (route?.options?.params?.parse ?? route?.options?.parseParams ?? null),
+        optional ? 0 : (route?.options?.params?.priority ?? 0),
       )
     } else if (kind === SEGMENT_TYPE_WILDCARD) {
       const prefix = trimmed.substring(start, segment[1])
@@ -685,7 +652,7 @@ export function processRouteTree<T extends AnyRouteLike>(
       routesByPath[route.fullPath] = route
     }
     flatRoutes.push(route)
-    const kids = childrenOf(route)
+    const kids = routeChildren(route)
     for (let i = 0; i < kids.length; i++) walk(kids[i]!, i)
   }
 
@@ -751,15 +718,10 @@ export type RouteMatchResult = {
   rawParams: Record<string, string>
 }
 
-const EMPTY_PARAMS: Record<string, string> = Object.freeze(Object.create(null))
+const EMPTY_PARAMS: Record<string, string> = EMPTY_OBJ
 
 function decodeSegment(raw: string) {
-  if (raw.indexOf('%') === -1) return raw
-  try {
-    return decodeURIComponent(raw)
-  } catch {
-    return raw
-  }
+  return decodeParamSegment(raw) ?? raw
 }
 
 function decodeParamSegment(raw: string): string | undefined {

@@ -3,7 +3,7 @@ import { interpolatePath, trimPathRight } from './path'
 import { BaseRoute } from './route'
 import { validateSearch } from './router-search'
 import { setSlotRuntime } from './router'
-import { functionalUpdate } from './utils'
+import { EMPTY_OBJ, functionalUpdate, noopAbortController, routeChildren } from './utils'
 import type { AnyRoute } from './route'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
@@ -33,16 +33,9 @@ type SlotRoute = AnyRoute & {
   _slotTree?: ProcessedTree
 }
 
-const EMPTY_PARAMS: Record<string, string> = Object.freeze(Object.create(null))
-const noopAbortController = {
-  signal: { aborted: false, addEventListener() {}, removeEventListener() {} },
-  abort() {},
-} as unknown as AbortController
+const EMPTY_PARAMS: Record<string, string> = EMPTY_OBJ
 
-function kids(route: SlotRoute): SlotRoute[] {
-  const children = route.children
-  return children ? (Array.isArray(children) ? children : Object.values(children)) : []
-}
+const kids = routeChildren as (route: SlotRoute) => Array<SlotRoute>
 
 function slotKey(names: string[], prefix: string) {
   return prefix + names.join(prefix)

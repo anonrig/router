@@ -1,4 +1,4 @@
-import { invariant } from './invariant'
+import { invariant } from './utils'
 import { joinPaths, trimPathLeft, trimPathRight } from './path'
 import { notFound } from './not-found'
 import { redirect } from './redirect'

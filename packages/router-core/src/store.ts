@@ -6,7 +6,8 @@ export type Store<T> = {
   subscribe: (listener: Listener<T>) => () => void
 }
 
-export function createStore<T>(initial: T): Store<T> {
+/** When `schedule` is provided, listener notification is deferred through it. */
+export function createStore<T>(initial: T, schedule?: (notify: () => void) => void): Store<T> {
   let value = initial
   let listeners: Set<Listener<T>> | undefined
   return {
@@ -15,7 +16,8 @@ export function createStore<T>(initial: T): Store<T> {
       const resolved = typeof next === 'function' ? (next as (prev: T) => T)(value) : next
       if (resolved === value) return
       value = resolved
-      listeners?.forEach((l) => l(value))
+      if (schedule) schedule(() => listeners?.forEach((l) => l(value)))
+      else listeners?.forEach((l) => l(value))
     },
     subscribe: (listener) => {
       listeners ??= new Set()

@@ -1,5 +1,5 @@
 import { crossSerializeStream, getCrossReferenceHeader } from 'seroval'
-import { invariant } from '../invariant'
+import { invariant } from '../utils'
 import {
   createInlineCssPlaceholderAsset,
   createInlineCssStyleAsset,
