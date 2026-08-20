@@ -33,6 +33,7 @@ const specialSubpaths: Record<string, string> = {
     'packages/router-core/src/new-process-route-tree.ts',
   ),
   '@tanstack/router-core/isServer': resolve(root, 'packages/router-core/src/is-server.ts'),
+  '@tanstack/router-core/warm': resolve(root, 'packages/router-core/src/warm.ts'),
   '@tanstack/router-core/scroll-restoration-script': resolve(
     root,
     'packages/router-core/src/scroll-restoration-script/server.ts',
@@ -237,6 +238,10 @@ export const tanstackAliases = [
   },
   {
     find: 'speedy-router-core/warm',
+    replacement: resolve(root, 'packages/router-core/src/warm.ts'),
+  },
+  {
+    find: '@tanstack/router-core/warm',
     replacement: resolve(root, 'packages/router-core/src/warm.ts'),
   },
   {

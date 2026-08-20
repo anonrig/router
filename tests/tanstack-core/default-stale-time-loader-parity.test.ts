@@ -2,6 +2,7 @@
 import { createMemoryHistory } from '@tanstack/history'
 import { describe, expect, test } from 'vitest'
 import { BaseRootRoute, BaseRoute } from '@tanstack/router-core'
+import '@tanstack/router-core/warm'
 import { createTestRouter } from './router-test-utils'
 
 /**
