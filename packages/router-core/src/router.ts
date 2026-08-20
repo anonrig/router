@@ -542,6 +542,67 @@ const DEFAULT_STORE_CONFIG = {
   batch: runNow,
 }
 
+type StateStore = ReturnType<typeof createStore<RouterState>>
+
+/** Mirror the granular stores into the compat `state` store after a matches publish. */
+function syncPublishedMatches(
+  state: StateStore,
+  nextMatches: any[],
+  status: RouterState['status'],
+  nextLocation: ParsedLocation,
+  nextResolved: ParsedLocation | undefined,
+  syncTransitioning: boolean,
+) {
+  const current = state.get()
+  if (!current) return
+  const isLoading = status === 'pending'
+  if (
+    current.matches === nextMatches &&
+    current.status === status &&
+    current.location === nextLocation &&
+    current.resolvedLocation === nextResolved &&
+    current.isLoading === isLoading
+  ) {
+    return
+  }
+  state.set({
+    ...current,
+    matches: nextMatches,
+    status,
+    isLoading,
+    isTransitioning: syncTransitioning ? isLoading : current.isTransitioning,
+    location: nextLocation,
+    resolvedLocation: nextResolved,
+  })
+}
+
+/** Write the settled idle state in one shot unless it is already current. */
+function syncIdleState(state: StateStore, nextLocation: ParsedLocation, nextMatches: any[]) {
+  const current = state.get()
+  if (
+    !current ||
+    current.status !== 'idle' ||
+    current.isLoading ||
+    current.isTransitioning ||
+    current.matches !== nextMatches ||
+    current.location !== nextLocation ||
+    current.resolvedLocation !== nextLocation ||
+    current.statusCode !== 200 ||
+    current.pendingMatches
+  ) {
+    state.set({
+      status: 'idle',
+      isLoading: false,
+      isTransitioning: false,
+      matches: nextMatches,
+      pendingMatches: undefined,
+      location: nextLocation,
+      resolvedLocation: nextLocation,
+      statusCode: 200,
+    })
+  }
+}
+
 const OPTION_DEFAULTS = {
   defaultPreloadDelay: 50,
   defaultPendingMs: 1000,
@@ -685,30 +746,14 @@ export class RouterCore<
       })
       const publishMatches = (nextMatches: any[]) => {
         setMatches(nextMatches)
-        const current = state.get()
-        if (!current) return
-        const status = stores.status.get()
-        const nextLocation = stores.location.get()
-        const nextResolved = stores.resolvedLocation.get()
-        const isLoading = status === 'pending'
-        if (
-          current.matches === nextMatches &&
-          current.status === status &&
-          current.location === nextLocation &&
-          current.resolvedLocation === nextResolved &&
-          current.isLoading === isLoading
-        ) {
-          return
-        }
-        state.set({
-          ...current,
-          matches: nextMatches,
-          status,
-          isLoading,
-          isTransitioning: isLoading,
-          location: nextLocation,
-          resolvedLocation: nextResolved,
-        })
+        syncPublishedMatches(
+          state,
+          nextMatches,
+          stores.status.get(),
+          stores.location.get(),
+          stores.resolvedLocation.get(),
+          true,
+        )
       }
       return Object.assign(stores, {
         state,
@@ -718,29 +763,7 @@ export class RouterCore<
           stores.location.set(nextLocation)
           stores.resolvedLocation.set(nextLocation)
           setMatches(nextMatches)
-          const current = state.get()
-          if (
-            !current ||
-            current.status !== 'idle' ||
-            current.isLoading ||
-            current.isTransitioning ||
-            current.matches !== nextMatches ||
-            current.location !== nextLocation ||
-            current.resolvedLocation !== nextLocation ||
-            current.statusCode !== 200 ||
-            current.pendingMatches
-          ) {
-            state.set({
-              status: 'idle',
-              isLoading: false,
-              isTransitioning: false,
-              matches: nextMatches,
-              pendingMatches: undefined,
-              location: nextLocation,
-              resolvedLocation: nextLocation,
-              statusCode: 200,
-            })
-          }
+          syncIdleState(state, nextLocation, nextMatches)
         },
       })
     }
@@ -829,29 +852,14 @@ export class RouterCore<
     }) as typeof stores.resolvedLocation.set
     const publishMatches = (nextMatches: any[]) => {
       setMatches(nextMatches)
-      const current = state.get()
-      if (!current) return
-      const status = stores.status.get()
-      const nextLocation = locationStore.get()
-      const nextResolved = stores.resolvedLocation.get()
-      const isLoading = status === 'pending'
-      if (
-        current.matches === nextMatches &&
-        current.status === status &&
-        current.location === nextLocation &&
-        current.resolvedLocation === nextResolved &&
-        current.isLoading === isLoading
-      ) {
-        return
-      }
-      state.set({
-        ...current,
-        matches: nextMatches,
-        location: nextLocation,
-        resolvedLocation: nextResolved,
-        status,
-        isLoading,
-      })
+      syncPublishedMatches(
+        state,
+        nextMatches,
+        stores.status.get(),
+        locationStore.get(),
+        stores.resolvedLocation.get(),
+        false,
+      )
     }
     return Object.assign(stores, {
       state,
@@ -867,29 +875,7 @@ export class RouterCore<
         setLocation(nextLocation)
         setResolved(nextLocation)
         setMatches(nextMatches)
-        const current = state.get()
-        if (
-          !current ||
-          current.status !== 'idle' ||
-          current.isLoading ||
-          current.isTransitioning ||
-          current.matches !== nextMatches ||
-          current.location !== nextLocation ||
-          current.resolvedLocation !== nextLocation ||
-          current.statusCode !== 200 ||
-          current.pendingMatches
-        ) {
-          state.set({
-            status: 'idle',
-            isLoading: false,
-            isTransitioning: false,
-            matches: nextMatches,
-            pendingMatches: undefined,
-            location: nextLocation,
-            resolvedLocation: nextLocation,
-            statusCode: 200,
-          })
-        }
+        syncIdleState(state, nextLocation, nextMatches)
         if (bump || !sameParsedLocation(previous, nextLocation)) bumpMatchRoute()
       },
     })

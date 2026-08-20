@@ -112,7 +112,7 @@ class MemoryHistory implements RouterHistory {
     }
   }
 
-  private commitPush(path: string, state: ParsedHistoryState) {
+  private commitPush(path: string, state: ParsedHistoryState, simple?: boolean) {
     const { entries, states } = this
     if (this.index < entries.length - 1) {
       entries.length = this.index + 1
@@ -122,14 +122,14 @@ class MemoryHistory implements RouterHistory {
     entries.push(path)
     this.index = entries.length - 1
     this.compactIfNeeded()
-    this.location = locationFromPath(path, state)
+    this.location = simple ? simpleLocation(path, state) : locationFromPath(path, state)
     this.notify(PUSH_ACTION)
   }
 
-  private commitReplace(path: string, state: ParsedHistoryState) {
+  private commitReplace(path: string, state: ParsedHistoryState, simple?: boolean) {
     this.states[this.index] = state
     this.entries[this.index] = path
-    this.location = locationFromPath(path, state)
+    this.location = simple ? simpleLocation(path, state) : locationFromPath(path, state)
     this.notify(REPLACE_ACTION)
   }
 
@@ -178,20 +178,11 @@ class MemoryHistory implements RouterHistory {
       )
     }
     this.committedNavigationId = navigationId
-    const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state)
-    const { entries, states } = this
-    if (this.index < entries.length - 1) {
-      entries.length = this.index + 1
-      states.length = this.index + 1
-    }
-    states.push(nextState)
-    entries.push(path)
-    this.index = entries.length - 1
-    this.compactIfNeeded()
-    this.location = navigateOpts?.simple
-      ? simpleLocation(path, nextState)
-      : locationFromPath(path, nextState)
-    this.notify(PUSH_ACTION)
+    this.commitPush(
+      path,
+      assignKeyAndIndex(this.location.state[STATE_INDEX] + 1, state),
+      navigateOpts?.simple,
+    )
   }
 
   replace(path: string, state?: any, navigateOpts?: NavigateOptions) {
@@ -216,13 +207,11 @@ class MemoryHistory implements RouterHistory {
       )
     }
     this.committedNavigationId = navigationId
-    const nextState = assignKeyAndIndex(this.location.state[STATE_INDEX], state)
-    this.states[this.index] = nextState
-    this.entries[this.index] = path
-    this.location = navigateOpts?.simple
-      ? simpleLocation(path, nextState)
-      : locationFromPath(path, nextState)
-    this.notify(REPLACE_ACTION)
+    this.commitReplace(
+      path,
+      assignKeyAndIndex(this.location.state[STATE_INDEX], state),
+      navigateOpts?.simple,
+    )
   }
 
   go(n: number) {
