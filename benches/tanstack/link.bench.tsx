@@ -38,6 +38,11 @@ const createRouterRenderer = (routesCount: number) => (children: ReactNode) => {
   })
 }
 
+// Long warmup and sampling windows for stable local wall-clock numbers:
+// each iteration renders thousands of links, so the default 500ms budget only
+// collects a few dozen samples. CodSpeed's instrumented runs ignore these.
+const BENCH_OPTIONS = { warmupIterations: 5, warmupTime: 500, time: 2000 }
+
 const InterpolatePathLink = ({ to, params, children }: PropsWithChildren<LinkProps>) => {
   const href = interpolatePath({ path: to, params }).interpolatedPath
   return <a href={href}>{children}</a>
@@ -83,7 +88,7 @@ describe.each([
       )
       renderProvider(router)
     },
-    { warmupIterations: 1 },
+    BENCH_OPTIONS,
   )
 
   bench(
@@ -102,7 +107,7 @@ describe.each([
       )
       renderProvider(router)
     },
-    { warmupIterations: 1 },
+    BENCH_OPTIONS,
   )
 
   bench(
@@ -121,7 +126,7 @@ describe.each([
       )
       renderProvider(router)
     },
-    { warmupIterations: 1 },
+    BENCH_OPTIONS,
   )
 
   bench(
@@ -140,7 +145,7 @@ describe.each([
       )
       renderProvider(router)
     },
-    { warmupIterations: 1 },
+    BENCH_OPTIONS,
   )
 
   bench(
@@ -159,7 +164,7 @@ describe.each([
       )
       renderProvider(router)
     },
-    { warmupIterations: 1 },
+    BENCH_OPTIONS,
   )
 
   bench(
@@ -174,6 +179,6 @@ describe.each([
       )
       renderProvider(router)
     },
-    { warmupIterations: 1 },
+    BENCH_OPTIONS,
   )
 })
