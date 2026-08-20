@@ -35,10 +35,14 @@ import {
 } from './rewrite'
 import { rootRouteId } from './root'
 import type { ParsedLocation } from './location'
-import type { ManifestRouteAssets } from './manifest'
+import type {
+  ManifestRouteAssets,
+  RouterManagedTag as ManifestRouterManagedTag,
+} from './manifest'
 import type { AnyRouteMatch as PublicRouteMatch } from './matches'
 import type { AnyContext as RouteAnyContext, AnyRoute } from './route'
 import type { BuildLocationFn, NavigateFn } from './router-provider'
+import type { ValidateSerializableInput } from './ssr/serializer/transformer-types'
 import { setupDefaultScroll } from './scroll-default'
 import {
   applySearchMiddleware,
@@ -72,6 +76,7 @@ import {
   noopAbortController,
   nullReplaceEqualDeep,
   replaceEqualDeep,
+  type Awaitable,
   type PickAsRequired,
 } from './utils'
 
@@ -262,8 +267,10 @@ export interface RouterOptions<
   serializationAdapters?: any[]
   routeMasks?: any[]
   slotPrefix?: string
-  dehydrate?: () => TDehydrated | Promise<TDehydrated>
-  hydrate?: (data: TDehydrated) => void | Promise<void>
+  dehydrate?: () => Awaitable<
+    Constrain<TDehydrated, ValidateSerializableInput<Register, TDehydrated>>
+  >
+  hydrate?: (data: TDehydrated) => Awaitable<void>
   additionalContext?: Record<string, any>
   defaultSsr?: any
   defaultStaleReloadMode?: any
@@ -303,7 +310,7 @@ export interface ServerSsr {
   setRenderFinished: () => void
   cleanup: () => void
   dehydrate: (opts?: { requestAssets?: ManifestRouteAssets }) => void | Promise<void>
-  takeBufferedScripts: () => RouterManagedTag | undefined
+  takeBufferedScripts: () => ManifestRouterManagedTag | undefined
   takeBufferedHtml: () => string | undefined
   liftScriptBarrier: () => void
 }
