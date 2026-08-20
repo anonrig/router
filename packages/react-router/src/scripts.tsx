@@ -48,6 +48,11 @@ export const Scripts = () => {
     return scripts
   }
 
+  if (isServer ?? router.isServer) {
+    return renderScripts(router, getScripts(router.stores.matches.get()))
+  }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- server/client is static
   const scripts = useMatchDerived(router, getScripts)
   return renderScripts(router, scripts)
 }
