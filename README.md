@@ -176,11 +176,11 @@ Initial client graph for the public constructors. Vite 8 / Rolldown minify, gzip
 
 | Package                | speedy-router |    gzip |     TanStack |        gzip |
 | ---------------------- | ------------: | ------: | -----------: | ----------: |
-| `speedy-router`        |      119.5 kB | 34.1 kB | **104.5 kB** | **29.5 kB** |
-| `speedy-router-core`   |       97.2 kB | 27.3 kB |  **75.1 kB** | **21.6 kB** |
-| `RouterClient` hydrate |      127.5 kB | 36.8 kB | **110.0 kB** | **31.2 kB** |
+| `speedy-router`        |      117.5 kB | 33.5 kB | **105.2 kB** | **29.5 kB** |
+| `speedy-router-core`   |       95.3 kB | 26.7 kB |  **75.4 kB** | **21.7 kB** |
+| `RouterClient` hydrate |      125.6 kB | 36.2 kB | **110.7 kB** | **31.2 kB** |
 
-TanStack is still smaller on both client graphs (1.16× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The sync warm loader is opt-in via `speedy-router-core/warm` (or `speedy-router/warm`) and is not in this graph. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. `hydrate` / `RouterClient` import match helpers instead of the coordinator, so first paint does not statically bind `load-client`. The default graph no longer keeps a path LRU, path result memos, or `StringMap` flight registry. The remaining extra is matcher interners and the href fast path. The initial graph no longer includes TanStack's segment-tree matcher, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
+TanStack is still smaller on both client graphs (1.14× gzip for `speedy-router`). Parallel route slots are tree-shaken out of this graph unless `createSlotRoute` is imported. The sync warm loader is opt-in via `speedy-router-core/warm` (or `speedy-router/warm`) and is not in this graph. The client load coordinator and SSR `load` chunk are dynamic imports and are not counted. `hydrate` / `RouterClient` import match helpers instead of the coordinator, so first paint does not statically bind `load-client`. The default graph no longer keeps a path LRU, path result memos, or `StringMap` flight registry. The remaining extra is matcher interners and the href fast path. The initial graph no longer includes TanStack's segment-tree matcher, HMR refresh, or hash/memory history. Re-run with `pnpm size`.
 
 Copied TanStack unit benches (search params, SSR match IDs, Link, closing-tag detection) live in `benches/tanstack/`. TanStack's Nx Start app benches are not copied; they need `@tanstack/react-start` and a built server.
 
