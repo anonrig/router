@@ -5,7 +5,7 @@ import {
   SEGMENT_TYPE_WILDCARD,
   parseSegment,
 } from './parse-segment'
-import { encodeURIComponentWellFormed, evictOldest } from './utils'
+import { encodeURIComponentWellFormed } from './utils'
 
 export function joinPaths(paths: Array<string | undefined>) {
   let out = ''
@@ -23,31 +23,9 @@ export function joinPaths(paths: Array<string | undefined>) {
   return cleanPath(out)
 }
 
-const cleanCache: Record<string, string> = Object.create(null)
-const CLEAN_CACHE_MAX = 32
-const cleanCacheSize = { n: 0 }
-
-function setBounded<V>(
-  cache: Record<string, V>,
-  size: { n: number },
-  key: string,
-  value: V,
-  max: number,
-) {
-  if (!(key in cache)) {
-    if (size.n >= max) evictOldest(cache)
-    else size.n++
-  }
-  cache[key] = value
-}
-
 export function cleanPath(path: string) {
-  const cached = cleanCache[path]
-  if (cached !== undefined) return cached
   const first = path.indexOf('//')
-  const result = first === -1 ? path : collapseSlashes(path, first)
-  setBounded(cleanCache, cleanCacheSize, path, result, CLEAN_CACHE_MAX)
-  return result
+  return first === -1 ? path : collapseSlashes(path, first)
 }
 
 function collapseSlashes(path: string, first: number) {
@@ -112,129 +90,75 @@ interface ResolvePathOptions {
   cache?: { get(key: string): string | undefined; set(key: string, value: string): void }
 }
 
-const defaultResolveCache: Record<string, string> = Object.create(null)
-const RESOLVE_CACHE_MAX = 64
-const defaultResolveCacheSize = { n: 0 }
-
-function rememberResolved(
-  cache: ResolvePathOptions['cache'] | undefined,
-  key: string | undefined,
-  result: string,
-) {
-  if (!key) return result
-  if (!cache) {
-    setBounded(defaultResolveCache, defaultResolveCacheSize, key, result, RESOLVE_CACHE_MAX)
-    return result
-  }
-  cache.set(key, result)
-  return result
-}
-
-let lastResolveBase = ''
-let lastResolveTo = ''
-let lastResolveSlash: ResolvePathOptions['trailingSlash'] = 'never'
-let lastResolveResult = ''
-
 export function resolvePath({ base, to, trailingSlash = 'never', cache }: ResolvePathOptions) {
-  if (
-    !cache &&
-    base === lastResolveBase &&
-    to === lastResolveTo &&
-    trailingSlash === lastResolveSlash
-  ) {
-    return lastResolveResult
-  }
   const isBase = to === '.'
   const isAbsolute = to.charCodeAt(0) === 47
 
   let key: string | undefined
-  key = isAbsolute ? to : isBase ? base : base + '\0' + to
-  if (trailingSlash !== 'never') key += '\0' + trailingSlash
-  const cached = cache ? cache.get(key) : defaultResolveCache[key]
-  if (cached) {
-    if (!cache) {
-      lastResolveBase = base
-      lastResolveTo = to
-      lastResolveSlash = trailingSlash
-      lastResolveResult = cached
-    }
-    return cached
+  if (cache) {
+    key = isAbsolute ? to : isBase ? base : base + '\0' + to
+    if (trailingSlash !== 'never') key += '\0' + trailingSlash
+    const cached = cache.get(key)
+    if (cached) return cached
   }
 
+  let result: string
   if (isAbsolute && !hasDotSegment(to)) {
-    const result = cleanPath(to) || '/'
-    const hasSlash = result.length > 1 && result.charCodeAt(result.length - 1) === 47
-    let finalPath = result
+    const cleaned = cleanPath(to) || '/'
+    const hasSlash = cleaned.length > 1 && cleaned.charCodeAt(cleaned.length - 1) === 47
+    result = cleaned
     if (trailingSlash === 'never' && hasSlash) {
-      finalPath = result.slice(0, -1)
-    } else if (trailingSlash === 'always' && !hasSlash && result !== '/') {
-      finalPath = result + '/'
+      result = cleaned.slice(0, -1)
+    } else if (trailingSlash === 'always' && !hasSlash && cleaned !== '/') {
+      result = cleaned + '/'
     } else if (trailingSlash === 'preserve') {
       const toEndedWithSlash = to.length > 1 && to.charCodeAt(to.length - 1) === 47
-      if (toEndedWithSlash && !hasSlash && result !== '/') {
-        finalPath = result + '/'
+      if (toEndedWithSlash && !hasSlash && cleaned !== '/') {
+        result = cleaned + '/'
       } else if (!toEndedWithSlash && hasSlash) {
-        finalPath = result.slice(0, -1)
+        result = cleaned.slice(0, -1)
       }
     }
-    return finishResolve(cache, key, finalPath, base, to, trailingSlash, !cache)
-  }
-
-  let baseSegments: Array<string>
-  if (isBase) {
-    baseSegments = splitPath(base)
-  } else if (isAbsolute) {
-    baseSegments = splitPath(to)
   } else {
-    baseSegments = splitPath(base)
-    while (baseSegments.length > 1 && baseSegments[baseSegments.length - 1] === '') {
-      baseSegments.pop()
-    }
+    let baseSegments: Array<string>
+    if (isBase) {
+      baseSegments = splitPath(base)
+    } else if (isAbsolute) {
+      baseSegments = splitPath(to)
+    } else {
+      baseSegments = splitPath(base)
+      while (baseSegments.length > 1 && baseSegments[baseSegments.length - 1] === '') {
+        baseSegments.pop()
+      }
 
-    const toSegments = splitPath(to)
-    for (let index = 0, length = toSegments.length; index < length; index++) {
-      const value = toSegments[index]!
-      if (value === '') {
-        if (!index) baseSegments = [value]
-        else if (index === length - 1) baseSegments.push(value)
-      } else if (value === '..') {
-        if (baseSegments.length > 1) baseSegments.pop()
-        else baseSegments = ['']
-      } else if (value !== '.') {
-        baseSegments.push(value)
+      const toSegments = splitPath(to)
+      for (let index = 0, length = toSegments.length; index < length; index++) {
+        const value = toSegments[index]!
+        if (value === '') {
+          if (!index) baseSegments = [value]
+          else if (index === length - 1) baseSegments.push(value)
+        } else if (value === '..') {
+          if (baseSegments.length > 1) baseSegments.pop()
+          else baseSegments = ['']
+        } else if (value !== '.') {
+          baseSegments.push(value)
+        }
       }
     }
-  }
 
-  if (baseSegments.length > 1) {
-    if (baseSegments[baseSegments.length - 1] === '') {
-      if (trailingSlash === 'never') baseSegments.pop()
-    } else if (trailingSlash === 'always') {
-      baseSegments.push('')
+    if (baseSegments.length > 1) {
+      if (baseSegments[baseSegments.length - 1] === '') {
+        if (trailingSlash === 'never') baseSegments.pop()
+      } else if (trailingSlash === 'always') {
+        baseSegments.push('')
+      }
     }
+
+    result = cleanPath(baseSegments.join('/')) || '/'
   }
 
-  const result = cleanPath(baseSegments.join('/')) || '/'
-  return finishResolve(cache, key, result, base, to, trailingSlash, !cache)
-}
-
-function finishResolve(
-  cache: ResolvePathOptions['cache'] | undefined,
-  key: string | undefined,
-  result: string,
-  base: string,
-  to: string,
-  trailingSlash: ResolvePathOptions['trailingSlash'],
-  rememberLast: boolean,
-) {
-  const stored = rememberResolved(cache, key, result)
-  if (rememberLast) {
-    lastResolveBase = base
-    lastResolveTo = to
-    lastResolveSlash = trailingSlash
-    lastResolveResult = stored
-  }
-  return stored
+  if (cache && key !== undefined) cache.set(key, result)
+  return result
 }
 
 function hasDotSegment(path: string) {
@@ -333,24 +257,8 @@ function unescapeEncodedExclamation(decoded: string): string {
 }
 
 type SimplePart = { t: 0; s: string } | { t: 1; k: string }
-const simpleInterpolateCache: Record<string, SimplePart[] | null> = Object.create(null)
-const SIMPLE_INTERPOLATE_CACHE_MAX = 256
-const simpleInterpolateCacheSize = { n: 0 }
-
-function rememberSimpleParts(path: string, parts: SimplePart[] | null) {
-  setBounded(
-    simpleInterpolateCache,
-    simpleInterpolateCacheSize,
-    path,
-    parts,
-    SIMPLE_INTERPOLATE_CACHE_MAX,
-  )
-  return parts
-}
 
 function compileSimpleParams(path: string): SimplePart[] | null {
-  const cached = simpleInterpolateCache[path]
-  if (cached !== undefined) return cached
   const parts: SimplePart[] = []
   let i = 0
   const len = path.length
@@ -362,14 +270,14 @@ function compileSimpleParams(path: string): SimplePart[] | null {
     }
     let j = i + 1
     while (j < len && path.charCodeAt(j) !== 47) j++
-    if (j === i + 1) return rememberSimpleParts(path, null)
+    if (j === i + 1) return null
     if (i > litStart) parts.push({ t: 0, s: path.slice(litStart, i) })
     parts.push({ t: 1, k: path.slice(i + 1, j) })
     i = j
     litStart = j
   }
   if (litStart < len) parts.push({ t: 0, s: path.slice(litStart) })
-  return rememberSimpleParts(path, parts)
+  return parts
 }
 
 function interpolateSimpleParams(

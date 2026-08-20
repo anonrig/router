@@ -105,6 +105,8 @@ describe('dead code elimination', () => {
     expect(serverMarkers.filter((marker) => allCode(chunks).includes(marker))).toEqual([])
     expect(entry).not.toContain('runClientTransaction')
     expect(allCode(chunks)).toContain('runClientTransaction')
+    expect(allCode(chunks)).not.toContain('createLRUCache')
+    expect(allCode(chunks)).not.toContain('createStringMap')
   })
 
   it('keeps load-server in the SSR createRouter graph', async () => {

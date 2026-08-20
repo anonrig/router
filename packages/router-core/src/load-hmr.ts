@@ -9,7 +9,7 @@ export async function refreshClientRoute(router: CoordinatorRouter): Promise<voi
     }
   }
   // Existing owners remain presented but cannot donate stale work.
-  router._flights?.clear()
+  router._flights = undefined
   router.clearCache()
   router._refreshNextLoad = true
   await loadClientRoute(router, { sync: true })

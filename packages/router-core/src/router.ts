@@ -56,7 +56,6 @@ import {
   createRouterStores,
 } from './stores'
 import {
-  createLRUCache,
   type createStringMap,
   decodePath,
   deepEqual,
@@ -691,10 +690,6 @@ export class RouterCore<
   routesById!: Record<string, AnyRoute>
   routesByPath!: Record<string, AnyRoute>
   processedTree!: ProcessedTree
-  private _resolvePathCache?: ReturnType<typeof createLRUCache<string, string>>
-  get resolvePathCache() {
-    return (this._resolvePathCache ??= createLRUCache<string, string>(1000))
-  }
   isServer = typeof document === 'undefined'
   pathParamsDecoder?: (encoded: string) => string
   protocolAllowlist = DEFAULT_PROTOCOL_SET
@@ -715,7 +710,7 @@ export class RouterCore<
   _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>>
   _committed: any[] = []
   _tx?: any
-  _flights?: ReturnType<typeof createStringMap<any>>
+  _flights?: Record<string, any>
   _preloads?: Map<AbortController, any[]>
   _refreshNextLoad?: boolean
   declare _replaceRouteChunk?: typeof replaceRouteChunk
@@ -1203,7 +1198,6 @@ export class RouterCore<
                 base: current.pathname || '/',
                 to,
                 trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-                cache: this.resolvePathCache,
               })
             : to || '/'
         to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
@@ -1524,7 +1518,7 @@ export class RouterCore<
       }
     }
     for (const id of invalidIds) {
-      this._flights?.delete(id)
+      if (this._flights) delete this._flights[id]
     }
     for (const controller of discardedPreloads) {
       controller.abort()
@@ -1577,7 +1571,7 @@ export class RouterCore<
       const flight = match._flight
       match._flight = undefined
       if (flight && !--(flight as any)[2]) {
-        if (this._flights?.get(match.id) === flight) this._flights?.delete(match.id)
+        if (this._flights?.[match.id] === flight) delete this._flights[match.id]
         abort.push(flight[1]!)
       }
     }
@@ -1695,7 +1689,6 @@ export class RouterCore<
         base: '/',
         to: resolved || '/',
         trailingSlash: trailing,
-        cache: this.resolvePathCache,
       })
     }
     this.shouldViewTransition = rest.viewTransition
@@ -1734,7 +1727,6 @@ export class RouterCore<
         base: '/',
         to: pathname || '/',
         trailingSlash: trailing,
-        cache: this.resolvePathCache,
       })
       if (pathname !== href) hrefFull = undefined
     }
@@ -2230,7 +2222,6 @@ export class RouterCore<
                 base: this.latestLocation?.pathname || '/',
                 to: path,
                 trailingSlash: (this.options.trailingSlash as any) ?? 'never',
-                cache: this.resolvePathCache,
               })
             : path || '/'
         rest.to = executeRewriteInput(this.rewrite, new URL(rewritePath, this.origin)).pathname
@@ -2363,7 +2354,6 @@ function resolveBuildPath(
     base: fromPath || '/',
     to: interpolated || '/',
     trailingSlash: (router.options.trailingSlash as any) ?? 'never',
-    cache: router.resolvePathCache,
   })
   if (resolved !== interpolatedInput && resolved.includes('$')) {
     resolved = interpolatePath({

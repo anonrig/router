@@ -33,7 +33,7 @@ export function releaseOwnedFlight(
   if (!flight || --flight[2 /* leases */]) {
     return
   }
-  if (router._flights?.get(match.id) === flight) {
+  if (router._flights?.[match.id] === flight) {
     const current = router._tx
     if (
       current &&
@@ -49,7 +49,7 @@ export function releaseOwnedFlight(
       // beforeLoad. Loader planning performs the matching zero-owner sweep.
       return
     }
-    router._flights.delete(match.id)
+    delete router._flights[match.id]
   }
   return flight[1 /* controller */]
 }
@@ -79,7 +79,7 @@ export function transferMatchResources(
       if (
         deferSameIdFlight &&
         flight?.[2 /* leases */] === 1 &&
-        router._flights?.get(match.id) === flight &&
+        router._flights?.[match.id] === flight &&
         !(process.env.NODE_ENV !== 'production' && router._tx?.[6 /* refresh */]) &&
         next?.some((candidate) => candidate.id === match.id)
       ) {
