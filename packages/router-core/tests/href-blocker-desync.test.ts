@@ -34,4 +34,44 @@ describe('navigateHrefFast respects blockers', () => {
     expect(router.latestLocation.pathname).toBe('/about')
     delete (globalThis as any).document
   })
+
+  test('blocked href navigate does not drop a pop during confirmation', async () => {
+    ;(globalThis as any).document = {}
+    const pending = Promise.withResolvers<boolean>()
+    const root = createRootRoute()
+    const home = createRoute({
+      getParentRoute: () => root,
+      path: '/',
+      loader: () => 'home',
+    })
+    const about = createRoute({
+      getParentRoute: () => root,
+      path: '/about',
+      loader: () => 'about',
+    })
+    const posts = createRoute({
+      getParentRoute: () => root,
+      path: '/posts',
+      loader: () => 'posts',
+    })
+    root.addChildren([home, about, posts] as any)
+    const history = createMemoryHistory({ initialEntries: ['/', '/about'] })
+    const router = createRouter({
+      routeTree: root as any,
+      history,
+      isServer: true,
+    })
+    await router.load()
+    history.block({ blockerFn: () => pending.promise })
+
+    const navigation = router.navigate({ href: '/posts' } as any)
+    history.back()
+    pending.resolve(true)
+    await navigation
+
+    expect(history.location.pathname).toBe('/')
+    expect(router.state.location.pathname).toBe('/')
+    expect(router.latestLocation.pathname).toBe('/')
+    delete (globalThis as any).document
+  })
 })

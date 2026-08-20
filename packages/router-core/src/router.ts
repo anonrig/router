@@ -1338,7 +1338,11 @@ export class RouterCore<
     ) {
       const href0 = href.charCodeAt(0)
       // Path-relative hrefs (`./x`, `../y`, `z`) must go through resolvePath.
-      if (href0 === 47 || href0 === 63 || href0 === 35) {
+      // Blockers use the slow path so `#committing` does not drop pops.
+      if (
+        (href0 === 47 || href0 === 63 || href0 === 35) &&
+        (this.history.hasBlockers === undefined || !this.history.hasBlockers())
+      ) {
         return this.navigateHrefFast(href, rest)
       }
     }
