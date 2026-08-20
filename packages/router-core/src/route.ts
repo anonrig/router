@@ -2027,21 +2027,6 @@ export class BaseRootRoute<
   }
 }
 
-//
-
-export interface RouteLike {
-  id: string
-  isRoot?: boolean
-  path?: string
-  fullPath: string
-  rank?: number
-  parentRoute?: RouteLike
-  children?: Array<RouteLike>
-  options?: {
-    caseSensitive?: boolean
-  }
-}
-
 export const createRoute = /*#__PURE__*/ (options: any = {}) => new BaseRoute(options as any)
 
 export const createRootRoute = /*#__PURE__*/ (options: any = {}) =>
@@ -2051,8 +2036,7 @@ export const createRootRouteWithContext = /*#__PURE__*/ <TContext = any>() => {
   return (options: any = {}) => new BaseRootRoute(options as any)
 }
 
-export const rootRouteWithContext = /*#__PURE__*/ <TContext = any>() =>
-  createRootRouteWithContext<TContext>()
+export const rootRouteWithContext = createRootRouteWithContext
 
 export const createRouteMask = /*#__PURE__*/ (opts: any) => opts
 

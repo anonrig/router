@@ -212,7 +212,6 @@ export type RouterConstructorOptions<
   RouterContextOptions<TRouteTree>
 
 export interface RouterOptionsExtensions {}
-export interface DefaultRouterOptionsExtensions {}
 
 export interface RouterOptions<
   TRouteTree extends AnyRoute = AnyRoute,

@@ -22,7 +22,6 @@ export {
   SEGMENT_TYPE_WILDCARD,
   SEGMENT_TYPE_OPTIONAL_PARAM,
   buildRouteBranch,
-  trimPathRight,
 } from './match'
 export type {
   SegmentKind,
@@ -132,5 +131,3 @@ export function processRouteMasks(
   }
   return routeList
 }
-
-export type { RouteMatchResult as CompatRouteMatchResult }

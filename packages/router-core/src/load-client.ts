@@ -5,7 +5,13 @@ import { createStringMap, objectValues } from './utils'
 import { isRedirect } from './redirect'
 import { _getRenderedMatches, loadRouteChunk } from './load-chunk'
 import { getLocationChangeInfo, matchParentContext, runRouteLifecycle } from './router'
-import { findNotFoundBoundary, pendingRouteOptions, resolveRouteLoader } from './load-shared'
+import {
+  findNotFoundBoundary,
+  getRoute,
+  navigateFrom,
+  pendingRouteOptions,
+  resolveRouteLoader,
+} from './load-shared'
 import type { ParsedLocation } from './location'
 import type { AnyRouteMatch } from './matches'
 import type { NotFoundError } from './not-found'
@@ -19,12 +25,7 @@ import type {
 import type { AnyRedirect } from './redirect'
 import type { AnyRouter } from './router'
 
-export {
-  _getAssetMatches,
-  _getRenderedMatches,
-  loadRouteChunk,
-  replaceRouteChunk,
-} from './load-chunk'
+export { getRoute, navigateFrom }
 
 declare const lanePhase: unique symbol
 
@@ -107,16 +108,6 @@ export type LoadTransaction = [
   refresh?: [handoff: NonNullable<AnyRouter['_handoff']> | undefined],
 ]
 
-export type PendingSession = [
-  generation: LoadTransaction,
-  boundaryId: string,
-  /** Pending reveal time until acknowledged, then minimum-visible-until time. */
-  deadline: number,
-  revealTimer?: ReturnType<typeof setTimeout>,
-  ack?: Promise<boolean> | true,
-  component?: unknown,
-]
-
 export type CoordinatorRouter = AnyRouter & {
   /** Active speculative lanes retained for cancellation, invalidation, and cache clearing. */
   _preloads?: Map<AbortController, Array<AnyRouteMatch>>
@@ -169,18 +160,6 @@ export function waitFor<T>(value: T | PromiseLike<T>, signal: AbortSignal): Prom
       .finally(() => signal.removeEventListener('abort', abort))
       .catch(reject)
   })
-}
-
-export function getRoute(router: AnyRouter, match: WorkMatch): AnyRoute {
-  return (router.routesById as Record<string, AnyRoute>)[match.routeId]!
-}
-
-export function navigateFrom(router: AnyRouter, location: ParsedLocation) {
-  return (opts: any) =>
-    router.navigate({
-      ...opts,
-      _fromLocation: location,
-    })
 }
 
 function normalize(value: unknown, rejected: boolean, routeId?: string): LoaderOutcome {

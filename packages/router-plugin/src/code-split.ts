@@ -582,8 +582,8 @@ export function compileVirtualRoute(
   collectIdentifiers(match.value, live)
   live.delete('createFileRoute')
 
-  const emitted: Array<EstreeNode> = (program.body ?? []).filter(
-    (statement: EstreeNode) => needed.has(statement) && !isCreateFileRouteBinding(statement),
+  const emitted: Array<EstreeNode> = (program.body ?? []).filter((statement: EstreeNode) =>
+    needed.has(statement),
   )
   const splitBinding =
     match.value.type === 'Identifier' && typeof match.value.name === 'string'

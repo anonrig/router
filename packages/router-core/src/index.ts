@@ -344,7 +344,6 @@ export {
   decodePath,
   createLRUCache,
   last,
-  findLast,
   arraysEqual,
   nullReplaceEqualDeep,
 } from './utils'

@@ -1,13 +1,17 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react'
 import { deepEqual } from 'speedy-router-core'
-import type { Store } from 'speedy-router-core'
+
+type Readable<T> = {
+  get: () => T
+  subscribe: (listener: (value: T) => void) => () => void
+}
 
 function defaultSelect<T, U>(state: T): U {
   return state as unknown as U
 }
 
 export function useStore<T, U = T>(
-  store: Store<T>,
+  store: Readable<T>,
   select: (state: T) => U = defaultSelect,
   isEqual: (a: U, b: U) => boolean = Object.is,
 ): U {

@@ -10,7 +10,6 @@ export {
   findFlatMatch,
   buildRouteBranch,
   processRouteMasks,
-  trimPathRight,
 } from './match-compat'
 
 export type {

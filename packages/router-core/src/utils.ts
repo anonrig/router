@@ -573,23 +573,6 @@ export function isModuleNotFoundError(error: any): boolean {
   )
 }
 
-export function isPromise<T>(value: Promise<Awaited<T>> | T): value is Promise<Awaited<T>> {
-  return Boolean(
-    value && typeof value === 'object' && typeof (value as Promise<T>).then === 'function',
-  )
-}
-
-export function findLast<T>(
-  array: ReadonlyArray<T>,
-  predicate: (item: T) => boolean,
-): T | undefined {
-  for (let i = array.length - 1; i >= 0; i--) {
-    const item = array[i]!
-    if (predicate(item)) return item
-  }
-  return undefined
-}
-
 /**
  * Re-encode characters that are unsafe in URL paths.
  * Includes ASCII control characters (0x00-0x1F, 0x7F) and a subset of the
@@ -952,11 +935,6 @@ export class StringMap<V> {
     return (function* (store: Record<string, V>) {
       for (const key in store) yield key
     })(this.store)
-  }
-
-  *values(): IterableIterator<V> {
-    const store = this.store
-    for (const key in store) yield store[key]!
   }
 
   *[Symbol.iterator](): IterableIterator<[string, V]> {

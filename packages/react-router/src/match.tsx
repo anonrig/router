@@ -245,5 +245,3 @@ export const Outlet = memo(function OutletImpl(props?: { slot?: string; fallback
   }
   return nextMatch
 })
-
-export { rootRouteId }
