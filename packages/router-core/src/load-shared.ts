@@ -80,7 +80,7 @@ export async function findNotFoundBoundary(
   router: AnyRouter,
   matches: Array<AnyRouteMatch>,
   indexed: readonly [number, ReadonlyArray<unknown>, ...Array<unknown>] | undefined,
-  awaitChunk: (loading: Promise<unknown> | undefined) => void | Promise<void>,
+  awaitChunk: (loading: Promise<unknown> | undefined) => void | Promise<unknown>,
   fallback = 0,
 ): Promise<number> {
   const cause = indexed?.[1][1] as NotFoundError | undefined
