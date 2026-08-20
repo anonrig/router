@@ -2014,56 +2014,8 @@ export class RouterCore<
         ? this.options.context
         : (matches[start - 1]?.context ?? this.options.context)) ?? {}),
     }
-    type WarmResult = {
-      match: RouteMatch
-      route: AnyRoute
-      context: Record<string, any>
-      ok: boolean
-      value: any
-    }
-    const results: Array<WarmResult | undefined> = []
-    const pending: Promise<void>[] = []
-    const matchPromises: Array<Promise<RouteMatch>> = []
-    let canceled = false
-    const settled: RouteMatch[] = []
-    const settleSuccess = (result: WarmResult, updatedAt: number) => {
-      if (
-        canceled ||
-        id !== this.loadId ||
-        !result.ok ||
-        isRedirect(result.value) ||
-        isNotFound(result.value)
-      ) {
-        return
-      }
-      result.match.loaderData = result.value
-      result.match.status = 'success'
-      result.match.isFetching = false
-      result.match.updatedAt = updatedAt
-      result.match.context = result.context
-      settled.push(result.match)
-    }
-    const discardSettledBelow = (failed: RouteMatch) => {
-      const failedIndex = matches.indexOf(failed)
-      for (let i = 0; i < settled.length; i++) {
-        const match = settled[i]!
-        if (matches.indexOf(match) <= failedIndex) continue
-        match.loaderData = undefined
-        match.status = 'pending'
-        match.isFetching = false
-        match.updatedAt = 0
-      }
-    }
-    const abortFetching = () => {
-      canceled = true
-      for (let j = 0; j < matches.length; j++) {
-        const candidate = matches[j]!
-        if (candidate.isFetching) {
-          candidate.abortController.abort()
-          candidate.isFetching = false
-        }
-      }
-    }
+    let parallel: WarmParallelState | undefined
+    let parentMatchPromise: Promise<RouteMatch> | undefined
     for (let i = start; i < matches.length; i++) {
       if (id !== this.loadId) return
       const match = matches[i]!
@@ -2088,8 +2040,8 @@ export class RouterCore<
             } as any) || {}
           context = { ...context, ...routeContext }
         } catch (cause) {
-          abortFetching()
-          discardSettledBelow(match)
+          abortWarmFetching(matches, parallel)
+          discardSettledWarmMatches(matches, parallel, match)
           return this.settleWarmFailure(location, id, matches, match, route, cause)
         }
       } else {
@@ -2098,7 +2050,7 @@ export class RouterCore<
       match.context = context
       const matchContext = context
       if (!warmMatchNeedsLoader(match, route, this, this._committed, now)) {
-        matchPromises[i] = Promise.resolve(match)
+        parentMatchPromise = undefined
         continue
       }
       const routeLoader = opts.loader
@@ -2106,7 +2058,7 @@ export class RouterCore<
       if (!loader) {
         match.status = 'success'
         match.isFetching = false
-        matchPromises[i] = Promise.resolve(match)
+        parentMatchPromise = undefined
         continue
       }
 
@@ -2119,7 +2071,7 @@ export class RouterCore<
           matchContext,
           route,
           matches,
-          i > 0 ? matchPromises[i - 1] : undefined,
+          i > 0 ? (parentMatchPromise ?? Promise.resolve(matches[i - 1]!)) : undefined,
           this.options.additionalContext,
         ),
       )
@@ -2128,34 +2080,58 @@ export class RouterCore<
         data.value != null &&
         typeof (data.value as { then?: unknown }).then === 'function'
       ) {
-        const resultIndex = results.length
-        results.push(undefined)
+        parallel ??= { results: [], pending: [], settled: [], canceled: false }
+        const state = parallel
+        const resultIndex = state.results.length
+        state.results.push(undefined)
         const resultPromise = Promise.resolve(data.value).then(
           (value): WarmResult => ({ match, route, context: matchContext, ok: true, value }),
           (value): WarmResult => ({ match, route, context: matchContext, ok: false, value }),
         )
         const matchPromise = resultPromise.then((result) => {
-          results[resultIndex] = result
-          settleSuccess(result, Date.now())
+          state.results[resultIndex] = result
+          settleWarmSuccess(state, result, Date.now(), id === this.loadId)
           return match
         })
-        matchPromises[i] = matchPromise
-        pending.push(matchPromise.then(() => undefined))
-      } else {
+        parentMatchPromise = matchPromise
+        state.pending.push(matchPromise.then(() => undefined))
+      } else if (parallel) {
         const result = { match, route, context: matchContext, ok: data.ok, value: data.value }
-        results.push(result)
-        settleSuccess(result, now)
-        matchPromises[i] = Promise.resolve(match)
+        parallel.results.push(result)
+        settleWarmSuccess(parallel, result, now, id === this.loadId)
+        parentMatchPromise = undefined
+      } else {
+        if (!data.ok) {
+          return this.settleWarmFailure(location, id, matches, match, route, data.value)
+        }
+        if (isRedirect(data.value)) {
+          return this.followWarmRedirect(location, id, matches, match, data.value)
+        }
+        if (isNotFound(data.value)) return importLoadClient(this)
+        match.loaderData = data.value
+        match.status = 'success'
+        match.isFetching = false
+        match.updatedAt = now
+        match.context = matchContext
+        parentMatchPromise = undefined
       }
     }
 
+    if (!parallel) {
+      this.leaveWarmMatches(matches)
+      this.completeWarmLoad(location, matches)
+      rememberWarmMatches(this, cacheKey, matches)
+      return
+    }
+
+    const state = parallel
     const settle = () => {
       if (id !== this.loadId) return
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i]!
+      for (let i = 0; i < state.results.length; i++) {
+        const result = state.results[i]!
         if (!result.ok) {
-          abortFetching()
-          discardSettledBelow(result.match)
+          abortWarmFetching(matches, state)
+          discardSettledWarmMatches(matches, state, result.match)
           return this.settleWarmFailure(
             location,
             id,
@@ -2166,13 +2142,13 @@ export class RouterCore<
           )
         }
         if (isRedirect(result.value)) {
-          abortFetching()
-          discardSettledBelow(result.match)
+          abortWarmFetching(matches, state)
+          discardSettledWarmMatches(matches, state, result.match)
           return this.followWarmRedirect(location, id, matches, result.match, result.value)
         }
         if (isNotFound(result.value)) {
-          abortFetching()
-          discardSettledBelow(result.match)
+          abortWarmFetching(matches, state)
+          discardSettledWarmMatches(matches, state, result.match)
           return importLoadClient(this)
         }
       }
@@ -2181,7 +2157,7 @@ export class RouterCore<
       rememberWarmMatches(this, cacheKey, matches)
     }
 
-    return pending.length ? Promise.all(pending).then(settle) : settle()
+    return Promise.all(state.pending).then(settle)
   }
 
   private settleWarmFailure(
@@ -3126,6 +3102,72 @@ function parseHistoryLocation(
 const WARM_MATCH_CACHE_MAX = 64
 
 const CONTEXT_COMPARE_MAX_DEPTH = 4
+
+type WarmResult = {
+  match: RouteMatch
+  route: AnyRoute
+  context: Record<string, any>
+  ok: boolean
+  value: any
+}
+
+type WarmParallelState = {
+  results: Array<WarmResult | undefined>
+  pending: Promise<void>[]
+  settled: RouteMatch[]
+  canceled: boolean
+}
+
+function settleWarmSuccess(
+  state: WarmParallelState,
+  result: WarmResult,
+  updatedAt: number,
+  active: boolean,
+) {
+  if (
+    state.canceled ||
+    !active ||
+    !result.ok ||
+    isRedirect(result.value) ||
+    isNotFound(result.value)
+  ) {
+    return
+  }
+  result.match.loaderData = result.value
+  result.match.status = 'success'
+  result.match.isFetching = false
+  result.match.updatedAt = updatedAt
+  result.match.context = result.context
+  state.settled.push(result.match)
+}
+
+function abortWarmFetching(matches: RouteMatch[], state?: WarmParallelState) {
+  if (state) state.canceled = true
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]!
+    if (match.isFetching) {
+      match.abortController.abort()
+      match.isFetching = false
+    }
+  }
+}
+
+function discardSettledWarmMatches(
+  matches: RouteMatch[],
+  state: WarmParallelState | undefined,
+  failed: RouteMatch,
+) {
+  if (!state) return
+  const failedIndex = matches.indexOf(failed)
+  for (let i = 0; i < state.settled.length; i++) {
+    const match = state.settled[i]!
+    if (matches.indexOf(match) <= failedIndex) continue
+    match.loaderData = undefined
+    match.status = 'pending'
+    match.isFetching = false
+    match.updatedAt = 0
+  }
+}
 
 function fillWarmLoaderContext(
   match: RouteMatch,
