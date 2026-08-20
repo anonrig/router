@@ -48,30 +48,34 @@ export function assignKeyAndIndex(index: number, state: HistoryState | undefined
   return next
 }
 
+/** Plain absolute pathname: starts with a single `/`, no `?`/`#`/control chars. */
+export function isSimplePathname(path: string): boolean {
+  const len = path.length
+  if (len === 0 || path.charCodeAt(0) !== 47 || (len > 1 && path.charCodeAt(1) === 47)) {
+    return false
+  }
+  for (let i = 1; i < len; i++) {
+    const code = path.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f || code === 63 || code === 35) {
+      return false
+    }
+  }
+  return true
+}
+
 export function parseHref(href: string, state: ParsedHistoryState | undefined): HistoryLocation {
   if (state == null) state = defaultHistoryState()
   if (href === lastHref) {
     return parsedLocation(lastSanitizedHref, lastPathname, lastHash, lastSearch, state)
   }
 
-  const hrefLen = href.length
-  if (hrefLen !== 0 && href.charCodeAt(0) === 47 && (hrefLen === 1 || href.charCodeAt(1) !== 47)) {
-    let simple = true
-    for (let i = 1; i < hrefLen; i++) {
-      const code = href.charCodeAt(i)
-      if (code <= 0x1f || code === 0x7f || code === 63 || code === 35) {
-        simple = false
-        break
-      }
-    }
-    if (simple) {
-      lastHref = href
-      lastSanitizedHref = href
-      lastPathname = href
-      lastSearch = ''
-      lastHash = ''
-      return parsedLocation(href, href, '', '', state)
-    }
+  if (isSimplePathname(href)) {
+    lastHref = href
+    lastSanitizedHref = href
+    lastPathname = href
+    lastSearch = ''
+    lastHash = ''
+    return parsedLocation(href, href, '', '', state)
   }
 
   let sanitizedHref = href
