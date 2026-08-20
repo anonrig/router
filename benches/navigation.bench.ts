@@ -2,6 +2,7 @@ import { bench, describe } from 'vitest'
 import { createMemoryHistory } from '../packages/history/src/index.ts'
 import { createRootRoute, createRoute } from '../packages/router-core/src/route.ts'
 import { RouterCore } from '../packages/router-core/src/router.ts'
+import '../packages/router-core/src/warm.ts'
 
 function createNavRouter() {
   const root = createRootRoute()
