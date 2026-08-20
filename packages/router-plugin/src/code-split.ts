@@ -106,8 +106,9 @@ function declaredNames(statement: EstreeNode): Array<string> {
     statement.type === 'FunctionDeclaration' ||
     statement.type === 'ClassDeclaration' ||
     statement.type === 'TSEnumDeclaration'
-  )
+  ) {
     return statement.id?.name ? [statement.id.name] : []
+  }
   if (statement.type === 'VariableDeclaration') {
     const names: Array<string> = []
     for (const declaration of statement.declarations ?? []) {
