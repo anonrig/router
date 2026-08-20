@@ -40,16 +40,12 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
 
   function resolveOptions(config: ResolvedConfig): GenerateRouteTreeOptions {
     return {
+      ...options,
       routesDirectory: resolve(config.root, options.routesDirectory ?? 'src/routes'),
       generatedRouteTree: resolve(
         config.root,
         options.generatedRouteTree ?? 'src/routeTree.gen.ts',
       ),
-      runtimeImport: options.runtimeImport,
-      rootImport: options.rootImport,
-      routeFileIgnorePattern: options.routeFileIgnorePattern,
-      quoteStyle: options.quoteStyle,
-      semicolons: options.semicolons,
     }
   }
 
@@ -69,13 +65,6 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
     return result
   }
 
-  // Generated output is derived from route file names, not contents.
-  const onRouteTreeEvent = (file: string) => {
-    if (!isWatchedRouteFile(file)) return
-    run()
-    return true
-  }
-
   const generator: Plugin = {
     name: 'tanstack-router',
     configResolved(config) {
@@ -88,7 +77,9 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
     },
     configureServer(server) {
       const regen = (file: string) => {
-        if (!onRouteTreeEvent(file)) return
+        if (!isWatchedRouteFile(file)) return
+        // Generated output is derived from route file names, not contents.
+        run()
         if (generated) {
           const module = server.moduleGraph.getModuleById(generated)
           if (module) void server.reloadModule(module)
@@ -107,13 +98,11 @@ export function tanstackRouter(options: TanStackRouterPluginOptions = {}): Plugi
     name: 'tanstack-router:code-splitter',
     enforce: 'pre',
     configResolved(config) {
-      if (!routesDirectory) {
-        routesDirectory = resolve(config.root, options.routesDirectory ?? 'src/routes')
-      }
+      routesDirectory ||= resolve(config.root, options.routesDirectory ?? 'src/routes')
     },
     async transform(code, id, options) {
-      if (!isWatchedRouteFile(fileNameFromModuleId(id))) return null
       const fileName = fileNameFromModuleId(id)
+      if (!isWatchedRouteFile(fileName)) return null
       const splitTarget = splitTargetFromModuleId(id)
       const { compileReferenceRoute, compileVirtualRoute, routeHasDisabledSsr } =
         await import('./code-split')
