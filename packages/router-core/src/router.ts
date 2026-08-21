@@ -40,7 +40,6 @@ import type { AnyRouteMatch as PublicRouteMatch } from './matches'
 import type { AnyContext as RouteAnyContext, AnyRoute } from './route'
 import type { BuildLocationFn, NavigateFn } from './router-provider'
 import type { ValidateSerializableInput } from './ssr/serializer/transformer-types'
-import { setupDefaultScroll } from './scroll-default'
 import {
   applySearchMiddleware,
   extractStrictParams,
@@ -56,7 +55,6 @@ import {
   createRouterStores,
 } from './stores'
 import {
-  type createStringMap,
   decodePath,
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
@@ -707,7 +705,7 @@ export class RouterCore<
   batch: (fn: () => void) => void = runNow
   _rendered: any[] | undefined
   _cache: Record<string, any> = Object.create(null)
-  _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>>
+  _matchesByPath?: Record<string, RouteMatch[]>
   _committed: any[] = []
   _tx?: any
   _flights?: Record<string, any>
@@ -1086,7 +1084,7 @@ export class RouterCore<
               setupScrollRestoration(this)
             })()
           } else {
-            setupDefaultScroll(this)
+            setupWindowScroll(this)
           }
         }
       } else {
@@ -2487,6 +2485,44 @@ function applyBuildMask(router: any, dest: any, location: ParsedLocation) {
     from: dest.from,
     ...maskProps,
     params: resolveNextParams(maskParams, params),
+  })
+}
+
+function setupWindowScroll(router: AnyRouter) {
+  const scroll = router._scroll
+  if (scroll.reset) return
+  scroll.reset = true
+
+  router.subscribe('onRendered', (event) => {
+    const shouldResetScroll = scroll.next
+    scroll.next = true
+    scroll.hash = false
+
+    const hash = event.toLocation.hash
+    const hashScrollIntoViewOptions = event.toLocation.state.__hashScrollIntoViewOptions ?? true
+    const behavior = router.options.scrollRestorationBehavior
+
+    if (shouldResetScroll && !hash) {
+      const scrollOptions = { top: 0, left: 0, behavior }
+      scrollTo(scrollOptions)
+      const selectors = router.options.scrollToTopSelectors
+      if (selectors) {
+        for (const selector of selectors) {
+          if (selector === 'window') continue
+          try {
+            const element =
+              typeof selector === 'function' ? selector() : document.querySelector(selector)
+            element?.scrollTo(scrollOptions)
+          } catch {
+            // Invalid selector.
+          }
+        }
+      }
+    }
+
+    if (hash && hashScrollIntoViewOptions) {
+      document.getElementById(hash)?.scrollIntoView(hashScrollIntoViewOptions)
+    }
   })
 }
 

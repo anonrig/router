@@ -2,7 +2,7 @@
  * Optional sync loader used when nothing has subscribed to router events
  * (no default scroll, no scroll restoration, no hydrate).
  *
- * SSR apps and any client that calls `setupDefaultScroll` / scroll restoration
+ * SSR apps and any client that sets up default window scroll / scroll restoration
  * never take this path — they already download `load-client`. Import this
  * module only when you want the extra graph.
  */

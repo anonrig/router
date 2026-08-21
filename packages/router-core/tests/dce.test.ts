@@ -107,6 +107,8 @@ describe('dead code elimination', () => {
     expect(allCode(chunks)).toContain('runClientTransaction')
     expect(allCode(chunks)).not.toContain('createLRUCache')
     expect(allCode(chunks)).not.toContain('createStringMap')
+    expect(allCode(chunks)).not.toContain('setupDefaultScroll')
+    expect(allCode(chunks)).not.toContain('scroll-default')
   })
 
   it('keeps load-server in the SSR createRouter graph', async () => {
@@ -232,6 +234,21 @@ describe('dead code elimination', () => {
     expect(entry).not.toContain('tsr-scroll-restoration-v1_3')
     expect(entry).not.toContain('getElementScrollRestorationEntry')
     expect(entry).not.toContain('sessionStorage')
+    expect(entry).not.toContain('useMatchRoute')
+    expect(entry).not.toContain('setupDefaultScroll')
     expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
+  })
+
+  it('keeps useMatchRoute out of the Matches graph', async () => {
+    const { entry, chunks } = await bundle(
+      `
+        export { Matches, useChildMatches } from 'speedy-router'
+      `,
+      { filename: 'entry.tsx' },
+    )
+    const code = allCode(chunks)
+    expect(entry).toContain('Matches')
+    expect(code).not.toContain('useMatchRoute')
+    expect(serverMarkers.filter((marker) => code.includes(marker))).toEqual([])
   })
 })
