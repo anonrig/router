@@ -55,6 +55,7 @@ import {
   createRouterStores,
 } from './stores'
 import {
+  type createStringMap,
   decodePath,
   deepEqual,
   DEFAULT_PROTOCOL_ALLOWLIST,
@@ -705,7 +706,7 @@ export class RouterCore<
   batch: (fn: () => void) => void = runNow
   _rendered: any[] | undefined
   _cache: Record<string, any> = Object.create(null)
-  _matchesByPath?: Record<string, RouteMatch[]>
+  _matchesByPath?: ReturnType<typeof createStringMap<RouteMatch[]>>
   _committed: any[] = []
   _tx?: any
   _flights?: Record<string, any>
