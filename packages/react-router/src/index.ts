@@ -257,15 +257,9 @@ export type {
   LinkComponentRoute,
 } from './link-types'
 
-export {
-  Matches,
-  useMatchRoute,
-  MatchRoute,
-  useMatches,
-  useParentMatches,
-  useChildMatches,
-} from './matches'
-export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './matches'
+export { Matches, useMatches, useParentMatches, useChildMatches } from './matches'
+export { useMatchRoute, MatchRoute } from './match-route'
+export type { UseMatchRouteOptions, MakeMatchRouteOptions } from './match-route'
 
 export { Match, MatchInner, Outlet, renderPending } from './match'
 
