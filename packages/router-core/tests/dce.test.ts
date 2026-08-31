@@ -164,6 +164,14 @@ describe('dead code elimination', () => {
     expect(serverMarkers.filter((marker) => entry.includes(marker))).toEqual([])
   })
 
+  it('keeps the abort-reason capture out of the default client graph', async () => {
+    const { chunks } = await bundle(`
+      import { createRootRoute, createRouter } from 'speedy-router-core'
+      export const router = createRouter({ routeTree: createRootRoute() })
+    `)
+    expect(allCode(chunks)).not.toContain('capturePlatformAbortReason')
+  })
+
   it('keeps the warm loader out of the default client graph', async () => {
     const { chunks } = await bundle(`
       import { createRootRoute, createRouter } from 'speedy-router-core'
@@ -185,6 +193,7 @@ describe('dead code elimination', () => {
     `)
     const code = allCode(chunks)
     expect(code).toContain('tryWarmLoad')
+    expect(code).toContain('capturePlatformAbortReason')
     expect(code).toMatch(/setWarmLoad\s*\(\s*tryWarmLoad\s*\)/)
   })
 

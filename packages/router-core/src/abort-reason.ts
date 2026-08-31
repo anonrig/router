@@ -11,10 +11,15 @@
  * reason' on Chrome and Safari), and a `DOMException` built here would not share
  * the realm that backs `AbortController`.
  *
- * Its own module so `utils` importers do not carry this side effect, and not
- * `/* @__PURE__ *\/` because the identity is the point.
+ * Its own module so `utils` and `router` importers do not carry this side
+ * effect — `RouterCore` still uses no-reason `abort()` on rare cache/cancel
+ * paths. Navigation aborts go through `load-client` / `warm` instead.
+ * Not `/* @__PURE__ *\/` because the identity is the point.
  */
-const captured = new AbortController()
-captured.abort()
+function capturePlatformAbortReason() {
+  const captured = new AbortController()
+  captured.abort()
+  return captured.signal.reason
+}
 
-export const ABORT_REASON: unknown = captured.signal.reason
+export const ABORT_REASON: unknown = capturePlatformAbortReason()
