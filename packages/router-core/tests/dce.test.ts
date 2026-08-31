@@ -165,11 +165,12 @@ describe('dead code elimination', () => {
   })
 
   it('keeps the abort-reason capture out of the default client graph', async () => {
-    const { chunks } = await bundle(`
+    const { entry, chunks } = await bundle(`
       import { createRootRoute, createRouter } from 'speedy-router-core'
       export const router = createRouter({ routeTree: createRootRoute() })
     `)
-    expect(allCode(chunks)).not.toContain('capturePlatformAbortReason')
+    expect(entry).not.toContain('capturePlatformAbortReason')
+    expect(allCode(chunks)).toContain('capturePlatformAbortReason')
   })
 
   it('keeps the warm loader out of the default client graph', async () => {
